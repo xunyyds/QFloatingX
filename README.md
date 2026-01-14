@@ -1,127 +1,117 @@
+# QFloatingX | 漂浮吧，脚本君！
 
+<div align="center">
 
-# QFloatingX
+**状态**: 🟢 在BeanShell的废墟上野蛮生长 | **版本**: v9.1+ | **作者**: ᗜ×ᗜ
 
-## 介绍
+*（QFun群里的那个"又双叒叕在反射"的家伙）*
 
-QFloatingX 是一个优雅的 iOS/macOS 浮动物价组件库，为您的应用提供流畅、美观的浮动窗口体验。该组件设计简洁，易于集成，支持自定义样式和交互行为。
-
-## 功能特点
-
-- **流畅动画**: 采用 Core Animation 优化，提供 60fps 流畅的浮动效果
-- **易于集成**: 简单 API 设计，快速集成到现有项目
-- **高度可定制**: 支持自定义外观、位置、大小和交互行为
-- **手势支持**: 支持拖拽、点击等常见手势操作
-- **安全稳定**: 经过严格测试，确保在各种场景下稳定运行
-
-## 环境要求
-
-- iOS 9.0+ / macOS 10.11+
-- Swift 5.0+
-- Xcode 11.0+
-
-## 安装方式
-
-### Swift Package Manager
-
-```swift
-dependencies: [
-    .package(url: "https://gitee.com/ovoxiaomo/qfloating-x.git", from: "1.0.0")
-]
-```
-
-### CocoaPods
-
-```ruby
-pod 'QFloatingX'
-```
-
-### 手动集成
-
-1. 将 `Sources` 文件夹中的文件添加到您的项目中
-2. 确保您的项目已经链接了必要的系统框架
-
-## 快速开始
-
-```swift
-import QFloatingX
-
-// 创建浮动窗口
-let floatingView = QFloatingX(frame: CGRect(x: 100, y: 200, width: 60, height: 60))
-
-// 配置外观
-floatingView.configure {
-    $0.cornerRadius = 30
-    $0.backgroundColor = .systemBlue
-    $0.shadowOpacity = 0.3
-}
-
-// 添加到视图层级
-window.addSubview(floatingView)
-
-// 启动浮动动画
-floatingView.startFloating()
-```
-
-## API 文档
-
-### 初始化方法
-
-```swift
-// 使用默认配置初始化
-let floatingView = QFloatingX()
-
-// 使用自定义帧初始化
-let floatingView = QFloatingX(frame: CGRect(x: 100, y: 200, width: 60, height: 60))
-```
-
-### 配置选项
-
-```swift
-floatingView.configure {
-    $0.cornerRadius = 30          // 圆角半径
-    $0.backgroundColor = .blue    // 背景颜色
-    $0.shadowOpacity = 0.3        // 阴影透明度
-    $0.shadowRadius = 10          // 阴影半径
-    $0.shadowOffset = CGSize(width: 0, height: 2)  // 阴影偏移
-}
-```
-
-### 控制方法
-
-```swift
-// 开始浮动动画
-floatingView.startFloating()
-
-// 停止浮动动画
-floatingView.stopFloating()
-
-// 显示/隐藏
-floatingView.show()
-floatingView.hide()
-```
-
-## 示例项目
-
-项目中包含完整的示例应用，位于 `Example` 目录下。您可以运行示例来查看各种使用场景和效果。
-
-## 贡献指南
-
-1. Fork 本仓库
-2. 创建您的特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交您的更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 创建一个 Pull Request
-
-## 许可证
-
-本项目采用 MIT 许可证，详情请参阅 [LICENSE](LICENSE) 文件。
-
-## 联系方式
-
-- 项目主页：https://gitee.com/ovoxiaomo/qfloating-x
-- 问题反馈：https://gitee.com/ovoxiaomo/qfloating-x/issues
+</div>
 
 ---
 
-感谢您选择 QFloatingX！如果这个项目对您有帮助，请给我们一个 Star ⭐️。
+## 这是个啥？
+
+这是一个在**QQ内置的BeanShell解释器**里，用**纯Java代码**手搓出来的QFun功能增强模块。
+
+如果说写标准Java是在迪拜盖大楼，那写这个就是在**地震带的蒙古包里搭空间站**——没泛型、没注解、`onTouch`返回`null`就崩溃，但我们还是把18个功能塞进了长按菜单🤷‍♂️
+
+---
+
+## ✨ 功能清单（aka. "我们怎么把QQ玩坏的"）
+
+| 功能 | 描述 | 黑科技等级 |
+|------|------|------------|
+| ⚡ **快捷入口** | 一键打开QFun设置/Java脚本页面 | ★☆☆☆☆ |
+| 📍 **模拟定位** | 让你的QQ在火星上线 | ★★★☆☆ |
+| 📊 **消息统计** | 统计消息（前提：Java没崩溃） | ★★☆☆☆ |
+| 🖥️ **运行状态** | 实时查看脚本存活状态 | ★★☆☆☆ |
+| 🎯 **长按菜单** | **18项功能**塞进消息长按菜单 | ★★★★★ |
+| 🌐 **HTML浏览器** | 在QQ里看网页，就问你怕不怕 | ★★★☆☆ |
+
+### 关于那"18项功能"的长按菜单
+
+是的，你没看错。**18项**。
+
+我们在BeanShell里用反射+Hook+UI线程隔离的三重奏，硬是把QQ的上下文菜单改造成了瑞士军刀。每次点击都是一场"解释器别崩溃"的豪赌，目前胜率：还不错。
+
+---
+```
+## 🔧 技术栈（aka. "我们踩过的坑"）
+
+// 环境
+- 解释器: BeanShell（对，就是那个没有字节码的）
+- 限制: 无泛型、无Lambda（线程里）、onTouch必须返回boolean
+- 哲学: 防御性编程 or 死亡
+
+// 黑科技
+- 反射调用成功率 >90%（原生API，禁止MethodHandle）
+- UI线程包裹率 100%（runOnUiThread是命）
+- 日志系统: traceLog("/Log/不崩溃.txt", "又活过了一行")
+- Hook技术: XposedBridge（在蒙古包里装核弹）
+
+// 设计模式
+- 拓扑序排列法（方法必须按调用链物理前置）
+- 成员变量内聚模式（构造即准备，反射最爱）
+- 日志驱动开发（因为无法断点调试）
+```
+---
+
+## 📦 安装与使用
+
+1. **把`QFloatingX`丢进QFun的脚本目录**
+2. **祈祷BeanShell解释器心情好**
+3. **在QFun设置里启用模块**
+4. **长按任意消息，见证18项功能的奇迹**
+
+---
+
+## 💬 社区与讨论
+
+**作者**: ᗜ×ᗜ  
+**联系方式**: QFun群里吼一声，那个在讨论`NoSuchMethodException`怎么绕过的就是我
+
+**脚本状态**: 🔓 **完全开源，无加密**
+
+欢迎：
+- ✅ 学习讨论（建议备好降压药）
+- ✅ 功能建议（请先确认BeanShell支持）
+- ✅ Bug反馈（请附带`/Log/`目录下的崩溃日记）
+- ❌ 问我为什么不用lambda （问就是不喜欢）
+
+---
+
+## 📜 许可证
+
+"BeanShell受害者联盟"公共协议
+
+你可以：
+- 自行修改、学习（搬运一定要给我留版权！！！写这些真的很累的！）
+- 在README里吐槽这破环境
+- 在代码注释里写"这里曾崩溃387次"
+
+不可以：
+- 加密后声称是自己原创
+- 问作者为什么不用Spring Boot
+
+---
+
+## 🎓 给后来者的忠告
+
+> "在BeanShell里，日志是唯一的真理，反射是唯一的武器，UI线程是唯一的神。"
+
+如果你也在写QFun模块，记住：
+1. 每次`onTouch`都`return true`
+2. 每次反射都`catch Throwable`
+3. 每次UI操作都`runOnUiThread`
+4. 每次崩溃都`traceLog("wtf.txt", e)`
+
+**祝你在解释器的夹缝中，也能漂浮起来。**
+
+---
+
+<div align="center">
+
+**QFloatingX** - Because Floating is Better Than Crashing™
+
+</div>
