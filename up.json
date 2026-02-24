@@ -1,12 +1,12 @@
 {
-  "version": "2.3.1",
-  "versionType": "正式版",
+  "version": "2.3.2",
+  "versionType": "测试版",
   "updateType": "补丁",
-  "updateTime": "2026-02-24 12:45:20",
+  "updateTime": "2026-02-24 13:18:30",
+  "changelog": "### **[v2.3.2] - 2026-02-24 13:18**\n-\n",
   "files": [
-    "QFloatingX\/API\/api9.java",
+    "QFloatingX\/API\/api.java",
     "QFloatingX\/main.java",
-    "QFloatingX\/更新日志.txt",
-    "更新日志.txt"
+    "QFloatingX\/更新日志.txt"
   ]
 }
