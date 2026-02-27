@@ -2264,1058 +2264,6 @@ String desDecrypt(String base64Text) {
 	}
 }
 
-
-
-
-void handleCloneAvatar(final String uin) {
-	ThreadPool.execute(new Runnable() {
-		public void run() {
-			final String avatarUrl = "http://q2.qlogo.cn/headimg_dl?dst_uin=" + uin + "&spec=640";
-			final String avatarPath = pluginPath + "/cache/avatar_" + getTime() + ".png";
-
-			try {
-				traceLog("api_log.txt", "开始下载头像: " + avatarUrl);
-				// Bitmap bmp = getbitmap(avatarUrl);
-				urltofile(avatarUrl, avatarPath);
-
-				Thread.sleep(50); // 等待文件写入完成
-				File file = new File(avatarPath);
-				if (!file.exists() || file.length() == 0) {
-					throw new IOException("头像下载失败");
-				}
-
-				traceLog("api_log.txt", "开始上传: " + avatarPath);
-				Toast("在上传啦！耐心等一下哦～");
-				if (上传头像(avatarPath)) {
-
-					Thread.sleep(80); // 等待上传完成
-					// file.delete();
-					删除(avatarPath);
-					Toast("克隆头像成功");
-					traceLog("api_log.txt", "克隆流程完成");
-				}
-			} catch (Throwable e) {
-				traceLog("api_log.txt", "克隆失败: " + e.getMessage());
-				Toast("克隆头像失败: " + e.getMessage());
-			}
-		}
-	});
-}
-
-void handleUploadAvatar(final String quntext) {
-	ThreadPool.execute(new Runnable() {
-		public void run() {
-			try {
-				if (!quntext.contains("pic")) {
-					Toast("非图片消息！");
-					return;
-				}
-
-				String picUrl = quntext.replace("[pic=", "").replace("]", "");
-				String picPath = pluginPath + "/cache/pic_" + getTime() + ".png";
-
-				traceLog("api_log.txt", "开始下载图片: " + picUrl);
-				// Bitmap bmp = getbitmap(picUrl);
-				urltofile(picUrl, picPath);
-
-				Thread.sleep(50);
-				File file = new File(picPath);
-				if (!file.exists() || file.length() == 0) {
-					throw new IOException("图片下载失败");
-				}
-
-				traceLog("api_log.txt", "开始上传: " + picPath);
-				Toast("在上传啦！耐心等一下哦～");
-				if (上传头像(picPath)) {
-					Thread.sleep(80);
-					// file.delete();
-					删除(picPath);
-
-					Toast("上传头像成功");
-					traceLog("api_log.txt", "上传流程完成");
-				}
-			} catch (Throwable e) {
-				traceLog("api_log.txt", "上传失败: " + e.getMessage());
-				Toast("上传头像失败: " + e.getMessage());
-			}
-		}
-	});
-}
-
-// 消息基类
-import com.tencent.mobileqq.pb.MessageMicro;
-
-// 字段类型
-import com.tencent.mobileqq.pb.PBInt32Field;      // int32字段
-import com.tencent.mobileqq.pb.PBInt64Field;      // int64字段
-import com.tencent.mobileqq.pb.PBStringField;     // string字段
-import com.tencent.mobileqq.pb.PBBytesField;      // bytes字段
-import com.tencent.mobileqq.pb.PBBoolField;       // bool字段
-import com.tencent.mobileqq.pb.PBRepeatField;    // 重复字段
-import com.tencent.mobileqq.pb.PBRepeatMessageField;  // 重复消息字段
-
-// 编码解码
-import com.tencent.mobileqq.pb.CodedInputStreamMicro;   // 输入流（解码）
-import com.tencent.mobileqq.pb.CodedOutputStreamMicro;  // 输出流（编码）
-
-/**
- * 将字节数组解析为PB消息并转换为JSON
- * @param buffer PB字节数组
- * @param messageClass PB消息类（如 MessageMicro.class）
- * @return JSON字符串
- */
-String parsePBToJSON(byte[] buffer, Class messageClass) {
-    try {
-        // 创建PB消息实例
-        Object message = messageClass.newInstance();
-        
-        // 从字节数组解析
-        com.tencent.mobileqq.pb.CodedInputStreamMicro input = 
-            new com.tencent.mobileqq.pb.CodedInputStreamMicro(buffer);
-        ((com.tencent.mobileqq.pb.MessageMicro) message).mergeFrom(input);
-        
-        // 转换为JSON
-        return pbMessageToJSON((com.tencent.mobileqq.pb.MessageMicro) message);
-    } catch (Exception e) {
-        log("pb_sender.log", "PB解析失败: " + e.getMessage());
-        return "{}";
-    }
-}
-
-/**
- * 将PB消息转换为JSON字符串
- * @param message PB消息对象
- * @return JSON字符串
- */
-String pbMessageToJSON(com.tencent.mobileqq.pb.MessageMicro message) {
-    try {
-        StringBuilder sb = new StringBuilder("{");
-        boolean first = true;
-        
-        // 获取所有字段
-        java.util.Map<Integer, Object> fields = message.getFields();
-        for (Map.Entry<Integer, Object> entry : fields.entrySet()) {
-            if (!first) sb.append(",");
-            first = false;
-            
-            int fieldNumber = entry.getKey();
-            Object value = entry.getValue();
-            
-            sb.append("\"").append(fieldNumber).append("\":");
-            
-            if (value instanceof com.tencent.mobileqq.pb.PBStringField) {
-                String str = ((com.tencent.mobileqq.pb.PBStringField) value).get();
-                sb.append("\"").append(escapeJSON(str)).append("\"");
-            } else if (value instanceof com.tencent.mobileqq.pb.PBInt32Field) {
-                sb.append(((com.tencent.mobileqq.pb.PBInt32Field) value).get());
-            } else if (value instanceof com.tencent.mobileqq.pb.PBInt64Field) {
-                sb.append(((com.tencent.mobileqq.pb.PBInt64Field) value).get());
-            } else if (value instanceof com.tencent.mobileqq.pb.PBBytesField) {
-                byte[] bytes = ((com.tencent.mobileqq.pb.PBBytesField) value).get();
-                sb.append("\"").append(bytesToHex(bytes)).append("\"");
-            } else if (value instanceof com.tencent.mobileqq.pb.PBBoolField) {
-                sb.append(((com.tencent.mobileqq.pb.PBBoolField) value).get());
-            } else if (value instanceof com.tencent.mobileqq.pb.PBRepeatField) {
-                sb.append("[");
-                com.tencent.mobileqq.pb.PBRepeatField repeat = 
-                    (com.tencent.mobileqq.pb.PBRepeatField) value;
-                for (int i = 0; i < repeat.size(); i++) {
-                    if (i > 0) sb.append(",");
-                    sb.append(repeat.get(i).toString());
-                }
-                sb.append("]");
-            } else if (value instanceof com.tencent.mobileqq.pb.MessageMicro) {
-                sb.append(pbMessageToJSON((com.tencent.mobileqq.pb.MessageMicro) value));
-            } else {
-                sb.append("\"").append(value.toString()).append("\"");
-            }
-        }
-        
-        sb.append("}");
-        return sb.toString();
-    } catch (Exception e) {
-        log("pb_sender.log", "PB转JSON失败: " + e.getMessage());
-        return "{}";
-    }
-}
-
-/**
- * 字节数组转十六进制字符串
- */
-String bytesToHex(byte[] bytes) {
-    StringBuilder sb = new StringBuilder();
-    for (byte b : bytes) {
-        sb.append(String.format("%02X", b & 0xFF));
-    }
-    return sb.toString();
-}
-
-/**
- * JSON字符串转义
- */
-String escapeJSON(String str) {
-    return str.replace("\\", "\\\\")
-              .replace("\"", "\\\"")
-              .replace("\n", "\\n")
-              .replace("\r", "\\r")
-              .replace("\t", "\\t");
-}
-/**
- * 显示消息解析为PB的弹窗（支持PB解析）
- * @param act Activity上下文
- * @param data 消息数据对象
- */
-void showPBParseDialog(Activity act, Object data) {
-    Dialog dialog = new Dialog(act);
-    dialog.requestWindowFeature(1);
-    dialog.getWindow().setBackgroundDrawable(new ColorDrawable(0));
-    
-    FrameLayout outer = new FrameLayout(act);
-    int m = dp(act, 24);
-    outer.setPadding(m, m, m, m);
-    
-    ScrollView scroll = new ScrollView(act);
-    outer.addView(scroll);
-    
-    LinearLayout card = new LinearLayout(act);
-    card.setOrientation(LinearLayout.VERTICAL);
-    card.setBackground(makeRoundRect(Color.parseColor("#FFFFFF"), dp(act, 16)));
-    card.setPadding(dp(act, 20), dp(act, 20), dp(act, 20), dp(act, 20));
-    scroll.addView(card);
-    
-    // 标题
-    TextView title = new TextView(act);
-    title.setText("消息解析为PB");
-    title.setTextSize(17);
-    title.setTextColor(Color.parseColor("#222222"));
-    title.setGravity(Gravity.CENTER);
-    title.setPadding(0, 0, 0, dp(act, 20));
-    card.addView(title);
-    
-    // 服务名输入
-    card.addView(makeSubTitleCompact(act, "服务名", Color.parseColor("#666666")));
-    EditText etService = makeInputCompact(act, "", "服务名", Color.parseColor("#F7F8FA"));
-    card.addView(etService);
-    
-    // PB数据输入
-    card.addView(makeSubTitleCompact(act, "PB数据 (JSON)", Color.parseColor("#666666")));
-    EditText etPB = makeInputCompact(act, "", "PB数据", Color.parseColor("#F7F8FA"));
-    etPB.setMinLines(6);
-    card.addView(etPB);
-    
-    // 原始数据预览
-    card.addView(makeSubTitleCompact(act, "原始消息数据", Color.parseColor("#666666")));
-    EditText etRaw = makeInputCompact(act, "", "原始数据", Color.parseColor("#F7F8FA"));
-    etRaw.setMinLines(4);
-    etRaw.setEnabled(false);
-    card.addView(etRaw);
-    
-    // 模版名称输入
-    EditText etTemplateName = makeInputCompact(act, "", "模版名称", Color.parseColor("#F7F8FA"));
-    etTemplateName.setVisibility(android.view.View.GONE);
-    card.addView(etTemplateName);
-    
-    // 按钮容器
-    LinearLayout buttonContainer = new LinearLayout(act);
-    buttonContainer.setOrientation(LinearLayout.HORIZONTAL);
-    buttonContainer.setGravity(Gravity.CENTER);
-    buttonContainer.setPadding(0, dp(act, 20), 0, 0);
-    card.addView(buttonContainer);
-    
-    // 发送按钮
-    TextView btnSend = makeActionBtn(act, "发送", Color.WHITE, Color.parseColor("#3B71FE"));
-    TextView btnSave = makeActionBtn(act, "保存模版", Color.parseColor("#3B71FE"), Color.parseColor("#E8EEFF"));
-    TextView btnCancel = makeActionBtn(act, "取消", Color.parseColor("#666666"), Color.parseColor("#F7F8FA"));
-    
-    LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(0, dp(act, 44), 1);
-    btnParams.setMargins(0, 0, dp(act, 8), 0);
-    btnSend.setLayoutParams(btnParams);
-    btnSave.setLayoutParams(btnParams);
-    btnCancel.setLayoutParams(new LinearLayout.LayoutParams(0, dp(act, 44), 1));
-    
-    buttonContainer.addView(btnSend);
-    buttonContainer.addView(btnSave);
-    buttonContainer.addView(btnCancel);
-    
-    // 尝试从消息中提取PB数据
-    try {
-        Object msgRecord = data.data;
-        if (msgRecord != null) {
-            // 显示原始数据
-            String rawData = msgRecord.toString();
-            etRaw.setText(rawData);
-            
-            // 尝试提取服务名 - 使用反射
-            try {
-                String service = (String) getFieldValue(msgRecord, "serviceName");
-                if (service != null && !service.isEmpty()) {
-                    etService.setText(service);
-                }
-            } catch (Exception e) {
-                try {
-                    String cmd = (String) getFieldValue(msgRecord, "cmd");
-                    if (cmd != null && !cmd.isEmpty()) {
-                        etService.setText(cmd);
-                    }
-                } catch (Exception e2) {
-                    log("pb_sender.log", "无法提取服务名: " + e2.getMessage());
-                }
-            }
-            
-            // 尝试提取PB数据并解析 - 使用反射
-            try {
-                Object pbBuffer = getFieldValue(msgRecord, "pbBuffer");
-                if (pbBuffer != null) {
-                    byte[] bytes = null;
-                    if (pbBuffer instanceof byte[]) {
-                        bytes = (byte[]) pbBuffer;
-                    } else {
-                        // 尝试反射获取字节数组
-                        bytes = (byte[]) getFieldValue(pbBuffer, "value");
-                    }
-                    
-                    if (bytes != null && bytes.length > 0) {
-                        // 尝试解析为MessageMicro
-                        try {
-                            com.tencent.mobileqq.pb.MessageMicro message = 
-                                new com.tencent.mobileqq.pb.MessageMicro();
-                            com.tencent.mobileqq.pb.CodedInputStreamMicro input = 
-                                new com.tencent.mobileqq.pb.CodedInputStreamMicro(bytes);
-                            message.mergeFrom(input);
-                            
-                            String pbJson = pbMessageToJSON(message);
-                            etPB.setText(pbJson);
-                            log("pb_sender.log", "PB解析成功");
-                        } catch (Exception e) {
-                            // 解析失败，显示原始数据
-                            String hex = bytesToHex(bytes);
-                            etPB.setText("{\"raw\":\"" + hex + "\"}");
-                            log("pb_sender.log", "PB解析失败，显示原始数据: " + e.getMessage());
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                log("pb_sender.log", "无法提取PB数据: " + e.getMessage());
-            }
-        }
-    } catch (Exception e) {
-        log("pb_sender.log", "解析消息失败: " + e.getMessage());
-    }
-    
-    // 发送按钮点击
-    btnSend.setOnClickListener(v -> {
-        String service = etService.getText().toString().trim();
-        String pbData = etPB.getText().toString().trim();
-        
-        if (service.isEmpty() || pbData.isEmpty()) {
-            qqToast(1, "请填写完整信息");
-            return;
-        }
-        
-        dialog.dismiss();
-        
-        new Thread(() -> {
-            try {
-                if (app == null) {
-                    act.runOnUiThread(() -> qqToast(1, "获取app失败"));
-                    return;
-                }
-                
-                
-                PBSender sender = new PBSender(app, myUin);
-                String fullPB = "pb#" + service + pbData;
-                int seq = sender.sendPB(fullPB);
-                
-                final int finalSeq = seq;
-                act.runOnUiThread(() -> {
-                    if (finalSeq > 0) {
-                        qqToast(2, "发送成功，seq=" + finalSeq);
-                        log("pb_sender.log", "发送成功: " + service + " seq=" + finalSeq);
-                    } else {
-                        qqToast(1, "发送失败");
-                        log("pb_sender.log", "发送失败: " + service);
-                    }
-                });
-            } catch (Exception e) {
-                act.runOnUiThread(() -> qqToast(1, "发送异常: " + e.getMessage()));
-                log("pb_sender.log", "发送异常: " + e.toString());
-            }
-        }).start();
-    });
-    
-    // 保存模版按钮点击
-    btnSave.setOnClickListener(v -> {
-        if (etTemplateName.getVisibility() == android.view.View.GONE) {
-            etTemplateName.setVisibility(android.view.View.VISIBLE);
-            btnSave.setText("确认保存");
-        } else {
-            String name = etTemplateName.getText().toString().trim();
-            if (name.isEmpty()) {
-                qqToast(1, "请输入模版名称");
-                return;
-            }
-            
-            String service = etService.getText().toString().trim();
-            String pbData = etPB.getText().toString().trim();
-            
-            if (service.isEmpty() || pbData.isEmpty()) {
-                qqToast(1, "请填写完整信息");
-                return;
-            }
-            
-            String templateKey = "pb_template_" + name;
-            putString("templates", templateKey, service + "|||" + pbData + "|||" + 0);
-            
-            etTemplateName.setVisibility(android.view.View.GONE);
-            btnSave.setText("保存模版");
-            qqToast(2, "模版已保存");
-            log("pb_sender.log", "保存模版: " + name);
-        }
-    });
-    
-    // 取消按钮点击
-    btnCancel.setOnClickListener(v -> dialog.dismiss());
-    
-    dialog.setContentView(outer);
-    dialog.getWindow().setLayout((int)(act.getResources().getDisplayMetrics().widthPixels * 0.85), -2);
-    dialog.show();
-}
-
-
-
-void 显示菜单(final Activity activity) {
-	if (activity == null || activity.isFinishing()) {
-		traceLog("api_log.txt", "显示菜单异常: Activity无效或正在关闭");
-		OK = false;
-		return;
-	}
-
-	try {
-		final String[] itemTexts = {
-			"Java脚本",
-			"设置界面",
-			"开/关模拟定位",
-			"设置经纬度",
-			"开/关输入框提示",
-			"设置输入框提示词",
-			"消息统计",
-			"空间操作",
-			"取消/重载",
-			"运行状态",
-			"HTML浏览器"
-		};
-		final String[] itemIcons = {
-
-			"📜",
-			"⚙️",
-			"📍",
-			"🌍",
-			"🕹",
-			"🍭",
-			"📊",
-			"🍡",
-			"🔄",
-			"📈",
-			"🌐"
-
-		};
-
-		final boolean isDarkMode = isThemeDark(activity);
-
-		// 配色定义
-		final String COLOR_PRIMARY;
-		final String COLOR_SURFACE;
-		final String COLOR_ON_SURFACE;
-		final String COLOR_OUTLINE;
-		final String COLOR_RIPPLE;
-
-		if (isDarkMode) {
-			COLOR_PRIMARY = "#FF8AB4F8";
-			COLOR_SURFACE = "#FF121212";
-			COLOR_ON_SURFACE = "#FFEFEFEF";
-			COLOR_OUTLINE = "#FF333333";
-			COLOR_RIPPLE = "#268AB4F8";
-		} else {
-			final String[] COLOR_POOL = {
-				"#2196F3",
-				"#4CAF50",
-				"#9C27B0",
-				"#E91E63",
-				"#FF9800",
-				"#00BCD4",
-				"#3F51B5",
-				"#8BC34A",
-				"#FFC107"
-			};
-			COLOR_PRIMARY = COLOR_POOL[new java.util.Random().nextInt(COLOR_POOL.length)];
-			COLOR_SURFACE = "#FFFFFFFF";
-			COLOR_ON_SURFACE = "#FF000000";
-			COLOR_OUTLINE = "#1AFFFFFF";
-			COLOR_RIPPLE = "#26" + COLOR_PRIMARY.substring(2);
-		}
-		final int colorInt = android.graphics.Color.parseColor(COLOR_PRIMARY);
-
-		int adjustAlpha(int color, float factor) {
-			int alpha = Math.round(android.graphics.Color.alpha(color) * factor);
-			return android.graphics.Color.argb(alpha, android.graphics.Color.red(color), android.graphics.Color.green(color), android.graphics.Color.blue(color));
-		}
-
-		// 尺寸参数
-		final int BASE_ITEM_HEIGHT = dp(activity, 40);
-		final int ITEM_HEIGHT = (int)(BASE_ITEM_HEIGHT * 1.15f);
-		final int ITEM_MARGIN = dp(activity, 4) + 1;
-		final int COMPACT_PADDING_MID = dp(activity, 12);
-		final int COMPACT_PADDING_TINY = dp(activity, 2);
-		final int COMPACT_ICON_SIZE = dp(activity, 28);
-		final int COMPACT_CORNER = dp(activity, 16);
-		final int COMPACT_WINDOW_MAX_WIDTH = dp(activity, 260);
-		final int ITEM_SHADOW = dp(activity, 2);
-		final int BTN_MIN_HEIGHT = dp(activity, 20);
-		final int BTN_BOTTOM_MARGIN = dp(activity, 4);
-		final int BTN_HORIZONTAL_PADDING = dp(activity, 12);
-		final int BASE_PUSH_DISTANCE = dp(activity, 6);
-		final int MAX_PUSH_DISTANCE = dp(activity, 12);
-		final float CLICK_SCALE = 1.15f;
-
-		final java.util.List itemList = new java.util.ArrayList();
-
-		activity.runOnUiThread(new Runnable() {
-			public void run() {
-				try {
-					// 根布局
-					LinearLayout rootLayout = new LinearLayout(activity);
-					rootLayout.setOrientation(LinearLayout.VERTICAL);
-					rootLayout.setPadding(0, COMPACT_PADDING_MID, 0, COMPACT_PADDING_TINY);
-					rootLayout.setBackgroundColor(android.graphics.Color.parseColor(COLOR_SURFACE));
-
-					// 标题栏容器
-					LinearLayout titleBarLayout = new LinearLayout(activity);
-					titleBarLayout.setLayoutParams(new LinearLayout.LayoutParams(
-						LinearLayout.LayoutParams.MATCH_PARENT,
-						LinearLayout.LayoutParams.WRAP_CONTENT));
-					titleBarLayout.setOrientation(LinearLayout.HORIZONTAL);
-					titleBarLayout.setGravity(Gravity.CENTER_VERTICAL);
-					titleBarLayout.setPadding(COMPACT_PADDING_MID + 8, COMPACT_PADDING_MID, COMPACT_PADDING_MID, COMPACT_PADDING_MID);
-
-					// 标题文字
-					TextView titleView = new TextView(activity);
-					titleView.setText("功能菜单");
-					titleView.setTextSize(17);
-					titleView.setTypeface(null, android.graphics.Typeface.BOLD);
-					titleView.setLetterSpacing(0.01f);
-					titleView.setTextColor(android.graphics.Color.parseColor(COLOR_ON_SURFACE));
-					titleView.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
-
-					View themeToggle;
-					boolean imageLoaded = false;
-					int tintColor = isDarkMode ? android.graphics.Color.parseColor("#E0E0E0") : android.graphics.Color.parseColor("#333333");
-					// 尝试加载图片文件（PNG/JPG）
-					ImageView imgToggle = new ImageView(activity);
-					try {
-						String imgName = isDarkMode ? "黑.png" : "白.png";
-						String imgPath = rootPath + imgName;
-						java.io.File imgFile = new java.io.File(imgPath);
-
-						if (imgFile.exists()) {
-							android.graphics.Bitmap bmp = android.graphics.BitmapFactory.decodeFile(imgPath);
-							if (bmp != null) {
-								// 设置tint颜色实现主题切换
-								imgToggle.setColorFilter(tintColor);
-
-								imgToggle.setImageBitmap(bmp);
-								imgToggle.setScaleType(ImageView.ScaleType.FIT_CENTER);
-								imageLoaded = true;
-								traceLog("api_log.txt", "主题图标加载成功: " + imgName);
-							}
-						}
-					} catch (Throwable e) {
-						// traceLog("api_log.txt", "主题图标加载失败: " + e.getMessage());
-						// 图片加载失败，忽略，走降级流程
-					}
-
-					if (imageLoaded) {
-						themeToggle = imgToggle;
-					} else {
-						// 降级为文字图标 (简约黑色线条风格)
-						TextView txtToggle = new TextView(activity);
-						txtToggle.setText(isDarkMode ? "☾" : "☀");
-						txtToggle.setTextSize(22);
-						// 亮色模式黑色，暗色模式浅灰（单色简约）
-						txtToggle.setTextColor(isDarkMode ? android.graphics.Color.parseColor("#E0E0E0") : android.graphics.Color.parseColor("#333333"));
-						txtToggle.setGravity(Gravity.CENTER);
-						themeToggle = txtToggle;
-					}
-
-					// 通用布局参数
-					LinearLayout.LayoutParams themeParams = new LinearLayout.LayoutParams(COMPACT_ICON_SIZE, COMPACT_ICON_SIZE);
-					themeParams.rightMargin = dp(activity, 15);
-					themeToggle.setLayoutParams(themeParams);
-					themeToggle.setClickable(true);
-					themeToggle.setBackground(null); // 无背景，简约风格
-
-					themeToggle.setOnClickListener(new View.OnClickListener() {
-						public void onClick(View v) {
-							try {
-								vibrate(activity, 32);
-								boolean current = getBoolean("settings", "黑白", false);
-								putBoolean("settings", "黑白", !current);
-								Toast("主题已切换");
-								// 强制关闭弹窗
-								Object tag = v.getTag();
-								if (tag instanceof AlertDialog) {
-									((AlertDialog) tag).dismiss();
-								}
-							} catch (Exception e) {
-								Toast("切换失败: " + e.getMessage());
-							}
-						}
-					});
-
-					// 设置图标
-					final ImageView settingsIcon = new ImageView(activity);
-					LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(COMPACT_ICON_SIZE, COMPACT_ICON_SIZE);
-					iconParams.leftMargin = COMPACT_PADDING_MID;
-					settingsIcon.setLayoutParams(iconParams);
-					settingsIcon.setScaleType(ImageView.ScaleType.CENTER_CROP);
-					settingsIcon.setClickable(true);
-					settingsIcon.setFocusable(true);
-
-					// 加载设置图标（PNG/JPG）
-					try {
-						String iconPathStr = null;
-						try {
-							iconPathStr = settingiconPath;
-						} catch (Exception e) {}
-
-						if (iconPathStr != null && new java.io.File(iconPathStr).exists()) {
-							android.graphics.Bitmap bitmap = android.graphics.BitmapFactory.decodeFile(iconPathStr);
-							if (bitmap != null) {
-								settingsIcon.setImageBitmap(bitmap);
-								settingsIcon.setColorFilter(tintColor); // 动态tint
-								traceLog("api_log.txt", "设置图标加载成功");
-							} else throw new Exception("Bitmap解码失败");
-						} else throw new Exception("文件不存在: " + iconPathStr);
-					} catch (Throwable loadError) {
-						traceLog("api_log.txt", "设置图标加载失败: " + loadError.getMessage());
-						// 降级为绘制文字
-						android.graphics.Bitmap.Config conf = android.graphics.Bitmap.Config.ARGB_8888;
-						android.graphics.Bitmap bmp = android.graphics.Bitmap.createBitmap(COMPACT_ICON_SIZE, COMPACT_ICON_SIZE, conf);
-						android.graphics.Canvas canvas = new android.graphics.Canvas(bmp);
-						android.graphics.Paint paint = new android.graphics.Paint();
-						paint.setColor(colorInt);
-						paint.setTextSize(dp(activity, 12));
-						paint.setAntiAlias(true);
-						paint.setTextAlign(android.graphics.Paint.Align.CENTER);
-						canvas.drawText("设置", COMPACT_ICON_SIZE / 2, COMPACT_ICON_SIZE / 2 + COMPACT_PADDING_TINY, paint);
-						settingsIcon.setImageBitmap(bmp);
-					}
-
-					settingsIcon.setOnClickListener(new View.OnClickListener() {
-						public void onClick(View v) {
-							vibrate(activity, 48);
-							// 关闭主菜单
-							if (v.getTag() instanceof AlertDialog) {
-								((AlertDialog) v.getTag()).dismiss();
-							}
-							// 打开新设置
-							showStyleSettingsDialog(activity);
-						}
-					});
-
-					titleBarLayout.addView(titleView);
-					titleBarLayout.addView(themeToggle);
-					titleBarLayout.addView(settingsIcon);
-					rootLayout.addView(titleBarLayout);
-
-					// 菜单列表容器
-					LinearLayout itemsContainer = new LinearLayout(activity);
-					itemsContainer.setLayoutParams(new LinearLayout.LayoutParams(
-						LinearLayout.LayoutParams.MATCH_PARENT, 0, 1.0f));
-					itemsContainer.setOrientation(LinearLayout.VERTICAL);
-					itemsContainer.setPadding(COMPACT_PADDING_MID, COMPACT_PADDING_TINY, COMPACT_PADDING_MID, COMPACT_PADDING_TINY);
-					itemsContainer.setBackgroundColor(android.graphics.Color.parseColor(COLOR_SURFACE));
-
-					// 构建 Dialog
-					final AlertDialog.Builder builder = new AlertDialog.Builder(activity, isDarkMode ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-					builder.setView(rootLayout);
-					builder.setCancelable(true);
-					builder.setNegativeButton("取消", new DialogInterface.OnClickListener() {
-						public void onClick(DialogInterface dialog, int which) {
-							dialog.dismiss();
-							OK = false;
-							vibrate(activity, 48);
-						}
-					});
-					builder.setOnDismissListener(new DialogInterface.OnDismissListener() {
-						public void onDismiss(DialogInterface dialog) {
-							OK = false;
-						}
-					});
-					final AlertDialog customDialog = builder.create();
-
-					themeToggle.setTag(customDialog);
-					settingsIcon.setTag(customDialog); // 设置Tag以便关闭
-
-					// 生成菜单项 (动画逻辑)
-					for (int i = 0; i < itemTexts.length; i++) {
-						final int index = i;
-						final FrameLayout itemWrapper = new FrameLayout(activity);
-						LinearLayout.LayoutParams wrapperParams = new LinearLayout.LayoutParams(
-							LinearLayout.LayoutParams.MATCH_PARENT, ITEM_HEIGHT);
-						wrapperParams.bottomMargin = ITEM_MARGIN;
-						itemWrapper.setLayoutParams(wrapperParams);
-
-						final LinearLayout itemLayout = new LinearLayout(activity);
-						itemLayout.setOrientation(LinearLayout.HORIZONTAL);
-						itemLayout.setGravity(Gravity.CENTER_VERTICAL);
-						itemLayout.setPadding(COMPACT_PADDING_MID, COMPACT_PADDING_TINY, COMPACT_PADDING_MID, COMPACT_PADDING_TINY);
-						itemLayout.setClickable(false);
-
-						if (isDarkMode) {
-							itemLayout.setElevation(dp(activity, 1));
-							itemLayout.setTranslationZ(dp(activity, 1));
-						} else {
-							itemLayout.setElevation(ITEM_SHADOW);
-							itemLayout.setTranslationZ(ITEM_SHADOW);
-						}
-
-						// 背景 Drawable
-						final android.graphics.drawable.GradientDrawable glassBg = new android.graphics.drawable.GradientDrawable();
-						glassBg.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
-						glassBg.setCornerRadius(COMPACT_CORNER);
-						glassBg.setColor(isDarkMode ? android.graphics.Color.parseColor("#FF2D2D2D") : adjustAlpha(colorInt, 0.05f));
-						glassBg.setStroke(dp(activity, 1), android.graphics.Color.parseColor(isDarkMode ? COLOR_OUTLINE : COLOR_OUTLINE));
-						itemLayout.setBackground(glassBg);
-
-						TextView iconView = new TextView(activity);
-						iconView.setText(itemIcons[i]);
-						iconView.setTextSize(18);
-						iconView.setTextColor(colorInt);
-						LinearLayout.LayoutParams iconParamsItem = new LinearLayout.LayoutParams(COMPACT_ICON_SIZE, COMPACT_ICON_SIZE);
-						iconParamsItem.gravity = Gravity.CENTER_VERTICAL;
-						iconView.setLayoutParams(iconParamsItem);
-						iconView.setGravity(Gravity.CENTER);
-
-						TextView textView = new TextView(activity);
-						textView.setText(itemTexts[i]);
-						textView.setTextSize(14);
-						textView.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
-						textView.setTextColor(android.graphics.Color.parseColor(COLOR_ON_SURFACE));
-						textView.setPadding(COMPACT_PADDING_MID, 0, 0, 0);
-						textView.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
-
-						TextView arrowView = new TextView(activity);
-						arrowView.setText("›");
-						arrowView.setTextSize(20);
-						arrowView.setTextColor(isDarkMode ? android.graphics.Color.parseColor("#FF888888") : adjustAlpha(colorInt, 0.3f));
-						LinearLayout.LayoutParams arrowParams = new LinearLayout.LayoutParams(
-							COMPACT_ICON_SIZE - dp(activity, 8), LinearLayout.LayoutParams.MATCH_PARENT);
-						arrowParams.gravity = Gravity.CENTER;
-						arrowView.setLayoutParams(arrowParams);
-						arrowView.setGravity(Gravity.CENTER);
-
-						final FrameLayout rippleOverlay = new FrameLayout(activity);
-						rippleOverlay.setLayoutParams(new FrameLayout.LayoutParams(
-							FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
-
-						itemLayout.addView(iconView);
-						itemLayout.addView(textView);
-						itemLayout.addView(arrowView);
-						itemWrapper.addView(itemLayout);
-						itemWrapper.addView(rippleOverlay);
-						itemWrapper.setTag(customDialog);
-
-						// 触摸反馈
-						itemWrapper.setOnTouchListener(new View.OnTouchListener() {
-							private float touchX, touchY;
-							private View rippleView = null;
-							private android.animation.ValueAnimator syncAnimator = null;
-							private Runnable cleanupTask = null;
-							private boolean isMovedOut = false;
-
-							private void resetBackgroundState() {
-								activity.runOnUiThread(new Runnable() {
-									public void run() {
-										glassBg.setColor(isDarkMode ? android.graphics.Color.parseColor("#FF2D2D2D") : adjustAlpha(colorInt, 0.05f));
-										itemLayout.setBackground(glassBg);
-									}
-								});
-							}
-
-							public boolean onTouch(View v, MotionEvent event) {
-								try {
-									switch (event.getAction()) {
-										case MotionEvent.ACTION_DOWN:
-											isMovedOut = false;
-											touchX = event.getX();
-											touchY = event.getY();
-
-											if (rippleView == null) {
-												rippleView = new View(activity);
-												int rippleSize = dp(activity, 8); // 初始大小
-												FrameLayout.LayoutParams rippleParams = new FrameLayout.LayoutParams(rippleSize, rippleSize);
-												rippleParams.leftMargin = (int) touchX - rippleSize / 2;
-												rippleParams.topMargin = (int) touchY - rippleSize / 2;
-												rippleView.setLayoutParams(rippleParams);
-
-												android.graphics.drawable.GradientDrawable rippleDrawable = new android.graphics.drawable.GradientDrawable();
-												rippleDrawable.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-												rippleDrawable.setColor(isDarkMode ? android.graphics.Color.parseColor(COLOR_RIPPLE) : adjustAlpha(colorInt, 0.25f));
-												rippleView.setBackground(rippleDrawable);
-
-												rippleOverlay.addView(rippleView);
-											}
-
-											syncAnimator = android.animation.ValueAnimator.ofFloat(0f, 1f);
-											syncAnimator.setDuration(600);
-											syncAnimator.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
-											syncAnimator.addUpdateListener(new android.animation.ValueAnimator.AnimatorUpdateListener() {
-												public void onAnimationUpdate(android.animation.ValueAnimator animation) {
-													float progress = (Float) animation.getAnimatedValue();
-													rippleView.setScaleX(1f+ progress * 9f);
-													rippleView.setScaleY(1f+ progress * 9f);
-													rippleView.setAlpha(1f- progress);
-
-													if (isDarkMode) {
-														glassBg.setColor(android.graphics.Color.parseColor("#FF383838"));
-													} else {
-														glassBg.setColor(adjustAlpha(colorInt, 0.05f+ progress * 0.08f));
-													}
-													itemLayout.setBackground(glassBg);
-												}
-											});
-											syncAnimator.addListener(new android.animation.Animator.AnimatorListener() {
-												public void onAnimationEnd(android.animation.Animator animator) {
-													if (rippleView != null && rippleView.getParent() != null) {
-														rippleOverlay.removeView(rippleView);
-														rippleView = null;
-													}
-													resetBackgroundState();
-												}
-												public void onAnimationStart(android.animation.Animator animator) {}
-												public void onAnimationCancel(android.animation.Animator animator) {}
-												public void onAnimationRepeat(android.animation.Animator animator) {}
-											});
-											syncAnimator.start();
-
-											cleanupTask = new Runnable() {
-												public void run() {
-													if (rippleView != null && rippleView.getParent() != null) {
-														rippleOverlay.removeView(rippleView);
-														rippleView = null;
-													}
-												}
-											};
-											return true;
-
-										case MotionEvent.ACTION_MOVE:
-											if (event.getX() < 0 || event.getX() > v.getWidth() ||
-												event.getY() < 0 || event.getY() > v.getHeight()) {
-												if (!isMovedOut) {
-													isMovedOut = true;
-												}
-												if (syncAnimator != null) syncAnimator.cancel();
-												if (cleanupTask != null) cleanupTask.run();
-												resetBackgroundState();
-											}
-											return true;
-
-										case MotionEvent.ACTION_UP:
-											if (!isMovedOut &&
-												event.getX() >= 0 && event.getX() <= v.getWidth() &&
-												event.getY() >= 0 && event.getY() <= v.getHeight()) {
-												v.performClick();
-											}
-											if (syncAnimator != null) syncAnimator.cancel();
-											if (cleanupTask != null) cleanupTask.run();
-											resetBackgroundState();
-											return true;
-
-										case MotionEvent.ACTION_CANCEL:
-											isMovedOut = true;
-											if (syncAnimator != null) syncAnimator.cancel();
-											if (cleanupTask != null) cleanupTask.run();
-											resetBackgroundState();
-											return true;
-
-										default:
-											return false;
-									}
-								} catch (Throwable t) {
-									return false;
-								}
-							}
-						});
-
-						itemWrapper.setOnClickListener(new View.OnClickListener() {
-							public void onClick(View v) {
-								try {
-									// 联动挤开动画
-									for (int j = 0; j < itemList.size(); j++) {
-										final FrameLayout item = (FrameLayout) itemList.get(j);
-										int indexDiff = Math.abs(j - index);
-										int pushDistance = BASE_PUSH_DISTANCE + (indexDiff * 2);
-										if (pushDistance > MAX_PUSH_DISTANCE) pushDistance = MAX_PUSH_DISTANCE;
-
-										final float targetTransY = (j == index) ? 0f: (j < index ? -pushDistance : pushDistance);
-										final float targetScale = (j == index) ? CLICK_SCALE : 1.0f;
-
-										android.animation.ValueAnimator animator = android.animation.ValueAnimator.ofFloat(0f, 1f);
-										animator.setDuration(180);
-										animator.setInterpolator(new android.view.animation.DecelerateInterpolator());
-										animator.addUpdateListener(new android.animation.ValueAnimator.AnimatorUpdateListener() {
-											public void onAnimationUpdate(android.animation.ValueAnimator animation) {
-												float progress = (Float) animation.getAnimatedValue();
-												if (j == index) {
-													item.setScaleX(1f+ (targetScale - 1f) * progress);
-													item.setScaleY(1f+ (targetScale - 1f) * progress);
-												}
-												item.setTranslationY(targetTransY * progress);
-											}
-										});
-										animator.start();
-									}
-
-									// 延迟执行
-									new android.os.Handler().postDelayed(new Runnable() {
-										public void run() {
-											for (int j = 0; j < itemList.size(); j++) {
-												final FrameLayout item = (FrameLayout) itemList.get(j);
-												int indexDiff = Math.abs(j - index);
-												int pushDistance = BASE_PUSH_DISTANCE + (indexDiff * 2);
-												if (pushDistance > MAX_PUSH_DISTANCE) pushDistance = MAX_PUSH_DISTANCE;
-
-												final float targetTransY = (j == index) ? 0f: (j < index ? -pushDistance : pushDistance);
-												final float targetScale = (j == index) ? CLICK_SCALE : 1.0f;
-
-												android.animation.ValueAnimator resetAnim = android.animation.ValueAnimator.ofFloat(1f, 0f);
-												resetAnim.setDuration(150);
-												resetAnim.setInterpolator(new android.view.animation.AccelerateInterpolator());
-												resetAnim.addUpdateListener(new android.animation.ValueAnimator.AnimatorUpdateListener() {
-													public void onAnimationUpdate(android.animation.ValueAnimator animation) {
-														float progress = (Float) animation.getAnimatedValue();
-														if (j == index) {
-															item.setScaleX(1f+ (targetScale - 1f) * progress);
-															item.setScaleY(1f+ (targetScale - 1f) * progress);
-														}
-														item.setTranslationY(targetTransY * progress);
-													}
-												});
-												resetAnim.start();
-											}
-
-											AlertDialog dialog = (AlertDialog) v.getTag();
-											if (dialog != null && dialog.isShowing()) dialog.dismiss();
-
-											switch (index) {
-												case 0:
-													跳转到页面("me.yxp.qfun.activity.PluginActivity");
-													break;
-												case 1:
-													跳转到页面("me.yxp.qfun.activity.SettingActivity");
-													break;
-												case 2:
-													模拟定位开关();
-													break;
-												case 3:
-													showLocationDialog(activity);
-													break;
-												case 4:
-													输入框提示开关();
-													break;
-												case 5:
-													showInputDialog(activity);
-													break;
-												case 6:
-													showStatsDialog(activity);
-													break;
-												case 7:
-													// mkts(activity, "更新日志", 读(pluginPath + "/更新日志.txt"));
-													showQzoneConfig();
-													break;
-												case 8:
-													vibrate(activity, 48);
-													showSelectionDialog(activity, "你想选哪个呢？", "取消加载脚本", "重新加载脚本");
-													break;
-												case 9:
-													运行状态Dialog(activity);
-													break;
-
-												case 10:
-													showHtmlOptionDialog(activity);
-													break;
-											}
-											OK = false;
-										}
-									}, 220);
-								} catch (Throwable clickError) {
-									traceLog("api_log.txt", "点击事件异常: " + clickError.getMessage());
-								}
-							}
-						});
-
-						// 入场动画
-						itemWrapper.setAlpha(0f);
-						itemWrapper.setTranslationY(dp(activity, 12));
-						new android.os.Handler().postDelayed(new Runnable() {
-							public void run() {
-								itemWrapper.animate().alpha(1f).translationY(0f).setDuration(200).setInterpolator(new android.view.animation.DecelerateInterpolator());
-							}
-						}, i * 40);
-
-						itemsContainer.addView(itemWrapper);
-					}
-
-					rootLayout.addView(itemsContainer);
-					customDialog.show();
-					
-					Window window = customDialog.getWindow();
-					if (window != null) {
-					    applyDialogSize(activity, window);
-					}
-
-					// 弹窗样式
-					android.graphics.drawable.GradientDrawable dialogBg = new android.graphics.drawable.GradientDrawable();
-					dialogBg.setColor(android.graphics.Color.parseColor(COLOR_SURFACE));
-					dialogBg.setCornerRadius(dp(activity, 16));
-					customDialog.getWindow().setBackgroundDrawable(dialogBg);
-
-					Button cancelBtn = customDialog.getButton(DialogInterface.BUTTON_NEGATIVE);
-					if (cancelBtn != null) {
-						cancelBtn.setMinHeight(BTN_MIN_HEIGHT);
-						cancelBtn.setMinWidth(0);
-						cancelBtn.setPadding(BTN_HORIZONTAL_PADDING, COMPACT_PADDING_TINY, BTN_HORIZONTAL_PADDING, COMPACT_PADDING_TINY);
-						cancelBtn.setTextColor(android.graphics.Color.parseColor(isDarkMode ? COLOR_PRIMARY : "#FF2196F3"));
-
-						ViewGroup.MarginLayoutParams btnLayoutParams = (ViewGroup.MarginLayoutParams) cancelBtn.getLayoutParams();
-						btnLayoutParams.bottomMargin = BTN_BOTTOM_MARGIN;
-						btnLayoutParams.topMargin = 0;
-						btnLayoutParams.leftMargin = 0;
-						btnLayoutParams.rightMargin = 0;
-						cancelBtn.setLayoutParams(btnLayoutParams);
-
-						customDialog.getWindow().setLayout(windowParams.width, WindowManager.LayoutParams.WRAP_CONTENT);
-					}
-
-					traceLog("api_log.txt", "菜单显示成功");
-				} catch (Throwable uiError) {
-					traceLog("api_log.txt", "UI构建异常: " + uiError.getMessage());
-					OK = false;
-				}
-			}
-		});
-	} catch (Exception e) {
-		OK = false;
-		traceLog("api_log.txt", "显示菜单异常: " + e.getMessage());
-	}
-}
-
-
-
-
-
-
-
 public int dp(Activity activity, int d) {
 	return (int)(d * activity.getResources().getDisplayMetrics().density);
 }
@@ -4436,17 +3384,6 @@ void unLoadPlugin() {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
 Boolean copyFilefolder(String 原路径, String 目标路径) {
 	traceLog("api_log.txt", "开始复制: " + 原路径 + " -> " + 目标路径);
 	try {
@@ -4791,310 +3728,337 @@ try {
 
 /**
  * 更新进度回调接口
-   */
-   interface ProgressCallback {
-   void onProgress(int progress);
-   void onProgressTip(String tip);
-   }
+ */
+interface ProgressCallback {
+    void onProgress(int progress);
+    void onProgressTip(String tip);
+}
+
 /**
  * 从指定URL下载文件到本地路径
  * @param url 下载链接
  * @param savePath 本地保存路径
  * @param callback 进度回调
  * @return 下载是否成功
-   */
-   boolean downloadFile(String url, String savePath, ProgressCallback callback) {
-   boolean success = false;
-   java.io.FileOutputStream out = null;
-   java.io.InputStream in = null;
-   final int BUF_SIZE = 8192;
-   final int PROGRESS_STEP_BUF = 10;
-   int downloadedBufCount = 0;
-   int currentProgress = 0;
-   java.io.File saveFile = new java.io.File(savePath);
-   java.io.File saveDir = saveFile.getParentFile();
-   if (!saveDir.exists()) {
-   saveDir.mkdirs();
-   }
-   try {
-   java.net.HttpURLConnection conn = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
-   conn.setRequestMethod("GET");
-   conn.setConnectTimeout(10000);
-   conn.setReadTimeout(30000);
-   conn.setRequestProperty("User-Agent", "Mozilla/5.0");
-   conn.setRequestProperty("Accept-Encoding", "identity");
-    int remoteSize = conn.getContentLength();
- if (callback != null) {
-     if (remoteSize == -1) {
-         callback.onProgressTip("正在下载...");
-         callback.onProgress(0);
-     } else {
-         callback.onProgressTip("总大小: " + (remoteSize / 1024) + "KB");
-         callback.onProgress(0);
-     }
- }
+ */
+boolean downloadFile(String url, String savePath, ProgressCallback callback) {
+    boolean success = false;
+    java.io.FileOutputStream out = null;
+    java.io.InputStream in = null;
+    final int BUF_SIZE = 8192;
+    final int PROGRESS_STEP_BUF = 10;
+    int downloadedBufCount = 0;
+    int currentProgress = 0;
+    java.io.File saveFile = new java.io.File(savePath);
+    java.io.File saveDir = saveFile.getParentFile();
+    if (saveDir != null && !saveDir.exists()) {
+        saveDir.mkdirs();
+    }
+    try {
+        java.net.HttpURLConnection conn = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+        conn.setRequestMethod("GET");
+        conn.setConnectTimeout(10000);
+        conn.setReadTimeout(30000);
+        conn.setRequestProperty("User-Agent", "Mozilla/5.0");
+        conn.setRequestProperty("Accept-Encoding", "identity");
+        int remoteSize = conn.getContentLength();
+        if (callback != null) {
+            if (remoteSize == -1) {
+                callback.onProgressTip("正在下载...");
+                callback.onProgress(0);
+            } else {
+                callback.onProgressTip("总大小: " + (remoteSize / 1024) + "KB");
+                callback.onProgress(0);
+            }
+        }
 
- in = conn.getInputStream();
- out = new java.io.FileOutputStream(saveFile);
+        in = conn.getInputStream();
+        out = new java.io.FileOutputStream(saveFile);
 
- byte[] buf = new byte[BUF_SIZE];
- long total = 0;
- int read;
- while ((read = in.read(buf)) != -1) {
-     out.write(buf, 0, read);
-     total += read;
-     downloadedBufCount++;
+        byte[] buf = new byte[BUF_SIZE];
+        long total = 0;
+        int read;
+        while ((read = in.read(buf)) != -1) {
+            out.write(buf, 0, read);
+            total += read;
+            downloadedBufCount++;
 
-     if (callback != null) {
-         if (remoteSize == -1) {
-             if (downloadedBufCount % PROGRESS_STEP_BUF == 0) {
-                 currentProgress += 10;
-                 if (currentProgress > 90) currentProgress = 90;
-                 callback.onProgress(currentProgress);
-                 callback.onProgressTip("已下载: " + (total / 1024) + "KB");
-             }
-         } else {
-             int progress = (int) ((total * 100) / remoteSize);
-             callback.onProgress(progress);
-             callback.onProgressTip("已下载: " + (total / 1024) + "KB/" + (remoteSize / 1024) + "KB");
-         }
-     }
- }
- out.flush();
+            if (callback != null) {
+                if (remoteSize == -1) {
+                    if (downloadedBufCount % PROGRESS_STEP_BUF == 0) {
+                        currentProgress += 10;
+                        if (currentProgress > 90) currentProgress = 90;
+                        callback.onProgress(currentProgress);
+                        callback.onProgressTip("已下载: " + (total / 1024) + "KB");
+                    }
+                } else {
+                    int progress = (int) ((total * 100) / remoteSize);
+                    callback.onProgress(progress);
+                    callback.onProgressTip("已下载: " + (total / 1024) + "KB/" + (remoteSize / 1024) + "KB");
+                }
+            }
+        }
+        out.flush();
 
- if (callback != null) {
-     callback.onProgress(100);
-     callback.onProgressTip("下载完成");
- }
+        if (callback != null) {
+            callback.onProgress(100);
+            callback.onProgressTip("下载完成");
+        }
 
- if (remoteSize == -1) {
-     success = (total > 0);
- } else {
-     success = (total == remoteSize);
- }
- if (!success && saveFile.exists()) {
-     saveFile.delete();
- }
+        if (remoteSize == -1) {
+            success = (total > 0);
+        } else {
+            success = (total == remoteSize);
+        }
+        if (!success && saveFile.exists()) {
+            saveFile.delete();
+        }
 
-   } catch (Throwable e) {
-   if (saveFile.exists()) saveFile.delete();
-   } finally {
-   try { if (out != null) out.close(); } catch (Throwable t) {}
-   try { if (in != null) in.close(); } catch (Throwable t) {}
-   }
-   return success;
-   }
+    } catch (Throwable e) {
+        if (saveFile.exists()) saveFile.delete();
+        traceLog("main_log", "downloadFile 异常: " + e.getMessage());
+    } finally {
+        try { if (out != null) out.close(); } catch (Throwable t) {}
+        try { if (in != null) in.close(); } catch (Throwable t) {}
+    }
+    return success;
+}
+
 /**
  * 解压ZIP文件到目标目录
  * @param zipPath ZIP文件路径
  * @param destDir 目标目录
  * @param callback 进度回调
  * @return 解压是否成功
-   */
-   boolean unzipFile(String zipPath, String destDir, ProgressCallback callback) {
-   boolean success = false;
-   java.io.File zipFile = new java.io.File(zipPath);
-   java.io.File destDirFile = new java.io.File(destDir);
-   if (!destDirFile.exists()) {
-   destDirFile.mkdirs();
-   }
-   try {
-   java.util.zip.ZipFile zip = new java.util.zip.ZipFile(zipFile);
-   java.util.Enumeration entries = zip.entries();
-   int totalEntry = 0;
-   int currentEntry = 0;
-   String zipRootDir = "";
-    while (entries.hasMoreElements()) {
-     totalEntry++;
-     java.util.zip.ZipEntry entry = (java.util.zip.ZipEntry) entries.nextElement();
-     if (zipRootDir.isEmpty() && !entry.isDirectory()) {
-         String name = entry.getName();
-         int idx = name.indexOf("/");
-         if (idx > 0) zipRootDir = name.substring(0, idx + 1);
-     }
- }
+ */
+boolean unzipFile(String zipPath, String destDir, ProgressCallback callback) {
+    boolean success = false;
+    java.io.File zipFile = new java.io.File(zipPath);
+    java.io.File destDirFile = new java.io.File(destDir);
+    if (!destDirFile.exists()) {
+        destDirFile.mkdirs();
+    }
+    try {
+        java.util.zip.ZipFile zip = new java.util.zip.ZipFile(zipFile);
+        java.util.Enumeration entries = zip.entries();
+        int totalEntry = 0;
+        int currentEntry = 0;
+        String zipRootDir = "";
 
- entries = zip.entries();
- if (callback != null) {
-     callback.onProgressTip("开始解压文件");
-     callback.onProgress(0);
- }
+        while (entries.hasMoreElements()) {
+            totalEntry++;
+            java.util.zip.ZipEntry entry = (java.util.zip.ZipEntry) entries.nextElement();
+            if (zipRootDir.isEmpty() && !entry.isDirectory()) {
+                String name = entry.getName();
+                int idx = name.indexOf("/");
+                if (idx > 0) zipRootDir = name.substring(0, idx + 1);
+            }
+        }
 
- while (entries.hasMoreElements()) {
-     currentEntry++;
-     java.util.zip.ZipEntry entry = (java.util.zip.ZipEntry) entries.nextElement();
-     String name = entry.getName();
+        entries = zip.entries();
+        if (callback != null) {
+            callback.onProgressTip("开始解压文件");
+            callback.onProgress(0);
+        }
 
-     if (!zipRootDir.isEmpty() && name.startsWith(zipRootDir)) {
-         name = name.substring(zipRootDir.length());
-         if (name.isEmpty()) continue;
-     }
+        while (entries.hasMoreElements()) {
+            currentEntry++;
+            java.util.zip.ZipEntry entry = (java.util.zip.ZipEntry) entries.nextElement();
+            String name = entry.getName();
 
-     java.io.File entryFile = new java.io.File(destDirFile, name);
-     if (entry.isDirectory()) {
-         entryFile.mkdirs();
-         continue;
-     }
+            if (!zipRootDir.isEmpty() && name.startsWith(zipRootDir)) {
+                name = name.substring(zipRootDir.length());
+                if (name.isEmpty()) continue;
+            }
 
-     entryFile.getParentFile().mkdirs();
-     java.io.InputStream zin = zip.getInputStream(entry);
-     java.io.FileOutputStream fout = new java.io.FileOutputStream(entryFile);
-     byte[] buf = new byte[4096];
-     int r;
-     while ((r = zin.read(buf)) != -1) fout.write(buf, 0, r);
-     fout.close();
-     zin.close();
+            java.io.File entryFile = new java.io.File(destDirFile, name);
+            if (entry.isDirectory()) {
+                entryFile.mkdirs();
+                continue;
+            }
 
-     if (callback != null) {
-         callback.onProgress((int) ((currentEntry * 100) / totalEntry));
-         callback.onProgressTip("解压: " + name);
-     }
- }
- zip.close();
- success = true;
- if (callback != null) {
-     callback.onProgress(100);
-     callback.onProgressTip("解压完成");
- }
+            entryFile.getParentFile().mkdirs();
+            java.io.InputStream zin = zip.getInputStream(entry);
+            java.io.FileOutputStream fout = new java.io.FileOutputStream(entryFile);
+            byte[] buf = new byte[4096];
+            int r;
+            while ((r = zin.read(buf)) != -1) fout.write(buf, 0, r);
+            fout.close();
+            zin.close();
 
-   } catch (Throwable e) {
-   success = false;
-   }
-   return success;
-   }
-/**
- * 显示更新对话框并执行更新逻辑
- * @param version 远程版本号
- * @param changelog 更新日志
- * @param isFullUpdate 是否为全量更新
- * @param patchFiles 补丁文件列表
-   */
-   void showUpdateDialog(final String version, final String changelog, final boolean isFullUpdate, final java.util.List patchFiles) {
-   activity.runOnUiThread(new Runnable() {
-   public void run() {
-   boolean isDark = isThemeDark(activity);
-   String firstLine = version.contains("beta") ? "新版本为测试版本：" : "新版本为正式版本：";
-   String message = firstLine + version + "\n\n" + changelog.replace("\n", "\n");
-        if (!isFullUpdate && patchFiles != null) {
-         message += "\n\n(提示：本次为增量更新，仅下载必要文件)";
-     }
+            if (callback != null) {
+                callback.onProgress((int) ((currentEntry * 100) / totalEntry));
+                callback.onProgressTip("解压: " + name);
+            }
+        }
+        zip.close();
+        success = true;
+        if (callback != null) {
+            callback.onProgress(100);
+            callback.onProgressTip("解压完成");
+        }
 
-     android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(activity,
-         isDark ? android.app.AlertDialog.THEME_DEVICE_DEFAULT_DARK : android.app.AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-     builder.setTitle("发现更新").setMessage(message).setCancelable(false);
-
-     builder.setPositiveButton("立即更新", new android.content.DialogInterface.OnClickListener() {
-         public void onClick(android.content.DialogInterface dialog, int which) {
-             final android.app.ProgressDialog progress = new android.app.ProgressDialog(activity,
-                 isDark ? android.app.ProgressDialog.THEME_DEVICE_DEFAULT_DARK : android.app.ProgressDialog.THEME_DEVICE_DEFAULT_LIGHT);
-             progress.setProgressStyle(android.app.ProgressDialog.STYLE_HORIZONTAL);
-             progress.setCancelable(false);
-             progress.show();
-             applyUiTheme(activity, progress);
-
-             new Thread(new Runnable() {
-                 public void run() {
-                     boolean finalSuccess = false;
-                     if (!isFullUpdate && patchFiles != null && !patchFiles.isEmpty()) {
-                         int total = patchFiles.size();
-                         boolean allOk = true;
-                         for (int i = 0; i < total; i++) {
-                             final String fileName = (String) patchFiles.get(i);
-                             final int index = i + 1;
-                             activity.runOnUiThread(new Runnable() {
-                                 public void run() {
-                                     progress.setMessage("正在更新(" + index + "/" + total + "):\n" + fileName);
-                                     progress.setProgress((int)((index - 1) * 100.0 / total));
-                                 }
-                             });
-                             String fileUrl = "[https://gitee.com/ovoxiaomo/qfloating-x/raw/QF/](https://gitee.com/ovoxiaomo/qfloating-x/raw/QF/)" + fileName;
-                             String savePath = pluginPath + "/" + fileName;
-                             if (!downloadFile(fileUrl, savePath, null)) {
-                                 allOk = false;
-                                 break;
-                             }
-                         }
-                         finalSuccess = allOk;
-                     } else {
-                         String url = "[https://gitee.com/ovoxiaomo/qfloating-x/raw/QF/QFloatingX%20](https://gitee.com/ovoxiaomo/qfloating-x/raw/QF/QFloatingX%20)" + version + ".zip";
-                         String tempPath = pluginPath + "/cache/update.zip";
-                         if (downloadFile(url, tempPath, new ProgressCallback() {
-                             public void onProgress(final int val) { activity.runOnUiThread(new Runnable() { public void run() { progress.setProgress(val); } }); }
-                             public void onProgressTip(final String tip) { activity.runOnUiThread(new Runnable() { public void run() { progress.setMessage(tip); } }); }
-                         })) {
-                             finalSuccess = unzipFile(tempPath, pluginPath, null);
-                             new java.io.File(tempPath).delete();
-                         }
-                     }
-
-                     final boolean res = finalSuccess;
-                     activity.runOnUiThread(new Runnable() {
-                         public void run() {
-                             progress.dismiss();
-                             if (res) {
-                                 Toast("更新成功，正在重启");
-                                 重新加载脚本();
-                             } else {
-                                 Toast("更新过程中出现错误");
-                             }
-                         }
-                     });
-                 }
-             }).start();
-         }
-     });
-
-     builder.setNegativeButton("取消", null);
-     builder.setNeutralButton("忽略此版本", new android.content.DialogInterface.OnClickListener() {
-         public void onClick(android.content.DialogInterface dialog, int which) {
-             putString("更新检测", "已忽略版本", version);
-         }
-     });
-
-     android.app.AlertDialog dialogObj = builder.create();
-     dialogObj.show();
-     if (dialogObj.getWindow() != null) applyDialogSize(activity, dialogObj.getWindow());
-     applyUiTheme(activity, dialogObj);
- }
-
-   });
-   }
-/**
- * 执行更新检查流程，解析update.json并比对版本号
-   */
-void checkQFXUpdate() {
-ThreadPool.execute(new Runnable() {
-public void run() {
-String ignored = getString("更新检测", "已忽略版本", "");
-String jsonStr = get("https://gitee.com/ovoxiaomo/qfloating-x/raw/QF/update.json");
-    if (jsonStr == null || jsonStr.isEmpty()) return;
-
- try {
-     org.json.JSONObject json = new org.json.JSONObject(jsonStr);
-     String remoteVersion = json.optString("version", "0.0.0");
-     String changelog = json.optString("changelog", "");
-     boolean isFull = json.optBoolean("is_full_update", true);
-     java.util.List patches = new java.util.ArrayList();
-
-     org.json.JSONArray patchArray = json.optJSONArray("patch_files");
-     if (patchArray != null) {
-         for (int i = 0; i < patchArray.length(); i++) {
-             patches.add(patchArray.getString(i));
-         }
-     }
-
-     if (remoteVersion.equals(ignored)) return;
-
-     String localVersion = readprop(pluginPath + "/info.prop", "versionCode");
-     if (localVersion == null) localVersion = "0.0.0";
-
-     if (!remoteVersion.equals(localVersion)) {
-         showUpdateDialog(remoteVersion, changelog, isFull, patches);
-     }
- } catch (Throwable t) {}
+    } catch (Throwable e) {
+        success = false;
+        traceLog("main_log", "unzipFile 异常: " + e.getMessage());
+    }
+    return success;
 }
 
-});
+/**
+ * 显示更新对话框并执行文件列表下载逻辑
+ * @param version 远程版本号
+ * @param versionType 远程版本类型（正式版/测试版）
+ * @param updateType 更新类型（全量/补丁）
+ * @param changelog 更新日志
+ * @param updateFiles 需要下载的文件列表
+ */
+void showUpdateDialog(final String version, final String versionType, final String updateType, final String changelog, final List updateFiles, final String count) {
+
+	Activity activity = getNowActivity();
+	
+    activity.runOnUiThread(new Runnable() {
+        public void run() {
+        
+            boolean isDark = isThemeDark(activity);
+
+            StringBuilder message = new StringBuilder();
+            message.append("本次为").append(updateType).append("更新！全网用户已累计"+count+"w+\n\n");
+            message.append("新版本为").append(versionType).append(" ").append(version).append(" 确定要更新嘛～\n");
+            message.append("点击确定更新后将自动更新并重启脚本\n\n");
+            message.append(changelog.replace("\n", "\n")).append("\n\n");
+            
+            if (updateFiles != null && !updateFiles.isEmpty()) {
+                message.append("(需下载 ").append(updateFiles.size()).append(" 个文件)");
+            }
+
+            android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(activity,
+                isDark ? android.app.AlertDialog.THEME_DEVICE_DEFAULT_DARK : android.app.AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
+            builder.setTitle("发现更新啦～").setMessage(message.toString()).setCancelable(false);
+
+            builder.setPositiveButton("立即更新", new android.content.DialogInterface.OnClickListener() {
+                public void onClick(android.content.DialogInterface dialog, int which) {
+                    final android.app.ProgressDialog progress = new android.app.ProgressDialog(activity,
+                        isDark ? android.app.ProgressDialog.THEME_DEVICE_DEFAULT_DARK : android.app.ProgressDialog.THEME_DEVICE_DEFAULT_LIGHT);
+                    progress.setProgressStyle(android.app.ProgressDialog.STYLE_HORIZONTAL);
+                    progress.setCancelable(false);
+                    progress.show();
+                    applyUiTheme(activity, progress);
+
+                    new Thread(new Runnable() {
+                        public void run() {
+                            boolean allSuccess = true;
+                            if (updateFiles == null || updateFiles.isEmpty()) {
+                                activity.runOnUiThread(new Runnable() {
+                                    public void run() {
+                                        progress.dismiss();
+                                        Toast("没有需要更新的文件");
+                                    }
+                                });
+                                return;
+                            }
+
+                            int total = updateFiles.size();
+                            
+                            for (int i = 0; i < total; i++) {
+                                final String fileName = (String) updateFiles.get(i);
+                                final int currentIndex = i + 1;
+                                final int remaining = total - currentIndex;
+                                
+                                activity.runOnUiThread(new Runnable() {
+                                    public void run() {
+                                        String displayName = fileName;
+                                        if (displayName.startsWith("QFloatingX/")) {
+                                            displayName = displayName.substring("QFloatingX/".length());
+                                        }
+                                        progress.setMessage("当前正在下载更新 " + displayName + "\n剩余 " + remaining + " 个文件");
+                                        progress.setProgress((int)((currentIndex - 1) * 100.0 / total));
+                                    }
+                                });
+
+                                String fileUrl = "https://gitee.com/ovoxiaomo/qfloating-x/raw/QF/" + fileName;
+                                String savePath = pluginPath + "/" + fileName;
+                                
+                                if (!downloadFile(fileUrl, savePath, null)) {
+                                    allSuccess = false;
+                                    traceLog("main_log", "下载失败: " + fileName);
+                                    break;
+                                }
+                            }
+
+                            final boolean res = allSuccess;
+                            activity.runOnUiThread(new Runnable() {
+                                public void run() {
+                                    progress.dismiss();
+                                    if (res) {
+                                        Toast("更新成功，正在重启");
+                                        重新加载脚本();
+                                    } else {
+                                        Toast("更新过程中出现错误");
+                                    }
+                                }
+                            });
+                        }
+                    }).start();
+                }
+            });
+
+            builder.setNegativeButton("取消", null);
+            builder.setNeutralButton("忽略此版本", new android.content.DialogInterface.OnClickListener() {
+                public void onClick(android.content.DialogInterface dialog, int which) {
+                    putString("更新检测", "已忽略版本", version);
+                }
+            });
+
+            android.app.AlertDialog dialogObj = builder.create();
+            dialogObj.show();
+            if (dialogObj.getWindow() != null) applyDialogSize(activity, dialogObj.getWindow());
+            applyUiTheme(activity, dialogObj);
+        }
+    });
+}
+
+/**
+ * 执行更新检查流程，解析 up.json 并比对版本号
+ */
+void checkQFXUpdate() {
+    ThreadPool.execute(new Runnable() {
+        public void run() {
+            String ignored = getString("更新检测", "已忽略版本", "");
+            String jsonStr = get("https://gitee.com/ovoxiaomo/qfloating-x/raw/QF/up.json");
+            String jsonStr2  = get("https://cn.apihz.cn/api/jisuan/jishuqi2.php?id=10013224&key=17e1755199ff8eebc2fd58bce20d950e&type=2&number=2");
+            if (jsonStr == null || jsonStr.isEmpty()) return;
+
+            try {
+                JSONObject json  = new JSONObject(jsonStr);
+                JSONObject json2 = new JSONObject(jsonStr2);
+                String count = json2.optString("number2", "0");
+                String remoteVersion = json.optString("version", "0.0.0");
+                String versionType = json.optString("versionType", "正式版");
+                String updateType = json.optString("updateType", "全量");
+                String changelog = json.optString("changelog", "");
+
+                java.util.List files = new java.util.ArrayList();
+                org.json.JSONArray filesArray = json.optJSONArray("files");
+                if (filesArray != null) {
+                    for (int i = 0; i < filesArray.length(); i++) {
+                        files.add(filesArray.getString(i));
+                    }
+                }
+
+                if (remoteVersion.equals(ignored)) return;
+
+                String localVersion = readprop(pluginPath + "/info.prop", "versionCode");
+                if (localVersion == null) localVersion = "0.0.0";
+
+                if (!remoteVersion.equals(localVersion)) {
+                    showUpdateDialog(remoteVersion, versionType, updateType, changelog, files, count);
+                }
+            } catch (Throwable t) {
+                traceLog("main_log", "checkQFXUpdate 异常: " + t.getMessage());
+            }
+        }
+    });
 }
 
 boolean checkAllIconsExist() {
