@@ -1,3 +1,6 @@
+
+
+
 # QFloatingX | 漂浮吧，脚本君！
 
 <div align="center">
@@ -36,9 +39,46 @@
 我们在BeanShell里用反射+Hook+UI线程隔离的三重奏，硬是把QQ的上下文菜单改造成了瑞士军刀。每次点击都是一场"解释器别崩溃"的豪赌，目前胜率：还不错。
 
 ---
+
+## 🏗️ 项目架构
+
 ```
+QFloatingX/
+├── API/                      # 核心API模块
+│   ├── api.java             # 基础功能API
+│   ├── api2.java            # 模拟定位
+│   ├── api3.java            # 消息统计
+│   ├── api4.java            # 悬浮窗管理
+│   ├── api6.java            # 运行状态监控
+│   ├── api7.java            # HTML浏览器
+│   ├── api8.java            # QQ空间功能
+│   ├── api9.java            # PB协议发送
+│   ├── ColorPicker.java     # 调色盘组件
+│   ├── Dialog.java          # 对话框工具
+│   ├── function.java        # 动态热插拔功能
+│   ├── import.java          # 导入类
+│   ├── setwindow.java       # 窗口设置
+│   └── uitools.java         # UI工具类
+├── main.java                # 入口文件
+├── info.prop                # 模块信息
+└── desc.txt                 # 描述文件
+```
+
+### 核心模块说明
+
+- **api.java**: 基础功能集合，包含HTTP请求、数据处理、加密解密等
+- **api2.java**: GPS模拟定位功能
+- **api3.java**: 消息统计与分析
+- **api4.java**: 悬浮窗控制与管理
+- **api6.java**: 运行时状态监控
+- **api7.java**: 内置HTML浏览器
+- **function.java**: 动态热插拔脚本管理
+
+---
+
 ## 🔧 技术栈（aka. "我们踩过的坑"）
 
+```java
 // 环境
 - 解释器: BeanShell（对，就是那个没有字节码的）
 - 限制: 无泛型、无Lambda（线程里）、onTouch必须返回boolean
@@ -55,6 +95,7 @@
 - 成员变量内聚模式（构造即准备，反射最爱）
 - 日志驱动开发（因为无法断点调试）
 ```
+
 ---
 
 ## 📦 安装与使用
