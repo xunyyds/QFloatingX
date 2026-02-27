@@ -1,5 +1,29 @@
-//作者ᗜ×ᗜ
-//使用请保留版权
+/*
+ * Copyright (C) 2025 ᗜ×ᗜ
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * [原作者信息]
+ * Author: ᗜ×ᗜ
+ * Source: https://gitee.com/ovoxiaomo/qfloating-x
+ * 以上内容必须完整注明在你的项目中
+ * 在任何基于本项目或其修改版的公开版本中，请保留原项目的版权声明和开源许可证，并在显著位置注明：
+ * 原项目：QFloatingX
+ * 作者：ᗜ×ᗜ
+ * 项目地址：https://gitee.com/ovoxiaomo/qfloating-x
+ * 开源许可证：Apache-2.0
+*/
+
 //有bug或者建议可以大胆向我反馈
 
 // 图标路径
@@ -363,7 +387,7 @@ String KEEP_ALIVE_CHANNEL_ID = "qfun_keep_alive";
 String ACTION_GUARD_TRIGGERED = "com.qfun.GUARD_TRIGGERED"; 
 
 static volatile boolean 守护进程已启动 = false;
-private static volatile int guardCount = 0; 
+int guardCount = getInt("settings", "加载次数", 0) + 1;
 BroadcastReceiver guardReceiver = null;
 
 void 卸载loveHook() {
@@ -460,6 +484,38 @@ void qfunHook(Class clazz, String methodName, Object[] typesAndCallback) {
         traceLog("main_log", "Hook失败 [" + methodName + "]: " + e.toString());
     }
 }
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.HttpUrl;
+import okhttp3.Callback; // 用于 enqueue 的第二个参数
+
+// 在主 Hook 函数中
+try {
+    // Hook OkHttpClient.newCall
+    qfunHook(OkHttpClient.class, "newCall", new Object[]{
+        Request.class,
+        new XC_MethodHook() {
+            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                Request request = (Request) param.args[0];
+                String url = request.url().toString();
+                // 暂时打印所有，方便观察
+                log("[QFun] OkHttp Call: " + url);
+            }
+        }
+    });
+    log("[QFun] Hook OkHttpClient.newCall 成功");
+} catch (Throwable t) {
+    log("[QFun] Hook OkHttpClient.newCall 失败: " + t);
+}
+qfunHook(java.net.HttpURLConnection.class, "connect", new Object[]{
+    new XC_MethodHook() {
+        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+            HttpURLConnection conn = (HttpURLConnection) param.thisObject;
+            String url = conn.getURL().toString();
+            log("[QFun] HttpURLConnection: " + url);
+        }
+    }
+});
 void Hook生命周期() {
     try {
         traceLog("main_log", "开始 Hook生命周期 (QFun原生版)");
@@ -491,7 +547,6 @@ void Hook生命周期() {
             }
         });
 
-        // 这里的其他调用保持不变...
         if (getNowActivity() != null) {
             resumedActivityCount = 1;
             checkAndUpdateForegroundState(getNowActivity());
@@ -500,7 +555,6 @@ void Hook生命周期() {
         try { initStats(); } catch (Exception e) {}
         try { installQFunHooks(); } catch (Exception e) {}
         
-        // 调用我们重写后的 HookQQService
         try { HookQQService(); } catch (Exception e) {}
         
         Hook已调用 = true;
@@ -523,8 +577,8 @@ void updateNotification(Context ctx) {
         if (Build.VERSION.SDK_INT >= 26) builder = new Notification.Builder(ctx, KEEP_ALIVE_CHANNEL_ID);
         else builder = new Notification.Builder(ctx).setPriority(Notification.PRIORITY_MAX);
         
-        builder.setContentTitle("QFloatingX运行中...  ")
-               .setContentText("正在守护您的QQ丨已为您守护 " + guardCount + " 次")
+        builder.setContentTitle("QFloatingX 运行中...  ")
+               .setContentText("正在守护您的 QQ丨已为您守护 " + guardCount + " 次")
                .setSmallIcon(android.R.drawable.ic_menu_info_details)
                .setContentIntent(pendingIntent)
                .setOngoing(true)
@@ -540,7 +594,7 @@ void createKeepAliveChannel(Context context) {
     if (Build.VERSION.SDK_INT >= 26) {
         try {
             NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-            NotificationChannel channel = new NotificationChannel(KEEP_ALIVE_CHANNEL_ID, "QFun后台保活", NotificationManager.IMPORTANCE_MIN);
+            NotificationChannel channel = new NotificationChannel(KEEP_ALIVE_CHANNEL_ID, "QFun 后台保活", NotificationManager.IMPORTANCE_MIN);
             channel.enableLights(false);
             channel.setShowBadge(false);
             channel.setSound(null, null);
@@ -550,57 +604,53 @@ void createKeepAliveChannel(Context context) {
 }
 
 static volatile boolean isMsfHooked = false;
-// 定义广播 Action
 String ACTION_MSF_PING = "com.qfun.MSF_PING";
 
 void HookQQService() {
-    // 1. 防重复检查
     if (isMsfHooked) {
-        traceLog("keepalive_log", "MsfService 逻辑已注入，跳过重复执行");
         return;
     }
 
     try {
-        // 2. 进程判断：尝试加载 MsfService 类
-        // 如果加载不到，说明当前是主进程，直接标记已处理并退出，防止浪费资源
-        Class msfClass = null;
         ClassLoader loader = null;
         try { loader = classLoader; } catch(Exception e) {} 
         if (loader == null) loader = context.getClassLoader();
 
         try {
-            // 只是为了检测是否在 MSF 进程，不直接 Hook 这个类
             loader.loadClass("com.tencent.mobileqq.msf.service.MsfService");
         } catch (ClassNotFoundException e) {
-            return; // 不是 MSF 进程，直接退出
+            return;
         }
 
-        traceLog("keepalive_log", "检测到 MSF 进程 (PID: " + android.os.Process.myPid() + ")，开始注入保活...");
-
-        // 3. 通用 Hook：直接 Hook Service 基类，稳准狠
-        // 这样不用担心 MsfService 有没有重写方法，也不用担心找不到类
-        
-        // --- Hook onStartCommand (心跳/启动) ---
         qfunHook(android.app.Service.class, "onStartCommand", new Object[]{
             Intent.class, int.class, int.class,
             new XC_MethodHook() {
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     Object service = param.thisObject;
-                    if (!service.getClass().getName().contains("MsfService")) return; // 只处理 MsfService
+                    if (!service.getClass().getName().contains("MsfService")) return;
 
                     try {
                         Context ctx = (Context) service;
-                        // 发送广播给主进程：“我活着，给我计数+1”
                         Intent intent = new Intent(ACTION_MSF_PING);
-                        intent.setPackage(ctx.getPackageName()); // 明确包名，通过限制
+                        intent.setPackage(ctx.getPackageName());
                         ctx.sendBroadcast(intent);
-                        // traceLog("keepalive_log", "MsfService 心跳发送完毕");
+                        
+                        NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+                        Notification.Builder builder;
+                        if (Build.VERSION.SDK_INT >= 26) builder = new Notification.Builder(ctx, KEEP_ALIVE_CHANNEL_ID);
+                        else builder = new Notification.Builder(ctx).setPriority(Notification.PRIORITY_MAX);
+                        
+                        builder.setContentTitle("QFloatingX 守护中")
+                               .setContentText("累计守护 " + guardCount + " 次")
+                               .setSmallIcon(android.R.drawable.ic_menu_info_details)
+                               .setOngoing(true);
+                        
+                        ((Service) service).startForeground(KEEP_ALIVE_NOTIFICATION_ID, builder.build());
                     } catch (Throwable e) {}
                 }
             }
         });
 
-        // --- Hook onDestroy (复活) ---
         qfunHook(android.app.Service.class, "onDestroy", new Object[]{
             new XC_MethodHook() {
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
@@ -609,7 +659,6 @@ void HookQQService() {
 
                     try {
                         Context ctx = (Context) service;
-                        traceLog("keepalive_log", "MsfService 正在死亡，执行复活术...");
                         
                         Intent restart = new Intent();
                         restart.setClassName(ctx.getPackageName(), "com.tencent.mobileqq.msf.service.MsfService");
@@ -626,7 +675,6 @@ void HookQQService() {
             }
         });
 
-        // --- Hook onTaskRemoved (划卡复活) ---
         qfunHook(android.app.Service.class, "onTaskRemoved", new Object[]{
             Intent.class,
             new XC_MethodHook() {
@@ -636,7 +684,6 @@ void HookQQService() {
 
                     try {
                         Context ctx = (Context) service;
-                        traceLog("keepalive_log", "检测到划卡操作，立即重启 MsfService...");
                         
                         Intent restart = new Intent();
                         restart.setClassName(ctx.getPackageName(), "com.tencent.mobileqq.msf.service.MsfService");
@@ -647,37 +694,24 @@ void HookQQService() {
             }
         });
 
-        // 标记为已注入，防止再次调用
         isMsfHooked = true;
-        traceLog("keepalive_log", "保活逻辑注入完成");
 
     } catch (Throwable e) {
-        traceLog("keepalive_err", "HookQQService 异常: " + e.toString());
     }
 }
 
-// 记录接收器是否已注册，防止重复注册报错
 static volatile boolean isReceiverRegistered = false;
 
 void startKeepAliveService() {
     try {
-        Context ctx = context; // 这里的 Context 是主进程的 UI Context
+        Context ctx = context;
         
-        // 读取历史计数
-        guardCount = getInt("settings", "guardCount", 0);
+        guardCount = getInt("settings", "加载次数", 0);
         
-        // 注册广播接收器 (只注册一次)
         if (!isReceiverRegistered) {
             guardReceiver = new BroadcastReceiver() {
                 public void onReceive(Context c, Intent i) {
                     if (ACTION_MSF_PING.equals(i.getAction())) {
-                        // 收到后台的“我活着”信号，主进程自己加 1
-                        guardCount++;
-                        // 保存到本地配置
-                        putInt("settings", "guardCount", guardCount);
-                        
-                        // 更新通知栏（降低频率，每10次更新一次，或者每次更新都行）
-                        // traceLog("keepalive_log", "收到心跳，当前计数: " + guardCount);
                         updateNotification(c);
                     }
                 }
@@ -693,20 +727,16 @@ void startKeepAliveService() {
             }
             
             isReceiverRegistered = true;
-            traceLog("keepalive_log", "主进程广播监听已启动");
         }
         
         createKeepAliveChannel(ctx);
         updateNotification(ctx);
         
-        // 尝试注入 Hook (内部有防重复判断)
         try { HookQQService(); } catch (Exception e) {}
 
     } catch (Throwable e) {
-        traceLog("keepalive_error", "启动失败: " + e.getMessage());
     }
 }
-
 
 void stopKeepAlive() {
     try {
@@ -742,38 +772,93 @@ void 后台初始化() {
     }
 }
 
+/**
+ * 前台初始化
+ * @param currentActivity 当前 Activity
+ */
 void 前台初始化(Activity currentActivity) {
-    if (UI初始化完成 || currentActivity == null) return;
-    
-    try {
-        checkQFXUpdate();
-
-        final String appType;
-        if ("com.tencent.mobileqq".equals(currentPackageName)) {
-            appType = "QQ";
-        } else if ("com.tencent.tim".equals(currentPackageName)) {
-            appType = "TIM";
-        } else {
-            return;
-        }
-
-        Toast("当前运行App为: " + appType + "\n点击悬浮窗查看菜单\n加载耗时：" + apiLoadCostTime + "ms");
-
-        boolean 模拟定位开关a = getBoolean("模拟定位开关", "模拟定位开关", false);
-        if (模拟定位开关a) {
-            Toast("正在开启模拟定位...");
-        }
-
-        if (getBoolean("settings", "开关", false)) {
-            悬浮窗状态 = STATE_DESTROYED;
-            启动悬浮窗(currentActivity);
-        }
-        
-        UI初始化完成 = true;
-        
-    } catch (Exception e) {
-        traceLog("main_log", "前台初始化异常: " + e.getMessage());
+    if (UI初始化完成 || currentActivity == null) {
+        return;
     }
+
+    String appType = null;
+    String pkg = currentActivity.getPackageName();
+    if ("com.tencent.mobileqq".equals(pkg)) {
+        appType = "QQ";
+    } else if ("com.tencent.tim".equals(pkg)) {
+        appType = "TIM";
+    }
+    if (appType == null) {
+        return;
+    }
+    int personalCount = getInt("settings", "加载次数", 0) + 1;
+    putInt("settings", "加载次数", personalCount);
+    final String finalAppType = appType;
+    final int finalPersonalCount = personalCount;
+    final Activity finalActivity = currentActivity;
+
+    ThreadPool.execute(new Runnable() {
+        public void run() {
+            String countJson = get("https://cn.apihz.cn/api/jisuan/jishuqi2.php?id=10013224&key=17e1755199ff8eebc2fd58bce20d950e&type=1&number=1");
+            if (countJson != null && !countJson.isEmpty()) {
+                try {
+                    JSONObject jsonObj = new JSONObject(countJson.trim());
+                    if (jsonObj.getInt("code") != 200) {
+                        Toast("计数异常");
+                    }
+                } catch (Exception e) {
+                    traceLog("api_error", "计数解析异常：" + e.getMessage());
+                }
+            }
+            String readJson = get("https://cn.apihz.cn/api/jisuan/jishuqi2.php?id=10013224&key=17e1755199ff8eebc2fd58bce20d950e&type=2&number=1");
+            int totalCount = 0;
+            if (readJson != null && !readJson.isEmpty()) {
+                try {
+                    JSONObject jsonObject = new JSONObject(readJson.trim());
+                    if (jsonObject.getInt("code") == 200) {
+                        totalCount = Integer.parseInt(jsonObject.getString("number1"));
+                    }
+                } catch (Exception e) {
+                    traceLog("api_error", "读值解析异常：" + e.getMessage());
+                }
+            }
+
+            String qqKey = "用户数" + qq;
+            if (!getBoolean("settings", qqKey, false)) {
+                String writeJson = get("https://cn.apihz.cn/api/jisuan/jishuqi2.php?id=10013224&key=17e1755199ff8eebc2fd58bce20d950e&type=1&number=2");
+                if (writeJson != null && !writeJson.isEmpty()) {
+                    try {
+                        JSONObject jsonObje = new JSONObject(writeJson.trim());
+                        if (jsonObje.getInt("code") == 200) {
+                            putBoolean("settings", qqKey, true);
+                        }
+                    } catch (Exception e) {
+                        traceLog("api_error", "新用户标记异常：" + e.getMessage());
+                    }
+                }
+            }
+
+            final int finalTotalCount = totalCount;
+            finalActivity.runOnUiThread(new Runnable() {
+                public void run() {
+                    Toast("当前运行 App 为：" + finalAppType + "\n点击悬浮窗查看菜单\n加载耗时：" + apiLoadCostTime + "ms\n您累计加载" + finalPersonalCount + "次\n全网累计加载" + finalTotalCount + "次");
+                }
+            });
+        }
+    });
+
+    checkQFXUpdate();
+
+    if (getBoolean("模拟定位开关", "模拟定位开关", false)) {
+        Toast("正在开启模拟定位...");
+    }
+
+    if (getBoolean("settings", "开关", false)) {
+        悬浮窗状态 = STATE_DESTROYED;
+        启动悬浮窗(currentActivity);
+    }
+
+    UI初始化完成 = true;
 }
 
 void 原神启动() {
@@ -1199,7 +1284,7 @@ void doMultiSend(final MsgData data, final String newText, final int count) {
                 Contact contact = new Contact(originalRecord.chatType, targetUid, "");    
                 for (int i = 0; i < count; i++) {    
                     msgService.sendMsg(contact, sendElements, null);    
-                    if (count > 5) Thread.sleep(50);    
+                    // if (count > 5) Thread.sleep(50);    
                 }    
                 final String tips = (newText != null ? "发送" : "复读") + (count > 1 ? " x" + count : "") + " 完成";    
                 mainHandler.post(new Runnable() { public void run() { Toast(tips); } });    
