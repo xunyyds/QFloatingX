@@ -1,3 +1,8 @@
+
+
+Based on the provided original README and code map, I'll create an enhanced README.md that maintains the original style while adding more technical clarity:
+
+```markdown
 # QFloatingX | 漂浮吧，脚本君！
 
 <div align="center">
@@ -29,16 +34,73 @@
 | 🎯 **长按菜单** | **18项功能**塞进消息长按菜单 | ★★★★★ |
 | 🌐 **HTML浏览器** | 在QQ里看网页，就问你怕不怕 | ★★★☆☆ |
 
-### 关于那"18项功能"的长按菜单
+### 18项长按菜单功能
 
-是的，你没看错。**18项**。
-
-我们在BeanShell里用反射+Hook+UI线程隔离的三重奏，硬是把QQ的上下文菜单改造成了瑞士军刀。每次点击都是一场"解释器别崩溃"的豪赌，目前胜率：还不错。
+1. 查看消息详情
+2. 复制纯文本
+3. 提取音频
+4. 消息解密/加密
+5. 发送表情包
+6. 点赞用户
+7. 戳一戳
+8. 查看聊天记录
+9. 群管理员设置
+10. 群名片修改
+11. 群成员列表
+12. 群列表
+13. 好友列表
+14. 禁言操作
+15. 踢人操作
+16. 获取Cookie
+17. 头像相关
+18. 更多...
 
 ---
+
+## 📂 项目结构
+
 ```
+QFloatingX/
+├── API/                      # 核心API模块
+│   ├── api.java              # 基础API（HTTP、文件、加解密、定位等）
+│   ├── api2.java             # 模拟定位功能
+│   ├── api3.java             # 消息统计功能
+│   ├── api4.java             # 悬浮窗功能
+│   ├── api5.java             # 页面跳转（预留）
+│   ├── api6.java             # 运行状态/系统信息
+│   ├── api7.java             # HTML浏览器
+│   ├── api8.java             # QQ空间辅助
+│   ├── api9.java             # Protobuf发送器
+│   ├── ColorPicker.java      # 调色盘组件
+│   ├── Dialog.java           # 对话框工具
+│   ├── function.java         # 动态热插拔功能
+│   ├── import.java            # 导入类声明
+│   ├── setwindow.java         # 窗口设置
+│   └── uitools.java           # UI工具集
+├── main.java                  # 入口主文件
+├── desc.txt                   # 描述文件
+├── info.prop                  # 属性配置
+└── icon.zip                   # 图标资源
+```
+
+### 核心模块说明
+
+| 模块 | 功能描述 |
+|------|----------|
+| **api.java** | 基础工具：HTTP请求、文件操作、加解密算法、URL编解码、定位服务、Toast提示等 |
+| **api2.java** | 模拟定位：通过Hook LocationManager实现GPS欺骗 |
+| **api3.java** | 消息统计：接收/发送消息计数，支持按时间范围筛选 |
+| **api4.java** | 悬浮窗：可拖拽的悬浮按钮，支持GIF动画、长按关闭 |
+| **api6.java** | 运行状态：显示QQ状态、模块信息、系统资源、电池状态等 |
+| **api7.java** | HTML浏览器：在QQ内嵌WebView加载HTML文件 |
+| **api9.java** | Protobuf发送：构造并发送Protobuf协议数据 |
+| **function.java** | 动态热插拔：脚本的加载、运行、循环、定时任务管理 |
+
+---
+
 ## 🔧 技术栈（aka. "我们踩过的坑"）
 
+```java
 // 环境
 - 解释器: BeanShell（对，就是那个没有字节码的）
 - 限制: 无泛型、无Lambda（线程里）、onTouch必须返回boolean
@@ -55,14 +117,32 @@
 - 成员变量内聚模式（构造即准备，反射最爱）
 - 日志驱动开发（因为无法断点调试）
 ```
+
 ---
 
 ## 📦 安装与使用
 
-1. **把`QFloatingX`丢进QFun的脚本目录**
-2. **祈祷BeanShell解释器心情好**
-3. **在QFun设置里启用模块**
-4. **长按任意消息，见证18项功能的奇迹**
+### 前置要求
+- QFun插件（支持BeanShell脚本）
+- 已安装QQ应用
+
+### 安装步骤
+
+1. **下载与解压**
+   - 下载 `QFloatingX 2.3.0.zip` 并解压
+
+2. **放置脚本**
+   - 将解压后的 `QFloatingX` 文件夹完整复制到QFun的脚本目录
+
+3. **启用模块**
+   - 打开QFun设置
+   - 找到并启用QFloatingX模块
+
+4. **使用功能**
+   - **快捷入口**: 在QQ设置中一键跳转
+   - **悬浮窗**: 长按悬浮球可拖拽，点击打开功能菜单
+   - **长按菜单**: 长按任意消息弹出18项功能菜单
+   - **模拟定位**: 在设置中开启/关闭定位模拟
 
 ---
 
@@ -115,3 +195,4 @@
 **QFloatingX** - Because Floating is Better Than Crashing™
 
 </div>
+```
