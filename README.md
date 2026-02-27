@@ -1,8 +1,5 @@
 
 
-Based on the provided original README and code map, I'll create an enhanced README.md that maintains the original style while adding more technical clarity:
-
-```markdown
 # QFloatingX | 漂浮吧，脚本君！
 
 <div align="center">
@@ -195,4 +192,3 @@ QFloatingX/
 **QFloatingX** - Because Floating is Better Than Crashing™
 
 </div>
-```
