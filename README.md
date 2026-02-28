@@ -61,19 +61,19 @@ QFloatingX/
 ├── API/                      # 核心API模块
 │   ├── api.java              # 基础API（HTTP、文件、加解密、定位等）
 │   ├── api2.java             # 模拟定位功能
-│   ├── api3.java            # 消息统计功能
-│   ├── api4.java            # 悬浮窗功能
-│   ├── api5.java            # 页面跳转（预留）
-│   ├── api6.java            # 运行状态/系统信息
-│   ├── api7.java            # HTML浏览器
-│   ├── api8.java            # QQ空间辅助
-│   ├── api9.java            # Protobuf发送器
+│   ├── api3.java             # 消息统计功能
+│   ├── api4.java             # 悬浮窗功能
+│   ├── api5.java             # 页面跳转（预留）
+│   ├── api6.java             # 运行状态/系统信息
+│   ├── api7.java             # HTML浏览器
+│   ├── api8.java             # QQ空间辅助
+│   ├── api9.java             # Protobuf发送器
 │   ├── ColorPicker.java      # 调色盘组件
 │   ├── Dialog.java           # 对话框工具
 │   ├── function.java         # 动态热插拔功能
-│   ├── import.java            # 导入类声明
-│   ├── setwindow.java         # 窗口设置
-│   └── uitools.java           # UI工具集
+│   ├── import.java           # 导入类声明
+│   ├── setwindow.java        # 窗口设置
+│   └── uitools.java          # UI工具集
 ├── main.java                  # 入口主文件
 ├── desc.txt                   # 描述文件
 ├── info.prop                  # 属性配置
