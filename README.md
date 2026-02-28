@@ -59,8 +59,8 @@
 ```
 QFloatingX/
 ├── API/                      # 核心API模块
-│   ├── api.java              # 基础API（HTTP、文件、加解密、定位等）
-│   ├── api2.java             # 模拟定位功能
+│   ├── api.java              # 基础API（HTTP、文件、加）
+│   ├──解密、定位等 api2.java             # 模拟定位功能
 │   ├── api3.java             # 消息统计功能
 │   ├── api4.java             # 悬浮窗功能
 │   ├── api5.java             # 页面跳转（预留）
