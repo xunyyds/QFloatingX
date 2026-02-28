@@ -6,7 +6,7 @@
 
 **状态**: 🟢 在BeanShell的废墟上野蛮生长 | **版本**: v9.1+ | **作者**: ᗜ×ᗜ
 
-*（QFun群里的那个"又双叒叕在反射"的家伙）*
+*(QFun群里的那个"又双叒叕在反射"的家伙)*
 
 </div>
 
@@ -71,9 +71,9 @@ QFloatingX/
 │   ├── ColorPicker.java      # 调色盘组件
 │   ├── Dialog.java           # 对话框工具
 │   ├── function.java         # 动态热插拔功能
-│   ├── import.java            # 导入类声明
-│   ├── setwindow.java         # 窗口设置
-│   └── uitools.java           # UI工具集
+│   ├── import.java           # 导入类声明
+│   ├── setwindow.java        # 窗口设置
+│   └── uitools.java          # UI工具集
 ├── main.java                  # 入口主文件
 ├── desc.txt                   # 描述文件
 ├── info.prop                  # 属性配置
