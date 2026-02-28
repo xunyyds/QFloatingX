@@ -1,10 +1,27 @@
 {
-  "version": "2.3.0.1",
+  "version": "2.3.0",
   "versionType": "测试版",
   "updateType": "补丁",
-  "updateTime": "2026-02-24 21:25:37",
-  "changelog": "### **[v2.3.0.1] - 2026-02-24 21:25**\n测试\n",
+  "updateTime": "2026-02-27 22:52:32",
+  "changelog": "### **[v2.3.0] - 2026-02-27 22:52**\n无\n",
   "files": [
+    "QFloatingX\/API\/ColorPicker.java",
+    "QFloatingX\/API\/Dialog.java",
+    "QFloatingX\/API\/api.java",
+    "QFloatingX\/API\/api2.java",
+    "QFloatingX\/API\/api4.java",
+    "QFloatingX\/API\/api3.java",
+    "QFloatingX\/API\/api6.java",
+    "QFloatingX\/API\/api7.java",
+    "QFloatingX\/API\/api8.java",
+    "QFloatingX\/API\/api9.java",
+    "QFloatingX\/API\/function.java",
+    "QFloatingX\/API\/import.java",
+    "QFloatingX\/API\/setwindow.java",
+    "QFloatingX\/API\/uitools.java",
+    "QFloatingX\/desc.txt",
+    "QFloatingX\/info.prop",
+    "QFloatingX\/main.java",
     "QFloatingX\/更新日志.txt"
   ]
 }
