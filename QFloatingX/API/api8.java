@@ -1,35 +1,16 @@
-import org.json.JSONArray;
-import org.json.JSONObject;
-import java.util.ArrayList;
-import java.util.HashSet;
 import android.widget.Space;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.Color;
 import android.graphics.drawable.RippleDrawable;
 import android.content.res.ColorStateList;
-import android.view.Gravity;
-import android.view.MotionEvent;
-import android.view.View;
-import android.widget.FrameLayout;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
-import android.widget.TextView;
-import android.widget.EditText;
-import android.app.Dialog;
-import android.app.Activity;
-import android.graphics.drawable.ColorDrawable;
-import android.graphics.Typeface;
 
-//部分api来自冷雨
+//此空间api由冷雨开发  点赞/评论由ᗜ×ᗜ改进并适配新版 使用请留名
 private final HashSet doneTasks = new HashSet();
 private volatile boolean isServiceRunning = false;
 private Thread qzoneThread = null;
-
 private static final String DONE_TASKS_STR_KEY = "qzone_done_tasks_str";
+private final HashSet blackList = new HashSet();
 
-/**
- * 加载已处理任务列表
- */
 private void loadDoneTasks() {
     String savedStr = getString("qzone_cfg", DONE_TASKS_STR_KEY, "");
     doneTasks.clear();
@@ -37,135 +18,125 @@ private void loadDoneTasks() {
         String[] items = savedStr.split(",");
         for (int i = 0; i < items.length; i++) {
             String item = items[i].trim();
-            if (!item.equals("")) {
-                doneTasks.add(item);
-            }
+            if (!item.equals("")) doneTasks.add(item);
         }
         traceLog("qzone_log", "加载已处理任务数量: " + doneTasks.size());
     }
 }
 
-/**
- * 保存已处理任务列表，超过100条自动清空
- */
 private void saveDoneTasks() {
-    if (doneTasks.size() > 100) {
-        doneTasks.clear();
-        traceLog("qzone_log", "已处理任务超过100条，已全部清空");
-    }
-
+    if (doneTasks.size() > 100) doneTasks.clear();
     StringBuffer sb = new StringBuffer();
     java.util.Iterator it = doneTasks.iterator();
     while (it.hasNext()) {
-        if (sb.length() > 0) {
-            sb.append(",");
-        }
+        if (sb.length() > 0) sb.append(",");
         sb.append((String) it.next());
     }
     putString("qzone_cfg", DONE_TASKS_STR_KEY, sb.toString());
 }
 
-/**
- * 从JSON字符串中提取指定key的值
- * @param json JSON字符串
- * @param key 要提取的键
- * @return 提取的值，失败返回空字符串
- */
+private void loadBlackList() {
+    String saved = getString("qzone_cfg", "blacklist", "");
+    blackList.clear();
+    if (!saved.isEmpty()) {
+        String[] items = saved.split(",");
+        for (String s : items) {
+            String trim = s.trim();
+            if (!trim.isEmpty()) blackList.add(trim);
+        }
+    }
+}
+
+private void saveBlackList() {
+    StringBuffer sb = new StringBuffer();
+    java.util.Iterator it = blackList.iterator();
+    while (it.hasNext()) {
+        if (sb.length() > 0) sb.append(",");
+        sb.append((String) it.next());
+    }
+    putString("qzone_cfg", "blacklist", sb.toString());
+}
+
 private String jsonGet(String json, String key) {
     try {
         java.util.regex.Matcher m = java.util.regex.Pattern.compile("\"" + key + "\":\"([^\"]+)\"").matcher(json);
         return m.find() ? m.group(1) : "";
-    } catch (Throwable e) {
-        return "";
-    }
+    } catch (Throwable e) { return ""; }
 }
 
-/**
- * 从JSON字符串中提取整数值
- * @param json JSON字符串
- * @param key 要提取的键
- * @return 提取的整数值，失败返回-1
- */
 private int jsonGetInt(String json, String key) {
     try {
         java.util.regex.Matcher m = java.util.regex.Pattern.compile("\"" + key + "\":(-?\\d+)").matcher(json);
         return m.find() ? Integer.parseInt(m.group(1)) : -1;
-    } catch (Throwable e) {
-        return -1;
-    }
+    } catch (Throwable e) { return -1; }
 }
 
-/**
- * 解析活跃说说列表
- * @param jsonResp API响应的JSON字符串
- * @return 说说列表，每个元素为String数组[orglikekey, curlikekey, uin]
- */
 private ArrayList parseActiveFeeds(String jsonResp) {
     ArrayList result = new ArrayList();
-
     try {
         JSONObject root = new JSONObject(jsonResp);
-        if (root.optInt("code", -1) != 0) {
-            return result;
-        }
-
+        if (root.optInt("code", -1) != 0) return result;
         JSONObject data = root.getJSONObject("data");
         JSONArray vFeeds = data.getJSONArray("vFeeds");
-
         for (int i = 0; i < vFeeds.length(); i++) {
             JSONObject feed = vFeeds.getJSONObject(i);
             JSONObject comm = feed.getJSONObject("comm");
-
             String orglikekey = comm.optString("orglikekey", "");
             String curlikekey = comm.optString("curlikekey", "");
-
+            String ugckey = comm.optString("ugckey", "");
             JSONObject userinfo = feed.getJSONObject("userinfo");
             JSONObject user = userinfo.getJSONObject("user");
             String uin = user.optString("uin", "");
-
             if (!orglikekey.isEmpty() && !curlikekey.isEmpty() && !uin.isEmpty()) {
-                String[] arr = new String[3];
+                String[] arr = new String[4];
                 arr[0] = orglikekey;
                 arr[1] = curlikekey;
                 arr[2] = uin;
+                arr[3] = ugckey.isEmpty() ? curlikekey : ugckey;
                 result.add(arr);
             }
         }
-    } catch (Throwable e) {
-        traceLog("qzone_log","解析 feeds 失败: " + e.getMessage());
-    }
-
+    } catch (Throwable e) {}
     return result;
 }
 
-/**
- * 显示配置弹窗
- */
+private void delay(long millis) {
+    if (millis <= 0 || !isServiceRunning) return;
+    Object lock = new Object();
+    synchronized (lock) {
+        long start = System.currentTimeMillis();
+        long remaining = millis;
+        while (remaining > 0 && isServiceRunning) {
+            try {
+                lock.wait(Math.min(remaining, 200));
+                remaining = millis - (System.currentTimeMillis() - start);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+    }
+}
+
 public void showQzoneConfig() {
     Activity act = getNowActivity();
     if (act == null) act = 最后Activity;
-
     if (act == null || act.isFinishing()) {
         Toast("无法打开设置：没有可用 Activity");
         return;
     }
-
     final Activity finalAct = act;
-
     finalAct.runOnUiThread(new Runnable() {
         public void run() {
             try {
                 Dialog d = new Dialog(finalAct);
                 d.requestWindowFeature(1);
                 d.getWindow().setBackgroundDrawable(new ColorDrawable(0));
-
                 FrameLayout outer = new FrameLayout(finalAct);
                 int margin = dp(finalAct, 24);
                 outer.setPadding(margin, margin, margin, margin);
-
                 ScrollView scroll = new ScrollView(finalAct);
                 outer.addView(scroll);
-
                 LinearLayout card = new LinearLayout(finalAct);
                 card.setOrientation(LinearLayout.VERTICAL);
                 card.setBackground(roundRect(Color.WHITE, dp(finalAct, 16)));
@@ -173,7 +144,7 @@ public void showQzoneConfig() {
                 scroll.addView(card);
 
                 TextView title = new TextView(finalAct);
-                title.setText("空间自动配置");
+                title.setText("空间操作配置");
                 title.setTextSize(18);
                 title.setTypeface(null, Typeface.BOLD);
                 title.setTextColor(Color.parseColor("#212121"));
@@ -187,13 +158,11 @@ public void showQzoneConfig() {
                 likeRow.setOrientation(LinearLayout.HORIZONTAL);
                 likeRow.setGravity(Gravity.CENTER_VERTICAL);
                 likeRow.setPadding(0, dp(finalAct, 12), 0, dp(finalAct, 12));
-
                 TextView likeLabel = new TextView(finalAct);
                 likeLabel.setText("秒赞");
                 likeLabel.setTextSize(16);
                 likeLabel.setTextColor(Color.parseColor("#212121"));
                 likeRow.addView(likeLabel, new LinearLayout.LayoutParams(0, -2, 1.0f));
-
                 final boolean[] likeState = new boolean[]{initLike};
                 final View likeSwitch = createSwitchView(finalAct, likeState[0]);
                 setClickAnimation(likeSwitch);
@@ -201,10 +170,8 @@ public void showQzoneConfig() {
                     public void onClick(View v) {
                         likeState[0] = !likeState[0];
                         updateSwitchUI(likeSwitch, likeState[0]);
-                        traceLog("qzone_log","秒赞开关点击-新状态: " + likeState[0]);
                     }
                 });
-
                 likeRow.addView(likeSwitch);
                 card.addView(likeRow);
 
@@ -212,13 +179,11 @@ public void showQzoneConfig() {
                 commentRow.setOrientation(LinearLayout.HORIZONTAL);
                 commentRow.setGravity(Gravity.CENTER_VERTICAL);
                 commentRow.setPadding(0, dp(finalAct, 12), 0, dp(finalAct, 12));
-
                 TextView commentLabel = new TextView(finalAct);
                 commentLabel.setText("秒评");
                 commentLabel.setTextSize(16);
                 commentLabel.setTextColor(Color.parseColor("#212121"));
                 commentRow.addView(commentLabel, new LinearLayout.LayoutParams(0, -2, 1.0f));
-
                 final boolean[] commentState = new boolean[]{initComment};
                 final View commentSwitch = createSwitchView(finalAct, commentState[0]);
                 setClickAnimation(commentSwitch);
@@ -226,10 +191,8 @@ public void showQzoneConfig() {
                     public void onClick(View v) {
                         commentState[0] = !commentState[0];
                         updateSwitchUI(commentSwitch, commentState[0]);
-                        traceLog("qzone_log","秒评开关点击-新状态: " + commentState[0]);
                     }
                 });
-
                 commentRow.addView(commentSwitch);
                 card.addView(commentRow);
 
@@ -262,43 +225,91 @@ public void showQzoneConfig() {
                 LinearLayout fetchDelayLayout = new LinearLayout(finalAct);
                 fetchDelayLayout.setOrientation(LinearLayout.VERTICAL);
                 fetchDelayLayout.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
-
                 TextView fetchDelayLabel = new TextView(finalAct);
                 fetchDelayLabel.setText("拉取列表后延迟（秒）");
                 fetchDelayLabel.setTextSize(12);
                 fetchDelayLabel.setTextColor(Color.parseColor("#757575"));
                 fetchDelayLabel.setPadding(0, 0, 0, dp(finalAct, 4));
                 fetchDelayLayout.addView(fetchDelayLabel);
-
-                String initFetchDelay = String.valueOf(getInt("qzone_cfg", "fetch_delay_ms", 5000) / 1000);
                 final EditText fetchDelayInput = makeSmallInput(finalAct, "3~15秒", Color.parseColor("#F5F5F5"));
-                fetchDelayInput.setText(initFetchDelay);
+                fetchDelayInput.setText(String.valueOf(getInt("qzone_cfg", "fetch_delay_ms", 5000) / 1000));
                 fetchDelayLayout.addView(fetchDelayInput);
-
                 intervalRow.addView(fetchDelayLayout);
 
-                Space space = new Space(finalAct);
-                space.setLayoutParams(new LinearLayout.LayoutParams(itemSpacing, -2));
-                intervalRow.addView(space);
+                Space space1 = new Space(finalAct);
+                space1.setLayoutParams(new LinearLayout.LayoutParams(itemSpacing, -2));
+                intervalRow.addView(space1);
 
                 LinearLayout feedIntervalLayout = new LinearLayout(finalAct);
                 feedIntervalLayout.setOrientation(LinearLayout.VERTICAL);
                 feedIntervalLayout.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
-
                 TextView feedIntervalLabel = new TextView(finalAct);
                 feedIntervalLabel.setText("每条说说间隔（秒）");
                 feedIntervalLabel.setTextSize(12);
                 feedIntervalLabel.setTextColor(Color.parseColor("#757575"));
                 feedIntervalLabel.setPadding(0, 0, 0, dp(finalAct, 4));
                 feedIntervalLayout.addView(feedIntervalLabel);
-
-                String initFeedInterval = String.valueOf(getInt("qzone_cfg", "feed_interval_ms", 1000) / 1000);
                 final EditText feedIntervalInput = makeSmallInput(finalAct, "0.5~5秒", Color.parseColor("#F5F5F5"));
-                feedIntervalInput.setText(initFeedInterval);
+                feedIntervalInput.setText(String.valueOf(getInt("qzone_cfg", "feed_interval_ms", 1000) / 1000));
                 feedIntervalLayout.addView(feedIntervalInput);
-
                 intervalRow.addView(feedIntervalLayout);
                 card.addView(intervalRow);
+
+                TextView blackTitle = new TextView(finalAct);
+                blackTitle.setText("黑名单设置");
+                blackTitle.setTextSize(14);
+                blackTitle.setTextColor(Color.parseColor("#757575"));
+                blackTitle.setPadding(0, dp(finalAct, 16), 0, dp(finalAct, 8));
+                card.addView(blackTitle);
+
+                LinearLayout blackRow = new LinearLayout(finalAct);
+                blackRow.setOrientation(LinearLayout.HORIZONTAL);
+                blackRow.setGravity(Gravity.CENTER_VERTICAL);
+                blackRow.setPadding(0, dp(finalAct, 8), 0, dp(finalAct, 12));
+
+                TextView blackBtn = makeBtn(finalAct, "设置黑名单", Color.parseColor("#3B71FE"), Color.TRANSPARENT);
+                blackBtn.setBackground(roundRect(Color.TRANSPARENT, dp(finalAct, 24)));
+                blackBtn.setPadding(0, 0, 0, 0);
+                LinearLayout.LayoutParams btnLp = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                );
+                blackRow.addView(blackBtn, btnLp);
+
+                // 弹性空间，将文本推到右侧
+                Space spacer = new Space(finalAct);
+                LinearLayout.LayoutParams spacerLp = new LinearLayout.LayoutParams(
+                        0,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        1.0f
+                );
+                blackRow.addView(spacer, spacerLp);
+
+                final TextView blackLabel = new TextView(finalAct);
+                blackLabel.setText("已屏蔽 " + blackList.size() + " 人");
+                blackLabel.setTextSize(16);
+                blackLabel.setTextColor(Color.parseColor("#212121"));
+                LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                );
+                blackRow.addView(blackLabel, labelLp);
+
+                card.addView(blackRow);
+
+                blackBtn.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) {
+                        final ArrayList initSel = new ArrayList(blackList);
+                        showGroupSelector(finalAct, 1, initSel, new GroupSelectCallback() {
+                            public void onSelected(ArrayList selected) {
+                                blackList.clear();
+                                if (selected != null) blackList.addAll(selected);
+                                saveBlackList();
+                                blackLabel.setText("已屏蔽 " + blackList.size() + " 人");
+                            }
+                        });
+                    }
+                });
 
                 LinearLayout btnRow = new LinearLayout(finalAct);
                 btnRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -328,36 +339,22 @@ public void showQzoneConfig() {
 
                 save.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
-                        traceLog("qzone_log","点击保存-秒赞最终状态: " + likeState[0] + " 秒评最终状态: " + commentState[0]);
-                        
                         putBoolean("qzone_cfg", "switch_like", likeState[0]);
                         putBoolean("qzone_cfg", "switch_comment", commentState[0]);
-
-                        boolean checkLike = getBoolean("qzone_cfg", "switch_like", false);
-                        boolean checkComment = getBoolean("qzone_cfg", "switch_comment", false);
-                        traceLog("qzone_log","持久化校验-秒赞写入后值: " + checkLike + " 秒评写入后值: " + checkComment);
 
                         String text = commentInput.getText().toString().trim();
                         if (text.length() > 100) text = text.substring(0, 100);
                         putString("qzone_cfg", "comment", text);
 
                         try {
-                            int fetchSec = Integer.parseInt(fetchDelayInput.getText().toString().trim());
-                            fetchSec = Math.max(1, Math.min(60, fetchSec));
-                            putInt("qzone_cfg", "fetch_delay_ms", fetchSec * 1000);
-                        } catch (Throwable e) {
-                            putInt("qzone_cfg", "fetch_delay_ms", 5000);
-                            traceLog("qzone_log","拉取延迟解析异常: " + e.getMessage());
-                        }
+                            int sec = Integer.parseInt(fetchDelayInput.getText().toString().trim());
+                            putInt("qzone_cfg", "fetch_delay_ms", Math.max(1, Math.min(60, sec)) * 1000);
+                        } catch (Throwable e) { putInt("qzone_cfg", "fetch_delay_ms", 5000); }
 
                         try {
-                            float feedSec = Float.parseFloat(feedIntervalInput.getText().toString().trim());
-                            feedSec = Math.max(0.1f, Math.min(10f, feedSec));
-                            putInt("qzone_cfg", "feed_interval_ms", (int) (feedSec * 1000));
-                        } catch (Throwable e) {
-                            putInt("qzone_cfg", "feed_interval_ms", 1000);
-                            traceLog("qzone_log","说说间隔解析异常: " + e.getMessage());
-                        }
+                            float fsec = Float.parseFloat(feedIntervalInput.getText().toString().trim());
+                            putInt("qzone_cfg", "feed_interval_ms", (int)(Math.max(0.1f, Math.min(10f, fsec)) * 1000));
+                        } catch (Throwable e) { putInt("qzone_cfg", "feed_interval_ms", 1000); }
 
                         Toast("已保存配置");
                         vibrate(finalAct, 40);
@@ -375,21 +372,13 @@ public void showQzoneConfig() {
                 d.setContentView(outer);
                 d.getWindow().setLayout((int)(finalAct.getResources().getDisplayMetrics().widthPixels * 0.85), -2);
                 d.show();
-
             } catch (Throwable e) {
                 Toast("弹窗创建失败: " + e.getMessage());
-                traceLog("qzone_log","弹窗异常: " + e);
             }
         }
     });
 }
 
-/**
- * 创建开关控件视图
- * @param ctx 上下文
- * @param initVal 初始状态
- * @return 开关视图
- */
 View createSwitchView(Context ctx, boolean initVal) {
     FrameLayout swContainer = new FrameLayout(ctx);
     int swW = dp(ctx, 52);
@@ -435,11 +424,6 @@ View createSwitchView(Context ctx, boolean initVal) {
     return swContainer;
 }
 
-/**
- * 更新开关UI状态
- * @param switchView 开关视图
- * @param isChecked 是否选中
- */
 void updateSwitchUI(View switchView, boolean isChecked) {
     if (switchView == null || switchView.getChildCount() < 2) return;
     View track = switchView.getChildAt(0);
@@ -456,10 +440,6 @@ void updateSwitchUI(View switchView, boolean isChecked) {
     thumb.setLayoutParams(lp);
 }
 
-/**
- * 设置点击缩放动画
- * @param view 目标视图
- */
 void setClickAnimation(View view) {
     if (view == null) return;
     view.setOnTouchListener(new View.OnTouchListener() {
@@ -478,37 +458,26 @@ void setClickAnimation(View view) {
     });
 }
 
-/**
- * 检查并启动或停止线程
- */
 private void checkAndStartOrStopThread() {
     loadDoneTasks();
+    loadBlackList();
 
-    boolean likeOn  = getBoolean("qzone_cfg", "switch_like", false);
+    boolean likeOn = getBoolean("qzone_cfg", "switch_like", false);
     boolean commentOn = getBoolean("qzone_cfg", "switch_comment", false);
-    traceLog("qzone_log","线程状态校验-秒赞开关: " + likeOn + " 秒评开关: " + commentOn);
 
     if (likeOn || commentOn) {
-        if (!isServiceRunning) {
-            startQzoneAutoThread();
-        }
+        if (!isServiceRunning) startQzoneAutoThread();
     } else {
         stopQzoneAutoThread();
     }
 }
 
-/**
- * 启动QZone自动线程
- */
 private void startQzoneAutoThread() {
     if (isServiceRunning) return;
-
     isServiceRunning = true;
 
     qzoneThread = new Thread(new Runnable() {
         public void run() {
-            traceLog("qzone_log","[空间自动] 线程启动");
-
             while (isServiceRunning) {
                 try {
                     String pskey = getPskey("qzone.qq.com");
@@ -521,26 +490,27 @@ private void startQzoneAutoThread() {
                     String resp = qzoneGet(url, cookie);
 
                     if (jsonGetInt(resp, "code") != 0) {
-                        Thread.sleep(20000);
+                        delay(20000);
                         continue;
                     }
 
                     ArrayList feeds = parseActiveFeeds(resp);
+                    delay(getInt("qzone_cfg", "fetch_delay_ms", 5000));
 
-                    int delayMs = getInt("qzone_cfg", "fetch_delay_ms", 5000);
-                    Thread.sleep(delayMs);
-
-                    boolean likeEnabled  = getBoolean("qzone_cfg", "switch_like", false);
+                    boolean likeEnabled = getBoolean("qzone_cfg", "switch_like", false);
                     boolean commentEnabled = getBoolean("qzone_cfg", "switch_comment", false);
 
                     for (int i = 0; i < feeds.size(); i++) {
                         if (!isServiceRunning) break;
 
                         String[] item = (String[]) feeds.get(i);
-                        String orgKey   = item[0];
-                        String curKey   = item[1];
-                        String userUin  = item[2];
+                        String orgKey = item[0];
+                        String curKey = item[1];
+                        String userUin = item[2];
+                        String ugcKey = item[3];
 
+                        if (userUin.equals(myUin)) continue;
+                        if (blackList.contains(userUin)) continue;
                         if (doneTasks.contains(curKey)) continue;
 
                         boolean didSomething = false;
@@ -549,9 +519,8 @@ private void startQzoneAutoThread() {
                             sendQzoneZan(orgKey, curKey);
                             didSomething = true;
                         }
-
                         if (commentEnabled) {
-                            sendQzoneComment(orgKey, curKey, userUin);
+                            sendQzoneComment(orgKey, curKey, userUin, ugcKey);
                             didSomething = true;
                         }
 
@@ -562,47 +531,32 @@ private void startQzoneAutoThread() {
 
                         int feedIntervalMs = getInt("qzone_cfg", "feed_interval_ms", 1000);
                         long sleepMs = (long) (feedIntervalMs * (0.8f + Math.random() * 0.4f));
-                        Thread.sleep(sleepMs);
+                        delay(sleepMs);
                     }
 
-                    Thread.sleep(10000 + (long)(Math.random() * 5000));
+                    delay(10000 + (long)(Math.random() * 5000));
 
-                } catch (InterruptedException ie) {
-                    break;
                 } catch (Throwable e) {
-                    traceLog("qzone_log","[空间自动] 异常: " + e.getMessage());
-                    try { Thread.sleep(30000); } catch (Throwable ignored) {}
+                    if (e instanceof InterruptedException) break;
+                    delay(30000);
                 }
             }
-
-            traceLog("qzone_log","[空间自动] 线程退出");
             isServiceRunning = false;
         }
     });
 
     ThreadPool.execute(qzoneThread);
-    Toast("空间自动已启动");
+    Toast("空间操作已启动");
 }
 
-/**
- * 停止QZone自动线程
- */
 private void stopQzoneAutoThread() {
     if (!isServiceRunning) return;
-
     isServiceRunning = false;
-    if (qzoneThread != null && qzoneThread.isAlive()) {
-        qzoneThread.interrupt();
-    }
+    if (qzoneThread != null && qzoneThread.isAlive()) qzoneThread.interrupt();
     qzoneThread = null;
-    Toast("空间自动已停止");
+    Toast("空间操作已停止");
 }
 
-/**
- * 发送QZone点赞
- * @param orglikekey 原始点赞key
- * @param curlikekey 当前点赞key
- */
 private void sendQzoneZan(String orglikekey, String curlikekey) {
     if (!getBoolean("qzone_cfg", "switch_like", false)) return;
 
@@ -616,22 +570,14 @@ private void sendQzoneZan(String orglikekey, String curlikekey) {
     try {
         String resp = httppost1(url, cookie, data);
         if (jsonGetInt(resp, "ret") == 0) {
-            traceLog("qzone_log","点赞成功: " + curlikekey);
+            traceLog("qzone_log", "点赞成功: " + curlikekey);
         } else {
-            traceLog("qzone_log","点赞失败: " + curlikekey + " 返回码: " + jsonGetInt(resp, "ret"));
+            traceLog("qzone_log", "点赞失败: " + curlikekey);
         }
-    } catch (Throwable e) {
-        traceLog("qzone_log","点赞异常: " + e.getMessage());
-    }
+    } catch (Throwable e) {}
 }
 
-/**
- * 发送QZone评论
- * @param orglikekey 原始点赞key
- * @param curlikekey 当前点赞key
- * @param user 用户UIN
- */
-private void sendQzoneComment(String orglikekey, String curlikekey, String user) {
+private void sendQzoneComment(String orglikekey, String curlikekey, String userUin, String ugckey) {
     if (!getBoolean("qzone_cfg", "switch_comment", false)) return;
 
     String content = getString("qzone_cfg", "comment", "我来暖说说啦！");
@@ -642,19 +588,25 @@ private void sendQzoneComment(String orglikekey, String curlikekey, String user)
     String gtk = getGTK("qzone.qq.com");
 
     String url = "https://h5.qzone.qq.com/webapp/json/qzoneOperation/addComment?g_tk=" + gtk;
-    String body = "{\"appid\":311,\"uin\":" + myUin + ",\"ownuin\":\"" + user
-            + "\",\"srcId\":\"" + curlikekey + "\",\"content\":\"" + JSONObject.quote(content)
-            + "\",\"isPrivateComment\":0,\"busi_param\":{},\"bypass_param\":{}}";
+
+    String body = "{\"appid\":311,\"uin\":" + myUin 
+                + ",\"ownuin\":\"" + userUin 
+                + "\",\"srcId\":\"" + curlikekey 
+                + "\",\"content\":\"" + content.replace("\"", "\\\"") 
+                + "\",\"isPrivateComment\":0,\"busi_param\":{},\"bypass_param\":{}}";
+
+    traceLog("qzone_log", "准备评论 → 用户:" + userUin + " srcId:" + curlikekey + " 内容:" + content);
 
     try {
         String resp = httppost1(url, cookie, body);
-        if (jsonGetInt(resp, "ret") == 0) {
-            traceLog("qzone_log","评论成功: " + user);
+        int ret = jsonGetInt(resp, "ret");
+        if (ret == 0) {
+            traceLog("qzone_log", "评论成功: " + userUin);
         } else {
-            traceLog("qzone_log","评论失败: " + user + " 返回码: " + jsonGetInt(resp, "ret"));
+            traceLog("qzone_log", "评论失败: " + userUin + " ret=" + ret + " resp=" + resp);
         }
     } catch (Throwable e) {
-        traceLog("qzone_log","评论异常: " + e.getMessage());
+        traceLog("qzone_log", "评论异常: " + userUin + " " + e.getMessage());
     }
 }
 
