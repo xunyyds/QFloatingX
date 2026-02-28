@@ -1385,104 +1385,6 @@ public void showChangeCardDialog(Activity activity, String qun, String uin, Stri
 }
 
 /**
- * 显示回应表情选择弹窗
- * @param activity Activity实例
- * @param msgRecord 消息记录对象
- */
-public void showEmojiPickerDialog(Activity activity, Object msgRecord) {
-    if (activity == null || activity.isFinishing()) return;
-    activity.runOnUiThread(new Runnable() {
-        public void run() {
-            try {
-                boolean isDark = isThemeDark(activity);
-                int textColor = isDark ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT;
-                int subTextColor = isDark ? UI_COLOR_SUBTEXT_DARK : UI_COLOR_SUBTEXT_LIGHT;
-                int cardBg = isDark ? Color.parseColor("#FF2D2D2D") : Color.parseColor("#FFF5F5F5");
-
-                String[] emojiList = new String[]{"👍","❤️","😂","😮","😢","😡","🎉","🔥","✅","👏","💯","🤣"};
-                int[] emojiIds = new int[]{76, 66, 182, 111, 9, 306, 277, 314, 418, 181, 308, 367};
-
-                LinearLayout root = new LinearLayout(activity);
-                root.setOrientation(LinearLayout.VERTICAL);
-                root.setPadding(dp(activity, 16), dp(activity, 20), dp(activity, 16), dp(activity, 16));
-                TextView titleView = new TextView(activity);
-                titleView.setText("选择回应表情");
-                titleView.setTextSize(18);
-                titleView.setTypeface(null, Typeface.BOLD);
-                titleView.setTextColor(textColor);
-                titleView.setPadding(0, 0, 0, dp(activity, 12));
-                root.addView(titleView);
-
-                final AlertDialog[] ref = new AlertDialog[1];
-                LinearLayout gridLayout = new LinearLayout(activity);
-                gridLayout.setOrientation(LinearLayout.HORIZONTAL);
-                gridLayout.setGravity(Gravity.CENTER);
-                for (int i = 0; i < emojiList.length; i++) {
-                    final int id = emojiIds[i];
-                    final String emoji = emojiList[i];
-                    TextView btn = new TextView(activity);
-                    btn.setText(emoji);
-                    btn.setTextSize(24);
-                    btn.setGravity(Gravity.CENTER);
-                    btn.setPadding(dp(activity, 10), dp(activity, 10), dp(activity, 10), dp(activity, 10));
-                    final GradientDrawable bg = new GradientDrawable();
-                    bg.setCornerRadius(dp(activity, 10));
-                    bg.setColor(cardBg);
-                    final int borderColor = adjustAlpha(textColor, 0.2f);
-                    bg.setStroke(dp(activity, 1), borderColor);
-                    btn.setBackground(bg);
-                    btn.setOnTouchListener(new View.OnTouchListener() {
-                        public boolean onTouch(View v, MotionEvent event) {
-                            switch (event.getAction()) {
-                                case MotionEvent.ACTION_DOWN: bg.setColor(borderColor); btn.setBackground(bg); return true;
-                                case MotionEvent.ACTION_UP: bg.setColor(cardBg); btn.setBackground(bg); v.performClick(); return true;
-                                case MotionEvent.ACTION_CANCEL: bg.setColor(cardBg); btn.setBackground(bg); return true;
-                            }
-                            return false;
-                        }
-                    });
-                    btn.setOnClickListener(new View.OnClickListener() {
-                        public void onClick(View v) {
-                            if (ref[0] != null) ref[0].dismiss();
-                            try {
-                                sendEmojiLike(msgRecord, id);
-                                Toast("回应成功: " + emoji);
-                                vibrate(activity, 28);
-                            } catch (Throwable e) { Toast("回应失败"); }
-                        }
-                    });
-                    gridLayout.addView(btn);
-                }
-                root.addView(gridLayout);
-
-                LinearLayout btnBox = new LinearLayout(activity);
-                btnBox.setOrientation(LinearLayout.HORIZONTAL);
-                btnBox.setGravity(Gravity.RIGHT);
-                btnBox.setPadding(0, dp(activity, 16), 0, 0);
-                TextView cancel = new TextView(activity);
-                cancel.setText("取消");
-                cancel.setTextSize(15);
-                cancel.setTextColor(subTextColor);
-                cancel.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
-                cancel.setOnClickListener(new View.OnClickListener() {
-                    public void onClick(View v) {
-                        if (ref[0] != null) ref[0].dismiss();
-                    }
-                });
-                btnBox.addView(cancel);
-                root.addView(btnBox);
-
-                AlertDialog.Builder builder = new AlertDialog.Builder(activity, isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-                builder.setView(root);
-                ref[0] = builder.create();
-                ref[0].show();
-                applyUiTheme(activity, ref[0]);
-            } catch (Throwable e) { Toast("弹窗显示失败: " + e.getMessage()); }
-        }
-    });
-}
-
-/**
  * 显示原始消息解析弹窗
  * @param act Activity实例
  * @param data 消息数据对象
@@ -1747,47 +1649,6 @@ void showRawMessageDialog(Object msgData) {
     } catch (Throwable e) {
         showCopyConfirmDialog(getNowActivity(), "原始消息", "获取失败: " + e.getMessage(), isThemeDark(getNowActivity()));
     }
-}
-
-/**
- * 复读消息功能
- * @param msgRecord 消息记录对象
- * @param msgType 消息类型
- * @param peerUin 聊天对象QQ号
- */
-void repeatMessage(Object msgRecord, int msgType, String peerUin) {
-    ThreadPool.execute(new Runnable() {
-        public void run() {
-            try {
-                if (msgRecord == null) {
-                    uiHandler.post(new Runnable() { public void run() { Toast("消息数据无效"); } });
-                    return;
-                }
-                List repeatElements = new ArrayList();
-                List originalElements = null;
-                try { originalElements = (List) msgRecord.elements; } catch(Throwable t){}
-                if (originalElements == null || originalElements.isEmpty()) {
-                    uiHandler.post(new Runnable() { public void run() { Toast("无法提取消息元素"); } });
-                    return;
-                }
-                
-                for (int i = 0; i < originalElements.size(); i++) {
-                    repeatElements.add(originalElements.get(i));
-                }
-                
-                String targetUid = (msgType == 1) ? getUidFromUin(peerUin) : peerUin;
-                Object contact = new me.yxp.qfun.hook.api.Contact(msgType, targetUid, "");
-                
-                Object msgService = me.yxp.qfun.hook.api.QRoute.INSTANCE.api(me.yxp.qfun.hook.api.IMsgService.class);
-                msgService.getClass().getMethod("sendMsg", me.yxp.qfun.hook.api.Contact.class, List.class, me.yxp.qfun.hook.api.Contact.class)
-                          .invoke(msgService, contact, repeatElements, null);
-                          
-                uiHandler.post(new Runnable() { public void run() { qqToast(2, "复读成功"); } });
-            } catch (Throwable e) {
-                uiHandler.post(new Runnable() { public void run() { Toast("复读失败: " + e.getMessage()); } });
-            }
-        }
-    });
 }
 
 /**
@@ -2158,43 +2019,9 @@ void showMemberInfoDialog(Activity activity, String peerUin, String userUin, int
  * @param uin QQ号
  */
 void handleCloneAvatar(final String uin) {
-    ThreadPool.execute(new Runnable() {
-        public void run() {
-            final String avatarUrl = "http://q2.qlogo.cn/headimg_dl?dst_uin=" + uin + "&spec=640";
-            final String avatarPath = pluginPath + "/cache/avatar_" + getTime() + ".png";
-
-            traceLog("api_log.txt", "开始下载头像: " + avatarUrl);
-            Toast("开始下载头像……");
-
-            boolean downloadOk = downloadFile(avatarUrl, avatarPath, new ProgressCallback() {
-                public void onProgress(int progress) {
-                    traceLog("api_log.txt", "头像下载进度: " + progress + "%");
-                }
-
-                public void onProgressTip(String tip) {
-                    traceLog("api_log.txt", tip);
-                }
-            });
-
-            if (!downloadOk) {
-                traceLog("api_log.txt", "头像下载失败");
-                Toast("头像下载失败");
-                return;
-            }
-
-            traceLog("api_log.txt", "开始上传: " + avatarPath);
-            Toast("在上传啦！耐心等一下哦～");
-
-            if (上传头像(avatarPath)) {
-                删除(avatarPath);  // 上传成功后删除缓存文件
-                Toast("克隆头像成功");
-                traceLog("api_log.txt", "克隆流程完成");
-            } else {
-                traceLog("api_log.txt", "上传头像失败");
-                Toast("上传头像失败");
-            }
-        }
-    });
+    String url = "http://q2.qlogo.cn/headimg_dl?dst_uin=" + uin + "&spec=640";
+    String fileName = "avatar_" + getTime() + ".png";
+    executeDownloadAndUpload(url, fileName, "开始克隆头像", "克隆头像成功");
 }
 
 /**
@@ -2202,51 +2029,91 @@ void handleCloneAvatar(final String uin) {
  * @param quntext 包含图片标记的文本
  */
 void handleUploadAvatar(final String quntext) {
+    // 正则提取第一个 [pic=...] 中的 URL
+    String url = null;
+    java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\[pic=([^\\]]+)\\]").matcher(quntext);
+    if (m.find()) {
+        url = m.group(1);
+    }
+
+    if (url == null) {
+        Toast("未找到图片链接");
+        return;
+    }
+
+    String fileName = "pic_" + getTime() + ".png";
+    executeDownloadAndUpload(url, fileName, "开始上传图片", "上传头像成功");
+}
+
+/**
+ * 通用下载并上传头像方法
+ * @param url      下载地址
+ * @param fileName 保存的文件名（不含路径）
+ * @param startMsg 开始下载时的提示
+ * @param succMsg  上传成功后的提示
+ */
+private void executeDownloadAndUpload(final String url, final String fileName,
+                                      final String startMsg, final String succMsg) {
     ThreadPool.execute(new Runnable() {
         public void run() {
-            try {
-                if (!quntext.contains("pic")) {
-                    Toast("非图片消息！");
-                    return;
+            final String savePath = pluginPath + "/cache/" + fileName;
+            traceLog("api_log.txt", "开始下载: " + url);
+            uiHandler.post(new Runnable() {
+                public void run() {
+                    Toast(startMsg);
                 }
+            });
 
-                String picUrl = quntext.replace("[pic=", "").replace("]", "");
-                String picPath = pluginPath + "/cache/pic_" + getTime() + ".png";
+            boolean downloadOk = downloadFile(url, savePath, new ProgressCallback() {
+                public void onProgress(int progress) {
+                    traceLog("api_log.txt", "下载进度: " + progress + "%");
+                }
+                public void onProgressTip(String tip) {
+                    traceLog("api_log.txt", tip);
+                }
+            });
 
-                traceLog("api_log.txt", "开始下载图片: " + picUrl);
-                Toast("开始下载图片……");
-
-                boolean downloadOk = downloadFile(picUrl, picPath, new ProgressCallback() {
-                    public void onProgress(int progress) {
-                        traceLog("api_log.txt", "图片下载进度: " + progress + "%");
-                    }
-
-                    public void onProgressTip(String tip) {
-                        traceLog("api_log.txt", tip);
+            if (!downloadOk) {
+                traceLog("api_log.txt", "下载失败: " + url);
+                uiHandler.post(new Runnable() {
+                    public void run() {
+                        Toast("下载失败");
                     }
                 });
-
-                if (!downloadOk) {
-                    traceLog("api_log.txt", "图片下载失败");
-                    Toast("图片下载失败");
-                    return;
-                }
-
-                traceLog("api_log.txt", "开始上传: " + picPath);
-                Toast("在上传啦！耐心等一下哦～");
-
-                if (上传头像(picPath)) {
-                    删除(picPath);
-                    Toast("上传头像成功");
-                    traceLog("api_log.txt", "上传流程完成");
-                } else {
-                    traceLog("api_log.txt", "上传头像失败");
-                    Toast("上传头像失败");
-                }
-            } catch (Throwable e) {
-                traceLog("api_log.txt", "上传失败: " + e.getMessage());
-                Toast("上传头像失败: " + e.getMessage());
+                return;
             }
+
+            traceLog("api_log.txt", "下载完成，准备上传: " + savePath);
+            uiHandler.post(new Runnable() {
+                public void run() {
+                    Toast("正在上传，请稍候...");
+                }
+            });
+
+            uiHandler.post(new Runnable() {
+                public void run() {
+                    try {
+                        if (上传头像(savePath)) {
+                            Toast(succMsg);
+                            traceLog("api_log.txt", succMsg + "，准备延迟删除");
+                            uiHandler.postDelayed(new Runnable() {
+                                public void run() {
+                                    删除(savePath);
+                                    traceLog("api_log.txt", "文件已删除");
+                                }
+                            }, 1000);
+                        } else {
+                            Toast("上传失败");
+                            traceLog("api_log.txt", "上传失败");
+                            删除(savePath);
+                        }
+                    } catch (Throwable e) {
+                        traceLog("api_log.txt", "上传异常: " + e.getMessage());
+                        Toast("上传异常: " + e.getMessage());
+                        删除(savePath);
+                    }
+                }
+            });
         }
     });
 }
@@ -2742,8 +2609,8 @@ class AudioBtnAdder {
         btn.setPadding(dp(activity, 8), dp(activity, 8), dp(activity, 8), dp(activity, 8));
         btn.setGravity(Gravity.CENTER);
         GradientDrawable btnBg = new GradientDrawable();
-        btnBg.setCornerRadius(dp(activity, 8)); 
-        btnBg.setColor(inputBgColor); 
+        btnBg.setCornerRadius(dp(activity, 8));
+        btnBg.setColor(inputBgColor);
         btnBg.setStroke(dp(activity, 1), borderColor);
         btn.setBackground(btnBg);
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
@@ -2756,11 +2623,176 @@ class AudioBtnAdder {
         });
         btnGrid.addView(btn);
     }
+
+    // 新增：创建带进度条的播放控制器
+    View createAudioPlayer(Activity activity, final MediaPlayer[] player, int textColor, int inputBgColor, int borderColor,
+                           final Handler uiHandler, final Runnable[] updateProgressTaskRef) {
+        LinearLayout container = new LinearLayout(activity);
+        container.setOrientation(LinearLayout.VERTICAL);
+        container.setPadding(0, dp(activity, 8), 0, dp(activity, 8));
+
+        // 进度条
+        final SeekBar seekBar = new SeekBar(activity);
+        seekBar.setMax(1000); // 使用千分比以便精细控制
+        container.addView(seekBar);
+
+        // 时间显示
+        LinearLayout timeLayout = new LinearLayout(activity);
+        timeLayout.setOrientation(LinearLayout.HORIZONTAL);
+        timeLayout.setPadding(0, dp(activity, 4), 0, 0);
+
+        final TextView currentTime = new TextView(activity);
+        currentTime.setText("00:00");
+        currentTime.setTextColor(textColor);
+        currentTime.setTextSize(12);
+
+        final TextView totalTime = new TextView(activity);
+        totalTime.setText("00:00");
+        totalTime.setTextColor(textColor);
+        totalTime.setTextSize(12);
+
+        View spacer = new View(activity);
+        spacer.setLayoutParams(new LinearLayout.LayoutParams(0, 0, 1));
+
+        timeLayout.addView(currentTime);
+        timeLayout.addView(spacer);
+        timeLayout.addView(totalTime);
+        container.addView(timeLayout);
+
+        // 播放/暂停按钮（独立于进度条）
+        LinearLayout btnRow = new LinearLayout(activity);
+        btnRow.setOrientation(LinearLayout.HORIZONTAL);
+        btnRow.setPadding(0, dp(activity, 8), 0, 0);
+
+        TextView playBtn = new TextView(activity);
+        playBtn.setText("播放");
+        playBtn.setTextColor(textColor);
+        playBtn.setPadding(dp(activity, 8), dp(activity, 8), dp(activity, 8), dp(activity, 8));
+        playBtn.setGravity(Gravity.CENTER);
+        GradientDrawable btnBg = new GradientDrawable();
+        btnBg.setCornerRadius(dp(activity, 8));
+        btnBg.setColor(inputBgColor);
+        btnBg.setStroke(dp(activity, 1), borderColor);
+        playBtn.setBackground(btnBg);
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        p.setMargins(dp(activity, 6), 0, dp(activity, 6), 0);
+        playBtn.setLayoutParams(p);
+        btnRow.addView(playBtn);
+        container.addView(btnRow);
+
+        // 进度更新任务
+        final Runnable updateProgress = new Runnable() {
+            public void run() {
+                if (player[0] != null && player[0].isPlaying()) {
+                    int current = player[0].getCurrentPosition();
+                    int duration = player[0].getDuration();
+                    if (duration > 0) {
+                        int progress = (int) ((long) current * 1000 / duration);
+                        seekBar.setProgress(progress);
+                        currentTime.setText(formatTime(current));
+                        totalTime.setText(formatTime(duration));
+                    }
+                    uiHandler.postDelayed(this, 200);
+                } else {
+                    // 停止更新
+                    uiHandler.removeCallbacks(this);
+                }
+            }
+        };
+        if (updateProgressTaskRef != null) {
+            updateProgressTaskRef[0] = updateProgress;
+        }
+
+        // 播放按钮点击事件
+        playBtn.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                if (player[0] != null && player[0].isPlaying()) {
+                    // 暂停
+                    player[0].pause();
+                    playBtn.setText("播放");
+                    uiHandler.removeCallbacks(updateProgress);
+                } else {
+                    // 如果播放器为空或已释放，重新创建
+                    if (player[0] == null) {
+                        try {
+                            player[0] = new MediaPlayer();
+                            player[0].setDataSource(finalUrl); // 注意 finalUrl 需要在此作用域内可访问
+                            player[0].prepareAsync();
+                            player[0].setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+                                public void onPrepared(MediaPlayer mp) {
+                                    mp.start();
+                                    playBtn.setText("暂停");
+                                    totalTime.setText(formatTime(mp.getDuration()));
+                                    uiHandler.post(updateProgress);
+                                }
+                            });
+                            player[0].setOnErrorListener(new MediaPlayer.OnErrorListener() {
+                                public boolean onError(MediaPlayer mp, int what, int extra) {
+                                    Toast("播放失败，可能不是音频");
+                                    mp.release();
+                                    player[0] = null;
+                                    playBtn.setText("播放");
+                                    return true;
+                                }
+                            });
+                            player[0].setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+                                public void onCompletion(MediaPlayer mp) {
+                                    playBtn.setText("播放");
+                                    seekBar.setProgress(0);
+                                    currentTime.setText("00:00");
+                                    uiHandler.removeCallbacks(updateProgress);
+                                }
+                            });
+                        } catch (Throwable t) {
+                            Toast("播放器创建失败");
+                        }
+                    } else {
+                        // 继续播放
+                        player[0].start();
+                        playBtn.setText("暂停");
+                        uiHandler.post(updateProgress);
+                    }
+                }
+            }
+        });
+
+        // 进度条拖动监听
+        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            boolean fromUser = false;
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                this.fromUser = fromUser;
+            }
+            public void onStartTrackingTouch(SeekBar seekBar) {
+                // 拖动时暂停进度更新
+                uiHandler.removeCallbacks(updateProgress);
+            }
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                if (player[0] != null && fromUser) {
+                    int duration = player[0].getDuration();
+                    if (duration > 0) {
+                        int seekTo = (int) ((long) seekBar.getProgress() * duration / 1000);
+                        player[0].seekTo(seekTo);
+                        currentTime.setText(formatTime(seekTo));
+                    }
+                    if (player[0].isPlaying()) {
+                        uiHandler.post(updateProgress);
+                    }
+                }
+            }
+        });
+
+        return container;
+    }
+
+    // 辅助方法：将毫秒格式化为 mm:ss
+    private String formatTime(int ms) {
+        int totalSec = ms / 1000;
+        int min = totalSec / 60;
+        int sec = totalSec % 60;
+        return String.format("%02d:%02d", min, sec);
+    }
 }
 
-/**
- * 显示提取音频弹窗
- */
 public void showExtractAudioDialog(Activity activity, Object data) {
     ThreadPool.execute(new Runnable() {
         public void run() {
@@ -2769,16 +2801,25 @@ public void showExtractAudioDialog(Activity activity, Object data) {
                 if (data != null) {
                     try { textContent = String.valueOf(data.msg); } catch(Throwable t) { textContent = String.valueOf(data); }
                 }
-                
+
+                // 优化链接提取：匹配常见音频扩展名
                 final List urls = new ArrayList();
-                java.util.regex.Matcher m = java.util.regex.Pattern.compile("https?://[^\\s\"']+").matcher(textContent);
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("https?://[^\\s\"']+\\.(mp3|m4a|aac|ogg|wav|flac|opus|amr|wma|mpeg)(\\?[^\\s]*)?", Pattern.CASE_INSENSITIVE).matcher(textContent);
                 while(m.find()) {
                     String u = m.group().replace("\\/", "/");
-                    if(u.contains(".mp3") || u.contains(".m4a") || u.contains("music") || u.contains("audio") || u.contains("fm")) urls.add(u);
+                    urls.add(u);
                 }
-                
+                // 如果没有匹配扩展名，再尝试包含 audio/music 关键词的链接
+                if (urls.isEmpty()) {
+                    m = java.util.regex.Pattern.compile("https?://[^\\s\"']+(audio|music|fm)[^\\s\"']*", Pattern.CASE_INSENSITIVE).matcher(textContent);
+                    while(m.find()) {
+                        String u = m.group().replace("\\/", "/");
+                        urls.add(u);
+                    }
+                }
+
                 final String finalUrl = urls.isEmpty() ? "" : (String)urls.get(0);
-                
+
                 activity.runOnUiThread(new Runnable() {
                     public void run() {
                         try {
@@ -2806,58 +2847,74 @@ public void showExtractAudioDialog(Activity activity, Object data) {
                             urlView.setTextColor(textColor);
                             urlView.setPadding(dp(activity, 12), dp(activity, 10), dp(activity, 12), dp(activity, 10));
                             GradientDrawable bg = new GradientDrawable();
-                            bg.setCornerRadius(dp(activity, 8)); bg.setColor(inputBgColor); bg.setStroke(dp(activity, 1), borderColor);
+                            bg.setCornerRadius(dp(activity, 8));
+                            bg.setColor(inputBgColor);
+                            bg.setStroke(dp(activity, 1), borderColor);
                             urlView.setBackground(bg);
                             root.addView(urlView);
 
                             final MediaPlayer[] player = new MediaPlayer[1];
-                            
-                            LinearLayout btnGrid = new LinearLayout(activity);
-                            btnGrid.setOrientation(LinearLayout.HORIZONTAL);
-                            btnGrid.setPadding(0, dp(activity, 16), 0, 0);
-                            
+                            final Handler uiHandler = new Handler(Looper.getMainLooper());
+                            final Runnable[] updateProgressTask = new Runnable[1]; // 用于更新进度条的循环
+
+                            // 创建播放控制器（包含进度条、时间显示和播放/暂停按钮）
                             AudioBtnAdder adder = new AudioBtnAdder();
-                            
+                            final View audioControlView;
                             if (!finalUrl.isEmpty()) {
-                                adder.add(activity, btnGrid, "试听/停止", textColor, inputBgColor, borderColor, new Runnable() {
-                                    public void run() {
-                                        try {
-                                            if (player[0] != null && player[0].isPlaying()) {
-                                                player[0].stop(); player[0].release(); player[0] = null; Toast("已停止播放");
-                                            } else {
-                                                player[0] = new MediaPlayer();
-                                                player[0].setDataSource(finalUrl);
-                                                player[0].prepareAsync();
-                                                player[0].setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
-                                                    public void onPrepared(MediaPlayer mp) { mp.start(); }
-                                                });
-                                                player[0].setOnErrorListener(new MediaPlayer.OnErrorListener() {
-                                                    public boolean onError(MediaPlayer mp, int w, int e) { Toast("播放失败"); return true; }
-                                                });
-                                            }
-                                        } catch(Throwable t) { Toast("播放异常"); }
-                                    }
-                                });
-                                adder.add(activity, btnGrid, "发链接", textColor, inputBgColor, borderColor, new Runnable() {
+                                audioControlView = adder.createAudioPlayer(activity, player, textColor, inputBgColor, borderColor, uiHandler, updateProgressTask);
+                            } else {
+                                audioControlView = new View(activity); // 空占位
+                            }
+
+                            LinearLayout btnGrid = new LinearLayout(activity);
+                            btnGrid.setOrientation(LinearLayout.VERTICAL);
+                            btnGrid.setPadding(0, dp(activity, 16), 0, 0);
+                            if (!finalUrl.isEmpty()) {
+                                btnGrid.addView(audioControlView);
+                            }
+
+                            // 添加功能按钮（发链接、发语音）
+                            LinearLayout actionRow = new LinearLayout(activity);
+                            actionRow.setOrientation(LinearLayout.HORIZONTAL);
+                            actionRow.setPadding(0, dp(activity, 12), 0, 0);
+                            if (!finalUrl.isEmpty()) {
+                                adder.add(activity, actionRow, "发链接", textColor, inputBgColor, borderColor, new Runnable() {
                                     public void run() {
                                         try {
                                             Object contact = data.contact;
-                                            sendMsg(contact, finalUrl); Toast("链接已发送");
+                                            sendMsg(contact, finalUrl);
+                                            Toast("链接已发送");
                                         } catch(Throwable t) { Toast("发送失败"); }
                                     }
                                 });
-                                adder.add(activity, btnGrid, "发语音", textColor, inputBgColor, borderColor, new Runnable() {
+                                adder.add(activity, actionRow, "发语音", textColor, inputBgColor, borderColor, new Runnable() {
                                     public void run() {
                                         Toast("正在下载并发送语音...");
                                         ThreadPool.execute(new Runnable() {
                                             public void run() {
                                                 try {
-                                                    String savePath = pluginPath + "/cache/temp_audio.silk";
-                                                    urltofile(finalUrl, savePath);
-                                                    Object contact = data.contact;
-                                                    sendPtt(contact, savePath);
-                                                    uiHandler.post(new Runnable() { public void run() { Toast("语音发送成功"); } });
-                                                } catch(Throwable t) { 
+                                                    String savePath = pluginPath + "/cache/audio_" + System.currentTimeMillis() + ".mp3";
+                                                    FutureTask downloadTask = new FutureTask(new Callable() {
+                                                        public Boolean call() throws Exception {
+                                                            return downloadFile(finalUrl, savePath, new ProgressCallback() {
+                                                                public void onProgress(int progressVal) {}
+                                                                public void onProgressTip(String tip) {}
+                                                            });
+                                                        }
+                                                    });
+                                                    ThreadPool.execute(downloadTask);
+                                                    // 等待下载完成，最多15秒
+                                                    boolean success = (Boolean) downloadTask.get(15000, TimeUnit.MILLISECONDS);
+                                                    if (success) {
+                                                        Object contact = data.contact;
+                                                        sendPtt(contact, savePath);
+                                                        uiHandler.post(new Runnable() { public void run() { Toast("语音发送成功"); } });
+                                                    } else {
+                                                        uiHandler.post(new Runnable() { public void run() { Toast("下载失败"); } });
+                                                    }
+                                                } catch (TimeoutException e) {
+                                                    uiHandler.post(new Runnable() { public void run() { Toast("下载超时"); } });
+                                                } catch (Throwable t) {
                                                     uiHandler.post(new Runnable() { public void run() { Toast("语音发送失败"); } });
                                                 }
                                             }
@@ -2865,16 +2922,27 @@ public void showExtractAudioDialog(Activity activity, Object data) {
                                     }
                                 });
                             }
+                            btnGrid.addView(actionRow);
                             root.addView(btnGrid);
-                            
+
                             final AlertDialog[] ref = new AlertDialog[1];
                             TextView closeBtn = new TextView(activity);
-                            closeBtn.setText("关闭"); closeBtn.setTextSize(15); closeBtn.setTextColor(subTextColor);
+                            closeBtn.setText("关闭");
+                            closeBtn.setTextSize(15);
+                            closeBtn.setTextColor(subTextColor);
                             closeBtn.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
                             closeBtn.setGravity(Gravity.RIGHT);
                             closeBtn.setOnClickListener(new View.OnClickListener() {
                                 public void onClick(View v) {
-                                    if (player[0] != null) { try { player[0].stop(); player[0].release(); } catch(Throwable t){} }
+                                    // 停止播放并释放
+                                    if (player[0] != null) {
+                                        try { player[0].stop(); player[0].release(); } catch(Throwable t){}
+                                        player[0] = null;
+                                    }
+                                    // 停止进度更新
+                                    if (updateProgressTask[0] != null) {
+                                        uiHandler.removeCallbacks(updateProgressTask[0]);
+                                    }
                                     if (ref[0] != null) ref[0].dismiss();
                                 }
                             });
@@ -2885,7 +2953,13 @@ public void showExtractAudioDialog(Activity activity, Object data) {
                             ref[0] = builder.create();
                             ref[0].setOnDismissListener(new DialogInterface.OnDismissListener() {
                                 public void onDismiss(DialogInterface d) {
-                                    if (player[0] != null) { try { player[0].stop(); player[0].release(); } catch(Throwable t){} }
+                                    if (player[0] != null) {
+                                        try { player[0].stop(); player[0].release(); } catch(Throwable t){}
+                                        player[0] = null;
+                                    }
+                                    if (updateProgressTask[0] != null) {
+                                        uiHandler.removeCallbacks(updateProgressTask[0]);
+                                    }
                                 }
                             });
                             ref[0].show();
@@ -2899,7 +2973,6 @@ public void showExtractAudioDialog(Activity activity, Object data) {
         }
     });
 }
-
 
 /**
  * 创建通用信息行视图
@@ -3571,10 +3644,10 @@ public void 长按消息菜单(Activity activity, Object data) {
     final String finalNickName = nickName;
 
     addMenuItem(menuItems, "消息操作", "复制内容", new Runnable() { public void run() { showCopyConfirmDialog(activity, "消息内容", finalQuntext, isDark); } });
-    addMenuItem(menuItems, "消息操作", "复读加一", new Runnable() { public void run() { repeatMessage(finalMsgRecord, finalChatType, finalPeerUin); } });
+    addMenuItem(menuItems, "消息操作", "复读加一", new Runnable() { public void run() { 复读(data); } });
     addMenuItem(menuItems, "消息操作", "撤回消息", new Runnable() { public void run() { recallMsg(finalChatType, finalPeerUin, finalMsgid); qqToast(2, "撤回操作已执行"); } });
     addMenuItem(menuItems, "消息操作", "原始消息", new Runnable() { public void run() { showRawMessageDialog(finalMsgRecord); } });
-    addMenuItem(menuItems, "消息操作", "PB解析", new Runnable() { public void run() { showMsgDataPaeseDialog(activity, data); } });
+    addMenuItem(menuItems, "消息操作", "解析消息", new Runnable() { public void run() { showMsgDataPaeseDialog(activity, data); } });
     addMenuItem(menuItems, "消息操作", "提取音频", new Runnable() { public void run() { showExtractAudioDialog(activity, data); } });
 
     if (chatType == 2) {
@@ -3593,7 +3666,10 @@ public void 长按消息菜单(Activity activity, Object data) {
     }
 
     addMenuItem(menuItems, "互动功能", "为Ta点赞", new Runnable() { public void run() { showZanDialog(activity, finalUserUin); } });
-    addMenuItem(menuItems, "互动功能", "回应表情", new Runnable() { public void run() { showEmojiPickerDialog(activity, finalMsgRecord); } });
+    addMenuItem(menuItems, "互动功能", "回应表情", new Runnable() { public void run() { 
+    // showEmojiPickerDialog(activity, finalMsgRecord); 
+    Toast("敬请期待");
+    } });
     if (chatType == 2) {
         addMenuItem(menuItems, "互动功能", "艾特全体", new Runnable() { public void run() { sendMsg(finalPeerUin, "[atUin=0]", finalChatType); } });
         addMenuItem(menuItems, "互动功能", "艾特列表", new Runnable() { public void run() { showAtListDialog(finalAtList); } });
@@ -3602,12 +3678,13 @@ public void 长按消息菜单(Activity activity, Object data) {
 
     addMenuItem(menuItems, "工具", "加解密工具", new Runnable() { public void run() { showEncryptDecryptDialog(activity, finalQuntext); } });
     addMenuItem(menuItems, "工具", "执行代码", new Runnable() { public void run() { showCodeConsoleDialog(activity, data); } });
+    addMenuItem(menuItems, "工具", "发送pb", new Runnable() { public void run() { showPBSenderDialog(); } });
     addMenuItem(menuItems, "工具", "获取Cookie", new Runnable() { public void run() { showGetCookieDialog(activity, isDark); } });
     addMenuItem(menuItems, "工具", "群列表", new Runnable() { public void run() { showGroupListDialog(activity, isDark); } });
     addMenuItem(menuItems, "工具", "好友列表", new Runnable() { public void run() { showFriendListDialog(activity, isDark); } });
 
     addMenuItem(menuItems, "其他", "克隆头像", new Runnable() { public void run() { handleCloneAvatar(finalUserUin); } });
-    addMenuItem(menuItems, "其他", "上传头像", new Runnable() { public void run() { handleUploadAvatar(finalQuntext, finalMsgtype); } });
+    addMenuItem(menuItems, "其他", "上传头像", new Runnable() { public void run() { handleUploadAvatar(finalQuntext); } });
     if (chatType == 2) {
         addMenuItem(menuItems, "其他", "群打卡", new Runnable() { public void run() { boolean ok = CheckSign(finalPeerUin, myUin); qqToast(ok ? 2 : 1, ok ? "打卡成功" : "打卡失败"); } });
         addMenuItem(menuItems, "其他", "群字符", new Runnable() { public void run() { triggerLuckyCharacter(finalPeerUin); } });
@@ -5121,7 +5198,7 @@ void 显示菜单(final Activity activity) {
                         final LinearLayout itemLayout = new LinearLayout(activity);
                         itemLayout.setOrientation(LinearLayout.HORIZONTAL);
                         itemLayout.setGravity(Gravity.CENTER_VERTICAL);
-                        itemLayout.setPadding(dp(activity, 12), dp(activity, 2), dp(activity, 12), dp(activity, 2)); // COMPACT_PADDING_MID, COMPACT_PADDING_TINY
+                        itemLayout.setPadding(dp(activity, 12), dp(activity, 2), dp(activity, 12), dp(activity, 2));
                         itemLayout.setClickable(false);
 
                         if (isDarkMode) {
@@ -5143,7 +5220,7 @@ void 显示菜单(final Activity activity) {
                         iconView.setText(itemIcons[i]);
                         iconView.setTextSize(18);
                         iconView.setTextColor(colorInt);
-                        LinearLayout.LayoutParams iconParamsItem = new LinearLayout.LayoutParams(dp(activity, 28), dp(activity, 28)); // COMPACT_ICON_SIZE
+                        LinearLayout.LayoutParams iconParamsItem = new LinearLayout.LayoutParams(dp(activity, 28), dp(activity, 28));
                         iconParamsItem.gravity = Gravity.CENTER_VERTICAL;
                         iconView.setLayoutParams(iconParamsItem);
                         iconView.setGravity(Gravity.CENTER);
@@ -5290,11 +5367,11 @@ void 显示菜单(final Activity activity) {
                                     for (int j = 0; j < itemList.size(); j++) {
                                         final FrameLayout item = (FrameLayout) itemList.get(j);
                                         int indexDiff = Math.abs(j - index);
-                                        int pushDistance = dp(activity, 6) + (indexDiff * 2); // BASE_PUSH_DISTANCE + (indexDiff * 2)
-                                        if (pushDistance > dp(activity, 12)) pushDistance = dp(activity, 12); // MAX_PUSH_DISTANCE
+                                        int pushDistance = dp(activity, 6) + (indexDiff * 2);
+                                        if (pushDistance > dp(activity, 12)) pushDistance = dp(activity, 12);
 
                                         final float targetTransY = (j == index) ? 0f : (j < index ? -pushDistance : pushDistance);
-                                        final float targetScale = (j == index) ? 1.15f : 1.0f; // CLICK_SCALE
+                                        final float targetScale = (j == index) ? 1.15f : 1.0f;
 
                                         ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
                                         animator.setDuration(180);
@@ -5317,11 +5394,11 @@ void 显示菜单(final Activity activity) {
                                             for (int j = 0; j < itemList.size(); j++) {
                                                 final FrameLayout item = (FrameLayout) itemList.get(j);
                                                 int indexDiff = Math.abs(j - index);
-                                                int pushDistance = dp(activity, 6) + (indexDiff * 2); // BASE_PUSH_DISTANCE + (indexDiff * 2)
-                                                if (pushDistance > dp(activity, 12)) pushDistance = dp(activity, 12); // MAX_PUSH_DISTANCE
+                                                int pushDistance = dp(activity, 6) + (indexDiff * 2);
+                                                if (pushDistance > dp(activity, 12)) pushDistance = dp(activity, 12);
 
                                                 final float targetTransY = (j == index) ? 0f : (j < index ? -pushDistance : pushDistance);
-                                                final float targetScale = (j == index) ? 1.15f : 1.0f; // CLICK_SCALE
+                                                final float targetScale = (j == index) ? 1.15f : 1.0f;
 
                                                 ValueAnimator resetAnim = ValueAnimator.ofFloat(1f, 0f);
                                                 resetAnim.setDuration(150);
@@ -5391,13 +5468,13 @@ void 显示菜单(final Activity activity) {
 
                     Button cancelBtn = customDialog.getButton(DialogInterface.BUTTON_NEGATIVE);
                     if (cancelBtn != null) {
-                        cancelBtn.setMinHeight(dp(activity, 20)); // BTN_MIN_HEIGHT
+                        cancelBtn.setMinHeight(dp(activity, 20));
                         cancelBtn.setMinWidth(0);
-                        cancelBtn.setPadding(dp(activity, 12), dp(activity, 2), dp(activity, 12), dp(activity, 2)); // BTN_HORIZONTAL_PADDING, COMPACT_PADDING_TINY
+                        cancelBtn.setPadding(dp(activity, 12), dp(activity, 2), dp(activity, 12), dp(activity, 2));
                         cancelBtn.setTextColor(Color.parseColor(isDarkMode ? COLOR_PRIMARY : "#FF2196F3"));
 
                         ViewGroup.MarginLayoutParams btnLayoutParams = (ViewGroup.MarginLayoutParams) cancelBtn.getLayoutParams();
-                        btnLayoutParams.bottomMargin = dp(activity, 4); // BTN_BOTTOM_MARGIN
+                        btnLayoutParams.bottomMargin = dp(activity, 4);
                         btnLayoutParams.topMargin = 0;
                         btnLayoutParams.leftMargin = 0;
                         btnLayoutParams.rightMargin = 0;
@@ -5416,4 +5493,654 @@ void 显示菜单(final Activity activity) {
         OK = false;
         traceLog("api_log.txt", "显示菜单异常: " + e.getMessage());
     }
+}
+
+//非常花里胡哨的tips弹窗
+public void ts(Activity activity, String title, String content) {
+	if (activity == null || activity.isFinishing()) {
+		traceLog("api_log.txt", "Activity无效，无法显示弹窗");
+		return;
+	}
+	boolean isDark = isThemeDark(activity);
+
+	final String finalContent = content == null ? "" : content;
+	// 多颜色高亮数组（含#的行循环使用）
+	final int[] HIGHLIGHT_COLORS = {
+		Color.parseColor("#FF6B6B"), // 红色
+		// Color.parseColor("#4ECDC4"),   // 青色 太淡了不要了
+		Color.parseColor("#45B7D1"), // 蓝色
+		// Color.parseColor("#96CEB4"),   // 绿色 不好看也不要了
+		Color.parseColor("#DDA0DD") // 紫色
+	};
+	// 普通行颜色
+	final int NORMAL_LINE_COLOR = isDark ? Color.parseColor("#AAAAAA") : Color.parseColor("#666666");
+
+	activity.runOnUiThread(new Runnable() {
+		public void run() {
+			try {
+				vibrate(activity, 48);
+			} catch (Exception e) {
+				traceLog("api_log.txt", "震动执行异常: " + e.getMessage());
+			}
+			/* 根布局：圆角 + 55% 透明 */
+			GradientDrawable bg = new GradientDrawable();
+			bg.setColor(Color.parseColor(isDark ? UI_COLOR_BG_DARK : "#BFFFFFFF"));
+			bg.setCornerRadius(dp(activity, 16));
+
+			LinearLayout layout = new LinearLayout(activity);
+			layout.setPadding(dp(activity, 20), dp(activity, 20), dp(activity, 20), dp(activity, 20));
+			layout.setOrientation(LinearLayout.VERTICAL);
+
+			TextView textView = new TextView(activity);
+			textView.setTextSize(17);
+			textView.setTextIsSelectable(true);
+			textView.setSingleLine(false);
+			textView.setMaxLines(Integer.MAX_VALUE);
+			textView.setEllipsize(null);
+			// 默认文字颜色
+			textView.setTextColor(isDark ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT);
+
+			try {
+				if (!finalContent.isEmpty()) {
+					SpannableStringBuilder ssb = new SpannableStringBuilder();
+					String[] lines = finalContent.split("\n");
+					int highlightIndex = 0; // 仅计数含#的行
+
+					for (int i = 0; i < lines.length; i++) {
+						String line = lines[i];
+						SpannableString spannable = new SpannableString(line);
+						int targetColor = line.contains("#") ?
+							HIGHLIGHT_COLORS[highlightIndex++ % HIGHLIGHT_COLORS.length] :
+							NORMAL_LINE_COLOR;
+
+						spannable.setSpan(
+							new ForegroundColorSpan(targetColor),
+							0,
+							line.length(),
+							Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+						);
+
+						ssb.append(spannable);
+						if (i != lines.length - 1) {
+							ssb.append("\n");
+						}
+					}
+					textView.setText(ssb);
+				} else {
+					textView.setTextColor(NORMAL_LINE_COLOR);
+					textView.setText(finalContent);
+				}
+			} catch (Throwable e) {
+				traceLog("api_log.txt", "文本高亮处理异常: " + e.getMessage());
+				textView.setTextColor(NORMAL_LINE_COLOR);
+				textView.setText(finalContent);
+			}
+
+			layout.addView(textView);
+			ScrollView scrollView = new ScrollView(activity);
+			scrollView.addView(layout);
+
+			AlertDialog.Builder builder = new AlertDialog.Builder(activity,
+				isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
+			builder.setTitle(title);
+			builder.setView(scrollView);
+			builder.setPositiveButton("我知道了", new DialogInterface.OnClickListener() {
+				public void onClick(DialogInterface dialog, int which) {
+					try {
+						Toast("你知道啥了");
+						vibrate(activity, 48);
+					} catch (Exception e) {
+						traceLog("api_log.txt", "按钮点击异常: " + e.getMessage());
+					}
+				}
+			});
+			builder.setCancelable(false);
+
+			AlertDialog alertDialog = builder.create();
+			alertDialog.show();
+			
+            // 应用统一主题
+			applyUiTheme(activity, alertDialog);
+
+			// alertDialog.getWindow().setBackgroundDrawable(bg);
+
+			TextView titleView = (TextView) alertDialog.findViewById(android.R.id.title);
+			if (titleView != null) {
+				titleView.setTextSize(22);
+			}
+
+		}
+	});
+}
+
+loadJar(rootPath + "commonmark-0.21.0.jar");
+
+import org.commonmark.node.Node;
+import org.commonmark.parser.Parser;
+import org.commonmark.renderer.html.HtmlRenderer;
+
+
+public void mkts(Activity activity, String title, String markdownContent) {
+	if (activity == null || activity.isFinishing()) {
+		traceLog("api_log.txt", "Activity无效");
+		return;
+	}
+
+	final String finalMarkdown = markdownContent == null ? "" : markdownContent;
+	final boolean isDark = isThemeDark(activity);
+
+	ThreadPool.execute(new Runnable() {
+		public void run() {
+			try {
+				traceLog("api_log.txt", "开始解析，长度: " + finalMarkdown.length());
+
+				Parser parser = Parser.builder().build();
+				Node document = parser.parse(finalMarkdown);
+				HtmlRenderer renderer = HtmlRenderer.builder().build();
+				String htmlContent = renderer.render(document);
+
+				traceLog("api_log.txt", "解析成功，输出长度: " + htmlContent.length());
+
+				final String finalHtml = htmlContent;
+
+				traceLog("api_log.txt", "HTML片段: " + finalHtml.substring(0, Math.min(500, finalHtml.length())));
+
+				activity.runOnUiThread(new Runnable() {
+					public void run() {
+						createMarkdownDialog(activity, title, finalHtml, true, isDark);
+					}
+				});
+
+			} catch (Throwable e) {
+				traceLog("api_log.txt", "解析失败: " + e.getClass().getSimpleName() + " - " + e.getMessage());
+
+				final String fallbackHtml = generateFallbackHtml(finalMarkdown, isDark);
+
+				activity.runOnUiThread(new Runnable() {
+					public void run() {
+						createMarkdownDialog(activity, title, fallbackHtml, false, isDark);
+					}
+				});
+			}
+		}
+	});
+}
+
+private void createMarkdownDialog(final Activity activity, String title, String html, boolean parseSuccess, boolean isDark) {
+	try {
+		vibrate(activity, 48);
+	} catch (Exception e) {
+		traceLog("api_log.txt", "震动执行异常: " + e.getMessage());
+	}
+
+	GradientDrawable bg = new GradientDrawable();
+	bg.setColor(Color.parseColor(isDark ? UI_COLOR_BG_DARK : "#BFFFFFFF"));
+	bg.setCornerRadius(dp(activity, 16));
+
+	final String wrappedHtml = wrapHtmlWithCss(html, isDark);
+
+	WebView webView = new WebView(activity);
+
+	LinearLayout.LayoutParams webParams = new LinearLayout.LayoutParams(
+		LinearLayout.LayoutParams.MATCH_PARENT,
+		dp(activity, 800)
+	);
+	webView.setLayoutParams(webParams);
+
+	// 启用WebView原生滚动
+	webView.setVerticalScrollBarEnabled(true);
+	webView.setHorizontalScrollBarEnabled(true);
+	webView.setScrollContainer(true);
+
+	// webView.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+
+	// 透明背景
+	webView.setBackgroundColor(Color.TRANSPARENT);
+
+	webView.getSettings().setJavaScriptEnabled(false);
+	webView.getSettings().setDefaultTextEncodingName("UTF-8");
+
+	webView.setWebViewClient(new WebViewClient() {
+		public void onPageFinished(WebView view, String url) {
+			traceLog("api_log.txt", "页面加载完成，内容高度: " + view.getContentHeight());
+
+			view.post(new Runnable() {
+				public void run() {
+					view.requestLayout();
+					view.invalidate();
+				}
+			});
+		}
+
+		public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+			traceLog("api_log.txt", "加载失败: " + errorCode + " - " + description);
+		}
+	});
+
+	webView.loadDataWithBaseURL(null, wrappedHtml, "text/html", "UTF-8", null);
+
+	AlertDialog.Builder builder = new AlertDialog.Builder(activity,
+		isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
+	builder.setTitle(parseSuccess ? title : title + " (显示异常)");
+	builder.setView(webView);
+
+	builder.setPositiveButton("我知道了", new DialogInterface.OnClickListener() {
+		public void onClick(DialogInterface dialog, int which) {
+			try {
+				Toast("你知道啥了");
+				vibrate(activity, 48);
+			} catch (Exception e) {
+				traceLog("api_log.txt", "按钮点击异常: " + e.getMessage());
+			}
+		}
+	});
+	builder.setCancelable(false);
+
+	AlertDialog alertDialog = builder.create();
+	alertDialog.show();
+	
+    // 应用统一主题
+	applyUiTheme(activity, alertDialog);
+
+	TextView titleView = (TextView) alertDialog.findViewById(android.R.id.title);
+	if (titleView != null) {
+		titleView.setTextSize(22);
+	}
+
+	traceLog("api_log.txt", "Dialog显示成功，解析状态: " + parseSuccess);
+}
+
+//CSS
+private String wrapHtmlWithCss(String htmlContent, boolean isDark) {
+	String textColor = isDark ? "#EFEFEF" : "#333";
+	String bgColor = isDark ? "#2D2D2D" : "#f4f4f4";
+
+	return "<html><head>" +
+		"<meta charset='UTF-8'><style>" +
+		// 强制所有元素继承
+		"*{color:" + textColor + " !important;}" +
+		// body
+		"body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:8px;line-height:1.4;background:transparent;font-size:14px;}" +
+		// 块级元素样式
+		"pre{background:" + bgColor + " !important;padding:6px !important;border-radius:3px !important;overflow-x:auto !important;font-size:13px !important;}" +
+		"code{background:" + bgColor + " !important;padding:1px 3px !important;border-radius:2px !important;font-family:monospace !important;font-size:13px !important;}" +
+		"h1,h2,h3{margin:8px 0 4px 0 !important;font-weight:600 !important;}" +
+		"h1{font-size:18px !important;}h2{font-size:16px !important;}h3{font-size:15px !important;}" +
+		"p{margin:4px 0 !important;}" +
+		"ul,ol{padding-left:16px !important;margin:4px 0 !important;}" +
+		"li{margin:2px 0 !important;}" +
+		"</style></head><body>" + htmlContent + "</body></html>";
+}
+
+private String generateFallbackHtml(String markdown, boolean isDark) {
+	String escaped = escapeHtml(markdown);
+	String bgColor = isDark ? "#2D2D2D" : "#f4f4f4";
+	String textColor = isDark ? "#EFEFEF" : "#333";
+	return "<pre style='background:" + bgColor + ";padding:6px;border-radius:3px;overflow-x:auto;font-family:monospace;font-size:13px;color:" + textColor + ";'>" + escaped + "</pre>";
+}
+
+private String escapeHtml(String text) {
+	if (text == null) return "";
+	return text.replace("&", "&amp;")
+		.replace("<", "&lt;")
+		.replace(">", "&gt;")
+		.replace("\"", "&quot;")
+		.replace("'", "&#39;");
+}
+
+public interface GroupSelectCallback {
+    void onSelected(List selected);
+}
+
+/**
+ * 显示群组/好友选择对话框。
+ * <p>
+ * 根据指定的模式显示好友列表、群聊列表或两者的组合，支持多选、搜索、全选、反选等操作。
+ * 选择完成后通过回调返回选中的群号或好友QQ号列表。
+ * </p>
+ *
+ * @param act          当前 Activity，用于创建对话框
+ * @param mode         选择模式：
+ *                     <ul>
+ *                       <li>1 - 仅选择好友</li>
+ *                       <li>2 - 仅选择群聊</li>
+ *                       <li>3 - 选择好友和群聊（混合列表）</li>
+ *                     </ul>
+ * @param initSelected 初始已选中的项列表（元素为 String 类型的 QQ/群号），可为空
+ * @param callback     选择完成后的回调接口，{@link GroupSelectCallback#onSelected(List)} 
+ *                     会在用户点击“确定”时被调用，参数为最终选中的列表
+ */
+public void showGroupSelector(final Activity act, final int mode, final List initSelected, final GroupSelectCallback callback) {
+    final int COLOR_PRIMARY = Color.parseColor("#6750A4");
+    final int COLOR_ON_PRIMARY = Color.WHITE;
+    final int COLOR_SURFACE = Color.parseColor("#FFFFFF");
+    final int COLOR_SURFACE_VARIANT = Color.parseColor("#F5F7FA");
+    final int COLOR_OUTLINE = Color.parseColor("#79747E");
+    final int COLOR_ON_SURFACE = Color.parseColor("#FF000000");
+    final int COLOR_ON_SURFACE_VAR = Color.parseColor("#FF333333");
+
+    final Dialog d = new Dialog(act);
+    d.requestWindowFeature(Window.FEATURE_NO_TITLE);
+    Window w = d.getWindow();
+    if (w != null) w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+    w.setLayout(dp(act, 360), (int)(act.getResources().getDisplayMetrics().heightPixels * 0.85));
+
+    LinearLayout root = new LinearLayout(act);
+    root.setOrientation(LinearLayout.VERTICAL);
+    root.setBackground(createBg(act, COLOR_SURFACE, 28));
+    root.setPadding(dp(act, 20), dp(act, 20), dp(act, 20), dp(act, 20));
+
+    TextView title = new TextView(act);
+    title.setText(mode == 1 ? "选择好友" : mode == 2 ? "选择群聊" : "选择群聊与好友");
+    title.setTextSize(20);
+    title.setTypeface(null, Typeface.BOLD);
+    title.setTextColor(COLOR_ON_SURFACE);
+    root.addView(title);
+
+    final TextView summary = new TextView(act);
+    summary.setTextSize(14);
+    summary.setTextColor(COLOR_ON_SURFACE_VAR);
+    root.addView(summary);
+
+    EditText search = new EditText(act);
+    search.setHint("搜索群名称或群号");
+    search.setBackground(createInputBg(act, COLOR_SURFACE_VARIANT, COLOR_OUTLINE, COLOR_PRIMARY));
+    search.setPadding(dp(act, 16), dp(act, 12), dp(act, 16), dp(act, 12));
+    root.addView(search);
+
+    ListView lv = new ListView(act);
+    lv.setDivider(null);
+    lv.setDividerHeight(0);
+    root.addView(lv, new LinearLayout.LayoutParams(-1, 0, 1f));
+
+    LinearLayout row1 = new LinearLayout(act);
+    row1.setOrientation(LinearLayout.HORIZONTAL);
+    row1.setGravity(Gravity.END);
+    row1.setPadding(0, dp(act, 12), 0, dp(act, 8));
+    Button bCancelAll = makeSmallBtn(act, "取消全选", COLOR_PRIMARY);
+    row1.addView(bCancelAll);
+    Button bReverse = makeSmallBtn(act, "反选", COLOR_PRIMARY);
+    row1.addView(bReverse);
+    Button bSelectAll = makeSmallBtn(act, "全选", COLOR_PRIMARY);
+    row1.addView(bSelectAll);
+    root.addView(row1);
+
+    LinearLayout row2 = new LinearLayout(act);
+    row2.setOrientation(LinearLayout.HORIZONTAL);
+    row2.setGravity(Gravity.END);
+    row2.setPadding(0, dp(act, 8), 0, 0);
+    Button btnCancel = new Button(act);
+    btnCancel.setText("取消");
+    // btnCancel.setTextColor(COLOR_PRIMARY);
+    row2.addView(btnCancel);
+    Button btnConfirm = new Button(act);
+    btnConfirm.setText("确定");
+    // btnConfirm.setTextColor(COLOR_PRIMARY);
+    row2.addView(btnConfirm);
+    root.addView(row2);
+
+    d.setContentView(root);
+    d.show();
+
+    final List allItems = new ArrayList();
+
+    if (mode == 1 || mode == 3) {
+        List friendList = (List) getAllFriend();
+        for (Object obj : friendList) {
+            String displayName = (obj.remark != null && !obj.remark.isEmpty()) ? obj.remark : obj.name;
+            Map m = new HashMap();
+            m.put("uin", obj.uin);
+            m.put("name", displayName);
+            allItems.add(m);
+        }
+    }
+
+    if (mode == 2 || mode == 3) {
+        List groupList = (List) getGroupList();
+        for (Object obj : groupList) {
+            GroupInfo g = (GroupInfo) obj;
+            Map m = new HashMap();
+            m.put("uin", g.group);
+            m.put("name", g.groupName);
+            allItems.add(m);
+        }
+    }
+
+    if (allItems.isEmpty()) {
+        Map test = new HashMap();
+        test.put("uin", "000000");
+        test.put("name", "未获取到数据 (请检查权限)");
+        allItems.add(test);
+    }
+
+    final List display = new ArrayList();
+    final Set selected = new HashSet(initSelected);
+
+    for (Object o : allItems) {
+        Map m = (Map) o;
+        if (selected.contains(m.get("uin"))) display.add(m);
+    }
+    for (Object o : allItems) {
+        Map m = (Map) o;
+        if (!selected.contains(m.get("uin"))) display.add(m);
+    }
+
+    BaseAdapter adapter = new BaseAdapter() {
+        public int getCount() { return display.size(); }
+        public Object getItem(int p) { return display.get(p); }
+        public long getItemId(int p) { return p; }
+
+        public View getView(int pos, View cv, ViewGroup parent) {
+            LinearLayout item;
+            if (cv == null) {
+                item = new LinearLayout(act);
+                item.setOrientation(LinearLayout.HORIZONTAL);
+                item.setGravity(Gravity.CENTER_VERTICAL);
+                item.setPadding(dp(act, 12), dp(act, 12), dp(act, 12), dp(act, 12));
+            } else {
+                item = (LinearLayout) cv;
+                item.removeAllViews();
+            }
+
+            final Map m = (Map) display.get(pos);
+            final String uin = (String) m.get("uin");
+            final boolean isChecked = selected.contains(uin);
+
+            final FrameLayout checkContainer = new FrameLayout(act);
+            checkContainer.setLayoutParams(new LinearLayout.LayoutParams(dp(act, 28), dp(act, 28)));
+
+            final View box = new View(act);
+            final GradientDrawable bg = new GradientDrawable();
+            bg.setCornerRadius(dp(act, 6));
+            box.setBackground(bg);
+            checkContainer.addView(box);
+
+            final FrameLayout checkContent = new FrameLayout(act);
+            checkContent.setLayoutParams(new FrameLayout.LayoutParams(dp(act, 28), dp(act, 28)));
+
+            View checkLine1 = new View(act);
+            GradientDrawable line1Bg = new GradientDrawable();
+            line1Bg.setShape(GradientDrawable.RECTANGLE);
+            line1Bg.setCornerRadius(dp(act, 1));
+            line1Bg.setColor(Color.WHITE);
+            checkLine1.setBackground(line1Bg);
+            FrameLayout.LayoutParams lp1 = new FrameLayout.LayoutParams(dp(act, 3), dp(act, 8));
+            lp1.gravity = Gravity.CENTER;
+            lp1.leftMargin = dp(act, -6);
+            lp1.topMargin = dp(act, 4);
+            checkLine1.setLayoutParams(lp1);
+            checkLine1.setRotation(-45);
+            checkContent.addView(checkLine1);
+
+            View checkLine2 = new View(act);
+            GradientDrawable line2Bg = new GradientDrawable();
+            line2Bg.setShape(GradientDrawable.RECTANGLE);
+            line2Bg.setCornerRadius(dp(act, 1));
+            line2Bg.setColor(Color.WHITE);
+            checkLine2.setBackground(line2Bg);
+            FrameLayout.LayoutParams lp2 = new FrameLayout.LayoutParams(dp(act, 3), dp(act, 14));
+            lp2.gravity = Gravity.CENTER;
+            lp2.leftMargin = dp(act, 4);
+            lp2.topMargin = dp(act, -2);
+            checkLine2.setLayoutParams(lp2);
+            checkLine2.setRotation(45);
+            checkContent.addView(checkLine2);
+
+            checkContent.setVisibility(isChecked ? View.VISIBLE : View.GONE);
+            checkContainer.addView(checkContent);
+
+            if (isChecked) {
+                bg.setColor(COLOR_PRIMARY);
+                bg.setStroke(dp(act, 2), COLOR_PRIMARY);
+            } else {
+                bg.setColor(Color.TRANSPARENT);
+                bg.setStroke(dp(act, 2), COLOR_OUTLINE);
+            }
+
+            item.addView(checkContainer);
+
+            TextView tv = new TextView(act);
+            tv.setText(m.get("name") + " (" + uin + ")");
+            tv.setTextSize(16);
+            tv.setTextColor(COLOR_ON_SURFACE);
+            LinearLayout.LayoutParams tvLp = new LinearLayout.LayoutParams(0, -2, 1);
+            tvLp.leftMargin = dp(act, 12);
+            item.addView(tv, tvLp);
+
+            View.OnClickListener clickListener = new View.OnClickListener() {
+                public void onClick(View v) {
+                    if (selected.contains(uin)) {
+                        selected.remove(uin);
+                        bg.setColor(Color.TRANSPARENT);
+                        bg.setStroke(dp(act, 2), COLOR_OUTLINE);
+                        checkContent.setVisibility(View.GONE);
+                    } else {
+                        selected.add(uin);
+                        bg.setColor(COLOR_PRIMARY);
+                        bg.setStroke(dp(act, 2), COLOR_PRIMARY);
+                        checkContent.setVisibility(View.VISIBLE);
+                    }
+                    summary.setText("已选 " + selected.size() + " / 总 " + display.size());
+                }
+            };
+
+            item.setOnClickListener(clickListener);
+            checkContainer.setOnClickListener(clickListener);
+
+            return item;
+        }
+    };
+    lv.setAdapter(adapter);
+    summary.setText("已选 " + selected.size() + " / 总 " + display.size());
+
+    search.addTextChangedListener(new TextWatcher() {
+        public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+        public void onTextChanged(CharSequence s, int start, int before, int count) {}
+        public void afterTextChanged(Editable s) {
+            String q = s.toString().trim().toLowerCase();
+            display.clear();
+            for (Object o : allItems) {
+                Map m = (Map) o;
+                if (q.isEmpty() || ((String)m.get("name")).toLowerCase().contains(q) || ((String)m.get("uin")).contains(q)) {
+                    display.add(m);
+                }
+            }
+            adapter.notifyDataSetChanged();
+            summary.setText("已选 " + selected.size() + " / 总 " + display.size());
+        }
+    });
+
+    bCancelAll.setOnClickListener(new View.OnClickListener() {
+        public void onClick(View v) {
+            selected.clear();
+            adapter.notifyDataSetChanged();
+            summary.setText("已选 0 / 总 " + display.size());
+        }
+    });
+
+    bReverse.setOnClickListener(new View.OnClickListener() {
+        public void onClick(View v) {
+            Set temp = new HashSet(selected);
+            selected.clear();
+            for (Object o : display) {
+                Map m = (Map) o;
+                String u = (String) m.get("uin");
+                if (!temp.contains(u)) selected.add(u);
+            }
+            adapter.notifyDataSetChanged();
+            summary.setText("已选 " + selected.size() + " / 总 " + display.size());
+        }
+    });
+
+    bSelectAll.setOnClickListener(new View.OnClickListener() {
+        public void onClick(View v) {
+            for (Object o : display) {
+                Map m = (Map) o;
+                selected.add(m.get("uin"));
+            }
+            adapter.notifyDataSetChanged();
+            summary.setText("已选 " + selected.size() + " / 总 " + display.size());
+        }
+    });
+
+    btnCancel.setOnClickListener(new View.OnClickListener() {
+        public void onClick(View v) {
+            d.dismiss();
+        }
+    });
+
+    btnConfirm.setOnClickListener(new View.OnClickListener() {
+        public void onClick(View v) {
+            if (callback != null) callback.onSelected(new ArrayList(selected));
+            d.dismiss();
+        }
+    });
+}
+
+private Drawable createBg(Context ctx, int color, int radius) {
+    GradientDrawable gd = new GradientDrawable();
+    gd.setColor(color);
+    gd.setCornerRadius(dp(ctx, radius));
+    return gd;
+}
+
+private Drawable createRippleBg(Context ctx, int bgColor, int radius) {
+    GradientDrawable content = new GradientDrawable();
+    content.setColor(bgColor);
+    content.setCornerRadius(dp(ctx, radius));
+    return new RippleDrawable(ColorStateList.valueOf(Color.parseColor("#1A000000")), content, content);
+}
+
+private Drawable createButtonBg(Context ctx, int bgColor, int radius) {
+    GradientDrawable content = new GradientDrawable();
+    content.setColor(bgColor);
+    content.setCornerRadius(dp(ctx, radius));
+    return new RippleDrawable(ColorStateList.valueOf(Color.parseColor("#1AFFFFFF")), content, content);
+}
+
+private StateListDrawable createInputBg(Context ctx, int surfaceVariant, int outline, int primary) {
+    int r = dp(ctx, 12);
+    GradientDrawable normal = new GradientDrawable();
+    normal.setColor(surfaceVariant);
+    normal.setCornerRadius(r);
+    normal.setStroke(dp(ctx, 1), outline);
+    GradientDrawable focused = new GradientDrawable();
+    focused.setColor(surfaceVariant);
+    focused.setCornerRadius(r);
+    focused.setStroke(dp(ctx, 2), primary);
+    StateListDrawable sld = new StateListDrawable();
+    sld.addState(new int[]{android.R.attr.state_focused}, focused);
+    sld.addState(new int[]{}, normal);
+    return sld;
+}
+
+private Button makeSmallBtn(Context ctx, String text, int color) {
+    Button b = new Button(ctx);
+    b.setText(text);
+    b.setTextColor(color);
+    b.setBackground(createRippleBg(ctx, Color.TRANSPARENT, 20));
+    b.setMinHeight(dp(ctx, 40));
+    b.setPadding(dp(ctx, 16), dp(ctx, 8), dp(ctx, 16), dp(ctx, 8));
+    // 注意：此处省略了缩放动画，如需添加可自行实现
+    return b;
 }
