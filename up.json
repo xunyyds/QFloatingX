@@ -1,14 +1,12 @@
 {
-  "version": "2.3.1.1",
+  "version": "2.3.1.2",
   "versionType": "测试版",
   "updateType": "补丁",
-  "updateTime": "2026-03-01 01:55:55",
-  "changelog": "### **[v2.3.1.1] - 2026-03-01 01:55**\n- 修复双击消息功能中的点击加解密会报错的问题\n",
+  "updateTime": "2026-03-01 09:39:34",
+  "changelog": "### **[v2.3.1.2] - 2026-03-01 09:39**\n- 修复图标资源下载失败问题\n",
   "files": [
-    "QFloatingX\/API\/api5.java",
-    "QFloatingX\/desc.txt",
+    "QFloatingX\/API\/api.java",
     "QFloatingX\/info.prop",
     "QFloatingX\/更新日志.txt"
   ]
 }
-
