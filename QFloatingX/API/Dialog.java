@@ -618,9 +618,10 @@ public void showPaiDialog(Activity activity, String targetUin, String peerUin, i
  * @param activity Activity实例
  * @param originalText 原始文本
  */
-public void showEncryptDecryptDialog(Activity activity, String originalText) {
+public void showEncryptDecryptDialog(Activity activity, Object data) {
     if (activity == null || activity.isFinishing()) return;
     int MAX_LEN = 8000;
+    String originalText = data != null ? data.msg : "";
     boolean isTooLong = originalText != null && originalText.length() > MAX_LEN;
     String displayText = isTooLong ? originalText.substring(0, MAX_LEN) + "\n\n【文本过长，已截断显示】" : (originalText != null ? originalText : "");
 
@@ -680,8 +681,8 @@ public void showEncryptDecryptDialog(Activity activity, String originalText) {
                 input.setLayoutParams(inputParams);
                 root.addView(input);
 
-                String[] btnTags = new String[]{"base64_enc","base64_dec","hex_enc","hex_dec","unicode_enc","unicode_dec","url_enc","url_dec","caesar_enc","caesar_dec","aes_enc","aes_dec","des_enc","des_dec","binary","md5","sha256","xor","reverse","undo","redo","clear"};
-                String[] btnNames = new String[]{"Base64加密","Base64解密","转Hex","Hex转字符","转Unicode","Unicode还原","URL编码","URL解码","凯撒+3","凯撒-3","AES加密","AES解密","DES加密","DES解密","转二进制","MD5摘要","SHA256","XOR异或","文本倒序","↩撤销","↪重做","清空"};
+                String[] btnTags = new String[]{"base64_enc","base64_dec","hex_enc","hex_dec","unicode_enc","unicode_dec","url_enc","url_dec","caesar_enc","caesar_dec","aes_enc","aes_dec","des_enc","des_dec","binary","md5","sha256","xor","reverse","undo","redo","clear","send"};
+                String[] btnNames = new String[]{"Base64加密","Base64解密","转Hex","Hex转字符","转Unicode","Unicode还原","URL编码","URL解码","凯撒+3","凯撒-3","AES加密","AES解密","DES加密","DES解密","转二进制","MD5摘要","SHA256","XOR异或","文本倒序","↩撤销","↪重做","清空","发送结果"};
 
                 GridLayout btnGrid = new GridLayout(activity);
                 btnGrid.setColumnCount(3);
@@ -717,6 +718,21 @@ public void showEncryptDecryptDialog(Activity activity, String originalText) {
                             redoStack.clear();
                             input.setText("");
                             vibrate(activity, 20);
+                            return;
+                        }
+                        if ("send".equals(tag)) {
+                            String content = input.getText().toString();
+                            if (content.trim().isEmpty()) {
+                                Toast("请输入内容");
+                                return;
+                            }
+                            if (data != null && data.contact != null) {
+                                sendMsg(data.contact, content);
+                                Toast("已发送");
+                                vibrate(activity, 30);
+                            } else {
+                                Toast("发送失败：无法获取聊天对象");
+                            }
                             return;
                         }
                         if (cur.trim().isEmpty()) { Toast("请输入文本"); return; }
@@ -792,6 +808,9 @@ public void showEncryptDecryptDialog(Activity activity, String originalText) {
                     } else if ("undo".equals(btnTags[i]) || "redo".equals(btnTags[i])) {
                         btnBg.setStroke(dp(activity, 1), Color.parseColor("#FFB74D"));
                         btn.setTextColor(isDark ? Color.parseColor("#FFB74D") : Color.parseColor("#EF6C00"));
+                    } else if ("send".equals(btnTags[i])) {
+                        btnBg.setStroke(dp(activity, 1), Color.parseColor("#4CAF50"));
+                        btn.setTextColor(Color.parseColor("#4CAF50"));
                     } else {
                         btnBg.setStroke(dp(activity, 1), borderColor);
                     }
@@ -3676,7 +3695,7 @@ public void 长按消息菜单(Activity activity, Object data) {
     }
     addMenuItem(menuItems, "互动功能", "拍一拍", new Runnable() { public void run() { showPaiDialog(activity, finalUserUin, finalPeerUin, finalChatType); } });
 
-    addMenuItem(menuItems, "工具", "加解密工具", new Runnable() { public void run() { showEncryptDecryptDialog(activity, finalQuntext); } });
+    addMenuItem(menuItems, "工具", "加解密工具", new Runnable() { public void run() { showEncryptDecryptDialog(activity, data); } });
     addMenuItem(menuItems, "工具", "执行代码", new Runnable() { public void run() { showCodeConsoleDialog(activity, data); } });
     addMenuItem(menuItems, "工具", "发送pb", new Runnable() { public void run() { showPBSenderDialog(); } });
     addMenuItem(menuItems, "工具", "获取Cookie", new Runnable() { public void run() { showGetCookieDialog(activity, isDark); } });
