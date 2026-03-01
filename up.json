@@ -1,9 +1,13 @@
 {
   "version": "2.3.1.3",
-  "versionType": "正式版",
+  "versionType": "测试版",
   "updateType": "补丁",
-  "updateTime": "2026-03-01 12:47:50",
+  "updateTime": "2026-03-01 11:11:42",
+  "changelog": "### **[v2.3.1.3] - 2026-03-01 11:11**\n- 加解密工具新增发送结果\n",
   "files": [
-    "QFloatingX\/info.prop"
+    "QFloatingX\/API\/Dialog.java",
+    "QFloatingX\/API\/api.java",
+    "QFloatingX\/info.prop",
+    "QFloatingX\/更新日志.txt"
   ]
 }
