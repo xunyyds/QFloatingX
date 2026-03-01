@@ -3875,47 +3875,35 @@ void checkQFXUpdate() {
 }
 
 boolean checkAllIconsExist() {
-    traceLog("api_log.txt", "[checkAllIconsExist] ========== 开始检查 ==========");
-    
-    // 统一提取基础路径（处理所有可能带后缀的变量）
+
     String iconBase = extractBasePath(iconPath);
     String closeBase = extractBasePath(closeIconPath);
     String settingBase = extractBasePath(settingiconPath);
     
-    traceLog("api_log.txt", "[checkAllIconsExist] iconPath原始值='" + iconPath + "' | 基础路径='" + iconBase + "'");
-    traceLog("api_log.txt", "[checkAllIconsExist] closeIconPath原始值='" + closeIconPath + "' | 基础路径='" + closeBase + "'");
-    traceLog("api_log.txt", "[checkAllIconsExist] settingiconPath原始值='" + settingiconPath + "' | 基础路径='" + settingBase + "'");
-    
     // 检查icon
     if (!checkWithSuffixes(iconBase, new String[]{".png", ".gif"})) {
-        traceLog("api_log.txt", "[checkAllIconsExist] ❌ icon缺失: " + iconBase + ".(png|gif)");
         return false;
     }
     
     // 检查closeIcon
     if (!checkWithSuffixes(closeBase, new String[]{".png", ".gif"})) {
-        traceLog("api_log.txt", "[checkAllIconsExist] ❌ closeIcon缺失: " + closeBase + ".(png|gif)");
         return false;
     }
     
     // 检查settingIcon
     if (!checkWithSuffixes(settingBase, new String[]{".png", ".gif"})) {
-        traceLog("api_log.txt", "[checkAllIconsExist] ❌ settingIcon缺失: " + settingBase + ".(png|gif)");
         return false;
     }
     
     // 检查固定png文件
     if (!new java.io.File(pluginPath + "/API/黑.png").exists()) {
-        traceLog("api_log.txt", "[checkAllIconsExist] ❌ 缺失: " + pluginPath + "/API/黑.png");
         return false;
     }
     
     if (!new java.io.File(pluginPath + "/API/白.png").exists()) {
-        traceLog("api_log.txt", "[checkAllIconsExist] ❌ 缺失: " + pluginPath + "/API/白.png");
         return false;
     }
     
-    traceLog("api_log.txt", "[checkAllIconsExist] ✅ 全部存在 ==========");
     return true;
 }
 
@@ -3952,22 +3940,14 @@ boolean performDownloadAndUnzip() {
     final String tempZipPath = pluginPath + "/API/icon.zip";
     final String destDir = pluginPath + "/API/";
     
-    // traceLog("api_log.txt", "URL: " + downloadUrl);
-    // traceLog("api_log.txt", "临时文件: " + tempZipPath);
-    // traceLog("api_log.txt", "解压目录: " + destDir);
-    
-    // traceLog("api_log.txt", "开始下载...");
-    
     java.util.concurrent.FutureTask<Boolean> downloadTask = 
         new java.util.concurrent.FutureTask<Boolean>(
             new java.util.concurrent.Callable<Boolean>() {
                 public Boolean call() throws Exception {
                     return downloadFile(downloadUrl, tempZipPath, new ProgressCallback() {
                         public void onProgress(int progressVal) {
-                            // traceLog("api_log.txt", progressVal + "%");
                         }
                         public void onProgressTip(String tip) {
-                            // traceLog("api_log.txt", tip);
                         }
                     });
                 }
@@ -3979,20 +3959,14 @@ boolean performDownloadAndUnzip() {
     
     try {
         downloadResult = downloadTask.get(15000, java.util.concurrent.TimeUnit.MILLISECONDS).booleanValue();
-        // traceLog("api_log.txt", "下载结果: " + (downloadResult ? "成功" : "失败"));
     } catch (Throwable e) {
-        // traceLog("api_log.txt", "❌ 下载超时/异常: " + e.getMessage());
         downloadResult = false;
     }
     
-    // 下载失败直接返回
     if (!downloadResult) {
-        // traceLog("api_log.txt", "❌ 下载失败，终止流程");
         cleanupTempFile(tempZipPath);
         return false;
     }
-    
-    // traceLog("api_log.txt", "开始解压...");
     
     java.util.concurrent.FutureTask<Boolean> unzipTask = 
         new java.util.concurrent.FutureTask<Boolean>(
@@ -4000,11 +3974,9 @@ boolean performDownloadAndUnzip() {
                 public Boolean call() throws Exception {
                     return unzipFile(tempZipPath, destDir, new ProgressCallback() {
                         public void onProgress(int progressVal) {
-                            // traceLog("api_log.txt", progressVal + "%");
                         }
                         
                         public void onProgressTip(String tip) {
-                            // traceLog("api_log.txt", tip);
                         }
                     });
                 }
@@ -4016,13 +3988,11 @@ boolean performDownloadAndUnzip() {
     
     try {
         unzipResult = unzipTask.get(30000, java.util.concurrent.TimeUnit.MILLISECONDS).booleanValue();
-        // traceLog("api_log.txt", "解压结果: " + (unzipResult ? "成功" : "失败"));
     } catch (Throwable e) {
-        traceLog("api_log.txt", "❌ 解压超时/异常: " + e.getMessage());
+        traceLog("api_log.txt", " 解压超时/异常: " + e.getMessage());
         unzipResult = false;
     }
     
-    // 清理临时文件
     cleanupTempFile(tempZipPath);
     
     return unzipResult;
@@ -4036,7 +4006,6 @@ void cleanupTempFile(String tempPath) {
         java.io.File file = new java.io.File(tempPath);
         if (file.exists()) {
             boolean deleted = file.delete();
-            // traceLog("api_log.txt", tempPath + " | " + (deleted ? "删除成功" : "删除失败"));
         }
     } catch (Exception e) {
         traceLog("api_log.txt", "异常: " + e.getMessage());
@@ -4047,7 +4016,6 @@ void cleanupTempFile(String tempPath) {
  * 下载解压完成后二次验证
  */
 boolean verifyAfterDownload() {
-    // traceLog("api_log.txt", "下载解压完成后二次验证...");
     return checkAllIconsExist();
 }
 
@@ -4057,47 +4025,38 @@ boolean verifyAfterDownload() {
  * 只有检测到缺失时才提示"正在后台下载..."
  */
 void ensureResourceAvailable() {
-    // traceLog("api_log.txt", "pluginPath: " + pluginPath);
-    
-    // 检查文件是否存在
+
     boolean allExist = checkAllIconsExist();
     
     if (allExist) {
-        // traceLog("api_log.txt", "✅ 所有图标已存在，静默跳过");
         return;
     }
     
-    // 文件缺失，显示后台下载提示
     Toast("检测到图标文件缺失，正在为您后台下载中...");
     
-    // 在后台线程执行下载解压
     ThreadPool.execute(new Runnable() {
         public void run() {
             try {
-                // 执行下载解压
                 boolean success = performDownloadAndUnzip();
                 
                 if (success) {
-                    // 二次验证
                     final boolean verifyResult = verifyAfterDownload();
                     
                             if (verifyResult) {
                                 Toast("下载图标文件成功！");
-                                // traceLog("api_log.txt", "✅ 资源准备完成");
                             } else {
                                 Toast("下载完成，但文件验证失败");
-                                traceLog("api_log.txt", "⚠️ 资源下载但验证失败");
+                                traceLog("api_log.txt", "资源下载但验证失败");
                             }
                 } else {
                             Toast("图标文件下载失败，请检查网络");
-                            traceLog("api_log.txt", "❌ 资源准备失败");
+                            traceLog("api_log.txt", "资源准备失败");
                 }
                 
             } catch (Exception e) {
                 final String errorMsg = e.getMessage();
-                traceLog("api_log.txt", "❌ 致命异常: " + errorMsg);
-                
-                        Toast("图标文件准备失败: " + errorMsg);
+                traceLog("api_log.txt", " 致命异常: " + errorMsg);
+                Toast("图标文件准备失败: " + errorMsg);
             }
         }
     });
