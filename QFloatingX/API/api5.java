@@ -759,7 +759,9 @@ void showActionDialog(final Activity activity, final MsgData msgData, final Inte
         isDialogShowing = false;
         return;
     }
-
+    
+	final Object finaldata = msgData;
+	
     final String[] modeNames = new String[]{"复读", "多次复读", "作图", "加解密"};    
     final int[] currentModeIndex = new int[]{0};    
     final SpannableStringBuilder initSb = new SpannableStringBuilder();    
@@ -916,7 +918,7 @@ void showActionDialog(final Activity activity, final MsgData msgData, final Inte
                                     作图(activity, currentText);    
                                 } else if (mode == 3) {
                                     dialog.dismiss();    
-                                    showEncryptDecryptDialog(activity, currentText);    
+                                    showEncryptDecryptDialog(activity, finaldata);
                                 }    
                             }    
                         } else {
