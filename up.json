@@ -1,13 +1,15 @@
 {
-  "version": "2.3.1.3",
+  "version": "2.3.1.4",
   "versionType": "测试版",
   "updateType": "补丁",
-  "updateTime": "2026-03-01 11:11:42",
-  "changelog": "### **[v2.3.1.3] - 2026-03-01 11:11**\n- 加解密工具新增发送结果\n",
+  "updateTime": "2026-03-02 16:04:16",
+  "changelog": "- 改进pb发包,使用了@QFunDeveloper提供的发包工具",
   "files": [
+    "QFloatingX\/API\/api5.java",
     "QFloatingX\/API\/Dialog.java",
     "QFloatingX\/API\/api.java",
-    "QFloatingX\/info.prop",
-    "QFloatingX\/更新日志.txt"
+    "QFloatingX\/API\/api9.java",
+    "QFloatingX\/更新日志.txt",
+    "QFloatingX\/info.prop"
   ]
 }
