@@ -24,6 +24,7 @@ String extractValue(String pair, String prefix) {
     }
 }
 
+
 /**
  * 将角色标识转换为中文显示名称
  * @param role 角色标识
@@ -616,7 +617,7 @@ public void showPaiDialog(Activity activity, String targetUin, String peerUin, i
 /**
  * 显示加解密工具弹窗
  * @param activity Activity实例
- * @param originalText 原始文本
+ * @param data object对象
  */
 public void showEncryptDecryptDialog(Activity activity, Object data) {
     if (activity == null || activity.isFinishing()) return;
@@ -5778,7 +5779,6 @@ private String wrapHtmlWithCss(String htmlContent, boolean isDark) {
 		"<meta charset='UTF-8'><style>" +
 		// 强制所有元素继承
 		"*{color:" + textColor + " !important;}" +
-		// body
 		"body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:8px;line-height:1.4;background:transparent;font-size:14px;}" +
 		// 块级元素样式
 		"pre{background:" + bgColor + " !important;padding:6px !important;border-radius:3px !important;overflow-x:auto !important;font-size:13px !important;}" +
