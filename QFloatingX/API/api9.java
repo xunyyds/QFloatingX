@@ -704,7 +704,6 @@ public class PacketHelper {
     }
 }
 
-// ==================== UI弹窗代码 ====================
 
 import android.app.Activity;
 import android.app.Dialog;
@@ -772,13 +771,6 @@ TextView makeActionBtn(Activity ctx, String text, int textColor, int bgColor) {
     tv.setGravity(Gravity.CENTER);
     tv.setBackground(makeRoundRect(bgColor, dp(ctx, 8)));
     return tv;
-}
-
-/**
- * dp转px
- */
-int dp(Context ctx, int dp) {
-    return (int) (dp * ctx.getResources().getDisplayMetrics().density);
 }
 
 /**
@@ -1180,4 +1172,265 @@ void showPreviewDialog(Activity act, String service, String pbData) {
         dialog.getWindow().setLayout((int)(act.getResources().getDisplayMetrics().widthPixels * 0.85), -2);
     }
     dialog.show();
+}
+
+/**
+ * 发送指定表情回应（群聊）
+ *
+ * @param data      消息数据对象，包含群号、消息序号等信息
+ * @param faceIndex 表情ID（QQ表情编号）
+ */
+void sendSpecifiedFaceReply(Object data, int faceIndex) {
+    if (data == null || data.data == null || data.type != 2) {
+        qqToast(1, "仅支持群聊表情回应");
+        return;
+    }
+
+    String groupUin = String.valueOf(data.peerUin);
+    long msgSeq = (long) data.data.msgSeq;
+
+    if (Long.parseLong(groupUin) <= 0 || msgSeq <= 0) {
+        qqToast(1, "群号或Seq无效");
+        return;
+    }
+
+    try {
+        // Oidb请求结构说明：
+        // 1: 固定36994（命令字）
+        // 2: 固定1（服务类型）
+        // 4: 消息体
+        //   2: 群号
+        //   3: 消息序号
+        //   4: 表情ID（服务端要求字符串形式）
+        //   5: 固定1（操作类型）
+        //   6: 固定0
+        //   7: 固定0
+        // 12: 固定1（标志位）
+        String jsonStr = "{\"1\":36994,\"2\":1,\"4\":{\"2\":" + groupUin
+                + ",\"3\":" + msgSeq + ",\"4\":\"" + faceIndex
+                + "\",\"5\":1,\"6\":0,\"7\":0},\"12\":1}";
+
+        JSONObject json = new JSONObject(jsonStr);
+        FunProtoData proto = new FunProtoData();
+        proto.fromJSON(json);
+        byte[] pbData = proto.toBytes();
+
+        PacketHelper.sendRequest("OidbSvcTrpcTcp.0x9082_2", pbData, new IReceiver() {
+            public void onReceive(byte[] resp) {
+                if (resp != null) {
+                    // qqToast(2, "表情回应成功！");
+                } else {
+                    qqToast(1, "表情回应失败");
+                }
+            }
+        });
+
+    } catch (Exception e) {
+        qqToast(1, "发送异常: " + e.getMessage());
+    }
+}
+
+/**
+ * 随机选择一个表情进行回应
+ *
+ * @param data 消息数据对象
+ */
+void randomFaceReply(Object data) {
+    String cfg = getString("config", "face_reply_config", "1~200");
+    List faces = parseFaceConfig(cfg);
+
+    if (faces.isEmpty()) {
+        qqToast(1, "表情配置为空，请先设置");
+        showFaceReplyConfigDialog(data);
+        return;
+    }
+
+    int randomFace = (Integer) faces.get(new Random().nextInt(faces.size()));
+    sendSpecifiedFaceReply(data, randomFace);
+}
+
+/**
+ * 解析表情配置字符串
+ * <p>
+ * 支持格式：
+ * <ul>
+ *   <li>范围：如 "1~200" 表示1到200之间的所有整数</li>
+ *   <li>列表：如 "75,82,355,307" 表示指定表情ID</li>
+ * </ul>
+ *
+ * @param cfg 配置字符串
+ * @return 表情ID列表
+ */
+private List parseFaceConfig(String cfg) {
+    List list = new ArrayList();
+    cfg = cfg.trim();
+    if (cfg.contains("~")) {
+        String[] parts = cfg.split("~");
+        int min = Integer.parseInt(parts[0].trim());
+        int max = Integer.parseInt(parts[1].trim());
+        for (int i = Math.max(1, min); i <= Math.min(1000, max); i++) {
+            list.add(i);
+        }
+    } else {
+        for (String s : cfg.split(",")) {
+            String t = s.trim();
+            if (!t.isEmpty()) {
+                try {
+                    list.add(Integer.parseInt(t));
+                } catch (Exception ignored) {}
+            }
+        }
+    }
+    return list;
+}
+
+/**
+ * 显示表情回应配置弹窗
+ * <p>
+ * 展示发送者信息、消息预览，允许用户设置表情范围/列表
+ * 点击“保存并使用”后，立即按照配置依次发送表情
+ *
+ * @param data 消息数据对象
+ */
+void showFaceReplyConfigDialog(Object data) {
+    Activity act = getNowActivity();
+    if (act == null || act.isFinishing()) return;
+
+    String nick = (data.data != null && data.data.sendNickName != null)
+            ? (String) data.data.sendNickName : "未知昵称";
+    String qq = (data.userUin != null) ? (String) data.userUin : "未知QQ";
+    String msg = (data.msg != null) ? (String) data.msg : "";
+    if (msg.length() > 100) msg = msg.substring(0, 97) + "...";
+    String savedCfg = getString("config", "face_reply_config", "1~200");
+
+    act.runOnUiThread(new Runnable() {
+        public void run() {
+            try {
+                boolean isDark = isThemeDark(act);
+                int textColor = isDark ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT;
+                int subTextColor = isDark ? UI_COLOR_SUBTEXT_DARK : UI_COLOR_SUBTEXT_LIGHT;
+                int inputBgColor = isDark ? UI_COLOR_INPUT_BG_DARK : UI_COLOR_INPUT_BG_LIGHT;
+                int borderColor = adjustAlpha(textColor, 0.3f);
+
+                LinearLayout root = new LinearLayout(act);
+                root.setOrientation(LinearLayout.VERTICAL);
+                root.setPadding(dp(act, 16), dp(act, 20), dp(act, 16), dp(act, 16));
+
+                TextView senderInfo = new TextView(act);
+                senderInfo.setText("发送者：" + nick + "(" + qq + ")");
+                senderInfo.setTextSize(15);
+                senderInfo.setTextColor(textColor);
+                senderInfo.setPadding(0, 0, 0, dp(act, 8));
+                root.addView(senderInfo);
+
+                TextView msgPreview = new TextView(act);
+                msgPreview.setText("消息：" + msg);
+                msgPreview.setTextSize(14);
+                msgPreview.setTextColor(subTextColor);
+                msgPreview.setPadding(0, 0, 0, dp(act, 16));
+                root.addView(msgPreview);
+
+                TextView formatTitle = new TextView(act);
+                formatTitle.setText("支持格式");
+                formatTitle.setTextSize(12);
+                formatTitle.setTextColor(subTextColor);
+                formatTitle.setPadding(dp(act, 4), 0, 0, dp(act, 4));
+                root.addView(formatTitle);
+
+                TextView formatHint = new TextView(act);
+                formatHint.setText("• 范围：1~200\n• 列表：75,82,355,307");
+                formatHint.setTextSize(13);
+                formatHint.setTextColor(subTextColor);
+                formatHint.setPadding(dp(act, 4), 0, 0, dp(act, 12));
+                root.addView(formatHint);
+
+                final EditText input = new EditText(act);
+                input.setHint("输入表情范围或列表");
+                input.setHintTextColor(subTextColor);
+                input.setTextColor(textColor);
+                input.setTextSize(13);
+                input.setPadding(dp(act, 12), dp(act, 8), dp(act, 12), dp(act, 8));
+                input.setText(savedCfg);
+                input.setMinLines(2);
+                GradientDrawable inputBg = new GradientDrawable();
+                inputBg.setCornerRadius(dp(act, 6));
+                inputBg.setColor(inputBgColor);
+                inputBg.setStroke(dp(act, 1), borderColor);
+                input.setBackground(inputBg);
+                root.addView(input);
+
+                LinearLayout btnBox = new LinearLayout(act);
+                btnBox.setOrientation(LinearLayout.HORIZONTAL);
+                btnBox.setPadding(0, dp(act, 20), 0, 0);
+                btnBox.setGravity(Gravity.RIGHT);
+
+                TextView cancel = new TextView(act);
+                cancel.setText("取消");
+                cancel.setTextSize(14);
+                cancel.setTextColor(subTextColor);
+                cancel.setPadding(dp(act, 16), dp(act, 10), dp(act, 16), dp(act, 10));
+                cancel.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) {
+                        if (ref[0] != null) ref[0].dismiss();
+                    }
+                });
+
+                TextView confirm = new TextView(act);
+                confirm.setText("保存并使用");
+                confirm.setTextSize(14);
+                confirm.setTextColor(isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT);
+                confirm.setPadding(dp(act, 16), dp(act, 10), dp(act, 16), dp(act, 10));
+                confirm.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) {
+                        String newCfg = input.getText().toString().trim();
+                        if (newCfg.isEmpty()) newCfg = "1~200";
+                        putString("config", "face_reply_config", newCfg);
+                        qqToast(2, "配置已保存！正在发送表情...");
+
+                        List faces = parseFaceConfig(newCfg);
+                        if (faces.isEmpty()) {
+                            qqToast(1, "配置无效，无可用表情");
+                            if (ref[0] != null) ref[0].dismiss();
+                            return;
+                        }
+
+                        int maxSend = Math.min(faces.size(), 20);
+                        final List toSend = faces.subList(0, maxSend);
+                        if (ref[0] != null) ref[0].dismiss();
+
+                        ThreadPool.execute(new Runnable() {
+                            public void run() {
+                                for (int i = 0; i < toSend.size(); i++) {
+                                    int faceId = (Integer) toSend.get(i);
+                                    sendSpecifiedFaceReply(data, faceId);
+                                    try {
+                                        Thread.sleep(200);
+                                    } catch (InterruptedException ignored) {}
+                                }
+                                act.runOnUiThread(new Runnable() {
+                                    public void run() {
+                                        qqToast(2, "已发送 " + toSend.size() + " 个表情回应");
+                                    }
+                                });
+                            }
+                        });
+                    }
+                });
+
+                btnBox.addView(cancel);
+                btnBox.addView(confirm);
+                root.addView(btnBox);
+
+                AlertDialog.Builder builder = new AlertDialog.Builder(act,
+                        isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
+                builder.setView(root);
+                final AlertDialog[] ref = new AlertDialog[1];
+                ref[0] = builder.create();
+                ref[0].show();
+                applyUiTheme(act, ref[0]);
+            } catch (Throwable e) {
+                qqToast(1, "弹窗显示失败");
+            }
+        }
+    });
 }
