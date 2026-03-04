@@ -3686,10 +3686,7 @@ public void 长按消息菜单(Activity activity, Object data) {
     }
 
     addMenuItem(menuItems, "互动功能", "为Ta点赞", new Runnable() { public void run() { showZanDialog(activity, finalUserUin); } });
-    addMenuItem(menuItems, "互动功能", "回应表情", new Runnable() { public void run() { 
-    // showEmojiPickerDialog(activity, finalMsgRecord); 
-    Toast("敬请期待");
-    } });
+    addMenuItem(menuItems, "互动功能", "回应表情", new Runnable() { public void run() { showFaceReplyConfigDialog(data); } });
     if (chatType == 2) {
         addMenuItem(menuItems, "互动功能", "艾特全体", new Runnable() { public void run() { sendMsg(finalPeerUin, "[atUin=0]", finalChatType); } });
         addMenuItem(menuItems, "互动功能", "艾特列表", new Runnable() { public void run() { showAtListDialog(finalAtList); } });
