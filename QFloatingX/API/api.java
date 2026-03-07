@@ -353,147 +353,6 @@ public boolean CheckSign(String qun, String uin) {
     }
 }
 
-import com.tencent.mobileqq.app.ThreadManager;
-import com.tencent.mobileqq.troop.luckycharacter.api.impl.TroopLuckyCharacterHandler;
-import com.tencent.mobileqq.troop.luckycharacter.api.ITroopLuckyCharacterService;
-import com.tencent.mobileqq.data.troop.TroopInfo;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-
-void triggerLuckyCharacter(String groupUin) {
-    try {
-        TroopInfo troopInfo = findTroopInfo(groupUin);
-        if (troopInfo == null) {
-            qqToast(1, "无法获取群信息");
-            return;
-        }
-
-        Class<?> serviceClass = Class.forName("com.tencent.mobileqq.troop.luckycharacter.api.ITroopLuckyCharacterService", true, classLoader);
-        Object service = app.getRuntimeService(serviceClass);
-        if (service == null) {
-            qqToast(1, "Service 获取失败");
-            return;
-        }
-
-        Boolean support = (Boolean) safeInvoke(service, "isSupportLuckyCharacter", new Class[]{TroopInfo.class}, new Object[]{troopInfo}, "isSupport");
-        if (support == null || !support) {
-            qqToast(1, "该群未开启幸运字符功能");
-            return;
-        }
-
-        // 创建 Handler
-        TroopLuckyCharacterHandler handler = null;
-        try {
-            handler = new TroopLuckyCharacterHandler(app);
-            log("lucky_trigger.log", "✅ 使用带app构造器创建Handler");
-        } catch (Throwable e) {
-            try {
-                handler = new TroopLuckyCharacterHandler();
-                log("lucky_trigger.log", "使用无参构造器");
-            } catch (Throwable ignored) {}
-        }
-        if (handler == null) {
-            qqToast(1, "Handler 创建失败");
-            return;
-        }
-
-        // 超级注入：按类型注入所有 AppRuntime 字段（不管名字）
-        injectAllAppRuntimeFields(handler, app);
-
-        // 清状态（保留）
-        clearHandlerState(handler, groupUin);
-
-        log("lucky_trigger.log", "=== v5.1 超级注入版 开始连发 (3次) ===");
-
-        // 主线程连发
-        if (ThreadManager.getUIHandler() != null) {
-            ThreadManager.getUIHandler().post(() -> {
-                for (int i = 0; i < 3; i++) {
-                    try {
-                        Method u0 = TroopLuckyCharacterHandler.class.getDeclaredMethod("u0", String.class);
-                        u0.setAccessible(true);
-                        u0.invoke(handler, groupUin);
-                        log("lucky_trigger.log", "第 " + (i+1) + " 次 u0 ✅ 调用成功");
-                        qqToast(2, "第 " + (i+1) + "/3 次已发送\n");
-                        if (i < 2) try { Thread.sleep(800); } catch (Exception ignored) {}
-                    } catch (Throwable e) {
-                        log("lucky_trigger.log", "第 " + (i+1) + " 次失败: " + e.getMessage());
-                        qqToast(1, "第 " + (i+1) + " 次失败: " + e.getMessage());
-                    }
-                }
-            });
-        }
-
-    } catch (Throwable e) {
-        qqToast(1, "执行异常: " + e.getMessage());
-        log("lucky_trigger.log", "总异常: " + e);
-    }
-}
-
-// ==================== 超级注入（按类型注入所有可能的 AppRuntime） ====================
-private void injectAllAppRuntimeFields(Object handler, Object appRuntime) {
-    Class<?> clazz = handler.getClass();
-    int count = 0;
-    while (clazz != null && clazz != Object.class) {
-        for (Field f : clazz.getDeclaredFields()) {
-            f.setAccessible(true);
-            Class<?> ft = f.getType();
-            if (ft.isAssignableFrom(appRuntime.getClass()) || 
-                ft.getName().contains("AppRuntime") || 
-                ft.getName().contains("AppInterface")) {
-                
-                try {
-                    Object oldValue = f.get(handler);
-                    f.set(handler, appRuntime);
-                    count++;
-                    log("lucky_trigger.log", "超级注入成功 → " + clazz.getSimpleName() + "." + f.getName() 
-                        + " (原值类型: " + (oldValue == null ? "null" : oldValue.getClass().getSimpleName()) + ")");
-                } catch (Throwable e) {
-                    log("lucky_trigger.log", "注入 " + f.getName() + " 失败: " + e.getMessage());
-                }
-            }
-        }
-        clazz = clazz.getSuperclass();
-    }
-    log("lucky_trigger.log", "共成功注入 " + count + " 个 AppRuntime 字段");
-}
-
-// ==================== 清状态 ====================
-private void clearHandlerState(Object handler, String groupUin) {
-    Class<?> clazz = handler.getClass();
-    int cleared = 0;
-    while (clazz != null && clazz != Object.class) {
-        for (Field f : clazz.getDeclaredFields()) {
-            f.setAccessible(true);
-            String n = f.getName().toLowerCase();
-            if (n.contains("time") || n.contains("last") || n.contains("count") || 
-                n.contains("cache") || n.contains("flag") || n.contains("status") ||
-                n.contains("draw") || n.contains("lucky") || n.contains(groupUin)) {
-                try {
-                    Class<?> t = f.getType();
-                    if (t == long.class || t == Long.class) f.set(handler, 0L);
-                    else if (t == int.class || t == Integer.class) f.set(handler, 0);
-                    else if (t == boolean.class || t == Boolean.class) f.set(handler, false);
-                    else f.set(handler, null);
-                    cleared++;
-                    log("lucky_trigger.log", "清状态 → " + f.getName());
-                } catch (Throwable ignored) {}
-            }
-        }
-        clazz = clazz.getSuperclass();
-    }
-    log("lucky_trigger.log", "共清空 " + cleared + " 个状态字段");
-}
-
-// ==================== 安全调用 ====================
-private Object safeInvoke(Object target, String methodName, Class<?>[] paramTypes, Object[] args, String logTag) {
-    try {
-        Method m = target.getClass().getDeclaredMethod(methodName, paramTypes);
-        m.setAccessible(true);
-        return m.invoke(target, args);
-    } catch (Throwable ignored) { return null; }
-}
-
 /**
  * 发送高优先级通知到系统通知栏，支持点击回调代码执行和长文本展开
  */
@@ -2467,54 +2326,69 @@ double longitude = loc[0];
 double latitude = loc[1];
 
 private void showLocationDialog(Activity activity) {
-   vibrate(activity, 48);
-   boolean isDark = isThemeDark(activity);
-   int cornerRadius = dp(activity, 8);
+    vibrate(activity, 48);
+    boolean isDark = isThemeDark(activity);
+    int cornerRadius = dp(activity, 8);
 
-   LinearLayout layout = new LinearLayout(activity);
-   layout.setOrientation(LinearLayout.VERTICAL);
-   layout.setPadding(dp(activity, 20), dp(activity, 15), dp(activity, 20), dp(activity, 15));
-   layout.setGravity(Gravity.CENTER);
+    int textColor = isDark ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT;
+    int subTextColor = isDark ? UI_COLOR_SUBTEXT_DARK : UI_COLOR_SUBTEXT_LIGHT;
+    int inputBgColor = isDark ? UI_COLOR_INPUT_BG_DARK : UI_COLOR_INPUT_BG_LIGHT;
+    int borderColor = adjustAlpha(textColor, 0.3f);
 
-   final EditText etLocation = new EditText(activity);
-   etLocation.setHint("请输入格式：经度,纬度");
-   etLocation.setText(getLocationData());
-   etLocation.setInputType(android.text.InputType.TYPE_CLASS_NUMBER |
-   	android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL |
-   	android.text.InputType.TYPE_NUMBER_FLAG_SIGNED);
-   etLocation.setTextColor(isDark ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT);
-   etLocation.setPadding(dp(activity, 10), dp(activity, 10), dp(activity, 10), dp(activity, 10));
-   etLocation.setHintTextColor(isDark ? UI_COLOR_SUBTEXT_DARK : Color.GRAY);
-   LinearLayout.LayoutParams etParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 45));
-   layout.addView(etLocation, etParams);
+    GradientDrawable inputBg = new GradientDrawable();
+    inputBg.setCornerRadius(cornerRadius);
+    inputBg.setColor(inputBgColor);
+    inputBg.setStroke(dp(activity, 1), borderColor);
 
-   AlertDialog.Builder builder = new AlertDialog.Builder(activity,
-   	isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-   builder.setTitle("设置经纬度")
-   	.setView(layout)
-   	.setPositiveButton("保存", null)  // 占位，实际点击逻辑在show后设置
-   	.setNegativeButton("关闭", new DialogInterface.OnClickListener() {
-   		public void onClick(DialogInterface dialog, int which) {
-   			dialog.dismiss();
-   		}
-   	});
-   final AlertDialog dialog = builder.create();
-   dialog.show();
-   
-   applyUiTheme(activity, dialog);
-   
-   dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(new View.OnClickListener() {
-   	public void onClick(View v) {
-   		String input = etLocation.getText().toString().trim();
-   		if (input.contains(",")) {
-   			putString("经纬度", "经纬度", input);
-   			Toast("保存成功：" + input);
-   			dialog.dismiss();
-   		} else {
-   			Toast("格式错误！请输入 经度,纬度");
-   		}
-   	}
-   });
+    LinearLayout layout = new LinearLayout(activity);
+    layout.setOrientation(LinearLayout.VERTICAL);
+    layout.setPadding(dp(activity, 20), dp(activity, 15), dp(activity, 20), dp(activity, 15));
+    layout.setGravity(Gravity.CENTER);
+
+    final EditText etLocation = new EditText(activity);
+    etLocation.setHint("请输入格式：经度,纬度（例如：116.397,39.917）");
+    etLocation.setText(getLocationData());
+    etLocation.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
+    etLocation.setTextColor(textColor);
+    etLocation.setHintTextColor(subTextColor);
+    etLocation.setPadding(dp(activity, 12), dp(activity, 10), dp(activity, 12), dp(activity, 10));
+    etLocation.setBackground(inputBg);
+    LinearLayout.LayoutParams etParams = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 48));
+    layout.addView(etLocation, etParams);
+
+    AlertDialog.Builder builder = new AlertDialog.Builder(activity,
+            isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
+    builder.setTitle("设置经纬度")
+            .setView(layout)
+            .setPositiveButton("保存", null)
+            .setNegativeButton("关闭", new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialog, int which) {
+                    dialog.dismiss();
+                }
+            });
+    final AlertDialog dialog = builder.create();
+    dialog.show();
+
+    applyUiTheme(activity, dialog);
+
+    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(new View.OnClickListener() {
+        public void onClick(View v) {
+            String input = etLocation.getText().toString().trim();
+            if (input.contains(",")) {
+                String[] parts = input.split(",", -1);
+                if (parts.length == 2 && parts[0].length() > 0 && parts[1].length() > 0) {
+                    putString("经纬度", "经纬度", input);
+                    Toast("保存成功：" + input);
+                    dialog.dismiss();
+                } else {
+                    Toast("格式错误！逗号前后不能为空，例如：116.397,39.917");
+                }
+            } else {
+                Toast("格式错误！必须包含逗号，例如：116.397,39.917");
+            }
+        }
+    });
 }
 
 //控件打开动画
@@ -2744,37 +2618,38 @@ private void xToast(String text) {
 		root.setOrientation(LinearLayout.VERTICAL);
 		root.setPadding(dp(16), dp(12), dp(16), dp(12));
 		root.setGravity(Gravity.CENTER);
+		root.setClickable(false);
+		root.setFocusable(false);
 
 		GradientDrawable bg = new GradientDrawable();
-		bg.setColor(Color.parseColor(isDark ? "#D9333333" : "#8CE0E0E0")); // 暗色模式背景更深
+		bg.setColor(Color.parseColor(isDark ? "#D9333333" : "#8CE0E0E0"));
 		bg.setCornerRadius(dp(16));
 		root.setBackground(bg);
 
 		TextView tv = new TextView(context);
 		tv.setText(text);
-		tv.setTextSize(17); //toast的大小
+		tv.setTextSize(17);
 
 		int[] TOAST_TEXT_COLORS;
 		if (isDark) {
-			// 暗色模式下的Toast文字颜色 (更明亮)
 			TOAST_TEXT_COLORS = new int[] {
-				Color.parseColor("#FF5252"), // 亮红
-					Color.parseColor("#4DB6AC"), // 亮青
-					Color.parseColor("#448AFF"), // 亮蓝
-					Color.parseColor("#66BB6A"), // 亮绿
-					Color.parseColor("#AB47BC"), // 亮紫
-					Color.parseColor("#FF9800"), // 亮橙
-					Color.parseColor("#FFEE58") // 亮黄
+				Color.parseColor("#FF5252"),
+					Color.parseColor("#4DB6AC"),
+					Color.parseColor("#448AFF"),
+					Color.parseColor("#66BB6A"),
+					Color.parseColor("#AB47BC"),
+					Color.parseColor("#FF9800"),
+					Color.parseColor("#FFEE58")
 			};
 		} else {
 			TOAST_TEXT_COLORS = new int[] {
-				Color.parseColor("#C62828"), // 深红
-					Color.parseColor("#00695C"), // 深青
-					Color.parseColor("#1565C0"), // 深蓝
-					Color.parseColor("#2E7D32"), // 深绿
-					Color.parseColor("#6A1B9A"), // 深紫
-					Color.parseColor("#E65100"), // 深橙
-					Color.parseColor("#F57F17") // 深黄
+				Color.parseColor("#C62828"),
+					Color.parseColor("#00695C"),
+					Color.parseColor("#1565C0"),
+					Color.parseColor("#2E7D32"),
+					Color.parseColor("#6A1B9A"),
+					Color.parseColor("#E65100"),
+					Color.parseColor("#F57F17")
 			};
 		}
 
@@ -2817,12 +2692,10 @@ private void xToast(String text) {
 
 		root.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
 			public void onViewAttachedToWindow(View v) {
-				// Toast显示时，启动弹出动画
 				v.startAnimation(showAnim);
 			}
 
 			public void onViewDetachedFromWindow(View v) {
-				// Toast消失时，启动消失动画
 				v.startAnimation(dismissAnim);
 			}
 		});
@@ -2832,12 +2705,11 @@ private void xToast(String text) {
 		toast.setDuration(Toast.LENGTH_SHORT);
 		toast.setGravity(Gravity.BOTTOM, 0, dp(64));
 		toast.show();
-	} catch (e) {
+	} catch (Exception e) {
 		toast("" + text);
 		traceLog("api_log.txt", "" + e);
 	}
 }
-
 
 
 
@@ -2881,14 +2753,6 @@ boolean 应用状态() {
 		return false;
 	}
 }
-
-// // 辅助方法：圆角drawable方法
-// private GradientDrawable createRoundRectDrawable(Activity activity, int color, int radius) {
-// GradientDrawable drawable = new GradientDrawable();
-// drawable.setColor(color);
-// drawable.setCornerRadius(dp(activity, radius));
-// return drawable;
-// }
 
 import me.yxp.qfun.plugin.loader.PluginManager;
 import me.yxp.qfun.plugin.bean.PluginInfo;
