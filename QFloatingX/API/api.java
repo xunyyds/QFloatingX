@@ -1615,8 +1615,7 @@ void chatInterface(int chatType, String peerUin, String peerName) {
     } catch (Throwable e) {}
 
     boolean 输入框开关 = getBoolean("输入框", "输入框开关", false);
-    if (!输入框开关) return;
-
+    
     String 提示词模板 = getString("输入框", "提示词", "");
     if (提示词模板 == null || 提示词模板.trim().isEmpty()) {
         提示词模板 = "我是一个输入框提示～";
@@ -1627,10 +1626,12 @@ void chatInterface(int chatType, String peerUin, String peerName) {
     finalActivity.runOnUiThread(new Runnable() {
         public void run() {
             try {
-                int inputId = finalActivity.getResources().getIdentifier("input", "id", HostInfo.INSTANCE.getPackageName());
-                View inputView = finalActivity.findViewById(inputId);
-                if (inputView != null && inputView instanceof TextView) {
-                    ((TextView) inputView).setHint(final提示词);
+                if (输入框开关) {
+                    int inputId = finalActivity.getResources().getIdentifier("input", "id", HostInfo.INSTANCE.getPackageName());
+                    View inputView = finalActivity.findViewById(inputId);
+                    if (inputView != null && inputView instanceof TextView) {
+                        ((TextView) inputView).setHint(final提示词);
+                    }
                 }
 
                 View topView = findTopView(finalActivity);
