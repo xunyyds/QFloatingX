@@ -1847,7 +1847,7 @@ void showGroupInfoDialog(Activity activity, String groupUin, boolean isDark) {
                     } catch (Throwable ignored) {}
                     try {
                         String memo = String.valueOf(troopInfo.troopmemo);
-                        if (memo != null && !memo.isEmpty() && !memo.equals("null")) sb.append("\n群介绍:\n").append(memo).append("\n");
+                        if (memo != null && !memo.isEmpty() && !memo.equals("null")) sb.append("\n群公告:\n").append(memo).append("\n");
                     } catch (Throwable ignored) {}
                 } else {
                     sb.append("未能获取到群详细信息\n");
@@ -2121,7 +2121,7 @@ private void executeDownloadAndUpload(final String url, final String fileName,
                                     删除(savePath);
                                     traceLog("api_log.txt", "文件已删除");
                                 }
-                            }, 1000);
+                            }, 2500);
                         } else {
                             Toast("上传失败");
                             traceLog("api_log.txt", "上传失败");
@@ -2153,18 +2153,13 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
                 int inputBgColor = isDark ? UI_COLOR_INPUT_BG_DARK : UI_COLOR_INPUT_BG_LIGHT;
                 int borderColor = adjustAlpha(textColor, 0.3f);
 
-                GradientDrawable inputBg = new GradientDrawable();
-                inputBg.setCornerRadius(dp(activity, 8));
-                inputBg.setColor(inputBgColor);
-                inputBg.setStroke(dp(activity, 1), borderColor);
-
                 ScrollView scrollView = new ScrollView(activity);
                 LinearLayout root = new LinearLayout(activity);
                 root.setOrientation(LinearLayout.VERTICAL);
                 root.setPadding(dp(activity, 16), dp(activity, 20), dp(activity, 16), dp(activity, 16));
 
                 TextView titleView = new TextView(activity);
-                titleView.setText("QQ Cookie & 请求工具");
+                titleView.setText("Cookie & 请求工具");
                 titleView.setTextSize(18);
                 titleView.setTypeface(null, Typeface.BOLD);
                 titleView.setTextColor(textColor);
@@ -2173,7 +2168,6 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
 
                 final boolean[] isCkMode = new boolean[]{true};
 
-                // CK 模式布局
                 LinearLayout ckModeLayout = new LinearLayout(activity);
                 ckModeLayout.setOrientation(LinearLayout.HORIZONTAL);
                 ckModeLayout.setGravity(Gravity.CENTER_VERTICAL);
@@ -2186,7 +2180,11 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
                 domainEt.setTextColor(textColor);
                 domainEt.setTextSize(14);
                 domainEt.setPadding(dp(activity, 12), dp(activity, 10), dp(activity, 12), dp(activity, 10));
-                domainEt.setBackground(inputBg);
+                GradientDrawable domainBg = new GradientDrawable();
+                domainBg.setCornerRadius(dp(activity, 8));
+                domainBg.setColor(inputBgColor);
+                domainBg.setStroke(dp(activity, 1), borderColor);
+                domainEt.setBackground(domainBg);
                 domainEt.setMaxLines(1);
                 domainEt.setSingleLine(true);
                 domainEt.setMinHeight(dp(activity, 48));
@@ -2210,7 +2208,6 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
                 ckModeLayout.addView(postSwitchBtn);
                 root.addView(ckModeLayout);
 
-                // POST 模式布局
                 LinearLayout postModeLayout = new LinearLayout(activity);
                 postModeLayout.setOrientation(LinearLayout.VERTICAL);
                 postModeLayout.setVisibility(View.GONE);
@@ -2226,7 +2223,11 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
                 postUrlEt.setTextColor(textColor);
                 postUrlEt.setTextSize(14);
                 postUrlEt.setPadding(dp(activity, 12), dp(activity, 10), dp(activity, 12), dp(activity, 10));
-                postUrlEt.setBackground(inputBg);
+                GradientDrawable urlBg = new GradientDrawable();
+                urlBg.setCornerRadius(dp(activity, 8));
+                urlBg.setColor(inputBgColor);
+                urlBg.setStroke(dp(activity, 1), borderColor);
+                postUrlEt.setBackground(urlBg);
                 postUrlEt.setMaxLines(1);
                 postUrlEt.setSingleLine(true);
                 postUrlEt.setMinHeight(dp(activity, 48));
@@ -2256,7 +2257,11 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
                 postDataEt.setTextColor(textColor);
                 postDataEt.setTextSize(14);
                 postDataEt.setPadding(dp(activity, 12), dp(activity, 10), dp(activity, 12), dp(activity, 10));
-                postDataEt.setBackground(inputBg);
+                GradientDrawable dataBg = new GradientDrawable();
+                dataBg.setCornerRadius(dp(activity, 8));
+                dataBg.setColor(inputBgColor);
+                dataBg.setStroke(dp(activity, 1), borderColor);
+                postDataEt.setBackground(dataBg);
                 postDataEt.setMinLines(3);
                 postDataEt.setMaxLines(6);
                 postDataEt.setMinHeight(dp(activity, 100));
@@ -2268,7 +2273,6 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
 
                 root.addView(postModeLayout);
 
-                // 结果区域
                 LinearLayout resultCard = new LinearLayout(activity);
                 resultCard.setOrientation(LinearLayout.VERTICAL);
                 resultCard.setPadding(dp(activity, 12), dp(activity, 12), dp(activity, 12), dp(activity, 12));
@@ -2333,18 +2337,15 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
                     }
                 });
 
-                // CK 格式工具条
                 final LinearLayout ckFormatBar = new LinearLayout(activity);
                 ckFormatBar.setOrientation(LinearLayout.HORIZONTAL);
                 ckFormatBar.setPadding(0, dp(activity, 12), 0, 0);
 
-                // POST 工具条
                 final LinearLayout commonToolBar = new LinearLayout(activity);
                 commonToolBar.setOrientation(LinearLayout.HORIZONTAL);
                 commonToolBar.setPadding(0, dp(activity, 12), 0, 0);
                 commonToolBar.setVisibility(View.GONE);
 
-                // 存储最后一次获取的 CK 信息
                 class CKInfo {
                     String skey;
                     String pskey;
@@ -2354,9 +2355,7 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
                 }
                 final CKInfo[] ckInfo = new CKInfo[1];
 
-                // CK 格式按钮（始终可点击，若无数据则提示）
                 String[] ckFormats = {"JSON", "Header", "Curl", "Fetch"};
-                final TextView[] ckBtns = new TextView[4];
                 for (int i = 0; i < 4; i++) {
                     final int idx = i;
                     TextView btn = new TextView(activity);
@@ -2390,11 +2389,9 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
                             arrowIv.setImageDrawable(arrowD);
                         }
                     });
-                    ckBtns[i] = btn;
                     ckFormatBar.addView(btn);
                 }
 
-                // POST 工具条：复制 URL / 复制数据
                 String[] postTools = {"复制URL", "复制数据"};
                 for (int i = 0; i < postTools.length; i++) {
                     final String name = postTools[i];
@@ -2438,74 +2435,78 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
                 root.addView(ckFormatBar);
                 root.addView(commonToolBar);
 
-                // 获取CK按钮
                 getCkBtn.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
-                        if (isCkMode[0]) {
+                        try {
+                            if (!isCkMode[0]) {
+                                ckModeLayout.setVisibility(View.VISIBLE);
+                                postModeLayout.setVisibility(View.GONE);
+                                ckFormatBar.setVisibility(View.VISIBLE);
+                                commonToolBar.setVisibility(View.GONE);
+                                isCkMode[0] = true;
+                            }
                             String domain = domainEt.getText().toString().trim();
                             if (domain.isEmpty()) {
                                 Toast("请输入域名");
                                 return;
                             }
-                            try {
-                                final String qq = "3069670151";
-                                final String uin = "o" + qq;
-                                final String pUin = "o" + qq;
 
-                                String skey = getSkey();
-                                String pskey = getPskey(domain);
-                                String bkn = getBkn(skey);
+                            final String uin = "o" + qq;
+                            final String pUin = "o" + qq;
 
-                                final String fullCookie = "p_skey=" + pskey + "; skey=" + skey + "; uin=" + uin + "; p_uin=" + pUin;
+                            Object skeyObj = getSkey();
+                            String skey = skeyObj != null ? String.valueOf(skeyObj) : "";
+                            if (skey.isEmpty()) throw new Exception("skey为空");
 
-                                // 保存 CK 信息供格式按钮使用
-                                CKInfo info = new CKInfo();
-                                info.skey = skey;
-                                info.pskey = pskey;
-                                info.bkn = bkn;
-                                info.domain = domain;
-                                info.fullCookie = fullCookie;
-                                ckInfo[0] = info;
+                            Object pskeyObj = getPskey(domain);
+                            String pskey = pskeyObj != null ? String.valueOf(pskeyObj) : "";
+                            if (pskey.isEmpty()) throw new Exception("p_skey为空");
 
-                                StringBuilder base = new StringBuilder();
-                                base.append("域名: ").append(domain).append("\n");
-                                base.append("uin: ").append(uin).append("\n");
-                                base.append("p_uin: ").append(pUin).append("\n");
-                                base.append("skey: ").append(skey).append("\n");
-                                base.append("p_skey: ").append(pskey).append("\n");
-                                base.append("bkn: ").append(bkn).append("\n\n");
-                                base.append("完整Cookie:\n").append(fullCookie);
+                            Object bknObj = getBkn(skey);
+                            String bkn = bknObj != null ? String.valueOf(bknObj) : "";
+                            if (bkn.isEmpty()) throw new Exception("bkn为空");
 
-                                final String baseText = base.toString();
-                                currentResultText[0] = baseText;
+                            final String fullCookie = "p_skey=" + pskey + "; skey=" + skey + "; uin=" + uin + "; p_uin=" + pUin;
 
-                                resultBody.removeAllViews();
-                                TextView contentTv = new TextView(activity);
-                                contentTv.setText(baseText);
-                                contentTv.setTextSize(13);
-                                contentTv.setTextColor(isDark ? UI_COLOR_SUBTEXT_DARK : UI_COLOR_SUBTEXT_LIGHT);
-                                contentTv.setPadding(dp(activity, 8), dp(activity, 8), dp(activity, 8), dp(activity, 8));
-                                contentTv.setTextIsSelectable(true);
-                                resultBody.addView(contentTv);
+                            CKInfo info = new CKInfo();
+                            info.skey = skey;
+                            info.pskey = pskey;
+                            info.bkn = bkn;
+                            info.domain = domain;
+                            info.fullCookie = fullCookie;
+                            ckInfo[0] = info;
 
-                                resultScroll.setVisibility(View.VISIBLE);
-                                arrowD.setDirection(true);
-                                arrowIv.setImageDrawable(arrowD);
+                            StringBuilder base = new StringBuilder();
+                            base.append("域名: ").append(domain).append("\n");
+                            base.append("uin: ").append(uin).append("\n");
+                            base.append("p_uin: ").append(pUin).append("\n");
+                            base.append("skey: ").append(skey).append("\n");
+                            base.append("p_skey: ").append(pskey).append("\n");
+                            base.append("bkn: ").append(bkn).append("\n\n");
+                            base.append("完整Cookie:\n").append(fullCookie);
 
-                            } catch (Throwable e) {
-                                Toast("获取失败: " + e.getMessage());
-                            }
-                        } else {
-                            ckModeLayout.setVisibility(View.VISIBLE);
-                            postModeLayout.setVisibility(View.GONE);
-                            ckFormatBar.setVisibility(View.VISIBLE);
-                            commonToolBar.setVisibility(View.GONE);
-                            isCkMode[0] = true;
+                            final String baseText = base.toString();
+                            currentResultText[0] = baseText;
+
+                            resultBody.removeAllViews();
+                            TextView contentTv = new TextView(activity);
+                            contentTv.setText(baseText);
+                            contentTv.setTextSize(13);
+                            contentTv.setTextColor(isDark ? UI_COLOR_SUBTEXT_DARK : UI_COLOR_SUBTEXT_LIGHT);
+                            contentTv.setPadding(dp(activity, 8), dp(activity, 8), dp(activity, 8), dp(activity, 8));
+                            contentTv.setTextIsSelectable(true);
+                            resultBody.addView(contentTv);
+
+                            resultScroll.setVisibility(View.VISIBLE);
+                            arrowD.setDirection(true);
+                            arrowIv.setImageDrawable(arrowD);
+
+                        } catch (Throwable e) {
+                            Toast("获取CK失败: " + e.getMessage());
                         }
                     }
                 });
 
-                // POST切换/发送按钮
                 postSwitchBtn.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         if (isCkMode[0]) {
@@ -2514,46 +2515,10 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
                             ckFormatBar.setVisibility(View.GONE);
                             commonToolBar.setVisibility(View.VISIBLE);
                             isCkMode[0] = false;
-                        } else {
-                            String url = postUrlEt.getText().toString().trim();
-                            String data = postDataEt.getText().toString().trim();
-                            if (url.isEmpty()) {
-                                Toast("请输入POST URL");
-                                return;
-                            }
-                            if (!url.startsWith("http")) url = "https://" + url;
-
-                            try {
-                                String cookie = "p_skey=" + getPskey(domainEt.getText().toString().trim()) +
-                                        "; skey=" + getSkey() +
-                                        "; uin=o3069670151; p_uin=o3069670151";
-
-                                String result = httpPost(url, cookie, data);
-
-                                String display = "POST完整返回：\n\n" + (result.isEmpty() ? "(无返回内容)" : result);
-                                currentResultText[0] = display;
-
-                                resultBody.removeAllViews();
-                                TextView tv = new TextView(activity);
-                                tv.setText(display);
-                                tv.setTextSize(13);
-                                tv.setTextColor(isDark ? UI_COLOR_SUBTEXT_DARK : UI_COLOR_SUBTEXT_LIGHT);
-                                tv.setPadding(dp(activity, 8), dp(activity, 8), dp(activity, 8), dp(activity, 8));
-                                tv.setTextIsSelectable(true);
-                                resultBody.addView(tv);
-
-                                resultScroll.setVisibility(View.VISIBLE);
-                                arrowD.setDirection(true);
-                                arrowIv.setImageDrawable(arrowD);
-
-                            } catch (Throwable e) {
-                                Toast("POST失败: " + e.getMessage());
-                            }
                         }
                     }
                 });
 
-                // CK 模式切换按钮（POST布局中的“CK”按钮）
                 ckSwitchBtn.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         ckModeLayout.setVisibility(View.VISIBLE);
@@ -2564,7 +2529,6 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
                     }
                 });
 
-                // 请求按钮（POST布局中的“发送”）
                 sendPostBtn.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         if (!isCkMode[0]) {
@@ -2577,9 +2541,17 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
                             if (!url.startsWith("http")) url = "https://" + url;
 
                             try {
-                                String cookie = "p_skey=" + getPskey("https://" + domainEt.getText().toString().trim()) +
-                                        "; skey=" + getSkey() +
-                                        "; uin=o3069670151; p_uin=o3069670151";
+                                Object skeyObj = getSkey();
+                                String skey = skeyObj != null ? String.valueOf(skeyObj) : "";
+                                if (skey.isEmpty()) throw new Exception("skey为空");
+
+                                Object pskeyObj = getPskey(domainEt.getText().toString().trim());
+                                String pskey = pskeyObj != null ? String.valueOf(pskeyObj) : "";
+                                if (pskey.isEmpty()) throw new Exception("p_skey为空");
+
+                                String cookie = "p_skey=" + pskey +
+                                        "; skey=" + skey +
+                                        "; uin=o" +qq +" p_uin=o" +qq ;
 
                                 String result = httpPost(url, cookie, data);
 
@@ -2644,7 +2616,6 @@ class AudioBtnAdder {
         btnGrid.addView(btn);
     }
 
-    // 新增：创建带进度条的播放控制器
     View createAudioPlayer(Activity activity, final MediaPlayer[] player, int textColor, int inputBgColor, int borderColor,
                            final Handler uiHandler, final Runnable[] updateProgressTaskRef) {
         LinearLayout container = new LinearLayout(activity);
@@ -3704,9 +3675,9 @@ public void 长按消息菜单(Activity activity, Object data) {
     addMenuItem(menuItems, "其他", "上传头像", new Runnable() { public void run() { handleUploadAvatar(finalQuntext); } });
     if (chatType == 2) {
         addMenuItem(menuItems, "其他", "群打卡", new Runnable() { public void run() { boolean ok = CheckSign(finalPeerUin, myUin); qqToast(ok ? 2 : 1, ok ? "打卡成功" : "打卡失败"); } });
-        addMenuItem(menuItems, "其他", "群字符", new Runnable() { public void run() { triggerLuckyCharacter(finalPeerUin); } });
+        addMenuItem(menuItems, "其他", "群字符", new Runnable() { public void run() { drawLuckyChar(finalPeerUin); } });
     }
-
+    addMenuItem(menuItems, "其他", "悬浮窗菜单", new Runnable() { public void run() { 显示菜单(activity); } });
     final boolean[] isEditMode = new boolean[]{false};
     String savedOrder = getString("setting", "menuSort", "");
     
