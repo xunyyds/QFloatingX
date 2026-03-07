@@ -1,14 +1,12 @@
 {
-  "version": "2.3.1.6",
+  "version": "2.3.1.7",
   "versionType": "测试版",
   "updateType": "补丁",
-  "updateTime": "2026-03-07 10:46:24",
-  "changelog": "- 修正一处文本显示\n- 修复获取ck点击无反应\n- 回应表情支持在2个以上时设置间隔\n- 修复 经纬度输入框不能输入\",\"的问题\n- 修复Toast 会遮挡点击的问题",
+  "updateTime": "2026-03-07 22:46:22",
+  "changelog": "请加入我们！702227641\n- 新增一个悬浮窗菜单入口(聊天界面顶部标题栏空白处)\ntips:点击打开菜单,双击打开HotPlug管理,长按开关悬浮窗",
   "files": [
-    "QFloatingX\/API\/Dialog.java",
     "QFloatingX\/API\/api.java",
-    "QFloatingX\/API\/api9.java",
-    "QFloatingX\/desc.txt",
+    "QFloatingX\/main.java",
     "QFloatingX\/info.prop",
     "QFloatingX\/更新日志.txt"
   ]
