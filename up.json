@@ -1,12 +1,14 @@
 {
-  "version": "2.3.1.5",
+  "version": "2.3.1.6",
   "versionType": "测试版",
   "updateType": "补丁",
-  "updateTime": "2026-03-04 14:45:45",
-  "changelog": "- 新增 回应表情 (使用pb发包请求)",
+  "updateTime": "2026-03-07 10:46:24",
+  "changelog": "- 修正一处文本显示\n- 修复获取ck点击无反应\n- 回应表情支持在2个以上时设置间隔\n- 修复 经纬度输入框不能输入\",\"的问题\n- 修复Toast 会遮挡点击的问题",
   "files": [
     "QFloatingX\/API\/Dialog.java",
+    "QFloatingX\/API\/api.java",
     "QFloatingX\/API\/api9.java",
+    "QFloatingX\/desc.txt",
     "QFloatingX\/info.prop",
     "QFloatingX\/更新日志.txt"
   ]
