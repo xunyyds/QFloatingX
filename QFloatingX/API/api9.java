@@ -44,7 +44,7 @@ import com.google.protobuf.CodedOutputStream;
  *         if (data != null) {
  *             FunProtoData proto = new FunProtoData();
  *             proto.fromBytes(data);
- *             log("response.log", proto.toJSON().toString());
+ *             traceLog("response.log", proto.toJSON().toString());
  *         }
  *     }
  * });
@@ -104,7 +104,7 @@ public interface IReceiver {
  * FunProtoData proto = new FunProtoData();
  * proto.fromBytes(pbBytes);
  * JSONObject json = proto.toJSON();
- * log("pb.log", "解析结果: " + json.toString(2));
+ * traceLog("pb.log", "解析结果: " + json.toString(2));
  * 
  * 使用示例3 - 直接构建PB数据：
  * FunProtoData proto = new FunProtoData();
@@ -442,7 +442,7 @@ public class FunProtoData {
  *         if (data != null) {
  *             FunProtoData response = new FunProtoData();
  *             response.fromBytes(data);
- *             log("response.log", response.toJSON().toString());
+ *             traceLog("response.log", response.toJSON().toString());
  *         }
  *     }
  * });
@@ -665,7 +665,7 @@ public class PacketHelper {
             QQCurrentEnv.INSTANCE.getQQAppInterface().startServlet(intent);
             
         } catch (Exception e) {
-            log("packet_error.log", "发送请求失败: " + e.getMessage());
+            traceLog("packet_error.log", "发送请求失败: " + e.getMessage());
             receiver.onReceive(null);
         }
     }
@@ -695,32 +695,14 @@ public class PacketHelper {
             logContent.append("解析JSON:\n").append(json.toString(2)).append("\n");
             logContent.append("================================\n");
             
-            log("pb_received.log", logContent.toString());
+            traceLog("pb_received.log", logContent.toString());
             
         } catch (Exception e) {
-            log("pb_received.log", "解析PB数据失败: " + e.getMessage() + 
+            traceLog("pb_received.log", "解析PB数据失败: " + e.getMessage() + 
                 "\n原始HEX: " + bytesToHex(data));
         }
     }
 }
-
-
-import android.app.Activity;
-import android.app.Dialog;
-import android.content.Context;
-import android.graphics.Color;
-import android.graphics.drawable.ColorDrawable;
-import android.graphics.drawable.GradientDrawable;
-import android.view.Gravity;
-import android.view.View;
-import android.view.Window;
-import android.widget.EditText;
-import android.widget.FrameLayout;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
-import android.widget.TextView;
-
-import java.io.FileReader;
 
 /**
  * 创建圆角矩形背景Drawable
@@ -965,7 +947,7 @@ void showPBSenderDialog() {
                     logContent.append("JSON:\n").append(pbData).append("\n");
                     logContent.append("HEX: ").append(PacketHelper.bytesToHex(pbBytes)).append("\n");
                     logContent.append("================================\n");
-                    log("pb_sent.log", logContent.toString());
+                    traceLog("pb_sent.log", logContent.toString());
                     
                     // 发送
                     PacketHelper.sendRequest(service, pbBytes, new IReceiver() {
@@ -1286,8 +1268,7 @@ private List parseFaceConfig(String cfg) {
 
 /**
  * 显示表情回应配置弹窗
- * <p>
- * 展示发送者信息、消息预览，允许用户设置表情范围/列表
+ * 展示发送者信息、消息预览，允许用户设置表情范围/列表，发送间隔
  * 点击“保存并使用”后，立即按照配置依次发送表情
  *
  * @param data 消息数据对象
@@ -1302,6 +1283,7 @@ void showFaceReplyConfigDialog(Object data) {
     String msg = (data.msg != null) ? (String) data.msg : "";
     if (msg.length() > 100) msg = msg.substring(0, 97) + "...";
     String savedCfg = getString("config", "face_reply_config", "1~200");
+    String savedDelay = getString("config", "face_reply_delay", "200");
 
     act.runOnUiThread(new Runnable() {
         public void run() {
@@ -1309,8 +1291,10 @@ void showFaceReplyConfigDialog(Object data) {
                 boolean isDark = isThemeDark(act);
                 int textColor = isDark ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT;
                 int subTextColor = isDark ? UI_COLOR_SUBTEXT_DARK : UI_COLOR_SUBTEXT_LIGHT;
+                int accentColor = isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT;
                 int inputBgColor = isDark ? UI_COLOR_INPUT_BG_DARK : UI_COLOR_INPUT_BG_LIGHT;
                 int borderColor = adjustAlpha(textColor, 0.3f);
+                int errorColor = Color.parseColor("#FFE53935");
 
                 LinearLayout root = new LinearLayout(act);
                 root.setOrientation(LinearLayout.VERTICAL);
@@ -1359,6 +1343,45 @@ void showFaceReplyConfigDialog(Object data) {
                 input.setBackground(inputBg);
                 root.addView(input);
 
+                final TextView errorHint = new TextView(act);
+                errorHint.setTextSize(12);
+                errorHint.setTextColor(errorColor);
+                errorHint.setPadding(dp(act, 4), dp(act, 2), dp(act, 4), dp(act, 4));
+                errorHint.setVisibility(View.GONE);
+                root.addView(errorHint);
+
+                final LinearLayout delayLayout = new LinearLayout(act);
+                delayLayout.setOrientation(LinearLayout.HORIZONTAL);
+                delayLayout.setGravity(Gravity.CENTER_VERTICAL);
+                delayLayout.setPadding(0, dp(act, 8), 0, 0);
+                delayLayout.setVisibility(View.GONE);
+
+                TextView delayLabel = new TextView(act);
+                delayLabel.setText("间隔(毫秒):");
+                delayLabel.setTextSize(13);
+                delayLabel.setTextColor(subTextColor);
+                delayLabel.setPadding(0, 0, dp(act, 8), 0);
+                delayLayout.addView(delayLabel);
+
+                final EditText delayInput = new EditText(act);
+                delayInput.setHint("200");
+                delayInput.setHintTextColor(subTextColor);
+                delayInput.setTextColor(textColor);
+                delayInput.setTextSize(13);
+                delayInput.setPadding(dp(act, 8), dp(act, 4), dp(act, 8), dp(act, 4));
+                delayInput.setText(savedDelay);
+                delayInput.setSingleLine(true);
+                delayInput.setMinHeight(dp(act, 36));
+                delayInput.setLayoutParams(new LinearLayout.LayoutParams(dp(act, 100), LinearLayout.LayoutParams.WRAP_CONTENT));
+                GradientDrawable delayBg = new GradientDrawable();
+                delayBg.setCornerRadius(dp(act, 4));
+                delayBg.setColor(inputBgColor);
+                delayBg.setStroke(dp(act, 1), borderColor);
+                delayInput.setBackground(delayBg);
+                delayLayout.addView(delayInput);
+
+                root.addView(delayLayout);
+
                 LinearLayout btnBox = new LinearLayout(act);
                 btnBox.setOrientation(LinearLayout.HORIZONTAL);
                 btnBox.setPadding(0, dp(act, 20), 0, 0);
@@ -1375,17 +1398,79 @@ void showFaceReplyConfigDialog(Object data) {
                     }
                 });
 
-                TextView confirm = new TextView(act);
+                final TextView confirm = new TextView(act);
                 confirm.setText("保存并使用");
                 confirm.setTextSize(14);
-                confirm.setTextColor(isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT);
+                confirm.setTextColor(accentColor);
                 confirm.setPadding(dp(act, 16), dp(act, 10), dp(act, 16), dp(act, 10));
+                confirm.setEnabled(true);
+                confirm.setAlpha(1f);
+
+                btnBox.addView(cancel);
+                btnBox.addView(confirm);
+                root.addView(btnBox);
+
+                input.addTextChangedListener(new android.text.TextWatcher() {
+                    public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                    public void onTextChanged(CharSequence s, int start, int before, int count) {}
+                    public void afterTextChanged(android.text.Editable s) {
+                        String text = s.toString().trim();
+                        List faces = null;
+                        boolean valid = false;
+                        String errorMsg = null;
+
+                        try {
+                            faces = parseFaceConfig(text);
+                            if (faces != null && !faces.isEmpty()) {
+                                valid = true;
+                            } else {
+                                if (text.isEmpty()) {
+                                    errorMsg = "配置不能为空";
+                                } else if (!text.matches("[0-9~,\\s]+")) {
+                                    errorMsg = "只能包含数字、~ 和 ,";
+                                } else {
+                                    errorMsg = "无效配置，没有有效表情";
+                                }
+                                valid = false;
+                            }
+                        } catch (Exception e) {
+                            valid = false;
+                            errorMsg = "格式错误：" + e.getMessage();
+                        }
+
+                        GradientDrawable bg = (GradientDrawable) input.getBackground();
+                        if (valid) {
+                            bg.setStroke(dp(act, 1), borderColor);
+                            errorHint.setVisibility(View.GONE);
+                        } else {
+                            bg.setStroke(dp(act, 2), errorColor);
+                            errorHint.setText(errorMsg != null ? errorMsg : "格式错误");
+                            errorHint.setVisibility(View.VISIBLE);
+                        }
+                        input.setBackground(bg);
+
+                        if (valid && faces != null && faces.size() > 2) {
+                            delayLayout.setVisibility(View.VISIBLE);
+                        } else {
+                            delayLayout.setVisibility(View.GONE);
+                        }
+
+                        confirm.setEnabled(valid);
+                        confirm.setAlpha(valid ? 1f : 0.5f);
+                    }
+                });
+
+                input.setText(input.getText());
+
                 confirm.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
+                        if (!confirm.isEnabled()) {
+                            qqToast(1, "配置格式错误，请修改");
+                            return;
+                        }
                         String newCfg = input.getText().toString().trim();
                         if (newCfg.isEmpty()) newCfg = "1~200";
                         putString("config", "face_reply_config", newCfg);
-                        qqToast(2, "配置已保存！正在发送表情...");
 
                         List faces = parseFaceConfig(newCfg);
                         if (faces.isEmpty()) {
@@ -1396,30 +1481,65 @@ void showFaceReplyConfigDialog(Object data) {
 
                         int maxSend = Math.min(faces.size(), 20);
                         final List toSend = faces.subList(0, maxSend);
-                        if (ref[0] != null) ref[0].dismiss();
+                        final int faceCount = toSend.size();
 
-                        ThreadPool.execute(new Runnable() {
-                            public void run() {
-                                for (int i = 0; i < toSend.size(); i++) {
-                                    int faceId = (Integer) toSend.get(i);
-                                    sendSpecifiedFaceReply(data, faceId);
-                                    try {
-                                        Thread.sleep(200);
-                                    } catch (InterruptedException ignored) {}
-                                }
-                                act.runOnUiThread(new Runnable() {
+                        if (faceCount > 2 && delayLayout.getVisibility() == View.VISIBLE) {
+                            String delayStr = delayInput.getText().toString().trim();
+                            if (delayStr.isEmpty()) delayStr = "200";
+                            putString("config", "face_reply_delay", delayStr);
+
+                            try {
+                                final int delayMs = Integer.parseInt(delayStr);
+                                if (ref[0] != null) ref[0].dismiss();
+
+                                final int[] index = {0};
+
+                                Runnable sendNext = new Runnable() {
                                     public void run() {
-                                        qqToast(2, "已发送 " + toSend.size() + " 个表情回应");
+                                        if (index[0] >= faceCount) {
+                                            qqToast(2, "已发送 " + faceCount + " 个表情回应");
+                                            return;
+                                        }
+                                        final int currentIdx = index[0];
+                                        ThreadPool.execute(new Runnable() {
+                                            public void run() {
+                                                int faceId = (Integer) toSend.get(currentIdx);
+                                                sendSpecifiedFaceReply(data, faceId);
+                                                uiHandler.postDelayed(new Runnable() {
+                                                    public void run() {
+                                                        index[0]++;
+                                                        sendNext.run();
+                                                    }
+                                                }, delayMs);
+                                            }
+                                        });
                                     }
-                                });
+                                };
+                                sendNext.run();
+
+                            } catch (NumberFormatException e) {
+                                qqToast(1, "间隔格式错误");
                             }
-                        });
+                        } else {
+                            putString("config", "face_reply_delay", "200");
+                            if (ref[0] != null) ref[0].dismiss();
+
+                            ThreadPool.execute(new Runnable() {
+                                public void run() {
+                                    for (int i = 0; i < faceCount; i++) {
+                                        int faceId = (Integer) toSend.get(i);
+                                        sendSpecifiedFaceReply(data, faceId);
+                                    }
+                                    act.runOnUiThread(new Runnable() {
+                                        public void run() {
+                                            qqToast(2, "已发送 " + faceCount + " 个表情回应");
+                                        }
+                                    });
+                                }
+                            });
+                        }
                     }
                 });
-
-                btnBox.addView(cancel);
-                btnBox.addView(confirm);
-                root.addView(btnBox);
 
                 AlertDialog.Builder builder = new AlertDialog.Builder(act,
                         isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
@@ -1433,4 +1553,8 @@ void showFaceReplyConfigDialog(Object data) {
             }
         }
     });
+}
+
+public void drawqunLuckyChar(String qun) {
+        qqToast(1, "空壳");
 }
