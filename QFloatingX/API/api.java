@@ -1563,8 +1563,42 @@ String 替换变量占位符(String template, Object scriptScope) {
 
     return result;
 }
+View findTopView(Activity act) {
+    Resources res = act.getResources();
+    String pkg = HostInfo.INSTANCE.getPackageName();
 
-// ==================== 业务层 ====================
+    String[] idCandidates = {"1r2", "1p2", "zp0", "title", "action_bar", "header", "top_bar", "kk", "ll"};
+    for (int i = 0; i < idCandidates.length; i++) {
+        int id = res.getIdentifier(idCandidates[i], "id", pkg);
+        if (id != 0) {
+            View v = act.findViewById(id);
+            if (v != null) {
+                return v;
+            }
+        }
+    }
+
+    View decor = act.getWindow().getDecorView();
+    if (decor instanceof ViewGroup) {
+        ViewGroup root = (ViewGroup) decor;
+        int targetHeightPx = Math.round(37 * res.getDisplayMetrics().density);  // 37dp 转 px
+        for (int i = 0; i < root.getChildCount(); i++) {
+            View child = root.getChildAt(i);
+            if (child == null || child.getVisibility() != View.VISIBLE) continue;
+
+            int h = child.getHeight();
+            if (Math.abs(h - targetHeightPx) > 8) continue;
+
+            // 检查是否包含 R.id.ivTitleBtnLeft
+            int leftBtnId = res.getIdentifier("ivTitleBtnLeft", "id", pkg);
+            if (leftBtnId != 0 && child.findViewById(leftBtnId) != null) {
+                return child;
+            }
+        }
+    }
+
+    return null;
+}
 
 void chatInterface(int chatType, String peerUin, String peerName) {
     Activity activity = getNowActivity();
@@ -1575,11 +1609,11 @@ void chatInterface(int chatType, String peerUin, String peerName) {
     final Object scriptScope = this;
     
     try {
-    currentPeerUin = peerUin;
-    currentChatType = chatType;
-    dispatchEvent(peerUin, 5); 
+        currentPeerUin = peerUin;
+        currentChatType = chatType;
+        dispatchEvent(peerUin, 5); 
     } catch (Throwable e) {}
-        
+
     boolean 输入框开关 = getBoolean("输入框", "输入框开关", false);
     if (!输入框开关) return;
 
@@ -1594,16 +1628,92 @@ void chatInterface(int chatType, String peerUin, String peerName) {
         public void run() {
             try {
                 int inputId = finalActivity.getResources().getIdentifier("input", "id", HostInfo.INSTANCE.getPackageName());
-                View targetView = finalActivity.findViewById(inputId);
-                if (targetView != null && targetView instanceof TextView) {
-                    ((TextView) targetView).setHint(final提示词);
+                View inputView = finalActivity.findViewById(inputId);
+                if (inputView != null && inputView instanceof TextView) {
+                    ((TextView) inputView).setHint(final提示词);
                 }
-            } catch (Throwable e) {}
+
+                View topView = findTopView(finalActivity);
+
+                if (topView != null) {
+                    topView.setOnClickListener(null);
+
+                    final long[] lastDownTime = {0};
+                    final boolean[] longPressed = {false};
+                    final boolean[] hasMoved = {false};
+                    final float[] startX = {0};
+                    final float[] startY = {0};
+                    long lastClickTime = 0;
+
+                    topView.setOnTouchListener(new View.OnTouchListener() {
+                        public boolean onTouch(View v, MotionEvent event) {
+                            int action = event.getActionMasked();
+                            float x = event.getX();
+                            float y = event.getY();
+
+                            if (action == MotionEvent.ACTION_DOWN) {
+                                lastDownTime[0] = System.currentTimeMillis();
+                                longPressed[0] = false;
+                                hasMoved[0] = false;
+                                startX[0] = x;
+                                startY[0] = y;
+                                return true;
+                            }
+
+                            if (action == MotionEvent.ACTION_MOVE) {
+                                float dx = Math.abs(x - startX[0]);
+                                float dy = Math.abs(y - startY[0]);
+                                if (dx > 60 || dy > 60) {
+                                    hasMoved[0] = true;
+                                }
+                                return true;
+                            }
+
+                            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                                long now = System.currentTimeMillis();
+                                long duration = now - lastDownTime[0];
+
+                                if (hasMoved[0]) {
+                                    return false;
+                                }
+
+                                if (longPressed[0]) {
+                                    return true;
+                                }
+
+                                if (duration >= 420) {
+                                    悬浮窗开关(chatType, peerUin, peerName);
+                                    longPressed[0] = true;
+                                    return true;
+                                }
+
+                                if (now - lastClickTime < 360) {
+                                    showHotPlugMain(chatType, peerUin, peerName);
+                                    lastClickTime = 0;
+                                    return true;
+                                }
+
+                                lastClickTime = now;
+                                v.postDelayed(new Runnable() {
+                                    public void run() {
+                                        if (lastClickTime == now && !longPressed[0] && !hasMoved[0]) {
+                                            显示菜单(finalActivity);
+                                        }
+                                    }
+                                }, 380);
+
+                                return true;
+                            }
+
+                            return false;
+                        }
+                    });
+                }
+            } catch (Throwable e) {
+            }
         }
     });
 }
-
-// ==================== UI层 ====================
 
 void showInputDialog(final Activity activity) {
     if (activity == null || activity.isFinishing()) return;
