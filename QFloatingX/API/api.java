@@ -1567,7 +1567,7 @@ View findTopView(Activity act) {
     Resources res = act.getResources();
     String pkg = HostInfo.INSTANCE.getPackageName();
 
-    String[] idCandidates = {"1r2", "1p2", "zp0", "title", "action_bar", "header", "top_bar", "kk", "ll"};
+    String[] idCandidates = {"1r2", "1p2", "zp0"};
     for (int i = 0; i < idCandidates.length; i++) {
         int id = res.getIdentifier(idCandidates[i], "id", pkg);
         if (id != 0) {
@@ -1729,7 +1729,6 @@ void showInputDialog(final Activity activity) {
                 int subTextColor = isDark ? UI_COLOR_SUBTEXT_DARK : UI_COLOR_SUBTEXT_LIGHT;
                 int accentColor = isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT;
 
-                // 根布局
                 LinearLayout root = new LinearLayout(activity);
                 root.setOrientation(LinearLayout.VERTICAL);
                 root.setPadding(dp(activity, 16), dp(activity, 20), dp(activity, 16), dp(activity, 16));
