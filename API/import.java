@@ -354,7 +354,8 @@ import me.yxp.qfun.utils.hook.xpcompat.XC_MethodHook; // Xposed方法钩子兼�
 import me.yxp.qfun.utils.hook.xpcompat.XposedBridge; // Xposed桥接兼容层
 import me.yxp.qfun.utils.hook.xpcompat.XposedHelpers;
 import me.yxp.qfun.utils.hook.xpcompat.XC_MethodHook.MethodHookParam;
-
+import me.yxp.qfun.hook.api.OnAIOViewUpdate;
+import me.yxp.qfun.hook.api.AIOViewUpdateListener;
 import me.yxp.qfun.utils.qq.FriendTool; // 好友工具类
 import me.yxp.qfun.utils.qq.QQCurrentEnv; // QQ当前环境信息
 
