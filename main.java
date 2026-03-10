@@ -699,7 +699,7 @@ void 前台初始化(Activity currentActivity) {
             });
         }
     });
-	chatInterface(1, "666666", "请重新进入当前聊天");
+	// chatInterface(1, "666666", "请重新进入当前聊天");
     checkQFXUpdate();
 
     if (getBoolean("模拟定位开关", "模拟定位开关", false)) {
