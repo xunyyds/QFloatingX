@@ -1,11 +1,13 @@
 {
-  "version": "2.3.1.7.1",
+  "version": "2.3.1.7.2",
   "versionType": "测试版",
   "updateType": "补丁",
-  "updateTime": "2026-03-07 23:34:36",
-  "changelog": "- 修复输入框提示开关错误控制入口的问题",
+  "updateTime": "2026-03-10 11:46:09",
+  "changelog": "- 修复悬浮窗菜单偶现错误触发(没遇到的可以忽略更新)",
   "files": [
     "QFloatingX\/API\/api.java",
+    "QFloatingX\/API\/import.java",
+    "QFloatingX\/main.java",
     "QFloatingX\/info.prop",
     "QFloatingX\/更新日志.txt"
   ]
