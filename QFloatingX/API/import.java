@@ -430,8 +430,39 @@ import java.util.concurrent.FutureTask; // Future任务实现
 import java.util.concurrent.ThreadFactory; // 线程工厂接口
 import java.util.concurrent.ThreadPoolExecutor; // 线程池执行器
 import java.util.concurrent.TimeoutException; // 超时异常
+// 核心 Future 接口及基本实现
+import java.util.concurrent.Future;
+import java.util.concurrent.RunnableFuture;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.Callable;
 
+// 异步增强：CompletableFuture 及相关接口
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CompletionException;
 
+// 任务提交与执行器
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorCompletionService;
+
+// Fork/Join 框架中的 Future 实现
+import java.util.concurrent.ForkJoinTask;
+import java.util.concurrent.RecursiveTask;
+import java.util.concurrent.RecursiveAction;
+
+// 时间与异常类
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CancellationException;
+
+// 其他辅助类
+import java.util.concurrent.Delayed;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.RunnableScheduledFuture;
+import java.lang.CharSequence;
 // =============== 29. 线程与异步 - 线程池 ===============
 import java.util.concurrent.ArrayBlockingQueue; // 有界阻塞队列（数组实现）
 import java.util.concurrent.BlockingQueue; // 阻塞队列接口
