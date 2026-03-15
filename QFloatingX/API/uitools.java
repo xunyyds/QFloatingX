@@ -21,6 +21,8 @@ import android.renderscript.ScriptIntrinsicBlur;
 import android.view.*;
 import android.widget.*;
 import android.util.TypedValue;
+import android.animation.ValueAnimator;
+import android.animation.ArgbEvaluator;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -33,12 +35,35 @@ import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+
+/**
+ * View 标签系统常量 - 用于标记 View 的主题行为
+ */
+final String TAG_KEEP_ORIGINAL_COLOR = "keep_original_color";
+final String TAG_KEEP_ORIGINAL_BG = "keep_original_bg";
+final String TAG_SKIP_THEME = "skip_theme";
+final String TAG_CUSTOM_TEXT_COLOR = "custom_text_color";
+final String TAG_ANIMATION_DURATION = "animation_duration";
+final String TAG_SKIP_ANIMATION = "skip_animation";
+
+/**
+ * 动画过渡配置常量
+ */
+static final long DEFAULT_ANIMATION_DURATION = 300L;
+static final long COLOR_ANIMATION_DURATION = 250L;
+static final long BACKGROUND_ANIMATION_DURATION = 300L;
+
+/**
+ * 主题应用动画缓存
+ */
+static WeakHashMap<View, Long> viewAnimationDurations = new WeakHashMap<>();
+
 /**
  * 创建带按压反馈的圆角背景 Drawable
- * @param normalColor int: 常态颜色
- * @param pressedColor int: 按压颜色
- * @param r int: 圆角半径
- * @return StateListDrawable: 状态列表Drawable
+ * @param normalColor 常态颜色值
+ * @param pressedColor 按压状态颜色值
+ * @param r 圆角半径（像素）
+ * @return StateListDrawable 状态列表Drawable对象
  */
 StateListDrawable makeFeedbackBg(int normalColor, int pressedColor, int r) {
     StateListDrawable sld = new StateListDrawable();
@@ -55,9 +80,9 @@ StateListDrawable makeFeedbackBg(int normalColor, int pressedColor, int r) {
 
 /**
  * 调整颜色亮度
- * @param color int: 原色值
- * @param factor float: 调整系数 (0-1变暗, >1变亮)
- * @return int: 新颜色值
+ * @param color 原始颜色值
+ * @param factor 调整系数，0-1变暗，大于1变亮
+ * @return 调整后的颜色值
  */
 int adjustColor(int color, float factor) {
     int a = Color.alpha(color);
@@ -68,10 +93,20 @@ int adjustColor(int color, float factor) {
 }
 
 /**
+ * 调整颜色透明度
+ * @param color 原始颜色值
+ * @param factor 透明度因子，范围0-1
+ * @return 调整后的颜色值
+ */
+int adjustAlpha(int color, float factor) {
+    return Color.argb(Math.round(Color.alpha(color) * factor), Color.red(color), Color.green(color), Color.blue(color));
+}
+
+/**
  * 创建简单圆角背景
- * @param c int: 颜色
- * @param r int: 半径
- * @return GradientDrawable: 圆角Drawable
+ * @param c 背景颜色值
+ * @param r 圆角半径（像素）
+ * @return GradientDrawable 圆角Drawable对象
  */
 GradientDrawable roundRect(int c, int r) {
     GradientDrawable g = new GradientDrawable();
@@ -81,11 +116,11 @@ GradientDrawable roundRect(int c, int r) {
 }
 
 /**
- * 工厂：创建通用输入框
- * @param a Activity: 上下文
- * @param h String: 提示文本
- * @param bg int: 背景颜色
- * @return EditText: 输入框实例
+ * 创建通用输入框
+ * @param a Activity上下文
+ * @param h 提示文本
+ * @param bg 背景颜色值
+ * @return EditText 输入框实例
  */
 EditText makeInput(Activity a, String h, int bg) {
     int pressedBg = adjustColor(bg, 0.9f);
@@ -101,11 +136,11 @@ EditText makeInput(Activity a, String h, int bg) {
 }
 
 /**
- * 工厂：创建小型输入框（用于数字）
- * @param a Activity: 上下文
- * @param h String: 提示文本
- * @param bg int: 背景颜色
- * @return EditText: 输入框实例
+ * 创建小型数字输入框
+ * @param a Activity上下文
+ * @param h 提示文本
+ * @param bg 背景颜色值
+ * @return EditText 输入框实例
  */
 EditText makeSmallInput(Activity a, String h, int bg) {
     int pressedBg = adjustColor(bg, 0.9f);
@@ -124,11 +159,11 @@ EditText makeSmallInput(Activity a, String h, int bg) {
 }
 
 /**
- * 工厂：创建超小输入框（用于紧凑布局）
- * @param a Activity: 上下文
- * @param h String: 提示文本
- * @param bg int: 背景颜色
- * @return EditText: 输入框实例
+ * 创建超小输入框用于紧凑布局
+ * @param a Activity上下文
+ * @param h 提示文本
+ * @param bg 背景颜色值
+ * @return EditText 输入框实例
  */
 EditText makeTinyInput(Activity a, String h, int bg) {
     int pressedBg = adjustColor(bg, 0.9f);
@@ -147,12 +182,12 @@ EditText makeTinyInput(Activity a, String h, int bg) {
 }
 
 /**
- * 工厂：创建标签块
- * @param a Activity: 上下文
- * @param t String: 标签文本
- * @param s boolean: 是否选中
- * @param type int: 颜色样式类型
- * @return TextView: 标签视图
+ * 创建标签块视图
+ * @param a Activity上下文
+ * @param t 标签文本
+ * @param s 是否选中状态
+ * @param type 颜色样式类型，1为蓝色系，2为橙色系，其他为默认蓝色系
+ * @return TextView 标签视图实例
  */
 TextView makeChip(Activity a, String t, boolean s, int type) {
     TextView v = new TextView(a);
@@ -183,8 +218,8 @@ TextView makeChip(Activity a, String t, boolean s, int type) {
 
 /**
  * 更新标签视觉状态
- * @param v TextView: 标签视图
- * @param s boolean: 是否选中
+ * @param v 标签视图
+ * @param s 是否选中状态
  */
 void setChip(TextView v, boolean s) {
     int normalColor = s ? Color.parseColor("#3B71FE") : Color.parseColor("#F0F0F0");
@@ -194,10 +229,10 @@ void setChip(TextView v, boolean s) {
 }
 
 /**
- * 更新标签视觉状态（带类型）
- * @param v TextView: 标签视图
- * @param s boolean: 是否选中
- * @param type int: 样式类型
+ * 更新标签视觉状态带类型参数
+ * @param v 标签视图
+ * @param s 是否选中状态
+ * @param type 颜色样式类型
  */
 void setChipWithType(TextView v, boolean s, int type) {
     int normalColor, pressedColor;
@@ -213,11 +248,11 @@ void setChipWithType(TextView v, boolean s, int type) {
 }
 
 /**
- * 工厂：创建代码预设按钮
- * @param a Activity: 上下文
- * @param t String: 文本
- * @param textColor int: 字体颜色
- * @return TextView: 按钮视图
+ * 创建代码预设按钮
+ * @param a Activity上下文
+ * @param t 按钮文本
+ * @param textColor 文字颜色值
+ * @return TextView 按钮视图实例
  */
 TextView makePresetChip(Activity a, String t, int textColor) {
     TextView v = new TextView(a);
@@ -233,11 +268,11 @@ TextView makePresetChip(Activity a, String t, int textColor) {
 }
 
 /**
- * 工厂：创建开关按钮
- * @param a Activity: 上下文
- * @param o boolean: 是否开启
- * @param c int: 开启时的颜色
- * @return TextView: 按钮视图
+ * 创建开关按钮
+ * @param a Activity上下文
+ * @param o 是否开启状态
+ * @param c 开启时的颜色值
+ * @return TextView 按钮视图实例
  */
 TextView makeSwitch(Activity a, boolean o, int c) {
     TextView v = new TextView(a);
@@ -253,9 +288,9 @@ TextView makeSwitch(Activity a, boolean o, int c) {
 
 /**
  * 更新开关按钮状态
- * @param v TextView: 按钮视图
- * @param o boolean: 是否开启
- * @param c int: 开启时的颜色
+ * @param v 按钮视图
+ * @param o 是否开启状态
+ * @param c 开启时的颜色值
  */
 void setSwitch(TextView v, boolean o, int c) {
     v.setText(o ? "开" : "关");
@@ -265,12 +300,12 @@ void setSwitch(TextView v, boolean o, int c) {
 }
 
 /**
- * 工厂：创建大按钮
- * @param a Activity: 上下文
- * @param t String: 文本
- * @param tc int: 文本颜色
- * @param bg int: 背景颜色
- * @return TextView: 按钮视图
+ * 创建大按钮
+ * @param a Activity上下文
+ * @param t 按钮文本
+ * @param tc 文字颜色值
+ * @param bg 背景颜色值
+ * @return TextView 按钮视图实例
  */
 TextView makeBtn(Activity a, String t, int tc, int bg) {
     TextView v = new TextView(a);
@@ -286,12 +321,446 @@ TextView makeBtn(Activity a, String t, int tc, int bg) {
     return v;
 }
 
-
+/**
+ * 标记View保留原始颜色，主题系统不会修改其文字颜色
+ * @param view 目标View
+ */
+void setKeepOriginalColor(View view) {
+    if (view != null) {
+        view.setTag(TAG_KEEP_ORIGINAL_COLOR, true);
+    }
+}
 
 /**
- * 根据 MIME 类型获取文件扩展名
- * @param mimeType MIME 类型字符串
- * @return 文件扩展名，默认返回 .png
+ * 检查View是否标记为保留原始颜色
+ * @param view 目标View
+ * @return true表示应保留原始颜色
+ */
+boolean shouldKeepOriginalColor(View view) {
+    if (view == null) return false;
+    Object tag = view.getTag(TAG_KEEP_ORIGINAL_COLOR);
+    return tag != null && Boolean.TRUE.equals(tag);
+}
+
+/**
+ * 标记View保留原始背景，主题系统不会修改其背景
+ * @param view 目标View
+ */
+void setKeepOriginalBackground(View view) {
+    if (view != null) {
+        view.setTag(TAG_KEEP_ORIGINAL_BG, true);
+    }
+}
+
+/**
+ * 检查View是否标记为保留原始背景
+ * @param view 目标View
+ * @return true表示应保留原始背景
+ */
+boolean shouldKeepOriginalBackground(View view) {
+    if (view == null) return false;
+    Object tag = view.getTag(TAG_KEEP_ORIGINAL_BG);
+    return tag != null && Boolean.TRUE.equals(tag);
+}
+
+/**
+ * 标记View完全跳过主题处理
+ * @param view 目标View
+ */
+void setSkipTheme(View view) {
+    if (view != null) {
+        view.setTag(TAG_SKIP_THEME, true);
+    }
+}
+
+/**
+ * 检查View是否标记为跳过主题处理
+ * @param view 目标View
+ * @return true表示应跳过主题处理
+ */
+boolean shouldSkipTheme(View view) {
+    if (view == null) return false;
+    Object tag = view.getTag(TAG_SKIP_THEME);
+    return tag != null && Boolean.TRUE.equals(tag);
+}
+
+/**
+ * 为View设置自定义文本颜色，主题系统会使用此颜色
+ * @param view 目标View
+ * @param color 颜色值
+ */
+void setCustomTextColor(View view, int color) {
+    if (view != null) {
+        view.setTag(TAG_CUSTOM_TEXT_COLOR, color);
+    }
+}
+
+/**
+ * 获取View的自定义文本颜色
+ * @param view 目标View
+ * @param defaultColor 默认颜色值
+ * @return 自定义颜色或默认颜色
+ */
+int getCustomTextColor(View view, int defaultColor) {
+    if (view == null) return defaultColor;
+    Object tag = view.getTag(TAG_CUSTOM_TEXT_COLOR);
+    if (tag instanceof Integer) {
+        return (Integer) tag;
+    }
+    return defaultColor;
+}
+
+/**
+ * 标记View跳过动画过渡
+ * @param view 目标View
+ */
+void setSkipAnimation(View view) {
+    if (view != null) {
+        view.setTag(TAG_SKIP_ANIMATION, true);
+    }
+}
+
+/**
+ * 检查View是否标记为跳过动画
+ * @param view 目标View
+ * @return true表示应跳过动画
+ */
+boolean shouldSkipAnimation(View view) {
+    if (view == null) return false;
+    Object tag = view.getTag(TAG_SKIP_ANIMATION);
+    return tag != null && Boolean.TRUE.equals(tag);
+}
+
+/**
+ * 为View设置自定义动画时长
+ * @param view 目标View
+ * @param durationMs 动画时长（毫秒）
+ */
+void setAnimationDuration(View view, long durationMs) {
+    if (view != null) {
+        view.setTag(TAG_ANIMATION_DURATION, durationMs);
+        viewAnimationDurations.put(view, durationMs);
+    }
+}
+
+/**
+ * 获取View的动画时长
+ * @param view 目标View
+ * @return 动画时长（毫秒），默认为DEFAULT_ANIMATION_DURATION
+ */
+long getAnimationDuration(View view) {
+    if (view == null) return DEFAULT_ANIMATION_DURATION;
+    Object tag = view.getTag(TAG_ANIMATION_DURATION);
+    if (tag instanceof Long) {
+        return (Long) tag;
+    }
+    Long cached = viewAnimationDurations.get(view);
+    return cached != null ? cached : DEFAULT_ANIMATION_DURATION;
+}
+
+/**
+ * 文字颜色渐变动画
+ * @param textView 目标TextView
+ * @param fromColor 起始颜色值
+ * @param toColor 目标颜色值
+ * @param duration 动画时长（毫秒）
+ */
+void animateTextColor(final TextView textView, int fromColor, int toColor, long duration) {
+    if (textView == null || shouldSkipAnimation(textView)) {
+        if (textView != null) {
+            textView.setTextColor(toColor);
+        }
+        return;
+    }
+    
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+        final int finalToColor = toColor;
+        final long finalDuration = duration;
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            public void run() {
+                animateTextColor(textView, fromColor, finalToColor, finalDuration);
+            }
+        });
+        return;
+    }
+    
+    ValueAnimator colorAnim = ValueAnimator.ofObject(new ArgbEvaluator(), fromColor, toColor);
+    colorAnim.setDuration(duration);
+    colorAnim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+        public void onAnimationUpdate(ValueAnimator animator) {
+            try {
+                textView.setTextColor((Integer) animator.getAnimatedValue());
+            } catch (Exception e) {}
+        }
+    });
+    colorAnim.start();
+}
+
+/**
+ * 文字颜色渐变动画使用默认时长
+ * @param textView 目标TextView
+ * @param fromColor 起始颜色值
+ * @param toColor 目标颜色值
+ */
+void animateTextColor(TextView textView, int fromColor, int toColor) {
+    animateTextColor(textView, fromColor, toColor, COLOR_ANIMATION_DURATION);
+}
+
+/**
+ * 背景颜色渐变动画
+ * @param view 目标View
+ * @param fromColor 起始颜色值
+ * @param toColor 目标颜色值
+ * @param duration 动画时长（毫秒）
+ */
+void animateBackgroundColor(final View view, int fromColor, int toColor, long duration) {
+    if (view == null || shouldSkipAnimation(view)) {
+        if (view != null) {
+            view.setBackgroundColor(toColor);
+        }
+        return;
+    }
+    
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+        final int finalToColor = toColor;
+        final long finalDuration = duration;
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            public void run() {
+                animateBackgroundColor(view, fromColor, finalToColor, finalDuration);
+            }
+        });
+        return;
+    }
+    
+    ValueAnimator colorAnim = ValueAnimator.ofObject(new ArgbEvaluator(), fromColor, toColor);
+    colorAnim.setDuration(duration);
+    colorAnim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+        public void onAnimationUpdate(ValueAnimator animator) {
+            try {
+                view.setBackgroundColor((Integer) animator.getAnimatedValue());
+            } catch (Exception e) {}
+        }
+    });
+    colorAnim.start();
+}
+
+/**
+ * 背景颜色渐变动画使用默认时长
+ * @param view 目标View
+ * @param fromColor 起始颜色值
+ * @param toColor 目标颜色值
+ */
+void animateBackgroundColor(View view, int fromColor, int toColor) {
+    animateBackgroundColor(view, fromColor, toColor, BACKGROUND_ANIMATION_DURATION);
+}
+
+/**
+ * 背景Drawable过渡动画
+ * @param view 目标View
+ * @param newDrawable 新背景Drawable
+ * @param duration 过渡时长（毫秒）
+ */
+void animateBackgroundDrawable(final View view, final Drawable newDrawable, long duration) {
+    if (view == null) return;
+    
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+        final long finalDuration = duration;
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            public void run() {
+                animateBackgroundDrawable(view, newDrawable, finalDuration);
+            }
+        });
+        return;
+    }
+    
+    if (shouldSkipAnimation(view)) {
+        view.setBackground(newDrawable);
+        return;
+    }
+    
+    Drawable currentBg = view.getBackground();
+    
+    if (currentBg != null && newDrawable != null) {
+        TransitionDrawable transition = new TransitionDrawable(new Drawable[]{
+            currentBg,
+            newDrawable
+        });
+        view.setBackground(transition);
+        transition.startTransition((int) duration);
+    } else {
+        view.setBackground(newDrawable);
+    }
+}
+
+/**
+ * 背景Drawable过渡动画使用默认时长
+ * @param view 目标View
+ * @param newDrawable 新背景Drawable
+ */
+void animateBackgroundDrawable(View view, Drawable newDrawable) {
+    animateBackgroundDrawable(view, newDrawable, BACKGROUND_ANIMATION_DURATION);
+}
+
+/**
+ * View淡入动画
+ * @param view 目标View
+ * @param duration 动画时长（毫秒）
+ */
+void animateFadeIn(final View view, long duration) {
+    if (view == null) return;
+    
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+        final long finalDuration = duration;
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            public void run() {
+                animateFadeIn(view, finalDuration);
+            }
+        });
+        return;
+    }
+    
+    if (shouldSkipAnimation(view)) {
+        view.setAlpha(1f);
+        return;
+    }
+    
+    view.setAlpha(0f);
+    view.animate()
+        .alpha(1f)
+        .setDuration(duration)
+        .setListener(null)
+        .start();
+}
+
+/**
+ * View淡出动画
+ * @param view 目标View
+ * @param duration 动画时长（毫秒）
+ */
+void animateFadeOut(final View view, long duration) {
+    if (view == null) return;
+    
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+        final long finalDuration = duration;
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            public void run() {
+                animateFadeOut(view, finalDuration);
+            }
+        });
+        return;
+    }
+    
+    if (shouldSkipAnimation(view)) {
+        view.setAlpha(0f);
+        return;
+    }
+    
+    view.animate()
+        .alpha(0f)
+        .setDuration(duration)
+        .setListener(null)
+        .start();
+}
+
+/**
+ * View缩放弹入动画
+ * @param view 目标View
+ * @param duration 动画时长（毫秒）
+ */
+void animateScaleIn(final View view, long duration) {
+    if (view == null) return;
+    
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+        final long finalDuration = duration;
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            public void run() {
+                animateScaleIn(view, finalDuration);
+            }
+        });
+        return;
+    }
+    
+    if (shouldSkipAnimation(view)) {
+        view.setScaleX(1f);
+        view.setScaleY(1f);
+        return;
+    }
+    
+    view.setScaleX(0.8f);
+    view.setScaleY(0.8f);
+    view.animate()
+        .scaleX(1f)
+        .scaleY(1f)
+        .setDuration(duration)
+        .setListener(null)
+        .start();
+}
+
+/**
+ * 组合动画淡入加缩放
+ * @param view 目标View
+ * @param duration 动画时长（毫秒）
+ */
+void animateFadeScaleIn(final View view, long duration) {
+    if (view == null) return;
+    
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+        final long finalDuration = duration;
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            public void run() {
+                animateFadeScaleIn(view, finalDuration);
+            }
+        });
+        return;
+    }
+    
+    if (shouldSkipAnimation(view)) {
+        view.setAlpha(1f);
+        view.setScaleX(1f);
+        view.setScaleY(1f);
+        return;
+    }
+    
+    view.setAlpha(0f);
+    view.setScaleX(0.9f);
+    view.setScaleY(0.9f);
+    view.animate()
+        .alpha(1f)
+        .scaleX(1f)
+        .scaleY(1f)
+        .setDuration(duration)
+        .setListener(null)
+        .start();
+}
+
+/**
+ * 批量动画对多个View执行淡入动画带延迟
+ * @param views View列表
+ * @param duration 单个动画时长（毫秒）
+ * @param delayBetween 每个动画之间的延迟（毫秒）
+ */
+void animateFadeInSequence(final List views, long duration, long delayBetween) {
+    if (views == null || views.isEmpty()) return;
+    
+    new Handler(Looper.getMainLooper()).post(new Runnable() {
+        public void run() {
+            for (int i = 0; i < views.size(); i++) {
+                final View view = (View) views.get(i);
+                final int index = i;
+                new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                    public void run() {
+                        animateFadeIn(view, duration);
+                    }
+                }, index * delayBetween);
+            }
+        }
+    });
+}
+
+/**
+ * 根据MIME类型获取文件扩展名
+ * @param mimeType MIME类型字符串
+ * @return 文件扩展名，默认返回.png
  */
 String getExtensionFromMimeType(String mimeType) {
     if (mimeType == null) return ".png";
@@ -300,10 +769,10 @@ String getExtensionFromMimeType(String mimeType) {
 }
 
 /**
- * 从 Uri 加载 Bitmap
- * @param activity 当前 Activity
- * @param uri 图片 URI
- * @return 解码后的 Bitmap，失败返回 null
+ * 从Uri加载Bitmap
+ * @param activity 当前Activity
+ * @param uri 图片URI
+ * @return 解码后的Bitmap，失败返回null
  */
 Bitmap loadBitmapFromUri(Activity activity, Uri uri) {
     try {
@@ -316,8 +785,8 @@ Bitmap loadBitmapFromUri(Activity activity, Uri uri) {
 /**
  * 获取压缩预览图
  * @param src 源图片
- * @param quality 压缩质量 (0-100)
- * @return 压缩后的 Bitmap
+ * @param quality 压缩质量0-100
+ * @return 压缩后的Bitmap
  */
 Bitmap getCompressedPreview(Bitmap src, int quality) {
     if (quality >= 100 || src == null) return src;
@@ -330,12 +799,12 @@ Bitmap getCompressedPreview(Bitmap src, int quality) {
 }
 
 /**
- * 创建棋盘格背景 Drawable（用于透明图片展示）
+ * 创建棋盘格背景Drawable用于透明图片展示
  * @param context 上下文
- * @return 棋盘格 BitmapDrawable
+ * @return 棋盘格BitmapDrawable
  */
 BitmapDrawable getCheckerboardDrawable(Context context) {
-    int size = dp(context, 20); // 格子大小
+    int size = dp(context, 20);
     Bitmap b = Bitmap.createBitmap(size * 2, size * 2, Bitmap.Config.ARGB_8888);
     Canvas c = new Canvas(b);
     Paint p = new Paint();
@@ -350,9 +819,8 @@ BitmapDrawable getCheckerboardDrawable(Context context) {
     return drawable;
 }
 
-
 /**
- * 支持手势缩放和点击切换背景的 ImageView
+ * 支持手势缩放和点击切换背景的ImageView
  */
 class ZoomImageView extends ImageView {
     public Matrix matrix = new Matrix();
@@ -360,10 +828,15 @@ class ZoomImageView extends ImageView {
     private float startDistance = 0f;
     private float midX = 0f, midY = 0f;
     private float lastX = 0f, lastY = 0f;
-    private int mode = 0; // 模式：1=拖拽，2=缩放
-    private View rootLayout; // 根布局
-    private int bgIndex = 0; // 背景索引
+    private int mode = 0;
+    private View rootLayout;
+    private int bgIndex = 0;
 
+    /**
+     * 构造函数
+     * @param context 上下文
+     * @param root 根布局View
+     */
     public ZoomImageView(Context context, View root) {
         super(context);
         this.rootLayout = root;
@@ -419,14 +892,23 @@ class ZoomImageView extends ImageView {
         return true;
     }
 
-    /** 计算两点距离 */
+    /**
+     * 计算两点距离
+     * @param event 触摸事件
+     * @return 两点间距离
+     */
     private float calculateDistance(MotionEvent event) {
         float dx = event.getX(0) - event.getX(1);
         float dy = event.getY(0) - event.getY(1);
         return (float) Math.sqrt(dx * dx + dy * dy);
     }
 
-    /** 判断点击点是否在图片内部 */
+    /**
+     * 判断点击点是否在图片内部
+     * @param x 点击x坐标
+     * @param y 点击y坐标
+     * @return true表示在图片内部
+     */
     private boolean isInside(float x, float y) {
         if (getDrawable() == null) return false;
         RectF r = new RectF(0, 0, getDrawable().getIntrinsicWidth(), getDrawable().getIntrinsicHeight());
@@ -435,16 +917,19 @@ class ZoomImageView extends ImageView {
     }
 }
 
-
 /**
  * 裁剪覆盖视图
  */
 class CropOverlayView extends View {
     public Rect cropRect = new Rect();
     private Paint pBorder, pCorner, pMask;
-    private int tMode = 0; // 触摸模式
+    private int tMode = 0;
     private float lastX, lastY;
 
+    /**
+     * 构造函数
+     * @param context 上下文
+     */
     public CropOverlayView(Context context) {
         super(context);
         pBorder = new Paint(1); pBorder.setColor(Color.parseColor("#FF00FF00")); pBorder.setStyle(Paint.Style.STROKE); pBorder.setStrokeWidth(4);
@@ -500,7 +985,12 @@ class CropOverlayView extends View {
         return false;
     }
 
-    /** 获取实际裁剪矩形 */
+    /**
+     * 获取实际裁剪矩形
+     * @param b 源Bitmap
+     * @param m 变换矩阵
+     * @return 实际裁剪区域Rect
+     */
     public Rect getRealRect(Bitmap b, Matrix m) {
         float[] v = new float[9]; m.getValues(v);
         float s = v[0], tx = v[2], ty = v[5];
@@ -511,10 +1001,9 @@ class CropOverlayView extends View {
     }
 }
 
-
 /**
  * 显示图片编辑对话框
- * @param activity 当前 Activity
+ * @param activity 当前Activity
  * @param origin 原始图片
  * @param savePath 保存路径
  * @param requestCode 请求码
@@ -531,7 +1020,6 @@ void showEditDialog(final Activity activity, final Bitmap origin, final String s
         final ZoomImageView preview = new ZoomImageView(activity, root);
         preview.setImageBitmap(origin);
         
-        // 自动居中
         preview.post(new Runnable() {
             public void run() {
                 float vw = preview.getWidth(), vh = preview.getHeight();
@@ -616,7 +1104,6 @@ void showEditDialog(final Activity activity, final Bitmap origin, final String s
         sLp.gravity = Gravity.BOTTOM; sLp.bottomMargin = dp(activity, 30);
         root.addView(scroll, sLp);
 
-        // 内存回收监听
         dialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
             public void onDismiss(DialogInterface d) {
                 for (int i = 0; i < history.size(); i++) {
@@ -634,7 +1121,13 @@ void showEditDialog(final Activity activity, final Bitmap origin, final String s
     }
 }
 
-/** 执行保存操作 */
+/**
+ * 执行保存操作
+ * @param activity 当前Activity
+ * @param b 要保存的Bitmap
+ * @param p 保存路径
+ * @param q 压缩质量
+ */
 void performSave(final Activity activity, final Bitmap b, final String p, final int q) {
     ThreadPool.execute(new Runnable() {
         public void run() {
@@ -649,9 +1142,14 @@ void performSave(final Activity activity, final Bitmap b, final String p, final 
     });
 }
 
-/** 编辑并保存图片入口 */
+/**
+ * 编辑并保存图片入口
+ * @param activity 当前Activity
+ * @param uri 图片URI
+ * @param p 保存路径
+ * @param c 请求码
+ */
 void editAndSaveImage(final Activity activity, final Uri uri, final String p, final int c) {
-    // GIF判定
     if (p.toLowerCase().endsWith(".gif")) {
         ThreadPool.execute(new Runnable() {
             public void run() {
@@ -679,7 +1177,13 @@ void editAndSaveImage(final Activity activity, final Uri uri, final String p, fi
 }
 
 static boolean isFilePickerHooked = false;
-/** Hook 文件选择器结果 */
+
+/**
+ * Hook文件选择器结果
+ * @param activity 当前Activity
+ * @param requestCode 请求码
+ * @param savePath 保存路径
+ */
 void hookFilePicker(final Activity activity, final int requestCode, final String savePath) {
     if (isFilePickerHooked) return;
     try {
@@ -697,7 +1201,7 @@ void hookFilePicker(final Activity activity, final int requestCode, final String
                                 String ext = getExtensionFromMimeType(type);
                                 String path = savePath.contains("{ext}") ? savePath.replace("{ext}", ext) : (savePath.lastIndexOf('.') > 0 ? savePath.substring(0, savePath.lastIndexOf('.')) + ext : savePath + ext);
                                 if (requestCode == 1005) {
-                                putString("settings", "iconPath", path);
+                                    putString("settings", "iconPath", path);
                                 }
                                 act.runOnUiThread(new Runnable() { public void run() { editAndSaveImage(act, u, path, requestCode); } });
                             }
@@ -709,20 +1213,23 @@ void hookFilePicker(final Activity activity, final int requestCode, final String
     } catch (Throwable e) {}
 }
 
-/** 判断颜色是否为深色 */
+/**
+ * 判断颜色是否为深色
+ * @param color 颜色值
+ * @return true表示是深色
+ */
 public boolean isColorDark(int color) {
     double darkness = 1 - (0.299 * Color.red(color) + 0.587 * Color.green(color) + 0.114 * Color.blue(color)) / 255;
     return darkness >= 0.5; 
 }
 
-
 /**
- * RenderScript模糊 (支持原图修改和输出Bitmap两种模式)
+ * RenderScript模糊支持原图修改和输出Bitmap两种模式
  * @param activity 上下文
- * @param bitmap 源 Bitmap
- * @param outBitmap 输出 Bitmap (可为空，则修改原图)
+ * @param bitmap 源Bitmap
+ * @param outBitmap 输出Bitmap可为空则修改原图
  * @param radius 模糊半径
- * @return 模糊后的 Bitmap
+ * @return 模糊后的Bitmap
  */
 public Bitmap blurBitmap(Activity activity, Bitmap bitmap, Bitmap outBitmap, float radius) {
     if (radius <= 0 || bitmap == null || bitmap.isRecycled()) return bitmap;
@@ -760,7 +1267,7 @@ public Bitmap blurBitmap(Activity activity, Bitmap bitmap, Bitmap outBitmap, flo
 }
 
 /**
- * 快速模糊 (StackBlur算法的简化版)
+ * 快速模糊StackBlur算法的简化版
  * @param bmp 源图片
  * @param radius 模糊半径
  * @return 模糊后的图片
@@ -815,7 +1322,7 @@ public Bitmap fastblur(Bitmap bmp, int radius) {
 }
 
 /**
- * 调整Bitmap大小，最大边不超过maxSize，保持比例
+ * 调整Bitmap大小最大边不超过maxSize保持比例
  * @param original 原图
  * @param maxSize 最大边长
  * @return 调整后的图
@@ -838,7 +1345,7 @@ public Bitmap resizeBitmap(Bitmap original, int maxSize) {
 }
 
 /**
- * 居中裁剪Bitmap到目标尺寸 (CenterCrop)
+ * 居中裁剪Bitmap到目标尺寸CenterCrop
  * @param source 源图
  * @param targetWidth 目标宽
  * @param targetHeight 目标高
@@ -879,7 +1386,7 @@ public Bitmap centerCropBitmap(Bitmap source, int targetWidth, int targetHeight)
 }
 
 /**
- * 优化智能缩放算法（CenterCrop确保填满目标区域，不拉伸）
+ * 优化智能缩放算法CenterCrop确保填满目标区域不拉伸
  * @param source 源图
  * @param targetW 目标宽
  * @param targetH 目标高
@@ -925,6 +1432,13 @@ Bitmap smartScaleBitmap(Bitmap source, int targetW, int targetH) {
     }
 }
 
+/**
+ * 缩放Bitmap以适应目标尺寸
+ * @param source 源图
+ * @param targetW 目标宽
+ * @param targetH 目标高
+ * @return 缩放后的图
+ */
 Bitmap scaleToFitBitmap(Bitmap source, int targetW, int targetH) {
     if (source == null || source.isRecycled()) return null;
     
@@ -936,20 +1450,34 @@ Bitmap scaleToFitBitmap(Bitmap source, int targetW, int targetH) {
         int scaledW = Math.round(sourceW * scale);
         int scaledH = Math.round(sourceH * scale);
         
-        Bitmap result = Bitmap.createScaledBitmap(source, scaledW, scaledH, true);
-        return result;
+        return Bitmap.createScaledBitmap(source, scaledW, scaledH, true);
         
     } catch (Exception e) {
         return source;
     }
 }
 
+/**
+ * 智能居中裁剪Bitmap
+ * @param source 源图
+ * @param targetW 目标宽
+ * @param targetH 目标高
+ * @return 裁剪后的图
+ */
 Bitmap smartCenterCropBitmap(Bitmap source, int targetW, int targetH) {
     return smartScaleBitmap(source, targetW, targetH);
 }
 
-
-/** 生成缓存键 */
+/**
+ * 生成缓存键
+ * @param imgPath 图片路径
+ * @param blurRadius 模糊半径
+ * @param overlayAlpha 遮罩透明度
+ * @param isDark 是否深色模式
+ * @param targetW 目标宽度
+ * @param targetH 目标高度
+ * @return 缓存键字符串
+ */
 String generateCacheKey(String imgPath, int blurRadius, int overlayAlpha, boolean isDark, int targetW, int targetH) {
     File f = new File(imgPath);
     long lastMod = f.exists() ? f.lastModified() : 0;
@@ -960,12 +1488,27 @@ String generateCacheKey(String imgPath, int blurRadius, int overlayAlpha, boolea
            overlayAlpha + "_" + (isDark ? "1" : "0") + "_" + widthGroup + "_" + heightGroup;
 }
 
+/**
+ * 生成基础缓存键
+ * @param imgPath 图片路径
+ * @param blurRadius 模糊半径
+ * @param overlayAlpha 遮罩透明度
+ * @param isDark 是否深色模式
+ * @return 基础缓存键字符串
+ */
 String generateBaseCacheKey(String imgPath, int blurRadius, int overlayAlpha, boolean isDark) {
     File f = new File(imgPath);
     long lastMod = f.exists() ? f.lastModified() : 0;
     return imgPath.hashCode() + "_" + lastMod + "_" + blurRadius + "_" + overlayAlpha + "_" + (isDark ? "1" : "0");
 }
 
+/**
+ * 查找相似缓存
+ * @param baseKey 基础缓存键
+ * @param targetW 目标宽度
+ * @param targetH 目标高度
+ * @return 缓存的Drawable或null
+ */
 Drawable findSimilarCache(String baseKey, int targetW, int targetH) {
     Iterator iterator = cacheOrder.keySet().iterator();
     while (iterator.hasNext()) {
@@ -991,6 +1534,10 @@ Drawable findSimilarCache(String baseKey, int targetW, int targetH) {
     return null;
 }
 
+/**
+ * 检查并在需要时清理内存
+ * @return true表示执行了清理
+ */
 boolean checkAndCleanupMemoryIfNeeded() {
     Runtime runtime = Runtime.getRuntime();
     long maxMemory = runtime.maxMemory();
@@ -1011,7 +1558,9 @@ boolean checkAndCleanupMemoryIfNeeded() {
     return false;
 }
 
-/** 缓存条目类 */
+/**
+ * 缓存条目类
+ */
 static class CacheEntry {
     Drawable drawable;
     long createdTime;
@@ -1021,6 +1570,13 @@ static class CacheEntry {
     String cacheKey;
     int accessCount;
     
+    /**
+     * 构造函数
+     * @param d Drawable对象
+     * @param key 缓存键
+     * @param w 宽度
+     * @param h 高度
+     */
     CacheEntry(Drawable d, String key, int w, int h) {
         this.drawable = d;
         this.cacheKey = key;
@@ -1031,6 +1587,9 @@ static class CacheEntry {
         this.accessCount = 0;
     }
     
+    /**
+     * 更新访问信息
+     */
     void updateAccess() {
         this.lastAccessTime = System.currentTimeMillis();
         this.accessCount++;
@@ -1051,6 +1610,11 @@ static final int MAX_CACHE_SIZE = 10;
 static int currentTextColor = Color.WHITE;
 static boolean currentIsDark = true;
 
+/**
+ * 计算MD5哈希值
+ * @param input 输入字符串
+ * @return MD5哈希字符串
+ */
 String md5(String input) {
     if (input == null || input.isEmpty()) return "";
     try {
@@ -1066,6 +1630,11 @@ String md5(String input) {
     }
 }
 
+/**
+ * 获取缓存的Drawable
+ * @param cacheKey 缓存键
+ * @return Drawable对象或null
+ */
 Drawable getCachedDrawable(String cacheKey) {
     if (cacheKey == null || cacheKey.isEmpty()) return null;
     
@@ -1079,6 +1648,13 @@ Drawable getCachedDrawable(String cacheKey) {
     return null;
 }
 
+/**
+ * 将Drawable添加到缓存
+ * @param drawable Drawable对象
+ * @param cacheKey 缓存键
+ * @param width 宽度
+ * @param height 高度
+ */
 void putToCache(Drawable drawable, String cacheKey, int width, int height) {
     if (drawable == null || cacheKey == null || cacheKey.isEmpty()) return;
     
@@ -1100,6 +1676,10 @@ void putToCache(Drawable drawable, String cacheKey, int width, int height) {
     cacheOrder.put(cacheKey, entry);
 }
 
+/**
+ * 从缓存中移除指定条目
+ * @param cacheKey 缓存键
+ */
 void removeFromCache(String cacheKey) {
     if (cacheKey == null) return;
     
@@ -1119,6 +1699,9 @@ void removeFromCache(String cacheKey) {
     }
 }
 
+/**
+ * 卸载背景缓存
+ */
 void unloadBackgroundCache() {
     imageCache.clear();
     cacheOrder.clear();
@@ -1127,11 +1710,20 @@ void unloadBackgroundCache() {
     globalCachedParams = "";
 }
 
+/**
+ * 强制卸载所有缓存
+ */
 void forceUnloadAllCache() {
     unloadBackgroundCache();
 }
 
-
+/**
+ * 获取设置值
+ * @param table 表名
+ * @param key 键名
+ * @param defaultValue 默认值
+ * @return 设置值
+ */
 String getSetting(String table, String key, String defaultValue) {
     if (pendingSettingsChanges != null && pendingSettingsChanges.containsKey(key)) {
         Object val = pendingSettingsChanges.get(key);
@@ -1140,6 +1732,13 @@ String getSetting(String table, String key, String defaultValue) {
     return getString(table, key, defaultValue);
 }
 
+/**
+ * 获取布尔类型设置值
+ * @param table 表名
+ * @param key 键名
+ * @param defaultValue 默认值
+ * @return 布尔值
+ */
 boolean getSettingBoolean(String table, String key, boolean defaultValue) {
     if (pendingSettingsChanges != null && pendingSettingsChanges.containsKey(key)) {
         Object val = pendingSettingsChanges.get(key);
@@ -1153,10 +1752,10 @@ boolean getSettingBoolean(String table, String key, boolean defaultValue) {
 }
 
 /**
- * 创建手绘风格的开关控件（48dp × 28dp）
- * @param ctx       Context（通常传入 Activity）
- * @param initVal   初始状态（true = 开，false = 关）
- * @return Object[] { View 开关控件, boolean[] 当前状态数组（长度1，可修改） }
+ * 创建手绘风格开关控件
+ * @param ctx Context上下文
+ * @param initVal 初始状态
+ * @return Object数组包含View和状态数组
  */
 public Object[] createSwitchViewWithState(Context ctx, boolean initVal) {
     FrameLayout swContainer = new FrameLayout(ctx);
@@ -1165,7 +1764,6 @@ public Object[] createSwitchViewWithState(Context ctx, boolean initVal) {
     FrameLayout.LayoutParams containerLp = new FrameLayout.LayoutParams(swW, swH);
     swContainer.setLayoutParams(containerLp);
 
-    // 简单按下涟漪效果
     ColorStateList rippleColor = ColorStateList.valueOf(Color.parseColor("#33000000"));
     RippleDrawable ripple = new RippleDrawable(rippleColor, null, null);
     swContainer.setBackground(ripple);
@@ -1173,7 +1771,6 @@ public Object[] createSwitchViewWithState(Context ctx, boolean initVal) {
     swContainer.setClickable(true);
     swContainer.setFocusable(true);
 
-    // 轨道
     View track = new View(ctx);
     FrameLayout.LayoutParams trackLp = new FrameLayout.LayoutParams(-1, -1);
     track.setLayoutParams(trackLp);
@@ -1182,7 +1779,6 @@ public Object[] createSwitchViewWithState(Context ctx, boolean initVal) {
     track.setBackground(trackBg);
     swContainer.addView(track);
 
-    // 滑块
     View thumb = new View(ctx);
     int thumbSize = dp(ctx, 24);
     int margin = dp(ctx, 2);
@@ -1226,6 +1822,11 @@ public Object[] createSwitchViewWithState(Context ctx, boolean initVal) {
     return new Object[]{swContainer, state};
 }
 
+/**
+ * 判断是否为有效的深色模式
+ * @param activity Activity上下文
+ * @return true表示深色模式
+ */
 boolean isEffectiveDarkMode(Activity activity) {
     String mode = getSetting("settings", "ui_theme_mode", "default");
     if ("default".equals(mode)) {
@@ -1241,11 +1842,21 @@ boolean isEffectiveDarkMode(Activity activity) {
     } catch (Exception e) { return false; }
 }
 
+/**
+ * 验证是否为有效的十六进制颜色
+ * @param colorCode 颜色代码字符串
+ * @return true表示有效
+ */
 boolean isValidHexColor(String colorCode) {
     if (colorCode == null || colorCode.trim().isEmpty()) return false;
     return Pattern.matches("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})$", colorCode.trim());
 }
 
+/**
+ * 验证是否为有效的渐变字符串
+ * @param gradientStr 渐变字符串
+ * @return true表示有效
+ */
 boolean isValidGradientString(String gradientStr) {
     if (gradientStr == null || gradientStr.trim().isEmpty()) {
         return false;
@@ -1283,6 +1894,11 @@ boolean isValidGradientString(String gradientStr) {
     return true;
 }
 
+/**
+ * 获取自定义字体
+ * @param typeName 字体类型名称
+ * @return Typeface对象
+ */
 Typeface getCustomTypeface(String typeName) {
     if ("serif".equals(typeName)) return Typeface.SERIF;
     if ("sans".equals(typeName)) return Typeface.SANS_SERIF;
@@ -1291,6 +1907,11 @@ Typeface getCustomTypeface(String typeName) {
     return Typeface.DEFAULT;
 }
 
+/**
+ * 应用UI主题到对话框
+ * @param activity Activity上下文
+ * @param dialog AlertDialog对话框
+ */
 void applyUiTheme(final Activity activity, final AlertDialog dialog) {
     if (dialog == null) return;
     
@@ -1313,6 +1934,13 @@ void applyUiTheme(final Activity activity, final AlertDialog dialog) {
     executeApplyTheme(activity, dialog, dialogW, dialogH);
 }
 
+/**
+ * 执行应用主题
+ * @param activity Activity上下文
+ * @param dialog AlertDialog对话框
+ * @param dialogW 对话框宽度
+ * @param dialogH 对话框高度
+ */
 void executeApplyTheme(final Activity activity, final AlertDialog dialog, final int dialogW, final int dialogH) {
     if (dialog == null || dialog.getWindow() == null) {
         return;
@@ -1457,6 +2085,12 @@ void executeApplyTheme(final Activity activity, final AlertDialog dialog, final 
     }
 }
 
+/**
+ * 应用Drawable带过渡动画
+ * @param activity Activity上下文
+ * @param window Window对象
+ * @param newDrawable 新Drawable
+ */
 void applyDrawableWithTransition(final Activity activity, final Window window, final Drawable newDrawable) {
     activity.runOnUiThread(new Runnable() {
         public void run() {
@@ -1482,6 +2116,17 @@ void applyDrawableWithTransition(final Activity activity, final Window window, f
     });
 }
 
+/**
+ * 快速应用图片背景
+ * @param activity Activity上下文
+ * @param window Window对象
+ * @param imgPath 图片路径
+ * @param blurRadius 模糊半径
+ * @param overlayAlpha 遮罩透明度
+ * @param isDark 是否深色模式
+ * @param dialogW 对话框宽度
+ * @param dialogH 对话框高度
+ */
 void applyImageBackgroundFast(final Activity activity, final Window window, 
                              final String imgPath, final int blurRadius, 
                              final int overlayAlpha, final boolean isDark,
@@ -1511,6 +2156,17 @@ void applyImageBackgroundFast(final Activity activity, final Window window,
     }
 }
 
+/**
+ * 优化加载图片
+ * @param activity Activity上下文
+ * @param window Window对象
+ * @param imgPath 图片路径
+ * @param blurRadius 模糊半径
+ * @param overlayAlpha 遮罩透明度
+ * @param isDark 是否深色模式
+ * @param preWidth 预设宽度
+ * @param preHeight 预设高度
+ */
 void loadImageOptimized(final Activity activity, final Window window, 
                        final String imgPath, final int blurRadius, 
                        final int overlayAlpha, final boolean isDark,
@@ -1600,6 +2256,12 @@ void loadImageOptimized(final Activity activity, final Window window,
     }
 }
 
+/**
+ * 应用Drawable不重新计算文本
+ * @param activity Activity上下文
+ * @param window Window对象
+ * @param drawable Drawable对象
+ */
 void applyDrawableWithoutTextRecalc(final Activity activity, final Window window, final Drawable drawable) {
     final View decorView = window != null ? window.getDecorView() : null;
     
@@ -1630,6 +2292,13 @@ void applyDrawableWithoutTextRecalc(final Activity activity, final Window window
     });
 }
 
+/**
+ * 完成文本样式设置
+ * @param activity Activity上下文
+ * @param decorView DecorView
+ * @param isDark 是否深色模式
+ * @param forceDark 是否强制深色
+ */
 void finalizeTextStyle(final Activity activity, final View decorView, final boolean isDark, final boolean forceDark) {
     activity.runOnUiThread(new Runnable() {
         public void run() {
@@ -1648,6 +2317,10 @@ void finalizeTextStyle(final Activity activity, final View decorView, final bool
     });
 }
 
+/**
+ * 清除内部背景
+ * @param view View对象
+ */
 void clearInnerBackgrounds(View view) {
     if (view == null) return;
     
@@ -1669,6 +2342,11 @@ void clearInnerBackgrounds(View view) {
     } catch (Exception e) {}
 }
 
+/**
+ * 应用对话框尺寸
+ * @param activity Activity上下文
+ * @param window Window对象
+ */
 void applyDialogSize(final Activity activity, final Window window) {
     try {
         float scale = 1.0f;
@@ -1706,6 +2384,11 @@ void applyDialogSize(final Activity activity, final Window window) {
     } catch (Exception e) {}
 }
 
+/**
+ * 判断Drawable是否透明
+ * @param drawable Drawable对象
+ * @return true表示透明
+ */
 boolean isDrawableTransparent(Drawable drawable) {
     if (drawable == null) return true;
     if (drawable instanceof ColorDrawable) {
@@ -1714,6 +2397,11 @@ boolean isDrawableTransparent(Drawable drawable) {
     return false;
 }
 
+/**
+ * 应用窗口圆角
+ * @param activity Activity上下文
+ * @param window Window对象
+ */
 void applyWindowRadius(final Activity activity, final Window window) {
     try {
         final View decor = window != null ? window.getDecorView() : null;
@@ -1733,6 +2421,14 @@ void applyWindowRadius(final Activity activity, final Window window) {
     } catch (Exception e) {}
 }
 
+/**
+ * 应用渐变背景
+ * @param activity Activity上下文
+ * @param window Window对象
+ * @param gradientStr 渐变字符串
+ * @param fallbackColor 回退颜色
+ * @param isDark 是否深色模式
+ */
 void applyGradientBackground(Activity activity, Window window, String gradientStr, String fallbackColor, boolean isDark) {
     try {
         GradientDrawable bg = new GradientDrawable();
@@ -1771,6 +2467,13 @@ void applyGradientBackground(Activity activity, Window window, String gradientSt
     }
 }
 
+/**
+ * 应用回退背景
+ * @param activity Activity上下文
+ * @param window Window对象
+ * @param colorStr 颜色字符串
+ * @param isDark 是否深色模式
+ */
 void applyFallbackBg(Activity activity, Window window, String colorStr, boolean isDark) {
     try {
         GradientDrawable bg = new GradientDrawable();
@@ -1787,6 +2490,13 @@ void applyFallbackBg(Activity activity, Window window, String colorStr, boolean 
     }
 }
 
+/**
+ * 应用Drawable到Window
+ * @param window Window对象
+ * @param drawable Drawable对象
+ * @param activity Activity上下文
+ * @param isDark 是否深色模式
+ */
 void applyDrawableToWindow(Window window, Drawable drawable, Activity activity, boolean isDark) {
     try {
         window.setBackgroundDrawable(drawable);
@@ -1800,10 +2510,96 @@ void applyDrawableToWindow(Window window, Drawable drawable, Activity activity, 
     }
 }
 
+/**
+ * 判断颜色是否为默认文本颜色
+ * @param color 颜色值
+ * @return true表示是默认颜色
+ */
+boolean isDefaultTextColor(int color) {
+    int r = Color.red(color);
+    int g = Color.green(color);
+    int b = Color.blue(color);
+    
+    int[][] darkDefaultColors = {
+        {0, 0, 0},
+        {34, 34, 34},
+        {51, 51, 51},
+        {66, 66, 66},
+        {102, 102, 102},
+        {128, 128, 128}
+    };
+    
+    int[][] lightDefaultColors = {
+        {255, 255, 255},
+        {239, 239, 239},
+        {245, 245, 245},
+        {238, 238, 238},
+        {221, 221, 221},
+        {204, 204, 204}
+    };
+    
+    for (int[] defColor : darkDefaultColors) {
+        if (Math.abs(r - defColor[0]) <= 15 && 
+            Math.abs(g - defColor[1]) <= 15 && 
+            Math.abs(b - defColor[2]) <= 15) {
+            return true;
+        }
+    }
+    
+    for (int[] defColor : lightDefaultColors) {
+        if (Math.abs(r - defColor[0]) <= 15 && 
+            Math.abs(g - defColor[1]) <= 15 && 
+            Math.abs(b - defColor[2]) <= 15) {
+            return true;
+        }
+    }
+    
+    if (r == g && g == b) {
+        if (r <= 140 || r >= 200) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+/**
+ * 判断颜色是否为用户自定义颜色
+ * @param color 颜色值
+ * @return true表示是用户自定义颜色
+ */
+boolean isUserCustomColor(int color) {
+    return !isDefaultTextColor(color);
+}
+
+/**
+ * 判断两个颜色是否相近
+ * @param color1 颜色1
+ * @param color2 颜色2
+ * @param tolerance 容差值0-255
+ * @return true表示颜色相近
+ */
+boolean isColorSimilar(int color1, int color2, int tolerance) {
+    return Math.abs(Color.red(color1) - Color.red(color2)) <= tolerance &&
+           Math.abs(Color.green(color1) - Color.green(color2)) <= tolerance &&
+           Math.abs(Color.blue(color1) - Color.blue(color2)) <= tolerance;
+}
+
+/**
+ * 递归更新视图样式支持标签系统和动画过渡
+ * @param view 待处理的视图
+ * @param textColor 主题文本颜色
+ * @param tf 字体
+ * @param fontSizeScale 字体大小缩放比例
+ */
 void updateViewStylesRecursively(View view, int textColor, Typeface tf, float fontSizeScale) {
     if (view == null) return;
     
     try {
+        if (shouldSkipTheme(view)) {
+            return;
+        }
+        
         if (view instanceof TextView) {
             TextView tv = (TextView) view;
             
@@ -1822,7 +2618,18 @@ void updateViewStylesRecursively(View view, int textColor, Typeface tf, float fo
                 return;
             }
             
-            tv.setTextColor(textColor);
+            int customColor = getCustomTextColor(tv, -1);
+            if (customColor != -1) {
+                int currentColor = tv.getCurrentTextColor();
+                if (currentColor != customColor) {
+                    animateTextColor(tv, currentColor, customColor, getAnimationDuration(tv));
+                }
+            } else if (!shouldKeepOriginalColor(tv)) {
+                int currentColor = tv.getCurrentTextColor();
+                if (isDefaultTextColor(currentColor)) {
+                    animateTextColor(tv, currentColor, textColor, getAnimationDuration(tv));
+                }
+            }
             
             if (fontSizeScale != 1.0f) {
                 float originalSize = tv.getTextSize();
@@ -1834,10 +2641,15 @@ void updateViewStylesRecursively(View view, int textColor, Typeface tf, float fo
                 tv.setTypeface(tf, style);
             }
             
-            if (textColor == Color.parseColor("#FFEFEFEF")) {
-                tv.setHintTextColor(Color.argb(100, 239, 239, 239));
-            } else if (textColor == Color.parseColor("#FF333333")) {
-                tv.setHintTextColor(Color.argb(100, 51, 51, 51));
+            if (!shouldKeepOriginalColor(tv)) {
+                int currentColor = tv.getCurrentTextColor();
+                if (isDefaultTextColor(currentColor)) {
+                    if (textColor == Color.parseColor("#FFEFEFEF")) {
+                        tv.setHintTextColor(Color.argb(100, 239, 239, 239));
+                    } else if (textColor == Color.parseColor("#FF333333")) {
+                        tv.setHintTextColor(Color.argb(100, 51, 51, 51));
+                    }
+                }
             }
         }
         
@@ -1869,7 +2681,7 @@ String colorToHex(int color) {
 
 /**
  * 将文本复制到剪贴板
- * @param activity 当前 Activity
+ * @param activity 当前Activity
  * @param text 要复制的文本
  */
 void copyToClipboard(Activity activity, String text) {
@@ -1884,7 +2696,7 @@ void copyToClipboard(Activity activity, String text) {
  * 创建圆角矩形背景
  * @param color 背景颜色
  * @param radius 圆角半径
- * @return GradientDrawable 对象
+ * @return GradientDrawable对象
  */
 GradientDrawable createRoundRectDrawable(int color, float radius) {
     try {
@@ -1899,15 +2711,22 @@ GradientDrawable createRoundRectDrawable(int color, float radius) {
 
 /**
  * 创建可点击背景
- * @return StateListDrawable 对象
+ * @return StateListDrawable对象
  */
-android.graphics.drawable.StateListDrawable createSelectableBackground() {
-    android.graphics.drawable.StateListDrawable drawable = new android.graphics.drawable.StateListDrawable();
+StateListDrawable createSelectableBackground() {
+    StateListDrawable drawable = new StateListDrawable();
     drawable.addState(new int[]{android.R.attr.state_pressed}, new ColorDrawable(Color.parseColor("#1A000000")));
     drawable.addState(new int[]{}, new ColorDrawable(Color.TRANSPARENT));
     return drawable;
 }
 
+/**
+ * 添加分区标题
+ * @param activity Activity上下文
+ * @param parent 父布局
+ * @param text 标题文本
+ * @param color 文字颜色
+ */
 void addSectionHeader(Activity activity, LinearLayout parent, String text, int color) {
     TextView tv = new TextView(activity);
     tv.setText(text); tv.setTextSize(13); tv.setTextColor(color);
@@ -1915,6 +2734,13 @@ void addSectionHeader(Activity activity, LinearLayout parent, String text, int c
     parent.addView(tv);
 }
 
+/**
+ * 创建卡片组
+ * @param activity Activity上下文
+ * @param color 背景颜色
+ * @param radius 圆角半径
+ * @return LinearLayout卡片组
+ */
 LinearLayout createCardGroup(Activity activity, int color, int radius) {
     LinearLayout card = new LinearLayout(activity);
     card.setOrientation(LinearLayout.VERTICAL);
@@ -1929,6 +2755,17 @@ LinearLayout createCardGroup(Activity activity, int color, int radius) {
     return card;
 }
 
+/**
+ * 添加可点击项
+ * @param activity Activity上下文
+ * @param parent 父布局
+ * @param title 标题
+ * @param sub 副标题
+ * @param titleColor 标题颜色
+ * @param cardColor 卡片颜色
+ * @param isLast 是否最后一项
+ * @param onClick 点击监听器
+ */
 void addClickableItem(Activity activity, LinearLayout parent, String title, String sub, int titleColor, int cardColor, boolean isLast, View.OnClickListener onClick) {
     LinearLayout item = new LinearLayout(activity);
     item.setOrientation(LinearLayout.HORIZONTAL);
@@ -1965,6 +2802,18 @@ void addClickableItem(Activity activity, LinearLayout parent, String title, Stri
     }
 }
 
+/**
+ * 添加输入项
+ * @param activity Activity上下文
+ * @param parent 父布局
+ * @param title 标题
+ * @param value 当前值
+ * @param hint 提示文本
+ * @param titleColor 标题颜色
+ * @param cardColor 卡片颜色
+ * @param saveKey 保存键
+ * @param defaultValue 默认值
+ */
 void addInputItem(Activity activity, LinearLayout parent, String title, String value, String hint, int titleColor, int cardColor, String saveKey, String defaultValue) {
     LinearLayout item = new LinearLayout(activity);
     item.setOrientation(LinearLayout.VERTICAL);
@@ -2016,6 +2865,12 @@ void addInputItem(Activity activity, LinearLayout parent, String title, String v
     parent.addView(space, spaceParams);
 }
 
+/**
+ * 使颜色变亮
+ * @param color 原始颜色
+ * @param factor 变亮因子0-1
+ * @return 变亮后的颜色
+ */
 int lightenColor(int color, float factor) {
     int r = Color.red(color);
     int g = Color.green(color);
@@ -2029,6 +2884,12 @@ int lightenColor(int color, float factor) {
     return Color.argb(a, Math.min(255, r), Math.min(255, g), Math.min(255, b));
 }
 
+/**
+ * 使颜色变暗
+ * @param color 原始颜色
+ * @param factor 变暗因子0-1
+ * @return 变暗后的颜色
+ */
 int darkenColor(int color, float factor) {
     int r = Color.red(color);
     int g = Color.green(color);
@@ -2042,17 +2903,42 @@ int darkenColor(int color, float factor) {
     return Color.argb(a, Math.max(0, r), Math.max(0, g), Math.max(0, b));
 }
 
+/**
+ * 添加输入项简化版
+ * @param activity Activity上下文
+ * @param parent 父布局
+ * @param title 标题
+ * @param value 当前值
+ * @param hint 提示文本
+ * @param titleColor 标题颜色
+ * @param saveKey 保存键
+ * @param defaultValue 默认值
+ */
 void addInputItem(Activity activity, LinearLayout parent, String title, String value, String hint, int titleColor, String saveKey, String defaultValue) {
     int cardColor = Color.parseColor("#FFF5F5F5");
     addInputItem(activity, parent, title, value, hint, titleColor, cardColor, saveKey, defaultValue);
 }
 
+/**
+ * 添加输入项最简版
+ * @param activity Activity上下文
+ * @param parent 父布局
+ * @param title 标题
+ * @param value 当前值
+ * @param hint 提示文本
+ * @param titleColor 标题颜色
+ * @param saveKey 保存键
+ */
 void addInputItem(Activity activity, LinearLayout parent, String title, String value, String hint, int titleColor, String saveKey) {
     addInputItem(activity, parent, title, value, hint, titleColor, saveKey, null);
 }
 
 static java.util.HashMap pendingSettingsChanges = new java.util.HashMap();
 
+/**
+ * 保存待处理的设置更改
+ * @return 保存的设置数量
+ */
 int savePendingSettings() {
     if (pendingSettingsChanges == null || pendingSettingsChanges.isEmpty()) {
         return 0;
@@ -2073,6 +2959,10 @@ int savePendingSettings() {
     return count;
 }
 
+/**
+ * 重置所有设置为默认值
+ * @return 重置的设置数量
+ */
 int resetAllSettingsToDefault() {
     String[] settingKeys = {
         "ui_theme_mode", "ui_dialog_scale", "ui_dialog_width", "ui_dialog_height", 
@@ -2097,6 +2987,15 @@ int resetAllSettingsToDefault() {
     return count;
 }
 
+/**
+ * 创建Switch开关控件
+ * @param activity Context上下文
+ * @param str 开关文本
+ * @param state 初始状态
+ * @param size 文字大小
+ * @param weight 布局权重
+ * @return Switch开关实例
+ */
 public Switch createSwitch(Context activity, String str, boolean state, int size, float weight) {
     Switch switch1 = new Switch(activity);
     switch1.setText(str);
@@ -2118,6 +3017,15 @@ public Switch createSwitch(Context activity, String str, boolean state, int size
     return switch1;
 }
 
+/**
+ * 创建CheckBox复选框
+ * @param activity Activity上下文
+ * @param text 文本内容
+ * @param checked 初始选中状态
+ * @param textSizeDp 文字大小dp
+ * @param textColor 文字颜色
+ * @return CheckBox实例
+ */
 CheckBox createCheckBox(Activity activity, String text, boolean checked, int textSizeDp, int textColor) {
     CheckBox checkBox = new CheckBox(activity);
     checkBox.setText(text);
@@ -2142,13 +3050,24 @@ CheckBox createCheckBox(Activity activity, String text, boolean checked, int tex
     return checkBox;
 }
 
+/**
+ * 添加分割线
+ * @param activity Activity上下文
+ * @param parent 父布局
+ * @param color 分割线颜色
+ */
 void addDivider(Activity activity, LinearLayout parent, int color) {
     View v = new View(activity); v.setBackgroundColor(color);
     LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, 1); lp.leftMargin = dp(activity, 16);
     parent.addView(v, lp);
 }
 
-android.graphics.drawable.StateListDrawable getSelectableBg(Activity activity) {
+/**
+ * 获取可选中背景
+ * @param activity Activity上下文
+ * @return StateListDrawable可选中背景
+ */
+StateListDrawable getSelectableBg(Activity activity) {
     android.graphics.drawable.StateListDrawable res = new android.graphics.drawable.StateListDrawable();
     res.setExitFadeDuration(300);
     res.addState(new int[]{android.R.attr.state_pressed}, new android.graphics.drawable.ColorDrawable(Color.parseColor("#1A000000")));
@@ -2156,6 +3075,11 @@ android.graphics.drawable.StateListDrawable getSelectableBg(Activity activity) {
     return res;
 }
 
+/**
+ * 获取最大刷新率
+ * @param context 上下文
+ * @return 最大刷新率
+ */
 private float getMaxRefreshRate(Context context) {
     try {
         WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
