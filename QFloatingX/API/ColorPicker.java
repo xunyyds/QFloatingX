@@ -60,9 +60,9 @@ void saveFavoriteColors(Activity activity, ArrayList favorites) {
 
 
 /**
- * iOS 风格的 SeekBar 包装器类
+ * SeekBar 包装器类
  */
-class IOSSeekBar extends LinearLayout {
+class SeekBar extends LinearLayout {
     private SeekBar seekBar; // 滑块控件
     private TextView valueLabel; // 数值显示标签
     private OnColorChangedListener listener; // 颜色变化监听器
@@ -76,7 +76,7 @@ class IOSSeekBar extends LinearLayout {
      * @param initialValue 初始值
      * @param max 最大值
      */
-    public IOSSeekBar(Context context, String label, int color, int initialValue, int max) {
+    public SeekBar(Context context, String label, int color, int initialValue, int max) {
         super(context);
         setOrientation(LinearLayout.HORIZONTAL);
         setGravity(Gravity.CENTER_VERTICAL);
@@ -847,7 +847,7 @@ View createRgbView(Activity activity, int initialColor, final OnColorChangedList
     final int[] rgb = {Color.red(initialColor), Color.green(initialColor), Color.blue(initialColor)};
     
     // R
-    final IOSSeekBar redBar = new IOSSeekBar(activity, "R", Color.parseColor("#FFFF3B30"), rgb[0], 255);
+    final SeekBar redBar = new SeekBar(activity, "R", Color.parseColor("#FFFF3B30"), rgb[0], 255);
     redBar.setOnColorChangedListener(new OnColorChangedListener() {
         public void onColorChanged(int progress) {
             rgb[0] = progress;
@@ -857,7 +857,7 @@ View createRgbView(Activity activity, int initialColor, final OnColorChangedList
     layout.addView(redBar);
     
     // G
-    final IOSSeekBar greenBar = new IOSSeekBar(activity, "G", Color.parseColor("#FF34C759"), rgb[1], 255);
+    final SeekBar greenBar = new SeekBar(activity, "G", Color.parseColor("#FF34C759"), rgb[1], 255);
     greenBar.setOnColorChangedListener(new OnColorChangedListener() {
         public void onColorChanged(int progress) {
             rgb[1] = progress;
@@ -867,7 +867,7 @@ View createRgbView(Activity activity, int initialColor, final OnColorChangedList
     layout.addView(greenBar);
     
     // B
-    final IOSSeekBar blueBar = new IOSSeekBar(activity, "B", Color.parseColor("#FF007AFF"), rgb[2], 255);
+    final SeekBar blueBar = new SeekBar(activity, "B", Color.parseColor("#FF007AFF"), rgb[2], 255);
     blueBar.setOnColorChangedListener(new OnColorChangedListener() {
         public void onColorChanged(int progress) {
             rgb[2] = progress;
