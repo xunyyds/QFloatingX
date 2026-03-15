@@ -1,0 +1,1293 @@
+
+---
+
+# QFloatingX 脚本方法签名库
+
+> 本文档覆盖所有脚本文件（`api.txt` / `uitools.txt` / `Dialog.txt` / `api5.txt`）中可复用的全局变量与方法。  
+> 所有文件在同一 BeanShell 解释器中运行，互相可以直接调用。  
+> 颜色值统一使用 `Color.parseColor("#AARRGGBB")` 格式。
+
+---
+
+## 目录
+
+1. [全局颜色变量（api.txt）](#1-全局颜色变量)
+2. [主题与颜色工具](#2-主题与颜色工具)
+3. [UI 控件工厂（uitools.txt）](#3-ui-控件工厂)
+4. [Drawable / 背景工厂](#4-drawable--背景工厂)
+5. [图片处理工具](#5-图片处理工具)
+6. [图片缓存系统](#6-图片缓存系统)
+7. [弹窗与对话框](#7-弹窗与对话框)
+8. [消息发送工具（api5.txt）](#8-消息发送工具)
+9. [字符串 / 时间工具（Dialog.txt）](#9-字符串--时间工具)
+10. [网络请求工具（api.txt）](#10-网络请求工具)
+11. [全局状态变量](#11-全局状态变量)
+
+---
+
+## 1. 全局颜色变量（api.txt）
+
+> 这些是在 `api.txt` 顶层直接声明的 **int 类型全局变量**，所有脚本文件均可直接使用，无需重复声明。
+
+```java
+// ── 主文字颜色 ──────────────────────────────────────────
+int UI_COLOR_TEXT_LIGHT     // 浅色模式正文色  Color.parseColor("#FF000000") 纯黑
+int UI_COLOR_TEXT_DARK      // 深色模式正文色  Color.parseColor("#FFEFEFEF") 灰白
+
+// ── 次要文字颜色 ─────────────────────────────────────────
+int UI_COLOR_SUBTEXT_LIGHT  // 浅色模式次要色  Color.parseColor("#99000000") 半透黑
+int UI_COLOR_SUBTEXT_DARK   // 深色模式次要色  Color.parseColor("#99EFEFEF") 半透白
+
+// ── 输入框/容器背景 ──────────────────────────────────────
+int UI_COLOR_INPUT_BG_LIGHT // 浅色模式输入框背景  Color.parseColor("#0D000000") 极淡黑
+int UI_COLOR_INPUT_BG_DARK  // 深色模式输入框背景  Color.parseColor("#1AFFFFFF") 极淡白
+
+// ── 描边 / 分割线 ─────────────────────────────────────────
+int UI_COLOR_STROKE_LIGHT   // 浅色模式描边  Color.parseColor("#1A000000") 淡黑线
+int UI_COLOR_STROKE_DARK    // 深色模式描边  Color.parseColor("#33FFFFFF")  淡白线
+
+// ── 强调色（确定按钮/图标）────────────────────────────────
+int UI_COLOR_ACCENT_LIGHT   // 浅色模式强调色  Color.parseColor("#FF2196F3") 蓝
+int UI_COLOR_ACCENT_DARK    // 深色模式强调色  Color.parseColor("#FF8AB4F8") 柔和蓝
+```
+
+**典型用法：**
+```java
+boolean isDark = isThemeDark(activity);
+int textColor   = isDark ? UI_COLOR_TEXT_DARK    : UI_COLOR_TEXT_LIGHT;
+int subColor    = isDark ? UI_COLOR_SUBTEXT_DARK : UI_COLOR_SUBTEXT_LIGHT;
+int accentColor = isDark ? UI_COLOR_ACCENT_DARK  : UI_COLOR_ACCENT_LIGHT;
+int inputBg     = isDark ? UI_COLOR_INPUT_BG_DARK : UI_COLOR_INPUT_BG_LIGHT;
+int stroke      = isDark ? UI_COLOR_STROKE_DARK  : UI_COLOR_STROKE_LIGHT;
+```
+
+---
+
+## 2. 主题与颜色工具
+
+### `isThemeDark` — 判断是否深色主题
+> **来源：** `api.txt`  
+> 优先读取配置项 `settings/黑白`，为 `true` 则强制返回深色，否则默认浅色。
+
+```java
+/**
+ * 判断当前是否处于深色主题
+ * <p>优先读取用户手动设置的 settings/黑白 开关；未设置时默认返回 false（浅色）</p>
+ *
+ * @param activity Activity 上下文
+ * @return {@code true} = 深色，{@code false} = 浅色
+ */
+boolean isThemeDark(Activity activity)
+```
+
+---
+
+### `adjustAlpha` — 对颜色叠加透明度系数
+> **来源：** `api5.txt`
+
+```java
+/**
+ * 对颜色的 Alpha 通道乘以系数，生成新颜色
+ * <p>用于生成提示文字、占位符等半透明变体，例如 adjustAlpha(textColor, 0.45f)</p>
+ *
+ * @param color 原始颜色 int（含 Alpha 通道）
+ * @param alpha 透明度系数 0.0f（全透明）~ 1.0f（保持原样）
+ * @return 新颜色 int
+ */
+int adjustAlpha(int color, float alpha)
+```
+
+---
+
+### `adjustColor` — 调整颜色亮度
+> **来源：** `uitools.txt`
+
+```java
+/**
+ * 对颜色的 RGB 三通道同比乘以 factor，Alpha 保持不变
+ * <p>常用于生成按钮按压态的深色版本，例如 adjustColor(bg, 0.9f)</p>
+ *
+ * @param color  原始颜色 int
+ * @param factor 调整系数：0~1 变暗，> 1 变亮（结果自动 clamp 到 255）
+ * @return 新颜色 int
+ */
+int adjustColor(int color, float factor)
+```
+
+---
+
+### `lightenColor` — 颜色加白变亮
+> **来源：** `uitools.txt`
+
+```java
+/**
+ * 将颜色向白色方向插值，用于生成卡片内的子项背景等浅色变体
+ * <p>公式：newChannel = channel + (255 - channel) * factor</p>
+ *
+ * @param color  原始颜色 int
+ * @param factor 插值系数 0.0f（不变）~ 1.0f（纯白）
+ * @return 新颜色 int
+ */
+int lightenColor(int color, float factor)
+```
+
+---
+
+### `darkenColor` — 颜色加黑变暗
+> **来源：** `uitools.txt`
+
+```java
+/**
+ * 将颜色向黑色方向插值
+ * <p>公式：newChannel = channel * (1 - factor)</p>
+ *
+ * @param color  原始颜色 int
+ * @param factor 插值系数 0.0f（不变）~ 1.0f（纯黑）
+ * @return 新颜色 int
+ */
+int darkenColor(int color, float factor)
+```
+
+---
+
+### `isColorDark` — 判断颜色感知亮度
+> **来源：** `uitools.txt`
+
+```java
+/**
+ * 根据人眼感知权重（0.299R + 0.587G + 0.114B）判断颜色是否为深色
+ * <p>常用于动态决定叠加在某背景色上的文字应用白色还是黑色</p>
+ *
+ * @param color 颜色 int
+ * @return {@code true} = 深色（亮度 < 0.5），{@code false} = 浅色
+ */
+boolean isColorDark(int color)
+```
+
+---
+
+### `applyUiTheme` — 为 AlertDialog 应用主题
+> **来源：** `uitools.txt`
+
+```java
+/**
+ * <p>调用时机：没有硬性要求</p>
+ *
+ * @param act    Activity 上下文（用于读取主题状态）
+ * @param dialog 已通过 AlertDialog.Builder 创建并 show() 的对话框
+ */
+void applyUiTheme(Activity act, AlertDialog dialog)
+```
+
+---
+
+## 3. UI 控件工厂（uitools.txt）
+
+### `makeInput` — 通用输入框
+```java
+/**
+ * 创建一个带圆角背景（6dp）和按压反馈的 EditText，宽度 match_parent
+ * <p>文字颜色固定为 #222222，提示文字颜色固定为 #BBBBBB</p>
+ * <p>注意：文字颜色不随主题变化；深色主题下建议传入深色背景色</p>
+ *
+ * @param a  Activity 上下文
+ * @param h  hint 提示文字
+ * @param bg 背景颜色（按压时自动 adjustColor 0.9f 变暗）
+ * @return 已配置好的 EditText，LayoutParams 为 MATCH_PARENT × WRAP_CONTENT
+ */
+EditText makeInput(Activity a, String h, int bg)
+```
+
+---
+
+### `makeSmallInput` — 小型数字输入框
+```java
+/**
+ * 创建宽 60dp 的数字输入框，居中对齐，圆角 4dp，适合并排展示多个数字参数
+ * <p>输入类型固定为 TYPE_CLASS_NUMBER</p>
+ *
+ * @param a  Activity 上下文
+ * @param h  hint 提示文字
+ * @param bg 背景颜色
+ * @return 已配置好的 EditText，LayoutParams 为 60dp × WRAP_CONTENT
+ */
+EditText makeSmallInput(Activity a, String h, int bg)
+```
+
+---
+
+### `makeTinyInput` — 超小数字输入框
+```java
+/**
+ * 创建宽 45dp、高 32dp 的超小数字输入框，适合紧凑布局中的参数调节
+ * <p>文字 11sp，输入类型 TYPE_CLASS_NUMBER，内容居中</p>
+ *
+ * @param a  Activity 上下文
+ * @param h  hint 提示文字
+ * @param bg 背景颜色
+ * @return 已配置好的 EditText，LayoutParams 为 45dp × 32dp
+ */
+EditText makeTinyInput(Activity a, String h, int bg)
+```
+
+---
+
+### `makeBtn` — 大按钮
+```java
+/**
+ * 创建宽 match_parent 的 TextView 按钮，高度自适应，带圆角（8dp）和按压反馈
+ * <p>适合作为对话框底部的主操作按钮</p>
+ *
+ * @param a  Activity 上下文
+ * @param t  按钮文字
+ * @param tc 文字颜色
+ * @param bg 背景颜色（按压时自动变暗）
+ * @return 已配置好的 TextView，顶部有 6dp 间距
+ */
+TextView makeBtn(Activity a, String t, int tc, int bg)
+```
+
+---
+
+### `makeChip` — 标签 Chip（单选/多选）
+```java
+/**
+ * 创建圆角胶囊标签（50dp 圆角），支持三种颜色样式
+ * <ul>
+ *   <li>type=1：蓝色系，选中 #3B71FE，未选中 #E0E0E0，文字居中且两侧 padding 12dp</li>
+ *   <li>type=2：橙色系，选中 #FF9800，未选中 #F0F0F0</li>
+ *   <li>其他：默认蓝色系，选中 #3B71FE，未选中 #F0F0F0</li>
+ * </ul>
+ *
+ * @param a    Activity 上下文
+ * @param t    标签文字
+ * @param s    是否已选中
+ * @param type 颜色样式类型（1=蓝，2=橙，其他=默认蓝）
+ * @return 已配置好的 TextView 标签
+ */
+TextView makeChip(Activity a, String t, boolean s, int type)
+```
+
+---
+
+### `setChip` — 更新标签选中状态
+```java
+/**
+ * 更新已创建的标签的视觉选中状态（默认蓝色系）
+ * <p>直接修改传入 view 的背景和文字颜色，无需重建</p>
+ *
+ * @param v 目标 TextView 标签
+ * @param s 是否选中
+ */
+void setChip(TextView v, boolean s)
+```
+
+---
+
+### `setChipWithType` — 更新标签选中状态（带类型）
+```java
+/**
+ * 更新已创建标签的视觉选中状态，可指定颜色样式类型
+ *
+ * @param v    目标 TextView 标签
+ * @param s    是否选中
+ * @param type 颜色样式类型（2=橙，其他=蓝）
+ */
+void setChipWithType(TextView v, boolean s, int type)
+```
+
+---
+
+### `makeSwitch` — 开关按钮
+```java
+/**
+ * 创建显示"开"/"关"文字的胶囊形开关按钮（20dp 圆角）
+ * <p>开启时背景为传入的颜色，关闭时背景为 #E0E0E0</p>
+ *
+ * @param a Activity 上下文
+ * @param o 是否开启
+ * @param c 开启时的背景颜色
+ * @return 已配置好的 TextView 开关按钮
+ */
+TextView makeSwitch(Activity a, boolean o, int c)
+```
+
+---
+
+### `setSwitch` — 更新开关状态
+```java
+/**
+ * 更新已创建的开关按钮的视觉状态，无需重建视图
+ *
+ * @param v 目标 TextView 开关按钮
+ * @param o 是否开启
+ * @param c 开启时的背景颜色
+ */
+void setSwitch(TextView v, boolean o, int c)
+```
+
+---
+
+### `makePresetChip` — 代码预设按钮
+```java
+/**
+ * 创建小型预设值按钮（用于点击后填入某个固定值），背景浅灰 #F5F5F5
+ * <p>文字 10sp，圆角 50dp，最小宽 36dp</p>
+ *
+ * @param a         Activity 上下文
+ * @param t         按钮文字（如 "0"、"100"、"500ms"）
+ * @param textColor 文字颜色
+ * @return 已配置好的 TextView
+ */
+TextView makePresetChip(Activity a, String t, int textColor)
+```
+
+---
+
+### `createSwitch` — 系统 Switch 控件
+```java
+/**
+ * 创建系统原生 Switch 控件，文字颜色固定为 #4CA1AF
+ *
+ * @param activity Activity / Context 上下文
+ * @param str      Switch 右侧文字
+ * @param state    初始选中状态
+ * @param size     文字大小（sp），传 0 则不设置
+ * @param weight   LinearLayout weight 权重，传 0 则不设置 LayoutParams
+ * @return 已配置好的 Switch 控件
+ */
+Switch createSwitch(Context activity, String str, boolean state, int size, float weight)
+```
+
+---
+
+### `createCheckBox` — 复选框控件
+```java
+/**
+ * 创建 CheckBox，上下各有 4dp 间距，内边距 16dp，颜色用 ColorStateList 统一设置
+ *
+ * @param activity   Activity 上下文
+ * @param text       复选框文字
+ * @param checked    初始选中状态
+ * @param textSizeDp 文字大小（sp），传 0 则不设置
+ * @param textColor  文字颜色（同时用于设置 ButtonTint）
+ * @return 已配置好的 CheckBox
+ */
+CheckBox createCheckBox(Activity activity, String text, boolean checked, int textSizeDp, int textColor)
+```
+
+---
+
+### `addDivider` — 添加分割线
+```java
+/**
+ * 向 LinearLayout 中添加一条 1px 高的分割线，左边距 16dp
+ *
+ * @param activity Activity 上下文
+ * @param parent   目标 LinearLayout
+ * @param color    分割线颜色
+ */
+void addDivider(Activity activity, LinearLayout parent, int color)
+```
+
+---
+
+### `getSelectableBg` — 可交互波纹背景
+```java
+/**
+ * 创建一个按压时显示淡黑色波纹（#1A000000）、默认透明的 StateListDrawable
+ * <p>适合为列表项、菜单项等添加点击视觉反馈</p>
+ *
+ * @param activity Activity 上下文
+ * @return StateListDrawable（pressed=#1A000000，默认=透明）
+ */
+StateListDrawable getSelectableBg(Activity activity)
+```
+
+---
+
+### `addInputItem` — 向设置列表添加输入项
+```java
+/**
+ * 向 LinearLayout 中添加一个"标题 + 输入框"的设置条目，
+ * 输入框内容变化时自动写入 pendingSettingsChanges（通过 savePendingSettings 统一保存）
+ *
+ * @param activity     Activity 上下文
+ * @param parent       目标 LinearLayout
+ * @param title        条目标题文字
+ * @param value        输入框初始值（null 或空则显示 defaultValue）
+ * @param hint         输入框 hint 文字
+ * @param titleColor   标题文字颜色
+ * @param cardColor    卡片背景颜色（会自动 lightenColor 0.35f 生成子项色）
+ * @param saveKey      设置项键名（保存到 settings 配置文件）
+ * @param defaultValue 默认值（value 为空时显示，文字颜色为 GRAY）
+ */
+void addInputItem(Activity activity, LinearLayout parent, String title, String value,
+                  String hint, int titleColor, int cardColor, String saveKey, String defaultValue)
+
+// 重载：使用默认卡片颜色 #FFF5F5F5
+void addInputItem(Activity activity, LinearLayout parent, String title, String value,
+                  String hint, int titleColor, String saveKey, String defaultValue)
+
+// 重载：无默认值
+void addInputItem(Activity activity, LinearLayout parent, String title, String value,
+                  String hint, int titleColor, String saveKey)
+```
+
+---
+
+### `savePendingSettings` — 保存挂起的设置
+```java
+/**
+ * 将 pendingSettingsChanges 中所有积累的设置变更批量写入 "settings" 配置文件
+ * <p>配合 addInputItem 使用；通常在"保存"按钮的 onClick 中调用</p>
+ *
+ * @return 实际保存的设置项数量
+ */
+int savePendingSettings()
+```
+
+---
+
+## 4. Drawable / 背景工厂
+
+### `makeFeedbackBg` — 带按压反馈的圆角背景
+> **来源：** `uitools.txt`
+
+```java
+/**
+ * 创建 StateListDrawable：按压态使用 pressedColor，默认态使用 normalColor，均为圆角矩形
+ * <p>这是所有按钮、Chip、开关的底层背景方法</p>
+ *
+ * @param normalColor  常态颜色 int
+ * @param pressedColor 按压时颜色 int
+ * @param r            圆角半径（像素，建议用 dp(ctx, N) 转换）
+ * @return StateListDrawable
+ */
+StateListDrawable makeFeedbackBg(int normalColor, int pressedColor, int r)
+```
+
+---
+
+### `roundRect` — 简单圆角矩形
+> **来源：** `uitools.txt`
+
+```java
+/**
+ * 快速创建纯色圆角 GradientDrawable
+ *
+ * @param c 填充颜色 int
+ * @param r 圆角半径（像素）
+ * @return GradientDrawable
+ */
+GradientDrawable roundRect(int c, int r)
+```
+
+---
+
+### `createInputBg` — 输入框聚焦高亮背景
+> **来源：** `uitools.txt`
+
+```java
+/**
+ * 创建 StateListDrawable 输入框背景：
+ * <ul>
+ *   <li>默认态：surfaceVariant 填充 + 1dp outline 描边，圆角 12dp</li>
+ *   <li>聚焦态：surfaceVariant 填充 + 2dp primary 描边（高亮提示用户正在输入）</li>
+ * </ul>
+ *
+ * @param ctx            Context 上下文
+ * @param surfaceVariant 输入框填充色（通常为 UI_COLOR_INPUT_BG_*）
+ * @param outline        默认描边色（通常为 UI_COLOR_STROKE_*）
+ * @param primary        聚焦描边色（通常为 UI_COLOR_ACCENT_*）
+ * @return StateListDrawable（focused / default 两态）
+ */
+StateListDrawable createInputBg(Context ctx, int surfaceVariant, int outline, int primary)
+```
+
+---
+
+### `createBg` — 纯色圆角背景
+> **来源：** `Dialog.txt`
+
+```java
+/**
+ * 快速创建纯色圆角 GradientDrawable（无 Ripple，无状态）
+ *
+ * @param ctx    Context 上下文
+ * @param color  填充颜色
+ * @param radius 圆角半径（dp，内部自动调用 dp() 转换）
+ * @return GradientDrawable
+ */
+Drawable createBg(Context ctx, int color, int radius)
+```
+
+---
+
+### `createRippleBg` — 带波纹的圆角背景
+> **来源：** `Dialog.txt`
+
+```java
+/**
+ * 创建带 Ripple 波纹效果的圆角背景，波纹色为 #1A000000（淡黑）
+ * <p>适合列表项、卡片等需要 Material 触摸反馈的场景</p>
+ *
+ * @param ctx     Context 上下文
+ * @param bgColor 背景填充颜色
+ * @param radius  圆角半径（dp）
+ * @return RippleDrawable
+ */
+Drawable createRippleBg(Context ctx, int bgColor, int radius)
+```
+
+---
+
+### `createButtonBg` — 按钮专用波纹背景
+> **来源：** `Dialog.txt`
+
+```java
+/**
+ * 创建按钮专用 Ripple 背景，波纹色为 #1AFFFFFF（淡白），适合深色背景按钮
+ *
+ * @param ctx     Context 上下文
+ * @param bgColor 按钮背景颜色
+ * @param radius  圆角半径（dp）
+ * @return RippleDrawable
+ */
+Drawable createButtonBg(Context ctx, int bgColor, int radius)
+```
+
+---
+
+### `getCheckerboardDrawable` — 棋盘格透明背景
+> **来源：** `uitools.txt`
+
+```java
+/**
+ * 生成棋盘格平铺 BitmapDrawable，用于展示含透明通道的图片时显示其透明区域
+ * <p>格子大小 20dp，颜色 #FFCCCCCC / #FFEEEEEE 交替</p>
+ *
+ * @param context Context 上下文
+ * @return 可平铺的 BitmapDrawable
+ */
+BitmapDrawable getCheckerboardDrawable(Context context)
+```
+
+---
+
+## 5. 图片处理工具
+
+### `blurBitmap` — RenderScript 高斯模糊
+> **来源：** `uitools.txt`
+
+```java
+/**
+ * 使用 RenderScript 对 Bitmap 进行高斯模糊，模糊半径超出 25 时自动 clamp
+ * <p>RenderScript 失败时自动降级到 fastblur() 算法</p>
+ *
+ * @param activity  Activity 上下文（需要用于创建 RenderScript）
+ * @param bitmap    源 Bitmap
+ * @param outBitmap 输出 Bitmap（传 null 则直接修改源图）
+ * @param radius    模糊半径（0 < radius ≤ 25）
+ * @return 模糊后的 Bitmap
+ */
+Bitmap blurBitmap(Activity activity, Bitmap bitmap, Bitmap outBitmap, float radius)
+```
+
+---
+
+### `fastblur` — 快速模糊（纯 Java 降级）
+> **来源：** `uitools.txt`
+
+```java
+/**
+ * 基于缩小-均值模糊-放大的快速模糊算法，无 GPU 依赖，适合低端机降级
+ * <p>执行三次均值模糊，效果接近高斯模糊但速度更快</p>
+ *
+ * @param bmp    源 Bitmap（不会修改原图，内部创建新 Bitmap）
+ * @param radius 模糊半径（整数）
+ * @return 模糊后的新 Bitmap
+ */
+Bitmap fastblur(Bitmap bmp, int radius)
+```
+
+---
+
+### `resizeBitmap` — 等比缩放到最大边
+> **来源：** `uitools.txt`
+
+```java
+/**
+ * 将 Bitmap 缩放至最长边不超过 maxSize，保持原始宽高比
+ * <p>原图尺寸已满足条件时直接返回原图（不创建副本）</p>
+ *
+ * @param original 源 Bitmap
+ * @param maxSize  最大边长（像素）
+ * @return 缩放后的 Bitmap（或原图）
+ */
+Bitmap resizeBitmap(Bitmap original, int maxSize)
+```
+
+---
+
+### `smartScaleBitmap` / `smartCenterCropBitmap` — 智能 CenterCrop 缩放
+> **来源：** `uitools.txt`
+
+```java
+/**
+ * 将 Bitmap 以 CenterCrop 方式缩放并裁剪到精确目标尺寸（填满目标矩形，不留黑边）
+ * <p>smartCenterCropBitmap 是其别名，两者等价</p>
+ *
+ * @param source  源 Bitmap
+ * @param targetW 目标宽度（像素）
+ * @param targetH 目标高度（像素）
+ * @return 裁剪缩放后的新 Bitmap，内存不足时返回 null
+ */
+Bitmap smartScaleBitmap(Bitmap source, int targetW, int targetH)
+Bitmap smartCenterCropBitmap(Bitmap source, int targetW, int targetH)  // 等价别名
+```
+
+---
+
+### `scaleToFitBitmap` — 等比缩放到目标框（FitCenter）
+> **来源：** `uitools.txt`
+
+```java
+/**
+ * 将 Bitmap 等比缩放以完全显示在目标尺寸框内（不裁剪，可能有空白）
+ *
+ * @param source  源 Bitmap
+ * @param targetW 目标宽度（像素）
+ * @param targetH 目标高度（像素）
+ * @return 缩放后的 Bitmap
+ */
+Bitmap scaleToFitBitmap(Bitmap source, int targetW, int targetH)
+```
+
+---
+
+### `centerCropBitmap` — 精确 CenterCrop（带 Matrix）
+> **来源：** `uitools.txt`
+
+```java
+/**
+ * 使用 Matrix 将源图 CenterCrop 到精确的目标宽高，抗锯齿处理
+ * <p>与 smartScaleBitmap 功能相同，但实现方式不同（Matrix vs 位图裁剪）</p>
+ *
+ * @param source       源 Bitmap
+ * @param targetWidth  目标宽度（像素）
+ * @param targetHeight 目标高度（像素）
+ * @return 裁剪后的新 Bitmap
+ */
+Bitmap centerCropBitmap(Bitmap source, int targetWidth, int targetHeight)
+```
+
+---
+
+### `getCompressedPreview` — JPEG 压缩预览图
+> **来源：** `uitools.txt`
+
+```java
+/**
+ * 将 Bitmap 以 JPEG 格式压缩后重新解码，用于预览时降低内存占用
+ * <p>quality = 100 时直接返回原图（不压缩）</p>
+ *
+ * @param src     源 Bitmap
+ * @param quality 压缩质量 0~100（100 = 原画）
+ * @return 压缩解码后的 Bitmap，失败时返回原图
+ */
+Bitmap getCompressedPreview(Bitmap src, int quality)
+```
+
+---
+
+### `loadBitmapFromUri` — 从 Uri 加载 Bitmap
+> **来源：** `uitools.txt`
+
+```java
+/**
+ * 通过 ContentResolver 从 Uri 解码 Bitmap（支持相册、文件 Uri 等）
+ *
+ * @param activity Activity 上下文（用于 getContentResolver）
+ * @param uri      图片 Uri
+ * @return 解码后的 Bitmap，失败时返回 null
+ */
+Bitmap loadBitmapFromUri(Activity activity, Uri uri)
+```
+
+---
+
+### `showEditDialog` — 图片编辑对话框
+> **来源：** `uitools.txt`
+
+```java
+/**
+ * 弹出全屏图片编辑对话框，支持：
+ * <ul>
+ *   <li>双指缩放 / 单指拖拽预览</li>
+ *   <li>旋转（每次 90°）</li>
+ *   <li>自由裁剪</li>
+ *   <li>JPEG 质量调节（原画/高/中）</li>
+ *   <li>撤销/重做历史</li>
+ *   <li>单击图片外区域切换背景（黑/白/棋盘格）</li>
+ * </ul>
+ * <p>保存完成后自动调用 刷新悬浮窗()</p>
+ *
+ * @param activity    当前 Activity
+ * @param origin      待编辑的原始 Bitmap（对话框关闭时自动 recycle）
+ * @param savePath    保存路径（绝对路径）
+ * @param requestCode 请求码（用于区分不同来源，传给 performSave）
+ */
+void showEditDialog(Activity activity, Bitmap origin, String savePath, int requestCode)
+```
+
+---
+
+### `editAndSaveImage` — 从 Uri 编辑并保存图片（入口）
+> **来源：** `uitools.txt`
+
+```java
+/**
+ * 从 Uri 加载图片后进入编辑流程
+ * <p>GIF 文件直接复制保存（不进编辑器）；其他格式在线程池加载后显示编辑对话框</p>
+ *
+ * @param activity Activity 上下文
+ * @param uri      图片 Uri（来自文件选择器的 onActivityResult）
+ * @param p        保存路径（支持 "{ext}" 占位符自动替换后缀）
+ * @param c        requestCode（传递给编辑器，无特殊含义时传 0）
+ */
+void editAndSaveImage(Activity activity, Uri uri, String p, int c)
+```
+
+---
+
+## 6. 图片缓存系统
+
+> **来源：** `uitools.txt`  
+> 基于 `ConcurrentHashMap` + `LinkedHashMap` 实现的 LRU 缓存，最大容量 10 条。
+
+### 全局缓存变量
+```java
+static ConcurrentHashMap imageCache  // 主缓存：cacheKey → CacheEntry
+static LinkedHashMap      cacheOrder // LRU 顺序记录
+static final int MAX_CACHE_SIZE = 10 // 最大缓存条数
+```
+
+### 缓存操作方法
+```java
+/**
+ * 生成缓存键（含路径哈希、修改时间、大小、模糊参数、主题、目标尺寸）
+ * <p>尺寸以 20px 为粒度分组，相近尺寸可复用缓存（参见 findSimilarCache）</p>
+ */
+String generateCacheKey(String imgPath, int blurRadius, int overlayAlpha,
+                         boolean isDark, int targetW, int targetH)
+
+/** 生成不含尺寸的基础键，用于 findSimilarCache 前缀匹配 */
+String generateBaseCacheKey(String imgPath, int blurRadius, int overlayAlpha, boolean isDark)
+
+/**
+ * 读取缓存（同时更新 LRU 顺序和访问计数）
+ * @return Drawable 缓存命中时返回，否则返回 null
+ */
+Drawable getCachedDrawable(String cacheKey)
+
+/**
+ * 写入缓存（超出 MAX_CACHE_SIZE 时淘汰最旧条目）
+ * <p>同 key 已存在时只更新访问信息</p>
+ */
+void putToCache(Drawable drawable, String cacheKey, int width, int height)
+
+/**
+ * 在尺寸相近的缓存中查找（宽高误差 ≤ 20%）可复用条目，避免重复渲染
+ * @return 找到时返回 Drawable，否则 null
+ */
+Drawable findSimilarCache(String baseKey, int targetW, int targetH)
+```
+
+---
+
+## 7. 弹窗与对话框
+
+### `showBigCountConfirm` — 高频操作二次确认弹窗
+> **来源：** `api5.txt`
+
+```java
+/**
+ * 在用户设置发送次数超过 10 时弹出红色警告确认框
+ * <p>确认后根据 delayMs 决定使用 doMultiSend（0ms）或 doMultiSendWithDelay</p>
+ * <p>自适应深浅色主题，使用 applyUiTheme 应用圆角卡片背景</p>
+ *
+ * @param activity Activity 上下文
+ * @param data     消息数据对象（MsgData）
+ * @param text     待发送文本，null 表示原样复读
+ * @param count    发送次数
+ * @param delayMs  发送间隔毫秒，0 = 连续发送
+ * @param parent   父对话框（点击"继续"时一并 dismiss，可传 null）
+ */
+void showBigCountConfirm(Activity activity, MsgData data, String text,
+                          int count, int delayMs, Dialog parent)
+```
+
+---
+
+### `showRepeatCountDialog` — 多次复读/发送配置弹窗
+> **来源：** `api5.txt`
+
+```java
+/**
+ * 弹出多次发送配置对话框，包含：
+ * <ul>
+ *   <li>次数输入框（超 10 次触发二次确认）</li>
+ *   <li>间隔输入框（默认 500ms，0 = 连续发送）</li>
+ *   <li>合理风险提示文字</li>
+ * </ul>
+ * <p>输入框使用 createInputBg() 聚焦高亮，全局颜色变量自适应深浅色主题</p>
+ *
+ * @param activity    Activity 上下文
+ * @param data        消息数据对象（MsgData）
+ * @param currentText 当前编辑框文本，null 表示原样复读（影响标题和按钮文字）
+ */
+void showRepeatCountDialog(Activity activity, MsgData data, String currentText)
+```
+
+---
+
+### `showActionDialog` — 消息操作主弹窗
+> **来源：** `api5.txt`
+
+```java
+/**
+ * 消息双击/Intent拦截后弹出的功能操作面板，包含：
+ * <ul>
+ *   <li>消息内容可编辑展示框（支持图片 Span 渲染和 @ 高亮）</li>
+ *   <li>iOS 风格滑动模式选择器（复读/多次复读/作图/加解密）</li>
+ *   <li>"更多"按钮（进入长按菜单）和"原功能"按钮（回放原始点击）</li>
+ *   <li>引用消息展示框（存在引用时自动显示）</li>
+ * </ul>
+ *
+ * @param activity       Activity 上下文
+ * @param msgData        消息数据对象（MsgData）
+ * @param targetView     消息气泡视图（用于原功能 View.callOnClick 回放，可为 null）
+ * @param originalIntent 原始 Intent（用于原功能 startActivity 回放，可为 null）
+ */
+void showActionDialog(Activity activity, MsgData msgData,
+                      View targetView, Intent originalIntent)
+```
+
+---
+
+### `showShutUpDialog` — 禁言时长设置弹窗
+> **来源：** `Dialog.txt`
+
+```java
+/**
+ * 弹出禁言时长输入对话框，输入 0 表示解除禁言
+ * <p>自适应深浅色主题，使用全局 UI_COLOR_* 变量</p>
+ *
+ * @param activity Activity 上下文
+ * @param qun      群号
+ * @param uin      被禁言成员 QQ 号
+ * @param nickName 成员昵称（显示在副标题）
+ */
+void showShutUpDialog(Activity activity, String qun, String uin, String nickName)
+```
+
+---
+
+## 8. 消息发送工具（api5.txt）
+
+### `doMultiSend` — 多次发送（无延迟，线程池批量执行）
+```java
+/**
+ * 在线程池中批量发送消息，无间隔（适合次数少的场景，如 1~10 次）
+ * <p>纯文本 → sendMsg；含图片/媒体 → forwardViaServer 转发</p>
+ *
+ * @param data    消息数据对象（MsgData）
+ * @param newText 新文本内容，null = 原样复读；支持 [pic=url] 图片标签
+ * @param count   发送次数（建议 ≤ 10）
+ */
+void doMultiSend(MsgData data, String newText, int count)
+```
+
+---
+
+### `doMultiSendWithDelay` — 多次发送（带间隔，非阻塞）
+```java
+/**
+ * 通过 mainHandler.postDelayed 递归链实现带间隔的多次发送
+ * <p>每条消息发送在线程池中执行，执行完毕后由主线程调度下一条</p>
+ * <p>不 sleep，不阻塞任何线程</p>
+ *
+ * @param data    消息数据对象（MsgData）
+ * @param newText 新文本内容，null = 原样复读
+ * @param count   总发送次数
+ * @param delayMs 每两条消息之间的间隔毫秒（建议 ≥ 300ms，避免风控）
+ */
+void doMultiSendWithDelay(MsgData data, String newText, int count, int delayMs)
+```
+
+---
+
+### `doSendOrRepeat` — 单次发送或复读
+```java
+/**
+ * 单次发送或复读（doMultiSend 的单次包装）
+ *
+ * @param data    消息数据对象（MsgData）
+ * @param newText 新文本，null = 原样复读
+ */
+void doSendOrRepeat(MsgData data, String newText)
+```
+
+---
+
+### `fetchRealMsgRecord` — 异步获取完整消息记录
+```java
+/**
+ * 通过 IKernelMsgService.getMsgsByMsgId 异步拉取完整 MsgRecord
+ * <p>成功后在主线程回调 callback.onLoaded(MsgData)</p>
+ * <p>失败时自动重置 isDialogShowing 并显示 Toast</p>
+ *
+ * @param msgId    消息 ID
+ * @param chatType 聊天类型（1=私聊，2=群聊）
+ * @param peerUid  对方 UID
+ * @param callback 成功回调接口（MsgLoadedCallback），在主线程执行
+ */
+void fetchRealMsgRecord(long msgId, int chatType, String peerUid, MsgLoadedCallback callback)
+```
+
+---
+
+### `forwardViaServer` — 通过内核转发消息
+```java
+/**
+ * 调用 IKernelMsgService.forwardMsg 将消息转发到指定目标
+ * <p>适用于图片、视频、语音、文件等非文本消息的原样转发</p>
+ *
+ * @param msgRecordObj 消息记录对象（必须为 MsgRecord 类型）
+ * @param targetUin    目标 QQ 号或群号
+ */
+void forwardViaServer(Object msgRecordObj, String targetUin)
+```
+
+---
+
+### `isTextOnlyMsg` — 判断是否纯文本消息
+```java
+/**
+ * 遍历 MsgElement 列表，判断是否所有元素均为文本（elementType = 1）或回复（elementType = 7）
+ *
+ * @param elements 消息元素列表（List<MsgElement>）
+ * @return true = 纯文本，false = 包含图片/视频/语音等
+ */
+boolean isTextOnlyMsg(List elements)
+```
+
+---
+
+### `initDoubleClickListener` — 注册消息双击监听器
+```java
+/**
+ * 向 OnAIOViewUpdate 注册双击监听器，拦截消息气泡触摸事件实现双击弹窗
+ * <p>关键逻辑：向上遍历视图层级，找到 isClickable || isLongClickable 的气泡容器</p>
+ * <p>（QQ 气泡容器 @+id/ona 为 longClickable=true，仅靠 isClickable 会找不到）</p>
+ * <p>单击后 350ms 内未发生第二次点击则回放原功能；在阈值内第二次点击则弹出操作弹窗</p>
+ */
+void initDoubleClickListener()
+```
+
+---
+
+### `performDoubleClick` / `performOriginalClick`
+```java
+/**
+ * 消息双击事件处理：检查弹窗状态后调用 showActionDialog
+ *
+ * @param layout    气泡视图（bubbleView）
+ * @param msgRecord 消息记录对象
+ */
+void performDoubleClick(View layout, MsgRecord msgRecord)
+
+/**
+ * 单击原功能回放：依次尝试 callOnClick → performClick → 子视图 performClick
+ * <p>执行期间设置 isReplayingClick = true 防止 Intent Hook 递归触发</p>
+ *
+ * @param layout    气泡视图（bubbleView）
+ * @param msgRecord 消息记录对象
+ */
+void performOriginalClick(View layout, MsgRecord msgRecord)
+```
+
+---
+
+### `installQFunHooks` / `uninstallQFunHooks`
+```java
+/**
+ * 安装所有 Hook（含双击监听器 + Intent 拦截器）
+ * <p>内部先调用 uninstallQFunHooks() 清理旧 Hook 再重新注册</p>
+ */
+void installQFunHooks()
+
+/**
+ * 卸载所有已注册的 Hook 和双击监听器
+ * <p>在 unLoadPlugin() 中必须调用，防止插件卸载后 Hook 持续生效</p>
+ */
+void uninstallQFunHooks()
+```
+
+---
+
+## 9. 字符串 / 时间工具（Dialog.txt）
+
+### `prettyPrint` — JSON / 对象格式化
+```java
+/**
+ * 将紧凑的 JSON 或 toString() 字符串格式化为带缩进的多行字符串
+ * <p>处理 { } [ ] , 的换行和缩进；引号内的内容保持原样不处理</p>
+ *
+ * @param obj 任意对象（调用 toString()）或字符串
+ * @return 格式化后的字符串（null 返回 "null"）
+ */
+String prettyPrint(Object obj)
+```
+
+---
+
+### `timestampToDate` — 时间戳转日期字符串
+```java
+/**
+ * 将毫秒时间戳格式化为 "yyyy-MM-dd HH:mm:ss"
+ *
+ * @param timestamp 毫秒时间戳（如 System.currentTimeMillis()）
+ * @return 格式化字符串，格式异常时返回 "时间错误"
+ */
+String timestampToDate(long timestamp)
+```
+
+---
+
+### `formatRemainingTime` — 秒数转可读时长
+```java
+/**
+ * 将秒数格式化为 "X天X小时"、"X小时X分钟"、"X分钟X秒"、"X秒" 等可读形式
+ *
+ * @param seconds 秒数
+ * @return 格式化的时间字符串
+ */
+String formatRemainingTime(long seconds)
+```
+
+---
+
+### `getGagStatus` — 禁言状态描述
+```java
+/**
+ * 根据禁言结束时间戳（秒）返回人类可读的禁言状态
+ * <ul>
+ *   <li>0 → "未禁言"</li>
+ *   <li>> 4102358400 → "永久禁言"</li>
+ *   <li>大于当前时间 → "禁言中，剩余: X分X秒"</li>
+ *   <li>已过期 → "未禁言"</li>
+ * </ul>
+ *
+ * @param timestamp 禁言结束时间戳字符串（秒）
+ * @return 状态描述字符串
+ */
+String getGagStatus(String timestamp)
+```
+
+---
+
+### `convertRole` — 角色标识转中文
+```java
+/**
+ * 将 QQ 群角色英文标识转换为中文显示名称
+ * <ul>
+ *   <li>"OWNER" → "群主"</li>
+ *   <li>"ADMIN" → "管理员"</li>
+ *   <li>"MEMBER" → "普通成员"</li>
+ * </ul>
+ *
+ * @param role 角色标识字符串
+ * @return 中文名称（无法识别时返回原值）
+ */
+String convertRole(String role)
+```
+
+---
+
+### `extractValue` — 从键值对字符串提取值
+```java
+/**
+ * 从 "prefix = 'value'" 格式字符串中提取值
+ * <p>自动去除前缀、等号、单引号；"null" 值返回 "未设置"</p>
+ *
+ * @param pair   键值对字符串
+ * @param prefix 前缀（如 "key"）
+ * @return 提取到的值字符串，失败返回 "获取失败"
+ */
+String extractValue(String pair, String prefix)
+```
+
+---
+
+### `md5` — MD5 哈希
+> **来源：** `uitools.txt`
+
+```java
+/**
+ * 计算字符串的 MD5 哈希值（32位小写十六进制）
+ *
+ * @param input 输入字符串
+ * @return MD5 字符串，输入为空或异常时返回原字符串
+ */
+String md5(String input)
+```
+
+---
+
+## 10. 网络请求工具（api.txt）
+
+### `httpGet` — GET 请求
+```java
+/**
+ * 发起 HTTP GET 请求，超时 10s，支持携带 Cookie
+ * <p>内部记录 traceLog("api_log", ...)；失败返回空字符串</p>
+ *
+ * @param url    完整请求 URL
+ * @param cookie Cookie 字符串（null 或空则不携带）
+ * @return 响应体字符串，失败返回 ""
+ */
+String httpGet(String url, String cookie)
+```
+
+---
+
+### `httpPost` — POST 表单请求
+```java
+/**
+ * 发起 HTTP POST 请求（Content-Type: application/x-www-form-urlencoded），超时 20s
+ *
+ * @param url    完整请求 URL
+ * @param cookie Cookie 字符串（null 或空则不携带）
+ * @param data   表单数据（已 URL 编码的字符串）
+ * @return 响应体字符串，失败返回 ""
+ */
+String httpPost(String url, String cookie, String data)
+```
+
+---
+
+### `httpPostJson` — POST JSON 请求
+```java
+/**
+ * 发起 HTTP POST 请求（Content-Type: application/json），超时 20s
+ *
+ * @param url    完整请求 URL
+ * @param cookie Cookie 字符串（null 或空则不携带）
+ * @param json   JSON 字符串请求体
+ * @return 响应体字符串，失败返回 ""
+ */
+String httpPostJson(String url, String cookie, String json)
+```
+
+---
+
+### `get` — 简单 GET 请求（无 Cookie）
+```java
+/**
+ * 发起简单 HTTP GET 请求，UTF-8 编码，超时 10s，无 Cookie 支持
+ *
+ * @param url 完整请求 URL
+ * @return 响应体字符串，失败返回 "访问网页失败，原因:..."
+ */
+String get(String url)
+```
+
+---
+
+## 11. 全局状态变量
+
+> 以下变量声明在各脚本顶层，所有方法共享，修改时需注意线程安全。
+
+```java
+// ── api5.txt ────────────────────────────────────────────────────────────────
+
+/** 全局弹窗显示锁，防止双击/Intent 同时弹出多个操作弹窗 */
+volatile boolean isDialogShowing = false
+
+/** 原功能回放标记：true 时 Intent Hook 不拦截，防止 performOriginalClick 触发递归 */
+volatile boolean isReplayingClick = false
+
+/** 主线程 Handler，供所有需要 UI 操作的方法使用 */
+Handler mainHandler  // = new Handler(Looper.getMainLooper())
+
+/** 双击时间阈值（毫秒）：两次点击间隔小于此值判定为双击 */
+static final long DOUBLE_CLICK_THRESHOLD = 300L
+
+/** 单击延迟时间（毫秒）：单击后等待此时间确认无第二次点击再回放原功能 */
+static final long SINGLE_CLICK_DELAY = 350L
+
+/** 图片内存缓存 URL → Bitmap，downloadImage 使用 */
+HashMap picimageCache
+
+/** 特殊文本集合（@ / 表情），用于消息编辑框的颜色 Span 渲染 */
+HashSet validSpecialTexts
+
+/** 全局 Hook 注册表，保存 XC_MethodHook.Unhook，用于 uninstallQFunHooks 一键卸载 */
+List HOOK_REGISTRY
+
+/** 滑动选择器状态池（10个槽）：[0]Popup [1]Slider [2]Centers [4]TextViews [5]BaseInfo [7]UpdateRunnable [8]Root */
+Object[] WHEEL_STATE = new Object[10]
+
+/** 双击监听器引用，uninstallQFunHooks 时用于 removeListener */
+AIOViewUpdateListener doubleClickListener
+
+// ── uitools.txt ────────────────────────────────────────────────────────────
+
+/** 图片背景 LRU 缓存（主存储），key = cacheKey，value = CacheEntry */
+static ConcurrentHashMap imageCache
+
+/** LRU 顺序记录，配合 imageCache 实现最近最少使用淘汰 */
+static LinkedHashMap cacheOrder
+
+/** 最大缓存条数 */
+static final int MAX_CACHE_SIZE = 10
+
+/** 当前全局文字颜色（White/Black），用于背景渲染后同步更新悬浮窗文字 */
+static int currentTextColor
+
+/** 当前是否深色模式（用于缓存键生成） */
+static boolean currentIsDark
+
+/** 文件选择器 Hook 是否已安装（防重复 Hook） */
+static boolean isFilePickerHooked
+
+// ── uitools.txt - 设置页面 ─────────────────────────────────────────────────
+
+/** 设置页面挂起的变更（key → value），由 addInputItem 自动填充，savePendingSettings 统一提交 */
+static HashMap pendingSettingsChanges
+```
+
+---
+
+## 快速参考速查表
+
+| 场景 | 推荐方法 |
+|------|----------|
+| 读取深浅色主题 | `isThemeDark(activity)` |
+| 创建带主题的输入框 | `createInputBg(ctx, inputBg, stroke, accent)` |
+| 创建按钮 | `makeBtn(a, text, textColor, bgColor)` |
+| 创建 Chip 标签 | `makeChip(a, text, selected, type)` |
+| 创建开关 | `makeSwitch(a, isOn, activeColor)` |
+| 颜色变暗（按压态） | `adjustColor(color, 0.9f)` |
+| 颜色加透明 | `adjustAlpha(color, 0.5f)` |
+| AlertDialog 圆角卡片 | `applyUiTheme(activity, dialog)`（dialog.show() 后调用）|
+| 多次发送（无间隔） | `doMultiSend(data, text, count)` |
+| 多次发送（带间隔） | `doMultiSendWithDelay(data, text, count, delayMs)` |
+| 图片模糊 | `blurBitmap(activity, bitmap, null, radius)` |
+| 图片缩放填满 | `smartScaleBitmap(bitmap, w, h)` |
+| 图片等比缩小 | `resizeBitmap(bitmap, maxSize)` |
+| 时间戳转文字 | `timestampToDate(System.currentTimeMillis())` |
+| JSON 格式化 | `prettyPrint(obj)` |
+| HTTP 请求 | `httpGet(url, cookie)` / `httpPost(url, cookie, data)` |
