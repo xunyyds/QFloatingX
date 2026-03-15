@@ -3397,16 +3397,6 @@ void addMenuItem(List list, String category, String title, Runnable callback) {
 }
 
 /**
- * 调整颜色透明度
- * @param color 原始颜色
- * @param factor 透明度因子（0-1）
- * @return 调整后的颜色
- */
-int adjustAlpha(int color, float factor) {
-    return Color.argb(Math.round(Color.alpha(color) * factor), Color.red(color), Color.green(color), Color.blue(color));
-}
-
-/**
  * 根据分类名称获取对应颜色数组
  * @param category 分类名称
  * @param isDark 是否深色主题
