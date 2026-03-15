@@ -652,27 +652,18 @@ void 前台初始化(Activity currentActivity) {
 
     ThreadPool.execute(new Runnable() {
         public void run() {
-            String countJson = get("https://cn.apihz.cn/api/jisuan/jishuqi2.php?id=10013224&key=17e1755199ff8eebc2fd58bce20d950e&type=1&number=1");
+            String countJson = get("https://api.521567.xyz/api/jisuan/api.php?id=5201314&key=ovo5201314&type=1&number=1");
+            int totalCount = 0;
             if (countJson != null && !countJson.isEmpty()) {
                 try {
                     JSONObject jsonObj = new JSONObject(countJson.trim());
-                    if (jsonObj.getInt("code") != 200) {
+                    if (jsonObj.getInt("code") == 200) {
+                        totalCount = jsonObj.getInt("value");
+                    } else {
                         Toast("计数异常");
                     }
                 } catch (Exception e) {
                     traceLog("api_error", "计数解析异常：" + e.getMessage());
-                }
-            }
-            String readJson = get("https://cn.apihz.cn/api/jisuan/jishuqi2.php?id=10013224&key=17e1755199ff8eebc2fd58bce20d950e&type=2&number=1");
-            int totalCount = 0;
-            if (readJson != null && !readJson.isEmpty()) {
-                try {
-                    JSONObject jsonObject = new JSONObject(readJson.trim());
-                    if (jsonObject.getInt("code") == 200) {
-                        totalCount = Integer.parseInt(jsonObject.getString("number1"));
-                    }
-                } catch (Exception e) {
-                    traceLog("api_error", "读值解析异常：" + e.getMessage());
                 }
             }
 
@@ -699,7 +690,7 @@ void 前台初始化(Activity currentActivity) {
             });
         }
     });
-	// chatInterface(1, "666666", "请重新进入当前聊天");
+    // chatInterface(1, "666666", "请重新进入当前聊天");
     checkQFXUpdate();
 
     if (getBoolean("模拟定位开关", "模拟定位开关", false)) {
