@@ -3647,8 +3647,9 @@ public void 长按消息菜单(Activity activity, Object data) {
     }
 
     addMenuItem(menuItems, "互动功能", "为Ta点赞", new Runnable() { public void run() { showZanDialog(activity, finalUserUin); } });
-    addMenuItem(menuItems, "互动功能", "回应表情", new Runnable() { public void run() { showFaceReplyConfigDialog(data); } });
     if (chatType == 2) {
+        addMenuItem(menuItems, "互动功能", "回应表情", new Runnable() { public void run() { showFaceReplyConfigDialog(data); } });
+        addMenuItem(menuItems, "互动功能", "AI声聊", new Runnable() { public void run() { showVoiceSendDialog(data); } });
         addMenuItem(menuItems, "互动功能", "艾特全体", new Runnable() { public void run() { sendMsg(finalPeerUin, "[atUin=0]", finalChatType); } });
         addMenuItem(menuItems, "互动功能", "艾特列表", new Runnable() { public void run() { showAtListDialog(finalAtList); } });
     }
@@ -3668,6 +3669,13 @@ public void 长按消息菜单(Activity activity, Object data) {
         addMenuItem(menuItems, "其他", "群字符", new Runnable() { public void run() { drawLuckyChar(finalPeerUin); } });
     }
     addMenuItem(menuItems, "其他", "悬浮窗菜单", new Runnable() { public void run() { 显示菜单(activity); } });
+    addMenuItem(menuItems, "其他", "双击消息菜单", new Runnable() { public void run() {                                     fetchRealMsgRecord(finalMsgid, finalChatType, finalPeerUin, new MsgLoadedCallback() {
+                                        public void onLoaded(MsgData msgData) {
+                                            showActionDialog(activity, msgData, null, null);
+                                        }
+                                    });
+ } });
+    
     final boolean[] isEditMode = new boolean[]{false};
     String savedOrder = getString("setting", "menuSort", "");
     
@@ -5765,314 +5773,6 @@ private String escapeHtml(String text) {
 		.replace("'", "&#39;");
 }
 
-public interface GroupSelectCallback {
-    void onSelected(List selected);
-}
-
-/**
- * 显示群组/好友选择对话框。
- * <p>
- * 根据指定的模式显示好友列表、群聊列表或两者的组合，支持多选、搜索、全选、反选等操作。
- * 选择完成后通过回调返回选中的群号或好友QQ号列表。
- * </p>
- *
- * @param act          当前 Activity，用于创建对话框
- * @param mode         选择模式：
- *                     <ul>
- *                       <li>1 - 仅选择好友</li>
- *                       <li>2 - 仅选择群聊</li>
- *                       <li>3 - 选择好友和群聊（混合列表）</li>
- *                     </ul>
- * @param initSelected 初始已选中的项列表（元素为 String 类型的 QQ/群号），可为空
- * @param callback     选择完成后的回调接口，{@link GroupSelectCallback#onSelected(List)} 
- *                     会在用户点击“确定”时被调用，参数为最终选中的列表
- */
-public void showGroupSelector(final Activity act, final int mode, final List initSelected, final GroupSelectCallback callback) {
-    final int COLOR_PRIMARY = Color.parseColor("#6750A4");
-    final int COLOR_ON_PRIMARY = Color.WHITE;
-    final int COLOR_SURFACE = Color.parseColor("#FFFFFF");
-    final int COLOR_SURFACE_VARIANT = Color.parseColor("#F5F7FA");
-    final int COLOR_OUTLINE = Color.parseColor("#79747E");
-    final int COLOR_ON_SURFACE = Color.parseColor("#FF000000");
-    final int COLOR_ON_SURFACE_VAR = Color.parseColor("#FF333333");
-
-    final Dialog d = new Dialog(act);
-    d.requestWindowFeature(Window.FEATURE_NO_TITLE);
-    Window w = d.getWindow();
-    if (w != null) w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-    w.setLayout(dp(act, 360), (int)(act.getResources().getDisplayMetrics().heightPixels * 0.85));
-
-    LinearLayout root = new LinearLayout(act);
-    root.setOrientation(LinearLayout.VERTICAL);
-    root.setBackground(createBg(act, COLOR_SURFACE, 28));
-    root.setPadding(dp(act, 20), dp(act, 20), dp(act, 20), dp(act, 20));
-
-    TextView title = new TextView(act);
-    title.setText(mode == 1 ? "选择好友" : mode == 2 ? "选择群聊" : "选择群聊与好友");
-    title.setTextSize(20);
-    title.setTypeface(null, Typeface.BOLD);
-    title.setTextColor(COLOR_ON_SURFACE);
-    root.addView(title);
-
-    final TextView summary = new TextView(act);
-    summary.setTextSize(14);
-    summary.setTextColor(COLOR_ON_SURFACE_VAR);
-    root.addView(summary);
-
-    EditText search = new EditText(act);
-    search.setHint("搜索群名称或群号");
-    search.setBackground(createInputBg(act, COLOR_SURFACE_VARIANT, COLOR_OUTLINE, COLOR_PRIMARY));
-    search.setPadding(dp(act, 16), dp(act, 12), dp(act, 16), dp(act, 12));
-    root.addView(search);
-
-    ListView lv = new ListView(act);
-    lv.setDivider(null);
-    lv.setDividerHeight(0);
-    root.addView(lv, new LinearLayout.LayoutParams(-1, 0, 1f));
-
-    LinearLayout row1 = new LinearLayout(act);
-    row1.setOrientation(LinearLayout.HORIZONTAL);
-    row1.setGravity(Gravity.END);
-    row1.setPadding(0, dp(act, 12), 0, dp(act, 8));
-    Button bCancelAll = makeSmallBtn(act, "取消全选", COLOR_PRIMARY);
-    row1.addView(bCancelAll);
-    Button bReverse = makeSmallBtn(act, "反选", COLOR_PRIMARY);
-    row1.addView(bReverse);
-    Button bSelectAll = makeSmallBtn(act, "全选", COLOR_PRIMARY);
-    row1.addView(bSelectAll);
-    root.addView(row1);
-
-    LinearLayout row2 = new LinearLayout(act);
-    row2.setOrientation(LinearLayout.HORIZONTAL);
-    row2.setGravity(Gravity.END);
-    row2.setPadding(0, dp(act, 8), 0, 0);
-    Button btnCancel = new Button(act);
-    btnCancel.setText("取消");
-    // btnCancel.setTextColor(COLOR_PRIMARY);
-    row2.addView(btnCancel);
-    Button btnConfirm = new Button(act);
-    btnConfirm.setText("确定");
-    // btnConfirm.setTextColor(COLOR_PRIMARY);
-    row2.addView(btnConfirm);
-    root.addView(row2);
-
-    d.setContentView(root);
-    d.show();
-
-    final List allItems = new ArrayList();
-
-    if (mode == 1 || mode == 3) {
-        List friendList = (List) getAllFriend();
-        for (Object obj : friendList) {
-            String displayName = (obj.remark != null && !obj.remark.isEmpty()) ? obj.remark : obj.name;
-            Map m = new HashMap();
-            m.put("uin", obj.uin);
-            m.put("name", displayName);
-            allItems.add(m);
-        }
-    }
-
-    if (mode == 2 || mode == 3) {
-        List groupList = (List) getGroupList();
-        for (Object obj : groupList) {
-            GroupInfo g = (GroupInfo) obj;
-            Map m = new HashMap();
-            m.put("uin", g.group);
-            m.put("name", g.groupName);
-            allItems.add(m);
-        }
-    }
-
-    if (allItems.isEmpty()) {
-        Map test = new HashMap();
-        test.put("uin", "000000");
-        test.put("name", "未获取到数据 (请检查权限)");
-        allItems.add(test);
-    }
-
-    final List display = new ArrayList();
-    final Set selected = new HashSet(initSelected);
-
-    for (Object o : allItems) {
-        Map m = (Map) o;
-        if (selected.contains(m.get("uin"))) display.add(m);
-    }
-    for (Object o : allItems) {
-        Map m = (Map) o;
-        if (!selected.contains(m.get("uin"))) display.add(m);
-    }
-
-    BaseAdapter adapter = new BaseAdapter() {
-        public int getCount() { return display.size(); }
-        public Object getItem(int p) { return display.get(p); }
-        public long getItemId(int p) { return p; }
-
-        public View getView(int pos, View cv, ViewGroup parent) {
-            LinearLayout item;
-            if (cv == null) {
-                item = new LinearLayout(act);
-                item.setOrientation(LinearLayout.HORIZONTAL);
-                item.setGravity(Gravity.CENTER_VERTICAL);
-                item.setPadding(dp(act, 12), dp(act, 12), dp(act, 12), dp(act, 12));
-            } else {
-                item = (LinearLayout) cv;
-                item.removeAllViews();
-            }
-
-            final Map m = (Map) display.get(pos);
-            final String uin = (String) m.get("uin");
-            final boolean isChecked = selected.contains(uin);
-
-            final FrameLayout checkContainer = new FrameLayout(act);
-            checkContainer.setLayoutParams(new LinearLayout.LayoutParams(dp(act, 28), dp(act, 28)));
-
-            final View box = new View(act);
-            final GradientDrawable bg = new GradientDrawable();
-            bg.setCornerRadius(dp(act, 6));
-            box.setBackground(bg);
-            checkContainer.addView(box);
-
-            final FrameLayout checkContent = new FrameLayout(act);
-            checkContent.setLayoutParams(new FrameLayout.LayoutParams(dp(act, 28), dp(act, 28)));
-
-            View checkLine1 = new View(act);
-            GradientDrawable line1Bg = new GradientDrawable();
-            line1Bg.setShape(GradientDrawable.RECTANGLE);
-            line1Bg.setCornerRadius(dp(act, 1));
-            line1Bg.setColor(Color.WHITE);
-            checkLine1.setBackground(line1Bg);
-            FrameLayout.LayoutParams lp1 = new FrameLayout.LayoutParams(dp(act, 3), dp(act, 8));
-            lp1.gravity = Gravity.CENTER;
-            lp1.leftMargin = dp(act, -6);
-            lp1.topMargin = dp(act, 4);
-            checkLine1.setLayoutParams(lp1);
-            checkLine1.setRotation(-45);
-            checkContent.addView(checkLine1);
-
-            View checkLine2 = new View(act);
-            GradientDrawable line2Bg = new GradientDrawable();
-            line2Bg.setShape(GradientDrawable.RECTANGLE);
-            line2Bg.setCornerRadius(dp(act, 1));
-            line2Bg.setColor(Color.WHITE);
-            checkLine2.setBackground(line2Bg);
-            FrameLayout.LayoutParams lp2 = new FrameLayout.LayoutParams(dp(act, 3), dp(act, 14));
-            lp2.gravity = Gravity.CENTER;
-            lp2.leftMargin = dp(act, 4);
-            lp2.topMargin = dp(act, -2);
-            checkLine2.setLayoutParams(lp2);
-            checkLine2.setRotation(45);
-            checkContent.addView(checkLine2);
-
-            checkContent.setVisibility(isChecked ? View.VISIBLE : View.GONE);
-            checkContainer.addView(checkContent);
-
-            if (isChecked) {
-                bg.setColor(COLOR_PRIMARY);
-                bg.setStroke(dp(act, 2), COLOR_PRIMARY);
-            } else {
-                bg.setColor(Color.TRANSPARENT);
-                bg.setStroke(dp(act, 2), COLOR_OUTLINE);
-            }
-
-            item.addView(checkContainer);
-
-            TextView tv = new TextView(act);
-            tv.setText(m.get("name") + " (" + uin + ")");
-            tv.setTextSize(16);
-            tv.setTextColor(COLOR_ON_SURFACE);
-            LinearLayout.LayoutParams tvLp = new LinearLayout.LayoutParams(0, -2, 1);
-            tvLp.leftMargin = dp(act, 12);
-            item.addView(tv, tvLp);
-
-            View.OnClickListener clickListener = new View.OnClickListener() {
-                public void onClick(View v) {
-                    if (selected.contains(uin)) {
-                        selected.remove(uin);
-                        bg.setColor(Color.TRANSPARENT);
-                        bg.setStroke(dp(act, 2), COLOR_OUTLINE);
-                        checkContent.setVisibility(View.GONE);
-                    } else {
-                        selected.add(uin);
-                        bg.setColor(COLOR_PRIMARY);
-                        bg.setStroke(dp(act, 2), COLOR_PRIMARY);
-                        checkContent.setVisibility(View.VISIBLE);
-                    }
-                    summary.setText("已选 " + selected.size() + " / 总 " + display.size());
-                }
-            };
-
-            item.setOnClickListener(clickListener);
-            checkContainer.setOnClickListener(clickListener);
-
-            return item;
-        }
-    };
-    lv.setAdapter(adapter);
-    summary.setText("已选 " + selected.size() + " / 总 " + display.size());
-
-    search.addTextChangedListener(new TextWatcher() {
-        public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-        public void onTextChanged(CharSequence s, int start, int before, int count) {}
-        public void afterTextChanged(Editable s) {
-            String q = s.toString().trim().toLowerCase();
-            display.clear();
-            for (Object o : allItems) {
-                Map m = (Map) o;
-                if (q.isEmpty() || ((String)m.get("name")).toLowerCase().contains(q) || ((String)m.get("uin")).contains(q)) {
-                    display.add(m);
-                }
-            }
-            adapter.notifyDataSetChanged();
-            summary.setText("已选 " + selected.size() + " / 总 " + display.size());
-        }
-    });
-
-    bCancelAll.setOnClickListener(new View.OnClickListener() {
-        public void onClick(View v) {
-            selected.clear();
-            adapter.notifyDataSetChanged();
-            summary.setText("已选 0 / 总 " + display.size());
-        }
-    });
-
-    bReverse.setOnClickListener(new View.OnClickListener() {
-        public void onClick(View v) {
-            Set temp = new HashSet(selected);
-            selected.clear();
-            for (Object o : display) {
-                Map m = (Map) o;
-                String u = (String) m.get("uin");
-                if (!temp.contains(u)) selected.add(u);
-            }
-            adapter.notifyDataSetChanged();
-            summary.setText("已选 " + selected.size() + " / 总 " + display.size());
-        }
-    });
-
-    bSelectAll.setOnClickListener(new View.OnClickListener() {
-        public void onClick(View v) {
-            for (Object o : display) {
-                Map m = (Map) o;
-                selected.add(m.get("uin"));
-            }
-            adapter.notifyDataSetChanged();
-            summary.setText("已选 " + selected.size() + " / 总 " + display.size());
-        }
-    });
-
-    btnCancel.setOnClickListener(new View.OnClickListener() {
-        public void onClick(View v) {
-            d.dismiss();
-        }
-    });
-
-    btnConfirm.setOnClickListener(new View.OnClickListener() {
-        public void onClick(View v) {
-            if (callback != null) callback.onSelected(new ArrayList(selected));
-            d.dismiss();
-        }
-    });
-}
 
 private Drawable createBg(Context ctx, int color, int radius) {
     GradientDrawable gd = new GradientDrawable();
@@ -6118,6 +5818,492 @@ private Button makeSmallBtn(Context ctx, String text, int color) {
     b.setBackground(createRippleBg(ctx, Color.TRANSPARENT, 20));
     b.setMinHeight(dp(ctx, 40));
     b.setPadding(dp(ctx, 16), dp(ctx, 8), dp(ctx, 16), dp(ctx, 8));
-    // 注意：此处省略了缩放动画，如需添加可自行实现
+    
+    ObjectAnimator scaleX = ObjectAnimator.ofFloat(b, "scaleX", 1f, 0.95f, 1f);
+    ObjectAnimator scaleY = ObjectAnimator.ofFloat(b, "scaleY", 1f, 0.95f, 1f);
+    scaleX.setDuration(150);
+    scaleY.setDuration(150);
+    AnimatorSet scaleDown = new AnimatorSet();
+    scaleDown.playTogether(scaleX, scaleY);
+    
+    b.setOnTouchListener(new View.OnTouchListener() {
+        public boolean onTouch(View v, MotionEvent event) {
+            if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                scaleDown.start();
+            }
+            return false;
+        }
+    });
+    
     return b;
+}
+
+interface GroupSelectCallback {
+    void onSelected(List selected);
+}
+
+/**
+ * 显示群组/好友选择对话框。
+ * <p>
+ * 根据指定的模式显示好友列表、群聊列表或两者的组合，支持多选、搜索、全选、反选等操作。
+ * 选择完成后通过回调返回选中的群号或好友QQ号列表。
+ * </p>
+ *
+ * @param act          当前 Activity，用于创建对话框
+ * @param mode         选择模式：
+ *                     <ul>
+ *                       <li>1 - 仅选择好友</li>
+ *                       <li>2 - 仅选择群聊</li>
+ *                       <li>3 - 选择好友和群聊（混合列表）</li>
+ *                     </ul>
+ * @param initSelected 初始已选中的项列表（元素为 String 类型的 QQ/群号），可为空
+ * @param callback     选择完成后的回调接口，{@link GroupSelectCallback#onSelected(List)} 
+ *                     会在用户点击“确定”时被调用，参数为最终选中的列表
+ */
+void showGroupSelector(final Activity act, final int mode, final List initSelected, final GroupSelectCallback callback) {
+    if (act == null || act.isFinishing()) return;
+    
+    act.runOnUiThread(new Runnable() {
+        public void run() {
+            try {
+                final boolean isDark = isThemeDark(act);
+                final int colorAccent = isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT;
+                final int colorOnSurface = isDark ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT;
+                final int colorOnSurfaceVar = isDark ? UI_COLOR_SUBTEXT_DARK : UI_COLOR_SUBTEXT_LIGHT;
+                final int colorOutline = isDark ? UI_COLOR_STROKE_DARK : UI_COLOR_STROKE_LIGHT;
+                final int colorInputBg = isDark ? UI_COLOR_INPUT_BG_DARK : UI_COLOR_INPUT_BG_LIGHT;
+
+                AlertDialog.Builder builder = new AlertDialog.Builder(act, isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
+                
+                LinearLayout root = new LinearLayout(act);
+                root.setOrientation(LinearLayout.VERTICAL);
+                root.setPadding(dp(act, 24), dp(act, 24), dp(act, 24), dp(act, 24));
+                
+                builder.setView(root);
+
+                TextView title = new TextView(act);
+                title.setText(mode == 1 ? "选择好友" : mode == 2 ? "选择群聊" : "选择群聊与好友");
+                title.setTextSize(20);
+                title.setTypeface(null, android.graphics.Typeface.BOLD);
+                title.setTextColor(colorOnSurface);
+                root.addView(title);
+
+                final TextView summary = new TextView(act);
+                summary.setTextSize(14);
+                summary.setTextColor(colorOnSurfaceVar);
+                summary.setPadding(0, dp(act, 4), 0, dp(act, 16));
+                root.addView(summary);
+
+                EditText search = new EditText(act);
+                search.setHint(mode == 1 ? "搜索昵称或QQ号" : mode == 2 ? "搜索群名或群号" : "搜索昵称或群名或QQ号");
+                search.setBackground(createInputBg(act, colorInputBg, colorOutline, colorAccent));
+                search.setPadding(dp(act, 16), dp(act, 12), dp(act, 16), dp(act, 12));
+                search.setTextColor(colorOnSurface);
+                search.setHintTextColor(colorOnSurfaceVar);
+                root.addView(search);
+
+                ListView lv = new ListView(act);
+                lv.setDivider(null);
+                lv.setDividerHeight(0);
+                lv.setClipToPadding(false);
+                lv.setPadding(0, dp(act, 8), 0, dp(act, 8));
+                root.addView(lv, new LinearLayout.LayoutParams(-1, 0, 1f));
+
+                LinearLayout row1 = new LinearLayout(act);
+                row1.setOrientation(LinearLayout.HORIZONTAL);
+                row1.setGravity(Gravity.END);
+                row1.setPadding(0, dp(act, 12), 0, dp(act, 16));
+                
+                TextView bCancelAll = makeChip(act, "取消全选", false, 1);
+                row1.addView(bCancelAll);
+                
+                TextView bReverse = makeChip(act, "反选", false, 1);
+                LinearLayout.LayoutParams lpRev = new LinearLayout.LayoutParams(-2, -2);
+                lpRev.leftMargin = dp(act, 8);
+                row1.addView(bReverse, lpRev);
+                
+                TextView bSelectAll = makeChip(act, "全选", false, 1);
+                LinearLayout.LayoutParams lpAll = new LinearLayout.LayoutParams(-2, -2);
+                lpAll.leftMargin = dp(act, 8);
+                row1.addView(bSelectAll, lpAll);
+                
+                root.addView(row1);
+
+                LinearLayout row2 = new LinearLayout(act);
+                row2.setOrientation(LinearLayout.HORIZONTAL);
+                row2.setGravity(Gravity.END);
+                row2.setPadding(0, dp(act, 8), 0, 0);
+                
+                TextView btnCancel = new TextView(act);
+                btnCancel.setText("取消");
+                btnCancel.setTextSize(14);
+                btnCancel.setTextColor(colorAccent);
+                btnCancel.setPadding(dp(act, 16), dp(act, 12), dp(act, 16), dp(act, 12));
+                btnCancel.setClickable(true);
+                btnCancel.setFocusable(true);
+                btnCancel.setBackground(getSelectableBg(act));
+                row2.addView(btnCancel);
+                
+                TextView btnConfirm = new TextView(act);
+                btnConfirm.setText("确定");
+                btnConfirm.setTextSize(14);
+                btnConfirm.setTypeface(null, android.graphics.Typeface.BOLD);
+                btnConfirm.setTextColor(colorAccent);
+                btnConfirm.setPadding(dp(act, 16), dp(act, 12), dp(act, 16), dp(act, 12));
+                btnConfirm.setClickable(true);
+                btnConfirm.setFocusable(true);
+                btnConfirm.setBackground(getSelectableBg(act));
+                row2.addView(btnConfirm);
+                
+                root.addView(row2);
+
+                final AlertDialog[] ref = new AlertDialog[1];
+                ref[0] = builder.create();
+                Window w = ref[0].getWindow();
+                if (w != null) {
+                    w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+                    w.setLayout((int)(act.getResources().getDisplayMetrics().widthPixels * 0.85), (int)(act.getResources().getDisplayMetrics().heightPixels * 0.85));
+                }
+                
+                applyUiTheme(act, ref[0]);
+                ref[0].show();
+                
+                final List allItems = new ArrayList();
+                
+                ThreadPool.submit(new Runnable() {
+                    public void run() {
+                        try {
+                            if (mode == 1 || mode == 3) {
+                                List friendList = (List) getAllFriend();
+                                if (friendList != null) {
+                                    for (Object obj : friendList) {
+                                        if (obj == null) continue;
+                                        String displayName = (obj.remark != null && !obj.remark.isEmpty()) ? obj.remark : obj.name;
+                                        Map m = new HashMap();
+                                        m.put("uin", obj.uin);
+                                        m.put("name", displayName);
+                                        allItems.add(m);
+                                    }
+                                }
+                            }
+
+                            if (mode == 2 || mode == 3) {
+                                List groupList = (List) getGroupList();
+                                if (groupList != null) {
+                                    for (Object obj : groupList) {
+                                        if (obj == null) continue;
+                                        Map m = new HashMap();
+                                        m.put("uin", obj.group);
+                                        m.put("name", obj.groupName);
+                                        allItems.add(m);
+                                    }
+                                }
+                            }
+                            
+                            act.runOnUiThread(new Runnable() {
+                                public void run() {
+                                    if (allItems.isEmpty()) {
+                                        Map test = new HashMap();
+                                        test.put("uin", "000000");
+                                        test.put("name", "未获取到数据 (请检查权限)");
+                                        allItems.add(test);
+                                    }
+
+                                    final List display = new ArrayList();
+                                    final Set selected = new HashSet(initSelected != null ? initSelected : new ArrayList());
+
+                                    for (Object o : allItems) {
+                                        Map m = (Map) o;
+                                        if (selected.contains(m.get("uin"))) display.add(m);
+                                    }
+                                    for (Object o : allItems) {
+                                        Map m = (Map) o;
+                                        if (!selected.contains(m.get("uin"))) display.add(m);
+                                    }
+
+                                    BaseAdapter adapter = new BaseAdapter() {
+                                        public int getCount() { return display.size(); }
+                                        public Object getItem(int p) { return display.get(p); }
+                                        public long getItemId(int p) { return p; }
+
+                                        public View getView(int pos, View cv, ViewGroup parent) {
+                                            LinearLayout item;
+                                            if (cv == null) {
+                                                item = new LinearLayout(act);
+                                                item.setOrientation(LinearLayout.HORIZONTAL);
+                                                item.setGravity(Gravity.CENTER_VERTICAL);
+                                                item.setPadding(dp(act, 8), dp(act, 12), dp(act, 8), dp(act, 12));
+                                                
+                                                item.setBackground(createRippleBg(act, Color.TRANSPARENT, 0));
+                                            } else {
+                                                item = (LinearLayout) cv;
+                                                item.removeAllViews();
+                                            }
+
+                                            final Map m = (Map) display.get(pos);
+                                            final String uin = (String) m.get("uin");
+                                            final boolean isChecked = selected.contains(uin);
+
+                                            FrameLayout checkContainer = new FrameLayout(act);
+                                            checkContainer.setLayoutParams(new LinearLayout.LayoutParams(dp(act, 24), dp(act, 24)));
+
+                                            View box = new View(act);
+                                            GradientDrawable boxBg = new GradientDrawable();
+                                            boxBg.setCornerRadius(dp(act, 4));
+                                            boxBg.setStroke(dp(act, 2), isChecked ? colorAccent : colorOutline);
+                                            boxBg.setColor(isChecked ? colorAccent : Color.TRANSPARENT);
+                                            box.setBackground(boxBg);
+                                            checkContainer.addView(box, new FrameLayout.LayoutParams(-1, -1));
+
+                                            View checkMark = createCheckMarkView(act, isChecked, colorAccent);
+                                            checkContainer.addView(checkMark, new FrameLayout.LayoutParams(-1, -1));
+
+                                            item.addView(checkContainer);
+
+                                            TextView tv = new TextView(act);
+                                            tv.setText(m.get("name") + " (" + uin + ")");
+                                            tv.setTextSize(16);
+                                            tv.setTextColor(colorOnSurface);
+                                            LinearLayout.LayoutParams tvLp = new LinearLayout.LayoutParams(0, -2, 1);
+                                            tvLp.leftMargin = dp(act, 16);
+                                            item.addView(tv, tvLp);
+
+                                            View.OnClickListener clickListener = new View.OnClickListener() {
+                                                public void onClick(View v) {
+                                                    boolean nowChecked = !selected.contains(uin);
+                                                    if (nowChecked) {
+                                                        selected.add(uin);
+                                                        
+                                                        boxBg.setStroke(dp(act, 2), colorAccent);
+                                                        boxBg.setColor(colorAccent);
+                                                        
+                                                        animateCheckMark(checkMark, true);
+                                                    } else {
+                                                        selected.remove(uin);
+                                                        
+                                                        boxBg.setStroke(dp(act, 2), colorOutline);
+                                                        boxBg.setColor(Color.TRANSPARENT);
+                                                        
+                                                        animateCheckMark(checkMark, false);
+                                                    }
+                                                    summary.setText("已选 " + selected.size() + " / 总 " + display.size());
+                                                }
+                                            };
+
+                                            item.setOnClickListener(clickListener);
+                                            return item;
+                                        }
+                                    };
+                                    
+                                    try {
+                                        lv.setAdapter(adapter);
+                                        summary.setText("已选 " + selected.size() + " / 总 " + display.size());
+                                    } catch (Exception e) {
+                                    }
+
+                                    final Runnable searchRunnable = new Runnable() {
+                                        public void run() {
+                                            String q = search.getText().toString().trim().toLowerCase();
+                                            display.clear();
+                                            for (Object o : allItems) {
+                                                Map m = (Map) o;
+                                                if (q.isEmpty() || ((String)m.get("name")).toLowerCase().contains(q) || ((String)m.get("uin")).contains(q)) {
+                                                    display.add(m);
+                                                }
+                                            }
+                                            adapter.notifyDataSetChanged();
+                                            summary.setText("已选 " + selected.size() + " / 总 " + display.size());
+                                        }
+                                    };
+                                    
+                                    search.addTextChangedListener(new TextWatcher() {
+                                        public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                                        public void onTextChanged(CharSequence s, int start, int before, int count) {}
+                                        public void afterTextChanged(Editable s) {
+                                            search.removeCallbacks(searchRunnable);
+                                            search.postDelayed(searchRunnable, 300);
+                                        }
+                                    });
+
+                                    bCancelAll.setOnClickListener(new View.OnClickListener() {
+                                        public void onClick(View v) {
+                                            selected.clear();
+                                            adapter.notifyDataSetChanged();
+                                            summary.setText("已选 0 / 总 " + display.size());
+                                        }
+                                    });
+
+                                    bReverse.setOnClickListener(new View.OnClickListener() {
+                                        public void onClick(View v) {
+                                            Set temp = new HashSet(selected);
+                                            selected.clear();
+                                            for (Object o : display) {
+                                                Map m = (Map) o;
+                                                String u = (String) m.get("uin");
+                                                if (!temp.contains(u)) selected.add(u);
+                                            }
+                                            adapter.notifyDataSetChanged();
+                                            summary.setText("已选 " + selected.size() + " / 总 " + display.size());
+                                        }
+                                    });
+
+                                    bSelectAll.setOnClickListener(new View.OnClickListener() {
+                                        public void onClick(View v) {
+                                            for (Object o : display) {
+                                                Map m = (Map) o;
+                                                selected.add(m.get("uin"));
+                                            }
+                                            adapter.notifyDataSetChanged();
+                                            summary.setText("已选 " + selected.size() + " / 总 " + display.size());
+                                        }
+                                    });
+
+                                    btnCancel.setOnClickListener(new View.OnClickListener() {
+                                        public void onClick(View v) {
+                                            if (ref[0] != null) ref[0].dismiss();
+                                        }
+                                    });
+
+                                    btnConfirm.setOnClickListener(new View.OnClickListener() {
+                                        public void onClick(View v) {
+                                            if (callback != null) {
+                                                callback.onSelected(new ArrayList(selected));
+                                            }
+                                            if (ref[0] != null) ref[0].dismiss();
+                                        }
+                                    });
+                                }
+                            });
+                        } catch (Exception dataEx) {
+                            act.runOnUiThread(new Runnable() {
+                                public void run() {
+                                    qqToast(1, "获取数据失败: " + dataEx.getMessage());
+                                }
+                            });
+                        }
+                    }
+                });
+                
+            } catch (Exception e) {
+                qqToast(1, "构建选择器失败: " + e.getMessage());
+            }
+        }
+    });
+}
+
+/**
+ * Material Design 风格的勾选标记自定义视图，支持线条渐进绘制动画
+ * 颜色自动适配深色/浅色模式
+ */
+class CheckMarkView extends View {
+    private float drawProgress;
+    private int checkColor;
+
+    /**
+     * 构造方法，初始化视图、进度、颜色和可见性
+     * 
+     * @param act Activity
+     * @param isChecked 初始选中状态
+     * @param backgroundIsBlue 是否为蓝色背景（用于决定 ✓ 颜色）
+     */
+    public CheckMarkView(Activity act, boolean isChecked, boolean backgroundIsBlue) {
+        super(act);
+        
+        final boolean isDark = isThemeDark(act);
+        
+        // 核心逻辑：蓝色背景时强制高对比色
+        if (backgroundIsBlue) {
+            this.checkColor = isDark ? Color.BLACK : Color.WHITE;
+        } else {
+            // 非蓝色背景时，可用主题色或其他（这里默认白色，防止意外）
+            this.checkColor = Color.WHITE;
+        }
+        
+        this.drawProgress = isChecked ? 1f : 0f;
+        setVisibility(isChecked ? View.VISIBLE : View.INVISIBLE);
+        
+        int size = dp(act, 24);
+        setLayoutParams(new FrameLayout.LayoutParams(size, size));
+    }
+
+    public float getDrawProgress() {
+        return drawProgress;
+    }
+
+    public void setDrawProgress(float progress) {
+        drawProgress = Math.max(0f, Math.min(1f, progress));
+        invalidate();
+    }
+
+    protected void onDraw(Canvas canvas) {
+        if (drawProgress <= 0f) return;
+
+        int w = getWidth();
+        int h = getHeight();
+        if (w <= 0 || h <= 0) return;
+
+        float scale = Math.min(w, h) / 24f;
+
+        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paint.setColor(checkColor);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(2.5f * scale);
+        paint.setStrokeCap(Paint.Cap.ROUND);
+        paint.setStrokeJoin(Paint.Join.ROUND);
+
+        Path path = new Path();
+        path.moveTo(5f * scale, 12f * scale);
+        path.lineTo(10f * scale, 17f * scale);
+        path.lineTo(19f * scale, 6f * scale);
+
+        PathMeasure measure = new PathMeasure(path, false);
+        float length = measure.getLength();
+        Path dst = new Path();
+        measure.getSegment(0, length * drawProgress, dst, true);
+
+        canvas.drawPath(dst, paint);
+    }
+}
+
+/**
+ * 创建勾选标记视图
+ * 
+ * @param act Activity
+ * @param isChecked 是否选中
+ * @param backgroundIsBlue 当前背景是否为蓝色
+ * @return CheckMarkView 实例
+ */
+View createCheckMarkView(Activity act, boolean isChecked, boolean backgroundIsBlue) {
+    return new CheckMarkView(act, isChecked, backgroundIsBlue);
+}
+/**
+ * 执行线条渐进绘制动画（显示时从头画出 ✓，隐藏时反向擦除）
+ * 
+ * @param checkMark createCheckMarkView 返回的视图
+ * @param show true=显示，false=隐藏
+ */
+void animateCheckMark(View checkMark, boolean show) {
+    if (checkMark == null) return;
+
+    if (show) {
+        checkMark.setVisibility(View.VISIBLE);
+    }
+
+    float target = show ? 1f : 0f;
+    ObjectAnimator anim = ObjectAnimator.ofFloat(checkMark, "drawProgress", target);
+    anim.setDuration(200);
+    anim.setInterpolator(new AccelerateDecelerateInterpolator());
+
+    if (!show) {
+        anim.addListener(new Animator.AnimatorListener() {
+            public void onAnimationStart(Animator animation) {}
+            public void onAnimationEnd(Animator animation) {
+                checkMark.setVisibility(View.INVISIBLE);
+            }
+            public void onAnimationCancel(Animator animation) {}
+            public void onAnimationRepeat(Animator animation) {}
+        });
+    }
+
+    anim.start();
 }
