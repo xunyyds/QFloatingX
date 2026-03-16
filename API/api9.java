@@ -1558,3 +1558,385 @@ void showFaceReplyConfigDialog(Object data) {
 public void drawqunLuckyChar(String qun) {
         qqToast(1, "空壳");
 }
+
+/**
+ * 显示语音消息发送配置弹窗
+ * <p>
+ * 在群聊消息上触发，弹出音色选择和文本输入界面，确认后发送TTS语音消息
+ *
+ * @param data 消息对象，包含 peerUin（群号）、type（类型）等
+ */
+void showVoiceSendDialog(Object data) {
+    Activity act = getNowActivity();
+    if (act == null || act.isFinishing()) return;
+
+    // 仅支持群聊
+    if (data == null || data.type != 2) {
+        qqToast(1, "仅支持群聊");
+        return;
+    }
+
+    final String groupUin = String.valueOf(data.peerUin);
+    final String groupName = (data.data != null && data.data.peerName != null)
+            ? (String) data.data.peerName : "未知群";
+
+    // 解析音色列表（从 JSON 字符串）
+    final JSONArray voiceArray;
+    try {
+        String jsonStr = "{\n" +
+                "  \"code\": 0,\n" +
+                "  \"status\": \"success\",\n" +
+                "  \"msg\": \"音色列表\",\n" + //此音色列表取自冷雨
+                "  \"data\": [\n" +
+                "    {\"name\": \"小新\", \"id\": \"lucy-voice-laibixiaoxin\"},\n" +
+                "    {\"name\": \"猴哥\", \"id\": \"lucy-voice-houge\"},\n" +
+                "    {\"name\": \"四郎\", \"id\": \"lucy-voice-silang\"},\n" +
+                "    {\"name\": \"东北老妹儿\", \"id\": \"lucy-voice-guangdong-f1\"},\n" +
+                "    {\"name\": \"广西大表哥\", \"id\": \"lucy-voice-guangxi-m1\"},\n" +
+                "    {\"name\": \"妲己\", \"id\": \"lucy-voice-daji\"},\n" +
+                "    {\"name\": \"霸道总裁\", \"id\": \"lucy-voice-lizeyan\"},\n" +
+                "    {\"name\": \"酥心御姐\", \"id\": \"lucy-voice-suxinjiejie\"},\n" +
+                "    {\"name\": \"说书先生\", \"id\": \"lucy-voice-m8\"},\n" +
+                "    {\"name\": \"憨憨小弟\", \"id\": \"lucy-voice-male1\"},\n" +
+                "    {\"name\": \"憨厚老哥\", \"id\": \"lucy-voice-male3\"},\n" +
+                "    {\"name\": \"吕布\", \"id\": \"lucy-voice-lvbu\"},\n" +
+                "    {\"name\": \"元气少女\", \"id\": \"lucy-voice-xueling\"},\n" +
+                "    {\"name\": \"文艺少女\", \"id\": \"lucy-voice-f37\"},\n" +
+                "    {\"name\": \"磁性大叔\", \"id\": \"lucy-voice-male2\"},\n" +
+                "    {\"name\": \"邻家小妹\", \"id\": \"lucy-voice-female1\"},\n" +
+                "    {\"name\": \"低沉男声\", \"id\": \"lucy-voice-m14\"},\n" +
+                "    {\"name\": \"傲娇少女\", \"id\": \"lucy-voice-f38\"},\n" +
+                "    {\"name\": \"爹系男友\", \"id\": \"lucy-voice-m101\"},\n" +
+                "    {\"name\": \"暖心姐姐\", \"id\": \"lucy-voice-female2\"},\n" +
+                "    {\"name\": \"温柔妹妹\", \"id\": \"lucy-voice-f36\"},\n" +
+                "    {\"name\": \"书香少女\", \"id\": \"lucy-voice-f34\"}\n" +
+                "  ]\n" +
+                "}";
+        JSONObject root = new JSONObject(jsonStr);
+        voiceArray = root.getJSONArray("data");
+    } catch (Exception e) {
+        qqToast(1, "音色列表解析失败");
+        return;
+    }
+
+    act.runOnUiThread(new Runnable() {
+        public void run() {
+            try {
+                boolean isDark = isThemeDark(act);
+                int textColor = isDark ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT;
+                int subTextColor = isDark ? UI_COLOR_SUBTEXT_DARK : UI_COLOR_SUBTEXT_LIGHT;
+                int accentColor = isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT;
+                int inputBgColor = isDark ? UI_COLOR_INPUT_BG_DARK : UI_COLOR_INPUT_BG_LIGHT;
+                int borderColor = adjustAlpha(textColor, 0.3f);
+
+                LinearLayout root = new LinearLayout(act);
+                root.setOrientation(LinearLayout.VERTICAL);
+                root.setPadding(dp(act, 16), dp(act, 20), dp(act, 16), dp(act, 16));
+
+                // 群信息
+                TextView groupInfo = new TextView(act);
+                groupInfo.setText("群聊：" + groupName + "(" + groupUin + ")");
+                groupInfo.setTextSize(15);
+                groupInfo.setTextColor(textColor);
+                groupInfo.setPadding(0, 0, 0, dp(act, 16));
+                root.addView(groupInfo);
+
+                // 音色ID输入行
+                LinearLayout voiceRow = new LinearLayout(act);
+                voiceRow.setOrientation(LinearLayout.HORIZONTAL);
+                voiceRow.setGravity(Gravity.CENTER_VERTICAL);
+                voiceRow.setPadding(0, 0, 0, dp(act, 12));
+
+                TextView voiceLabel = new TextView(act);
+                voiceLabel.setText("音色ID：");
+                voiceLabel.setTextSize(14);
+                voiceLabel.setTextColor(subTextColor);
+                voiceLabel.setPadding(0, 0, dp(act, 8), 0);
+                voiceRow.addView(voiceLabel);
+
+                final EditText etVoiceId = new EditText(act);
+                etVoiceId.setHint("可手动输入或点击选择");
+                etVoiceId.setHintTextColor(subTextColor);
+                etVoiceId.setTextColor(textColor);
+                etVoiceId.setTextSize(13);
+                etVoiceId.setPadding(dp(act, 12), dp(act, 8), dp(act, 12), dp(act, 8));
+                etVoiceId.setSingleLine(true);
+                GradientDrawable inputBg = new GradientDrawable();
+                inputBg.setCornerRadius(dp(act, 6));
+                inputBg.setColor(inputBgColor);
+                inputBg.setStroke(dp(act, 1), borderColor);
+                etVoiceId.setBackground(inputBg);
+                etVoiceId.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+                voiceRow.addView(etVoiceId);
+
+                TextView selectBtn = new TextView(act);
+                selectBtn.setText("选择");
+                selectBtn.setTextSize(14);
+                selectBtn.setTextColor(accentColor);
+                selectBtn.setPadding(dp(act, 16), dp(act, 8), dp(act, 16), dp(act, 8));
+                selectBtn.setBackgroundDrawable(null); // 纯文本无背景
+                voiceRow.addView(selectBtn);
+
+                root.addView(voiceRow);
+
+                // 可选显示选中的音色名称
+                final TextView tvVoiceName = new TextView(act);
+                tvVoiceName.setTextSize(12);
+                tvVoiceName.setTextColor(subTextColor);
+                tvVoiceName.setPadding(dp(act, 4), 0, 0, dp(act, 12));
+                root.addView(tvVoiceName);
+
+                // 文本输入
+                TextView textLabel = new TextView(act);
+                textLabel.setText("语音文本：");
+                textLabel.setTextSize(14);
+                textLabel.setTextColor(subTextColor);
+                textLabel.setPadding(0, 0, 0, dp(act, 4));
+                root.addView(textLabel);
+
+                final EditText etText = new EditText(act);
+                etText.setHint("请输入要转为语音的文本");
+                etText.setHintTextColor(subTextColor);
+                etText.setTextColor(textColor);
+                etText.setTextSize(13);
+                etText.setPadding(dp(act, 12), dp(act, 8), dp(act, 12), dp(act, 8));
+                etText.setMinLines(3);
+                GradientDrawable textBg = new GradientDrawable();
+                textBg.setCornerRadius(dp(act, 6));
+                textBg.setColor(inputBgColor);
+                textBg.setStroke(dp(act, 1), borderColor);
+                etText.setBackground(textBg);
+                root.addView(etText);
+
+                // 按钮行
+                LinearLayout btnRow = new LinearLayout(act);
+                btnRow.setOrientation(LinearLayout.HORIZONTAL);
+                btnRow.setPadding(0, dp(act, 20), 0, 0);
+                btnRow.setGravity(Gravity.RIGHT);
+
+                TextView cancelBtn = new TextView(act);
+                cancelBtn.setText("取消");
+                cancelBtn.setTextSize(14);
+                cancelBtn.setTextColor(subTextColor);
+                cancelBtn.setPadding(dp(act, 16), dp(act, 10), dp(act, 16), dp(act, 10));
+                cancelBtn.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) {
+                        if (ref[0] != null) ref[0].dismiss();
+                    }
+                });
+
+                TextView sendBtn = new TextView(act);
+                sendBtn.setText("发送");
+                sendBtn.setTextSize(14);
+                sendBtn.setTextColor(accentColor);
+                sendBtn.setPadding(dp(act, 16), dp(act, 10), dp(act, 16), dp(act, 10));
+
+                btnRow.addView(cancelBtn);
+                btnRow.addView(sendBtn);
+                root.addView(btnRow);
+
+                AlertDialog.Builder builder = new AlertDialog.Builder(act,
+                        isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
+                builder.setView(root);
+                final AlertDialog[] ref = new AlertDialog[1];
+                ref[0] = builder.create();
+                ref[0].show();
+                applyUiTheme(act, ref[0]);
+
+                // 选择按钮点击：弹出音色列表
+                selectBtn.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) {
+                        showVoiceListDialog(act, voiceArray, etVoiceId, tvVoiceName);
+                    }
+                });
+
+                // 发送按钮点击
+                sendBtn.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) {
+                        String voiceId = etVoiceId.getText().toString().trim();
+                        if (voiceId.isEmpty()) {
+                            qqToast(1, "请输入或选择音色ID");
+                            return;
+                        }
+                        String text = etText.getText().toString().trim();
+                        if (text.isEmpty()) {
+                            qqToast(1, "请输入文本");
+                            return;
+                        }
+                        ref[0].dismiss();
+
+                        ThreadPool.execute(new Runnable() {
+                            public void run() {
+                                sendVoiceMessage(groupUin, voiceId, text);
+                            }
+                        });
+                    }
+                });
+
+            } catch (Exception e) {
+                qqToast(1, "弹窗显示失败");
+            }
+        }
+    });
+}
+
+/**
+ * 显示音色选择列表弹窗
+ *
+ * @param act        Activity
+ * @param voiceArray 音色 JSON 数组
+ * @param etVoiceId  主弹窗中音色ID输入框
+ * @param tvVoiceName 主弹窗中显示音色名称的TextView
+ */
+void showVoiceListDialog(final Activity act, final JSONArray voiceArray,
+                          final EditText etVoiceId, final TextView tvVoiceName) {
+    if (act == null || act.isFinishing()) return;
+
+    act.runOnUiThread(new Runnable() {
+        public void run() {
+            try {
+                boolean isDark = isThemeDark(act);
+                int textColor = isDark ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT;
+                int subTextColor = isDark ? UI_COLOR_SUBTEXT_DARK : UI_COLOR_SUBTEXT_LIGHT;
+                int accentColor = isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT;
+
+                LinearLayout root = new LinearLayout(act);
+                root.setOrientation(LinearLayout.VERTICAL);
+                root.setPadding(dp(act, 16), dp(act, 20), dp(act, 16), dp(act, 16));
+
+                TextView title = new TextView(act);
+                title.setText("选择音色");
+                title.setTextSize(17);
+                title.setTextColor(textColor);
+                title.setGravity(Gravity.CENTER);
+                title.setPadding(0, 0, 0, dp(act, 16));
+                root.addView(title);
+
+                ScrollView scroll = new ScrollView(act);
+                int maxHeight = (int) (act.getResources().getDisplayMetrics().heightPixels * 0.5);
+                scroll.setLayoutParams(new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, maxHeight));
+
+                LinearLayout listContainer = new LinearLayout(act);
+                listContainer.setOrientation(LinearLayout.VERTICAL);
+                scroll.addView(listContainer);
+
+                for (int i = 0; i < voiceArray.length(); i++) {
+                    try {
+                        JSONObject item = voiceArray.getJSONObject(i);
+                        final String name = item.getString("name");
+                        final String id = item.getString("id");
+
+                        TextView itemView = new TextView(act);
+                        itemView.setText(name);
+                        itemView.setTextSize(14);
+                        itemView.setTextColor(textColor);
+                        itemView.setPadding(dp(act, 16), dp(act, 12), dp(act, 16), dp(act, 12));
+                        
+                        StateListDrawable stateListDrawable = new StateListDrawable();
+                        ColorDrawable pressedDrawable = new ColorDrawable(adjustAlpha(Color.BLACK, 0.1f));
+                        stateListDrawable.addState(new int[]{android.R.attr.state_pressed}, pressedDrawable);
+                        stateListDrawable.addState(new int[]{}, new ColorDrawable(Color.TRANSPARENT));
+                        itemView.setBackground(stateListDrawable);
+
+                        itemView.setOnClickListener(new View.OnClickListener() {
+                            public void onClick(View v) {
+                                etVoiceId.setText(id);
+                                tvVoiceName.setText("已选择：" + name);
+                                if (dialogRef[0] != null) dialogRef[0].dismiss();
+                            }
+                        });
+
+                        listContainer.addView(itemView);
+
+                    } catch (Exception e) {
+                        // 跳过错误项
+                    }
+                }
+
+                root.addView(scroll);
+
+                TextView closeBtn = new TextView(act);
+                closeBtn.setText("关闭");
+                closeBtn.setTextSize(14);
+                closeBtn.setTextColor(subTextColor);
+                closeBtn.setGravity(Gravity.CENTER);
+                closeBtn.setPadding(0, dp(act, 16), 0, 0);
+                closeBtn.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) {
+                        if (dialogRef[0] != null) dialogRef[0].dismiss();
+                    }
+                });
+                root.addView(closeBtn);
+
+                AlertDialog.Builder builder = new AlertDialog.Builder(act,
+                        isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
+                builder.setView(root);
+                final AlertDialog[] dialogRef = new AlertDialog[1];
+                dialogRef[0] = builder.create();
+                dialogRef[0].show();
+                applyUiTheme(act, dialogRef[0]);
+
+            } catch (Exception e) {
+                qqToast(1, "列表弹窗显示失败");
+            }
+        }
+    });
+}
+
+/**
+ * 发送语音消息（Oidb 0x11ca_0）
+ *
+ * @param groupUin 群号
+ * @param voiceId  音色ID
+ * @param text     要转换的文本
+ */
+void sendVoiceMessage(String groupUin, String voiceId, String text) {
+    try {
+        // 构造 JSON 结构
+        // {
+        //   "1": 37531,
+        //   "2": 0,
+        //   "4": {
+        //     "1": 群号,
+        //     "2": "音色ID",
+        //     "3": "文本",
+        //     "4": 1,
+        //     "5": { "1": 1773685283 },
+        //     "12": 0
+        //   }
+        // }
+        JSONObject body = new JSONObject();
+        body.put("1", Long.parseLong(groupUin));
+        body.put("2", voiceId);
+        body.put("3", text);
+        body.put("4", 1);
+
+        JSONObject field5 = new JSONObject();
+        field5.put("1", 1773685283L);
+        body.put("5", field5);
+        body.put("12", 0);
+
+        JSONObject root = new JSONObject();
+        root.put("1", 37531);
+        root.put("2", 0);
+        root.put("4", body);
+
+        FunProtoData proto = new FunProtoData();
+        proto.fromJSON(root);
+        byte[] pbData = proto.toBytes();
+
+        PacketHelper.sendRequest("OidbSvcTrpcTcp.0x11ca_0", pbData, new IReceiver() {
+            public void onReceive(byte[] resp) {
+                if (resp != null) {
+                    qqToast(2, "AI声聊语音发送成功");
+                } else {
+                    qqToast(1, "AI声聊语音发送失败");
+                }
+            }
+        });
+
+    } catch (Exception e) {
+        qqToast(1, "发送异常: " + e.getMessage());
+    }
+}
