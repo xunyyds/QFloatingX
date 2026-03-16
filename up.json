@@ -1,18 +1,12 @@
 {
-  "version": "2.3.1.8",
-  "versionType": "正式版",
+  "version": "2.3.1.9",
+  "versionType": "测试版",
   "updateType": "补丁",
-  "updateTime": "2026-03-15 14:46:38",
-  "changelog": "- 暂时去除聊天界面顶部空白处入口\n- 优化消息统计稳定性(跨天问题,数据安全等)\n- 将**刷新数据**改成**修复数据**用以修复旧版本可能造成的数据错误问题\n- *双击消息\/多次复读*新增间隔\n- 修复主题设置太过暴力清除了所有字体颜色的问题\n- 规范方法签名库(具体请查看gitee仓库)\n- 修复计数偶现api限流的情况\n  特别感谢夏透喃(3096142327)提供的计数api",
+  "updateTime": "2026-03-17 02:51:42",
+  "changelog": "- 优化 群聊\/好友选择器UI\n- 长按消息菜单新增\n  互动功能：AI声聊 \n  其他功能：双击消息菜单",
   "files": [
-    "QFloatingX\/API\/ColorPicker.java",
-    "QFloatingX\/API\/api5.java",
-    "QFloatingX\/API\/uitools.java",
     "QFloatingX\/API\/Dialog.java",
-    "QFloatingX\/API\/api.java",
-    "QFloatingX\/API\/api3.java",
-    "QFloatingX\/API\/import.java",
-    "QFloatingX\/main.java",
+    "QFloatingX\/API\/api9.java",
     "QFloatingX\/info.prop",
     "QFloatingX\/更新日志.txt"
   ]
