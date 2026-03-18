@@ -651,3 +651,8 @@ import android.bluetooth.BluetoothSocket; // 蓝牙Socket
 import android.nfc.NfcAdapter; // NFC适配器
 import android.nfc.NfcManager; // NFC管理器
 import android.nfc.Tag; // NFC标签
+import android.widget.Space;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.Color;
+import android.graphics.drawable.RippleDrawable;
+import android.content.res.ColorStateList;
