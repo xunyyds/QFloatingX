@@ -1,12 +1,15 @@
 {
-  "version": "2.3.2",
+  "version": "2.3.2.1",
   "versionType": "测试版",
   "updateType": "补丁",
-  "updateTime": "2026-03-18 09:22:41",
-  "changelog": "- 修复空间操作-秒评参数错误的问题",
+  "updateTime": "2026-03-19 01:16:45",
+  "changelog": "- 启用了新的后台保活逻辑(不需要的可以忽略此版本,依旧默认开启)\n- 以及一个半成品的pb偷能量(不用管,暂时还不能用)",
   "files": [
-    "QFloatingX\/API\/api8.java",
-    "QFloatingX\/API\/import.java",
+    "QFloatingX\/API\/api.java",
+    "QFloatingX\/API\/api3.java",
+    "QFloatingX\/main.java",
+    "QFloatingX\/API\/Dialog.java",
+    "QFloatingX\/API\/api9.java",
     "QFloatingX\/info.prop",
     "QFloatingX\/更新日志.txt"
   ]
