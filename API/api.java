@@ -1302,65 +1302,6 @@ public void setTips(String title, String message) {
 	});
 }
 
-import me.yxp.qfun.utils.qq.HostInfo;
-void 输入框提示开关() {
-    Activity activity = getNowActivity();
-    if (activity == null) activity = 最后Activity;
-    final Activity finalActivity = activity;
-    if (finalActivity == null) {
-        return;
-    }
-    
-    boolean 输入框开关 = !getBoolean("输入框", "输入框开关", false);
-    putBoolean("输入框", "输入框开关", 输入框开关);
-    vibrate(finalActivity, 48);
-
-    if (输入框开关) {
-        Toast("已开启输入框提示功能");
-    } else {
-        Toast("已关闭输入框提示功能");
-    }
-}
-
-void chatInterface(int chatType, String peerUin, String peerName) {
-    Activity activity = getNowActivity();
-    if (activity == null) activity = 最后Activity;
-    final Activity finalActivity = activity;
-    if (finalActivity == null) return;
-
-    final Object scriptScope = this;
-    
-    try {
-        currentPeerUin = peerUin;
-        currentChatType = chatType;
-        dispatchEvent(peerUin, 5); 
-    } catch (Throwable e) {}
-
-    boolean 输入框开关 = getBoolean("输入框", "输入框开关", false);
-    
-    String 提示词模板 = getString("输入框", "提示词", "");
-    if (提示词模板 == null || 提示词模板.trim().isEmpty()) {
-        提示词模板 = "我是一个输入框提示～";
-    }
-
-    final String final提示词 = 替换变量占位符(提示词模板, scriptScope);
-
-    finalActivity.runOnUiThread(new Runnable() {
-        public void run() {
-            try {
-                if (输入框开关) {
-                    int inputId = finalActivity.getResources().getIdentifier("input", "id", HostInfo.INSTANCE.getPackageName());
-                    View inputView = finalActivity.findViewById(inputId);
-                    if (inputView != null && inputView instanceof TextView) {
-                        ((TextView) inputView).setHint(final提示词);
-                    }
-                }
-
-            } catch (Throwable e) {
-            }
-        }
-    });
-}
 
 import java.security.MessageDigest;
 import javax.crypto.Cipher;
@@ -3341,8 +3282,8 @@ void 跳转到页面(String className) {
     intent.setComponent(new ComponentName(currentPackageName, className));
     try {
         activity.startActivity(intent);
-        traceLog("api5_log.txt","跳转到页面: " + className);
+        traceLog("api_log.txt","跳转到页面: " + className);
     } catch (Exception e) {
-        traceLog("api5_log.txt","跳转页面失败: " + e);
+        traceLog("api_log.txt","跳转页面失败: " + e);
     }
 }
