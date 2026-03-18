@@ -1,9 +1,3 @@
-import android.widget.Space;
-import android.graphics.drawable.GradientDrawable;
-import android.graphics.Color;
-import android.graphics.drawable.RippleDrawable;
-import android.content.res.ColorStateList;
-
 //此空间api由冷雨开发  点赞/评论由ᗜ×ᗜ改进并适配新版 使用请留名
 private final HashSet doneTasks = new HashSet();
 private volatile boolean isServiceRunning = false;
@@ -583,19 +577,25 @@ private void sendQzoneComment(String orglikekey, String curlikekey, String userU
     String content = getString("qzone_cfg", "comment", "我来暖说说啦！");
     if (content.length() > 100) content = content.substring(0, 100);
 
+    String srcId = curlikekey;
+    int lastSlash = srcId.lastIndexOf('/');
+    if (lastSlash != -1 && lastSlash < srcId.length() - 1) {
+        srcId = srcId.substring(lastSlash + 1);
+    }
+
     String pskey = getPskey("qzone.qq.com");
     String cookie = "uin=o" + myUin + ";skey=" + getSkey() + ";p_uin=o" + myUin + ";p_skey=" + pskey;
     String gtk = getGTK("qzone.qq.com");
 
     String url = "https://h5.qzone.qq.com/webapp/json/qzoneOperation/addComment?g_tk=" + gtk;
 
-    String body = "{\"appid\":311,\"uin\":" + myUin 
-                + ",\"ownuin\":\"" + userUin 
-                + "\",\"srcId\":\"" + curlikekey 
-                + "\",\"content\":\"" + content.replace("\"", "\\\"") 
-                + "\",\"isPrivateComment\":0,\"busi_param\":{},\"bypass_param\":{}}";
+    String body = "{\"appid\":311,\"uin\":" + myUin
+            + ",\"ownuin\":\"" + userUin
+            + "\",\"srcId\":\"" + srcId
+            + "\",\"content\":\"" + content.replace("\"", "\\\"")
+            + "\",\"isPrivateComment\":0,\"busi_param\":{},\"bypass_param\":{}}";
 
-    traceLog("qzone_log", "准备评论 → 用户:" + userUin + " srcId:" + curlikekey + " 内容:" + content);
+    traceLog("qzone_log", "准备评论 → 用户:" + userUin + " srcId:" + srcId + " 内容:" + content);
 
     try {
         String resp = httppost1(url, cookie, body);
@@ -609,5 +609,4 @@ private void sendQzoneComment(String orglikekey, String curlikekey, String userU
         traceLog("qzone_log", "评论异常: " + userUin + " " + e.getMessage());
     }
 }
-
 checkAndStartOrStopThread();
