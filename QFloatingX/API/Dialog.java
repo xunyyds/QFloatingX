@@ -1411,39 +1411,87 @@ public void showChangeCardDialog(Activity activity, String qun, String uin, Stri
  */
 void showMsgDataPaeseDialog(Activity act, Object data) {
     if (act == null || act.isFinishing()) return;
-    act.runOnUiThread(new Runnable() {
+    
+    ThreadPool.execute(new Runnable() {
         public void run() {
+            StringBuilder sb = new StringBuilder();
+            
+            // ===== MsgData 层 =====
+            sb.append("# MsgData 层\n\n");
+            
+            try { sb.append("**消息文本**：").append(data.msg).append("\n\n**String msg = data.msg;**").append("\n\n"); } catch (Throwable t) {}
+            try { sb.append("**发送者QQ**：").append(data.userUin).append("\n\n**String userUin = data.userUin;**").append("\n\n"); } catch (Throwable t) {}
+            try { sb.append("**聊天对象QQ**：").append(data.peerUin).append("\n\n**String peerUin = data.peerUin;**").append("\n\n"); } catch (Throwable t) {}
+            try { sb.append("**聊天类型**：").append(data.type).append("\n\n**int type = data.type;**").append("\n\n"); } catch (Throwable t) {}
+            try { sb.append("**消息类型**：").append(data.msgType).append("\n\n**int msgType = data.msgType;**").append("\n\n"); } catch (Throwable t) {}
+            try { sb.append("**消息ID**：").append(data.msgId).append("\n\n**long msgId = data.msgId;**").append("\n\n"); } catch (Throwable t) {}
+            try { sb.append("**发送时间**：").append(data.time > 0 ? new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new java.util.Date(data.time * 1000)) : "未知").append("\n\n**long time = data.time;**").append("\n\n"); } catch (Throwable t) {}
+            try { sb.append("**本地路径**：").append(data.path).append("\n\n**String path = data.path;**").append("\n\n"); } catch (Throwable t) {}
+
+            // ===== MsgRecord 层 =====
             try {
-                boolean isDark = isThemeDark(act);
-                int textColor = isDark ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT;
-                int subTextColor = isDark ? UI_COLOR_SUBTEXT_DARK : UI_COLOR_SUBTEXT_LIGHT;
-                int inputBgColor = isDark ? UI_COLOR_INPUT_BG_DARK : UI_COLOR_INPUT_BG_LIGHT;
-                int borderColor = adjustAlpha(textColor, 0.3f);
-                int accentColor = isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT;
+                if (data.data != null) {
+                    sb.append("# MsgRecord 层\n\n");
+                    Object msg = data.data;
+                    
+                    try { sb.append("**发送者Uid**：").append(msg.senderUid).append("\n\n**String senderUid = data.data.senderUid;**").append("\n\n"); } catch (Throwable t) {}
+                    try { sb.append("**发送者昵称**：").append(msg.sendNickName).append("\n\n**String sendNickName = data.data.sendNickName;**").append("\n\n"); } catch (Throwable t) {}
+                    try { sb.append("**群名片**：").append(msg.sendMemberName).append("\n\n**String sendMemberName = data.data.sendMemberName;**").append("\n\n"); } catch (Throwable t) {}
+                    try { sb.append("**对象Uid**：").append(msg.peerUid).append("\n\n**String peerUid = data.data.peerUid;**").append("\n\n"); } catch (Throwable t) {}
+                    try { sb.append("**对象名称**：").append(msg.peerName).append("\n\n**String peerName = data.data.peerName;**").append("\n\n"); } catch (Throwable t) {}
+                    try { sb.append("**消息序列号**：").append(msg.msgSeq).append("\n\n**long msgSeq = data.data.msgSeq;**").append("\n\n"); } catch (Throwable t) {}
+                    try { sb.append("**发送状态**：").append(msg.sendStatus).append("\n\n**int sendStatus = data.data.sendStatus;**").append("\n\n"); } catch (Throwable t) {}
+                    
+                    // ===== Elements 层 =====
+                    if (msg.elements != null && !msg.elements.isEmpty()) {
+                        sb.append("# 消息元素 \n\n");
+                        int i = 0;
+                        for (Object el : msg.elements) {
+                            if (el == null) continue;
+                            sb.append("元素 [").append(i++).append("]\n\n");
+                            
+                            try { sb.append("**元素类型**：").append(el.elementType).append("\n\n**int elementType = element.elementType;**").append("\n\n"); } catch (Throwable t) {}
 
-                StringBuilder sb = new StringBuilder();
-                sb.append("══ MsgData 层 ══\n");
-                try { sb.append("消息文本: ").append(data.msg != null ? data.msg : "(空)").append("\n"); } catch(Throwable t){}
-                try { sb.append("发送者QQ: ").append(data.userUin).append("\n"); } catch(Throwable t){}
-                try { sb.append("聊天对象QQ: ").append(data.peerUin).append("\n"); } catch(Throwable t){}
-                try { sb.append("聊天类型: ").append(data.type == 1 ? "私聊(1)" : data.type == 2 ? "群聊(2)" : data.type + "").append("\n"); } catch(Throwable t){}
-                try { sb.append("消息类型: ").append(data.msgType).append("\n"); } catch(Throwable t){}
-                try { sb.append("消息ID: ").append(data.msgId).append("\n"); } catch(Throwable t){}
-                try { sb.append("发送时间: ").append(data.time > 0 ? timestampToDate(data.time * 1000) : "未知").append("\n"); } catch(Throwable t){}
+                            // 文本元素
+                            if (el.elementType == 1 && el.textElement != null) {
+                                Object text = el.textElement;
+                                try { sb.append("**文本内容**：").append(text.content).append("\n\n**String content = element.textElement.content;**").append("\n\n"); } catch (Throwable t) {}
+                                try { sb.append("**艾特类型**：").append(text.atType).append("\n\n**int atType = element.textElement.atType;**").append("\n\n"); } catch (Throwable t) {}
+                            }
+                            
+                            // 图片元素
+                            if (el.elementType == 2 && el.picElement != null) {
+                                Object pic = el.picElement;
+                                try { sb.append("**图片URL**：").append(pic.sourcePath).append("\n\n**String sourcePath = element.picElement.sourcePath;**").append("\n\n"); } catch (Throwable t) {}
+                                try { sb.append("**图片尺寸**：").append(pic.picWidth).append("x").append(pic.picHeight).append("\n\n**int picWidth = element.picElement.picWidth;**").append("\n\n"); } catch (Throwable t) {}
+                            }
+                            
+                            // 语音元素
+                            if (el.elementType == 4 && el.pttElement != null) {
+                                Object ptt = el.pttElement;
+                                try { sb.append("**语音时长**：").append(ptt.duration).append("秒\n\n**int duration = element.pttElement.duration;**").append("\n\n"); } catch (Throwable t) {}
+                            }
+                            
+                            // 视频元素
+                            if (el.elementType == 5 && el.videoElement != null) {
+                                Object video = el.videoElement;
+                                try { sb.append("**视频文件**：").append(video.fileName).append("\n\n**String fileName = element.videoElement.fileName;**").append("\n\n"); } catch (Throwable t) {}
+                            }
+                            
+                            // 表情元素
+                            if (el.elementType == 6 && el.faceElement != null) {
+                                Object face = el.faceElement;
+                                try { sb.append("**表情内容**：").append(face.faceText).append("\n\n**String faceText = element.faceElement.faceText;**").append("\n\n"); } catch (Throwable t) {}
+                            }
+                        }
+                    }
+                }
+            } catch (Throwable e) {
+                sb.append("\n\n**解析异常**：").append(e.getMessage());
+            }
 
-                // Object msgRec = null;
-                // try { msgRec = data.data; } catch (Throwable ignored) {}
-
-                // if (msgRec != null) {
-                    // sb.append("\n══ MsgRecord 层 ══\n");
-                    // sb.append(prettyPrint(msgRec));
-                // }
-
-                String parseResult = sb.toString();
-                showCopyConfirmDialog(getNowActivity(), "解析原始消息", parseResult, isThemeDark(getNowActivity()));
-
-            } catch (Throwable e) { showCopyConfirmDialog(getNowActivity(), "解析原始消息异常", "获取失败: " + e.getMessage(), isThemeDark(getNowActivity()));
-			}
+            final String content = sb.toString();
+            mkts(act, "解析原始消息", content);
         }
     });
 }
@@ -3585,7 +3633,7 @@ public void 长按消息菜单(Activity activity, Object data) {
     
     String nickName = "";
     try { nickName = String.valueOf(msgRecord.sendNickName); } catch(Throwable t){}
-    if (nickName == null || nickName.isEmpty() || nickName.equals("null")) {
+    if (nickName == null) {
         nickName = userUin;
     }
 
@@ -3654,7 +3702,6 @@ public void 长按消息菜单(Activity activity, Object data) {
         addMenuItem(menuItems, "互动功能", "艾特列表", new Runnable() { public void run() { showAtListDialog(finalAtList); } });
     }
     addMenuItem(menuItems, "互动功能", "拍一拍", new Runnable() { public void run() { showPaiDialog(activity, finalUserUin, finalPeerUin, finalChatType); } });
-
     addMenuItem(menuItems, "工具", "加解密工具", new Runnable() { public void run() { showEncryptDecryptDialog(activity, data); } });
     addMenuItem(menuItems, "工具", "执行代码", new Runnable() { public void run() { showCodeConsoleDialog(activity, data); } });
     addMenuItem(menuItems, "工具", "发送pb", new Runnable() { public void run() { showPBSenderDialog(); } });
@@ -3675,6 +3722,8 @@ public void 长按消息菜单(Activity activity, Object data) {
                                         }
                                     });
  } });
+    addMenuItem(menuItems, "实验功能", "偷能量红包", new Runnable() { public void run() { showTrafficRedPacketDialog(data); } });
+
     
     final boolean[] isEditMode = new boolean[]{false};
     String savedOrder = getString("setting", "menuSort", "");
