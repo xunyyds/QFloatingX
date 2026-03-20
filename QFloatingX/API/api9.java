@@ -705,57 +705,6 @@ public class PacketHelper {
 }
 
 /**
- * 创建圆角矩形背景Drawable
- */
-GradientDrawable makeRoundRect(int color, int radiusPx) {
-    GradientDrawable drawable = new GradientDrawable();
-    drawable.setColor(color);
-    drawable.setCornerRadius(radiusPx);
-    return drawable;
-}
-
-/**
- * 创建紧凑型输入框
- */
-EditText makeInputCompact(Activity ctx, String val, String hint, int colorBg) {
-    EditText et = new EditText(ctx);
-    et.setText(val);
-    et.setHint(hint);
-    et.setTextSize(13);
-    et.setTextColor(Color.parseColor("#222222"));
-    et.setHintTextColor(Color.parseColor("#BBBBBB"));
-    et.setBackground(makeRoundRect(colorBg, dp(ctx, 6)));
-    et.setPadding(dp(ctx, 10), dp(ctx, 8), dp(ctx, 10), dp(ctx, 8));
-    et.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
-    return et;
-}
-
-/**
- * 创建小标题TextView
- */
-TextView makeSubTitleCompact(Activity ctx, String text, int color) {
-    TextView tv = new TextView(ctx);
-    tv.setText(text);
-    tv.setTextSize(12);
-    tv.setTextColor(color);
-    tv.setPadding(dp(ctx, 4), dp(ctx, 16), 0, dp(ctx, 6));
-    return tv;
-}
-
-/**
- * 创建操作按钮
- */
-TextView makeActionBtn(Activity ctx, String text, int textColor, int bgColor) {
-    TextView tv = new TextView(ctx);
-    tv.setText(text);
-    tv.setTextSize(14);
-    tv.setTextColor(textColor);
-    tv.setGravity(Gravity.CENTER);
-    tv.setBackground(makeRoundRect(bgColor, dp(ctx, 8)));
-    return tv;
-}
-
-/**
  * 显示PB发包工具弹窗
  * 
  * 这是PB发包工具的主入口方法，创建并显示一个完整的发包界面。
@@ -2110,18 +2059,138 @@ void showTrafficRedPacketDialog(Object data) {
         }
     });
 }
-
-/**
- * 正确的 compressToField7（匹配成功示例 UVD1+...）
- * = raw PB + Base64.withoutPadding（和 QPacketHelper.kt 逻辑一致）
- * 无需 GZIP、无需 Deflater
- */
 String compressToField7(String jsonStr) throws Exception {
     JSONObject json = new JSONObject(jsonStr);
     FunProtoData proto = new FunProtoData();
     proto.fromJSON(json);
     byte[] protoBytes = proto.toBytes();
 
-    // 关键：仅 Base64，无任何压缩
     return java.util.Base64.getEncoder().withoutPadding().encodeToString(protoBytes);
+}
+
+void RecallMessage(Object data, long seq) {
+    if (data == null || data.data == null) {
+        qqToast(1, "数据无效");
+        return;
+    }
+
+    // 根据新定义：群聊 type=2，私聊 type=1
+    final int chatType = data.type; // 直接使用传入的 type，已符合新定义
+    final String peerUid;
+    final long msgId = data.data.msgId;
+
+    // 根据 chatType 处理 peerUid 类型
+    if (chatType == 2) { // 群聊
+        peerUid = String.valueOf(data.peerUin);
+    } else if (chatType == 1) { // 私聊
+        peerUid = (String) data.peerUid;
+    } else {
+        qqToast(1, "不支持的聊天类型");
+        return;
+    }
+
+    if (msgId == 0) {
+        qqToast(1, "消息ID无效");
+        return;
+    }
+
+    // 获取真实消息记录
+    fetchRealMsgRecord(msgId, chatType, peerUid, new MsgLoadedCallback() {
+        public void onLoaded(MsgData realData) {
+            if (realData == null || realData.data == null) {
+                qqToast(1, "获取消息数据失败");
+                return;
+            }
+
+            try {
+                String serviceCmd;
+                JSONObject json = new JSONObject();
+
+                if (chatType == 1) { // 群聊撤回
+                    long groupUin = Long.parseLong(peerUid);
+                    long msgRandom = realData.data.msgRandom;
+                    long msgSeq = realData.data.msgSeq;
+
+                    if (groupUin <= 0 || msgSeq <= 0 || msgRandom <= 0) {
+                        qqToast(1, "群聊参数无效");
+                        return;
+                    }
+
+                    json.put("1", 1);
+                    json.put("2", groupUin);
+
+                    JSONObject field3 = new JSONObject();
+                    field3.put("1", msgSeq);
+                    field3.put("2", msgRandom);
+                    field3.put("3", 0);
+                    json.put("3", field3);
+
+                    JSONObject field4 = new JSONObject();
+                    field4.put("1", 0);
+                    json.put("4", field4);
+
+                    serviceCmd = "trpc.msg.msg_svc.MsgService.SsoGroupRecallMsg";
+
+                } else if (chatType == 2) { // 私聊撤回
+                    String peerUidStr = peerUid;
+                    long clientSeq = realData.data.clientSeq;
+                    long msgRandom = realData.data.msgRandom;
+                    long realMsgId = realData.data.msgId;
+                    long timestamp = realData.time * 1000L;
+                    long msgSeq = realData.data.msgSeq;
+
+                    if (peerUidStr == null || peerUidStr.isEmpty() || clientSeq <= 0 || msgRandom <= 0 ||
+                            realMsgId <= 0 || timestamp <= 0 || msgSeq <= 0) {
+                        qqToast(1, "私聊参数无效");
+                        return;
+                    }
+
+                    json.put("1", 1);
+                    json.put("2", Long.parseLong(peerUidStr));
+
+                    JSONObject field4 = new JSONObject();
+                    field4.put("1", clientSeq);
+                    field4.put("2", msgRandom);
+                    field4.put("3", realMsgId);
+                    field4.put("4", timestamp);
+                    field4.put("5", 0);
+                    field4.put("6", msgSeq+1);
+                    json.put("4", field4);
+
+                    JSONObject field5 = new JSONObject();
+                    field5.put("1", 0);
+                    field5.put("2", 0);
+                    json.put("5", field5);
+
+                    json.put("6", 0);
+
+                    serviceCmd = "trpc.msg.msg_svc.MsgService.SsoC2CRecallMsg";
+
+                } else {
+                    qqToast(1, "不支持的聊天类型");
+                    return;
+                }
+
+                traceLog("recall_error.log", json.toString());
+
+                // 转换为 FunProtoData 并发送
+                FunProtoData proto = new FunProtoData();
+                proto.fromJSON(json);
+                byte[] pbData = proto.toBytes();
+
+                PacketHelper.sendRequest(serviceCmd, pbData, new IReceiver() {
+                    public void onReceive(byte[] resp) {
+                        if (resp != null) {
+                            qqToast(2, "撤回成功");
+                        } else {
+                            qqToast(1, "撤回失败");
+                        }
+                    }
+                });
+
+            } catch (Exception e) {
+                qqToast(1, "发送异常: " + e.getMessage());
+            }
+        }
+    });
 }
