@@ -342,12 +342,12 @@ public void showQzoneConfig() {
 
                         try {
                             int sec = Integer.parseInt(fetchDelayInput.getText().toString().trim());
-                            putInt("qzone_cfg", "fetch_delay_ms", Math.max(1, Math.min(60, sec)) * 1000);
+                            putInt("qzone_cfg", "fetch_delay_ms", sec*1000);
                         } catch (Throwable e) { putInt("qzone_cfg", "fetch_delay_ms", 5000); }
 
                         try {
-                            float fsec = Float.parseFloat(feedIntervalInput.getText().toString().trim());
-                            putInt("qzone_cfg", "feed_interval_ms", (int)(Math.max(0.1f, Math.min(10f, fsec)) * 1000));
+                            int fsec = Integer.parseInt(feedIntervalInput.getText().toString().trim());
+                            putInt("qzone_cfg", "feed_interval_ms", fsec*1000);
                         } catch (Throwable e) { putInt("qzone_cfg", "feed_interval_ms", 1000); }
 
                         Toast("已保存配置");
