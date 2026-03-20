@@ -147,6 +147,25 @@ static volatile Thread  sWatchdogThread  = null;
 static volatile boolean sWatchdogEnabled = false;
 static volatile Context sWatchdogCtx     = null;
 static final long WATCHDOG_INTERVAL_MS   = 60L * 1000;
+/**
+ * 判断 MsfService 是否正在运行。
+ * <p>{@code getRunningServices} 在 Android O+ 对进程自身仍然有效。</p>
+ *
+ * @param ctx 任意有效 {@link Context}
+ * @return {@code true} 表示服务正在运行
+ */
+boolean isMsfServiceRunning(Context ctx) {
+    try {
+        ActivityManager am = (ActivityManager) ctx.getSystemService(Context.ACTIVITY_SERVICE);
+        List services = am.getRunningServices(50);
+        if (services == null) return false;
+        for (int i = 0; i < services.size(); i++) {
+            if (services.get(i).service.getClassName().contains("MsfService")) return true;
+        }
+    } catch (Exception e) {}
+    return false;
+}
+
 
 /**
  * 启动独立静态 Watchdog 守护线程。
@@ -431,11 +450,6 @@ private void checkAndUpdateBackgroundState() {
         }
     }, 400);
 }
-
-import me.yxp.qfun.utils.hook.xpcompat.XposedBridge;
-import me.yxp.qfun.utils.hook.xpcompat.XC_MethodHook;
-import me.yxp.qfun.utils.hook.xpcompat.XC_MethodHook.MethodHookParam;
-
 /**
  * QFun 专用通用 Hook 辅助函数，替代 XposedHelpers.findAndHookMethod。
  *
@@ -580,25 +594,6 @@ void updateNotification(Context ctx) {
 
         nm.notify(KEEP_ALIVE_NOTIFICATION_ID, builder.build());
     } catch (Exception e) {}
-}
-
-/**
- * 判断 MsfService 是否正在运行。
- * <p>{@code getRunningServices} 在 Android O+ 对进程自身仍然有效。</p>
- *
- * @param ctx 任意有效 {@link Context}
- * @return {@code true} 表示服务正在运行
- */
-boolean isMsfServiceRunning(Context ctx) {
-    try {
-        ActivityManager am = (ActivityManager) ctx.getSystemService(Context.ACTIVITY_SERVICE);
-        List services = am.getRunningServices(50);
-        if (services == null) return false;
-        for (int i = 0; i < services.size(); i++) {
-            if (services.get(i).service.getClassName().contains("MsfService")) return true;
-        }
-    } catch (Exception e) {}
-    return false;
 }
 
 /**
