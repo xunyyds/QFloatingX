@@ -182,6 +182,58 @@ EditText makeTinyInput(Activity a, String h, int bg) {
 }
 
 /**
+ * 创建圆角矩形背景Drawable
+ */
+GradientDrawable makeRoundRect(int color, int radiusPx) {
+    GradientDrawable drawable = new GradientDrawable();
+    drawable.setColor(color);
+    drawable.setCornerRadius(radiusPx);
+    return drawable;
+}
+
+/**
+ * 创建紧凑型输入框
+ */
+EditText makeInputCompact(Activity ctx, String val, String hint, int colorBg) {
+    EditText et = new EditText(ctx);
+    et.setText(val);
+    et.setHint(hint);
+    et.setTextSize(13);
+    et.setTextColor(Color.parseColor("#222222"));
+    et.setHintTextColor(Color.parseColor("#BBBBBB"));
+    et.setBackground(makeRoundRect(colorBg, dp(ctx, 6)));
+    et.setPadding(dp(ctx, 10), dp(ctx, 8), dp(ctx, 10), dp(ctx, 8));
+    et.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
+    return et;
+}
+
+/**
+ * 创建小标题TextView
+ */
+TextView makeSubTitleCompact(Activity ctx, String text, int color) {
+    TextView tv = new TextView(ctx);
+    tv.setText(text);
+    tv.setTextSize(12);
+    tv.setTextColor(color);
+    tv.setPadding(dp(ctx, 4), dp(ctx, 16), 0, dp(ctx, 6));
+    return tv;
+}
+
+/**
+ * 创建操作按钮
+ */
+TextView makeActionBtn(Activity ctx, String text, int textColor, int bgColor) {
+    TextView tv = new TextView(ctx);
+    tv.setText(text);
+    tv.setTextSize(14);
+    tv.setTextColor(textColor);
+    tv.setGravity(Gravity.CENTER);
+    tv.setBackground(makeRoundRect(bgColor, dp(ctx, 8)));
+    return tv;
+}
+
+
+/**
  * 创建标签块视图
  * @param a Activity上下文
  * @param t 标签文本
