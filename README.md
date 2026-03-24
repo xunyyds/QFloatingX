@@ -2,11 +2,9 @@
 
 # QFloatingX
 
-<div align="center">
 
- **作者**: ᗜ×ᗜ
+**作者**: ᗜ×ᗜ
 
-</div>
 
 ---
 
