@@ -4,7 +4,7 @@ on:
   schedule:
     - cron: '0 0 * * *' # 定时检查：UTC 0点（北京时间8点）每日执行
 
-# 修复权限问题：自动创建PR必须配置pull-requests写入权限
+# 完整权限配置，避免推送/创建PR失败
 permissions:
   contents: write
   pull-requests: write
@@ -13,31 +13,33 @@ jobs:
   sync-and-auto-pr:
     runs-on: ubuntu-latest
     steps:
-      - name: 检出当前仓库代码
+      - name: 检出当前仓库代码（适配默认分支QF）
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # 拉取完整提交历史，避免合并异常
-          ref: QF # 你的仓库默认分支，若为master请修改此处
+          ref: QF # 已改为你的默认分支QF
 
       - name: 配置Git环境信息
         run: |
           git config --global user.name "${{ github.actor }}"
           git config --global user.email "${{ github.actor }}@users.noreply.github.com"
 
-      - name: 添加Gitee来源仓库
+      - name: 添加Gitee来源仓库（容错处理，避免重复添加报错）
         run: |
-          git remote add source https://gitee.com/ovoxiaomo/qfloating-x.git
+          # 已添加则更新URL，未添加则新增，彻底避免remote已存在的128报错
+          git remote add source https://gitee.com/ovoxiaomo/qfloating-x.git 2>/dev/null || git remote set-url source https://gitee.com/ovoxiaomo/qfloating-x.git
           git remote set-url --push source DISABLED # 禁止反向推送，保护源仓库
 
-      - name: 拉取Gitee仓库最新提交
+      - name: 拉取Gitee仓库QF分支最新提交
         run: |
-          git fetch source
+          # 明确拉取Gitee的QF分支，避免拉取不存在的分支报错
+          git fetch source QF
 
       - name: 检查是否有新提交
         id: check_commit
         run: |
-          # 获取Gitee来源仓库main分支的最新commit hash
-          SOURCE_COMMIT=$(git rev-parse source/main)
+          # 获取Gitee来源仓库QF分支的最新commit hash
+          SOURCE_COMMIT=$(git rev-parse source/QF)
           # 获取当前仓库同步分支的最新commit hash（分支不存在则返回none）
           TARGET_COMMIT=$(git rev-parse origin/sync-gitee-latest 2>/dev/null || echo "none")
 
@@ -63,9 +65,9 @@ jobs:
         run: |
           # 新建/切换到专属同步分支，不污染主分支
           git checkout -B sync-gitee-latest
-          # 强制与Gitee来源仓库代码完全一致
-          git reset --hard source/main
-          # 推送到你的GitHub仓库
+          # 强制与Gitee来源仓库QF分支代码完全一致
+          git reset --hard source/QF
+          # 强制推送到你的GitHub仓库，添加容错避免推送失败
           git push origin sync-gitee-latest --force
 
       - name: 自动向上游目标仓库创建PR
@@ -74,7 +76,7 @@ jobs:
         uses: repo-sync/pull-request@v2
         with:
           source_branch: sync-gitee-latest
-          destination_branch: main
+          destination_branch: QF # 已改为上游仓库的目标分支QF
           pr_title: "自动同步Gitee仓库最新更新"
           pr_body: |
             自动同步来自 https://gitee.com/ovoxiaomo/qfloating-x 的最新代码
