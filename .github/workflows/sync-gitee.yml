@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # 拉取完整提交历史，避免合并异常
-          ref: main # 你的仓库默认分支，若为master请修改此处
+          ref: QF # 你的仓库默认分支，若为master请修改此处
 
       - name: 配置Git环境信息
         run: |
