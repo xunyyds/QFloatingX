@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # 拉取完整提交历史，避免合并异常
-          ref: QF # 已改为你的默认分支QF
+          ref: QF # 你的仓库默认分支
 
       - name: 配置Git环境信息
         run: |
@@ -26,32 +26,38 @@ jobs:
 
       - name: 添加Gitee来源仓库（容错处理，避免重复添加报错）
         run: |
-          # 已添加则更新URL，未添加则新增，彻底避免remote已存在的128报错
+          # 已添加则更新URL，未添加则新增，彻底避免remote已存在的报错
           git remote add source https://gitee.com/ovoxiaomo/qfloating-x.git 2>/dev/null || git remote set-url source https://gitee.com/ovoxiaomo/qfloating-x.git
           git remote set-url --push source DISABLED # 禁止反向推送，保护源仓库
 
       - name: 拉取Gitee仓库QF分支最新提交
         run: |
-          # 明确拉取Gitee的QF分支，避免拉取不存在的分支报错
+          # 明确拉取Gitee的QF分支，避免拉取不存在的分支
           git fetch source QF
 
-      - name: 检查是否有新提交
+      - name: 检查是否有新提交（彻底修复格式报错）
         id: check_commit
         run: |
-          # 获取Gitee来源仓库QF分支的最新commit hash
-          SOURCE_COMMIT=$(git rev-parse source/QF)
-          # 获取当前仓库同步分支的最新commit hash（分支不存在则返回none）
-          TARGET_COMMIT=$(git rev-parse origin/sync-gitee-latest 2>/dev/null || echo "none")
+          # 获取Gitee来源仓库QF分支的最新commit hash，--verify确保无效引用无输出
+          SOURCE_COMMIT=$(git rev-parse --verify source/QF 2>/dev/null | tr -d '\n')
+          # 获取当前仓库同步分支的最新commit hash，无效引用输出空
+          TARGET_COMMIT=$(git rev-parse --verify origin/sync-gitee-latest 2>/dev/null | tr -d '\n')
 
-          # 输出commit信息到环境变量，供后续步骤使用
-          echo "source_commit=$SOURCE_COMMIT" >> $GITHUB_OUTPUT
-          echo "target_commit=$TARGET_COMMIT" >> $GITHUB_OUTPUT
+          # 分支不存在时，赋值为固定字符串none，避免空值问题
+          if [ -z "$TARGET_COMMIT" ]; then
+            TARGET_COMMIT="none"
+          fi
 
-          echo "Gitee最新提交: $SOURCE_COMMIT"
-          echo "当前同步分支提交: $TARGET_COMMIT"
+          # 输出合规的key=value格式到GITHUB_OUTPUT，无多余换行
+          echo "source_commit=${SOURCE_COMMIT}" >> $GITHUB_OUTPUT
+          echo "target_commit=${TARGET_COMMIT}" >> $GITHUB_OUTPUT
+
+          # 打印日志，方便排查
+          echo "Gitee最新提交: ${SOURCE_COMMIT}"
+          echo "当前同步分支提交: ${TARGET_COMMIT}"
 
           # 对比hash，判断是否有新提交
-          if [ "$SOURCE_COMMIT" != "$TARGET_COMMIT" ]; then
+          if [ "${SOURCE_COMMIT}" != "${TARGET_COMMIT}" ]; then
             echo "has_new_commit=true" >> $GITHUB_OUTPUT
             echo "✅ 检测到新提交，启动同步流程"
           else
@@ -67,7 +73,7 @@ jobs:
           git checkout -B sync-gitee-latest
           # 强制与Gitee来源仓库QF分支代码完全一致
           git reset --hard source/QF
-          # 强制推送到你的GitHub仓库，添加容错避免推送失败
+          # 强制推送到你的GitHub仓库
           git push origin sync-gitee-latest --force
 
       - name: 自动向上游目标仓库创建PR
@@ -76,7 +82,7 @@ jobs:
         uses: repo-sync/pull-request@v2
         with:
           source_branch: sync-gitee-latest
-          destination_branch: QF # 已改为上游仓库的目标分支QF
+          destination_branch: QF # 上游仓库的目标分支
           pr_title: "自动同步Gitee仓库最新更新"
           pr_body: |
             自动同步来自 https://gitee.com/ovoxiaomo/qfloating-x 的最新代码
