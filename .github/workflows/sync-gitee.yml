@@ -1,55 +1,85 @@
-name: 同步Gitee仓库到GitHub Fork
+name: 同步Gitee仓库并自动创建PR
 on:
-  # 手动触发（随时在Actions页面点击运行）
-  workflow_dispatch:
-  # 定时触发（默认每天北京时间8点同步，可自行修改cron表达式）
+  workflow_dispatch: # 手动触发入口
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '0 0 * * *' # 定时检查：UTC 0点（北京时间8点）每日执行
 
+# 修复权限问题：自动创建PR必须配置pull-requests写入权限
 permissions:
-  # 给Action写入仓库代码的权限
   contents: write
+  pull-requests: write
 
 jobs:
-  sync:
+  sync-and-auto-pr:
     runs-on: ubuntu-latest
     steps:
       - name: 检出当前仓库代码
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # 拉取完整历史，避免合并冲突
-          ref: main # 你的仓库默认分支，若为master请修改
+          fetch-depth: 0 # 拉取完整提交历史，避免合并异常
+          ref: main # 你的仓库默认分支，若为master请修改此处
 
-      - name: 配置Git用户信息
+      - name: 配置Git环境信息
         run: |
           git config --global user.name "${{ github.actor }}"
           git config --global user.email "${{ github.actor }}@users.noreply.github.com"
 
-      - name: 添加Gitee来源仓库远程地址
+      - name: 添加Gitee来源仓库
         run: |
           git remote add source https://gitee.com/ovoxiaomo/qfloating-x.git
-          git remote set-url --push source DISABLED # 禁止反向推送到Gitee，避免误操作
+          git remote set-url --push source DISABLED # 禁止反向推送，保护源仓库
 
-      - name: 拉取Gitee仓库最新代码
+      - name: 拉取Gitee仓库最新提交
         run: |
           git fetch source
 
-      - name: 创建同步分支并强制同步Gitee代码
+      - name: 检查是否有新提交
+        id: check_commit
         run: |
-          # 新建/切换到专属同步分支（不会污染你的主分支）
+          # 获取Gitee来源仓库main分支的最新commit hash
+          SOURCE_COMMIT=$(git rev-parse source/main)
+          # 获取当前仓库同步分支的最新commit hash（分支不存在则返回none）
+          TARGET_COMMIT=$(git rev-parse origin/sync-gitee-latest 2>/dev/null || echo "none")
+
+          # 输出commit信息到环境变量，供后续步骤使用
+          echo "source_commit=$SOURCE_COMMIT" >> $GITHUB_OUTPUT
+          echo "target_commit=$TARGET_COMMIT" >> $GITHUB_OUTPUT
+
+          echo "Gitee最新提交: $SOURCE_COMMIT"
+          echo "当前同步分支提交: $TARGET_COMMIT"
+
+          # 对比hash，判断是否有新提交
+          if [ "$SOURCE_COMMIT" != "$TARGET_COMMIT" ]; then
+            echo "has_new_commit=true" >> $GITHUB_OUTPUT
+            echo "✅ 检测到新提交，启动同步流程"
+          else
+            echo "has_new_commit=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ 无新提交，流程终止"
+          fi
+
+      - name: 同步Gitee代码到同步分支
+        # 仅当有新提交时才执行
+        if: steps.check_commit.outputs.has_new_commit == 'true'
+        run: |
+          # 新建/切换到专属同步分支，不污染主分支
           git checkout -B sync-gitee-latest
-          # 强制重置分支与Gitee来源仓库的main分支完全一致，无冲突
+          # 强制与Gitee来源仓库代码完全一致
           git reset --hard source/main
-          # 强制推送到你的GitHub仓库
+          # 推送到你的GitHub仓库
           git push origin sync-gitee-latest --force
 
-     #  【可选功能】自动向上游原仓库创建PR，不需要可删除本段
-       - name: 自动向上游仓库创建PR
+      - name: 自动向上游目标仓库创建PR
+        # 仅当有新提交时才执行
+        if: steps.check_commit.outputs.has_new_commit == 'true'
         uses: repo-sync/pull-request@v2
-       with:
+        with:
           source_branch: sync-gitee-latest
           destination_branch: main
-         pr_title: "同步Gitee仓库最新更新"
-          pr_body: "自动同步来自 https://gitee.com/ovoxiaomo/qfloating-x 的最新代码"
-         destination_repo: xunyyds/QFloatingX
-           github_token: ${{ secrets.GITHUB_TOKEN }}
+          pr_title: "自动同步Gitee仓库最新更新"
+          pr_body: |
+            自动同步来自 https://gitee.com/ovoxiaomo/qfloating-x 的最新代码
+            来源仓库最新提交Hash: ${{ steps.check_commit.outputs.source_commit }}
+          destination_repo: xunyyds/QFloatingX
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          pr_allow_empty: false # 禁止创建空PR
+          if_exists: update # 已有同分支PR时自动更新，不重复创建
