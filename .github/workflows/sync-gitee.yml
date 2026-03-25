@@ -54,29 +54,4 @@ jobs:
           git checkout -B sync-from-gitee gitee/QF
           git push -f https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git sync-from-gitee
 
-      - name: 自动创建PR到QF分支
-        if: steps.check_update.outputs.need_update == 'true'
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            // 检查是否已有未合并的PR
-            const { data: existingPRs } = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              head: `${context.repo.owner}:sync-from-gitee`,
-              base: 'QF',
-              state: 'open'
-            });
-            
-            // 无PR则创建
-            if (existingPRs.length === 0) {
-              await github.rest.pulls.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                head: 'sync-from-gitee',
-                base: 'QF',
-                title: '🔄 自动同步 Gitee 仓库最新代码',
-                body: `同步自：https://gitee.com/ovoxiaomo/qfloating-x\n提交哈希：${{ steps.check_update.outputs.remote_hash }}`
-              });
-            }
+    
