@@ -1,73 +1,82 @@
-name: 同步Gitee到QFloatingX并自动PR
+name: 同步Gitee → QFloatingX 自动PR
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: '0 0 * * *'
 
 permissions:
   contents: write
   pull-requests: write
 
 jobs:
-  sync:
+  sync-gitee-to-github:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: 检出仓库代码
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: QF
           persist-credentials: false
 
-      - name: 配置Git
+      - name: 配置Git信息
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: 添加Gitee源
+      - name: 添加Gitee远程仓库
         run: |
-          git remote add gitee https://gitee.com/ovoxiaomo/qfloating-x.git 2>/dev/null || true
+          git remote add gitee https://gitee.com/ovoxiaomo/qfloating-x.git 2>/dev/null || git remote set-url gitee https://gitee.com/ovoxiaomo/qfloating-x.git
           git fetch gitee QF
 
-      - name: 对比提交是否有更新
-        id: check
+      - name: 检查是否存在更新（彻底修复格式错误）
+        id: check_update
         run: |
-          REMOTE=$(git rev-parse gitee/QF)
-          LOCAL=$(git rev-parse origin/sync-from-gitee 2>/dev/null || echo "none")
-          echo "remote=$REMOTE" >> "$GITHUB_OUTPUT"
-          echo "local=$LOCAL" >> "$GITHUB_OUTPUT"
-          if [ "$REMOTE" != "$LOCAL" ]; then
-            echo "update=true" >> "$GITHUB_OUTPUT"
+          # 获取Gitee最新提交哈希
+          REMOTE_HASH=$(git rev-parse gitee/QF)
+          # 尝试获取本地同步分支哈希，不存在则设为空
+          LOCAL_HASH=$(git rev-parse --verify origin/sync-from-gitee 2>/dev/null || echo "")
+          
+          # 输出到环境变量（严格无多余字符，杜绝格式错误）
+          echo "remote_hash=${REMOTE_HASH}" >> $GITHUB_OUTPUT
+          echo "local_hash=${LOCAL_HASH}" >> $GITHUB_OUTPUT
+          
+          # 判断是否需要更新
+          if [ "${REMOTE_HASH}" != "${LOCAL_HASH}" ]; then
+            echo "need_update=true" >> $GITHUB_OUTPUT
           else
-            echo "update=false" >> "$GITHUB_OUTPUT"
+            echo "need_update=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: 强制同步代码
-        if: steps.check.outputs.update == 'true'
+      - name: 同步代码到同步分支
+        if: steps.check_update.outputs.need_update == 'true'
         run: |
           git checkout -B sync-from-gitee gitee/QF
-          git push -f https://xunyyds:${{ secrets.GITHUB_TOKEN }}@github.com/xunyyds/QFloatingX.git sync-from-gitee
+          git push -f https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git sync-from-gitee
 
-      - name: 创建PR到QF分支
-        if: steps.check.outputs.update == 'true'
+      - name: 自动创建PR到QF分支
+        if: steps.check_update.outputs.need_update == 'true'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const { data: prs } = await github.rest.pulls.list({
-              owner: 'xunyyds',
-              repo: 'QFloatingX',
-              head: 'xunyyds:sync-from-gitee',
+            // 检查是否已有未合并的PR
+            const { data: existingPRs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: `${context.repo.owner}:sync-from-gitee`,
               base: 'QF',
               state: 'open'
             });
-            if (prs.length === 0) {
+            
+            // 无PR则创建
+            if (existingPRs.length === 0) {
               await github.rest.pulls.create({
-                owner: 'xunyyds',
-                repo: 'QFloatingX',
+                owner: context.repo.owner,
+                repo: context.repo.repo,
                 head: 'sync-from-gitee',
                 base: 'QF',
-                title: '自动同步 Gitee 最新提交',
-                body: '来自 https://gitee.com/ovoxiaomo/qfloating-x\nCommit: ${{ steps.check.outputs.remote }}'
+                title: '🔄 自动同步 Gitee 仓库最新代码',
+                body: `同步自：https://gitee.com/ovoxiaomo/qfloating-x\n提交哈希：${{ steps.check_update.outputs.remote_hash }}`
               });
             }
