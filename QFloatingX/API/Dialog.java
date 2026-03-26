@@ -3715,7 +3715,7 @@ public void 长按消息菜单(Activity activity, Object data) {
         addMenuItem(menuItems, "其他", "群打卡", new Runnable() { public void run() { boolean ok = CheckSign(finalPeerUin, myUin); qqToast(ok ? 2 : 1, ok ? "打卡成功" : "打卡失败"); } });
         addMenuItem(menuItems, "其他", "群字符", new Runnable() { public void run() { drawLuckyChar(finalPeerUin); } });
     }
-    addMenuItem(menuItems, "其他", "悬浮窗菜单", new Runnable() { public void run() { 显示菜单(activity); } });
+    addMenuItem(menuItems, "其他", "悬浮窗菜单", new Runnable() { public void run() { showSettingsMenu(activity, null, null, null); } });
     addMenuItem(menuItems, "其他", "双击消息菜单", new Runnable() { public void run() {                                     fetchRealMsgRecord(finalMsgid, finalChatType, finalPeerUin, new MsgLoadedCallback() {
                                         public void onLoaded(MsgData msgData) {
                                             showActionDialog(activity, msgData, null, null);
@@ -5186,12 +5186,6 @@ public void mkts(Activity activity, String title, String markdownContent) {
 }
 
 private void createMarkdownDialog(final Activity activity, String title, String html, boolean parseSuccess, boolean isDark) {
-	try {
-		vibrate(activity, 48);
-	} catch (Exception e) {
-		traceLog("api_log.txt", "震动执行异常: " + e.getMessage());
-	}
-
 	GradientDrawable bg = new GradientDrawable();
 	bg.setColor(Color.parseColor(isDark ? UI_COLOR_BG_DARK : "#BFFFFFFF"));
 	bg.setCornerRadius(dp(activity, 16));

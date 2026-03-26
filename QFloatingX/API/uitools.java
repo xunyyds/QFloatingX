@@ -58,6 +58,35 @@ static final long BACKGROUND_ANIMATION_DURATION = 300L;
  */
 static WeakHashMap<View, Long> viewAnimationDurations = new WeakHashMap<>();
 
+import android.content.res.Configuration;
+boolean isThemeDark(Activity activity) {
+    try {
+        // 获取当前主题模式配置，默认 default
+        String themeMode = getString("settings", "ui_theme_mode", "default");
+        
+        // 强制深色
+        if ("dark".equals(themeMode)) {
+            return true;
+        }
+        
+        // 强制浅色
+        if ("light".equals(themeMode)) {
+            return false;
+        }
+        
+        // 跟随系统 或 默认（推荐），都走系统暗黑判断
+        boolean systemDarkMode = false;
+        int uiMode = activity.getResources().getConfiguration().uiMode;
+        int nightMode = uiMode & Configuration.UI_MODE_NIGHT_MASK;
+        systemDarkMode = (nightMode == Configuration.UI_MODE_NIGHT_YES);
+        
+        return systemDarkMode;
+    } catch (Throwable e) {
+        // 异常兜底默认浅色
+        return false;
+    }
+}
+
 /**
  * 创建带按压反馈的圆角背景 Drawable
  * @param normalColor 常态颜色值
@@ -1770,40 +1799,6 @@ void forceUnloadAllCache() {
 }
 
 /**
- * 获取设置值
- * @param table 表名
- * @param key 键名
- * @param defaultValue 默认值
- * @return 设置值
- */
-String getSetting(String table, String key, String defaultValue) {
-    if (pendingSettingsChanges != null && pendingSettingsChanges.containsKey(key)) {
-        Object val = pendingSettingsChanges.get(key);
-        return val != null ? val.toString() : defaultValue;
-    }
-    return getString(table, key, defaultValue);
-}
-
-/**
- * 获取布尔类型设置值
- * @param table 表名
- * @param key 键名
- * @param defaultValue 默认值
- * @return 布尔值
- */
-boolean getSettingBoolean(String table, String key, boolean defaultValue) {
-    if (pendingSettingsChanges != null && pendingSettingsChanges.containsKey(key)) {
-        Object val = pendingSettingsChanges.get(key);
-        if (val != null) {
-            String strVal = val.toString();
-            if ("true".equalsIgnoreCase(strVal)) return true;
-            if ("false".equalsIgnoreCase(strVal)) return false;
-        }
-    }
-    return getBoolean(table, key, defaultValue);
-}
-
-/**
  * 创建手绘风格开关控件
  * @param ctx Context上下文
  * @param initVal 初始状态
@@ -1872,26 +1867,6 @@ public Object[] createSwitchViewWithState(Context ctx, boolean initVal) {
     });
 
     return new Object[]{swContainer, state};
-}
-
-/**
- * 判断是否为有效的深色模式
- * @param activity Activity上下文
- * @return true表示深色模式
- */
-boolean isEffectiveDarkMode(Activity activity) {
-    String mode = getSetting("settings", "ui_theme_mode", "default");
-    if ("default".equals(mode)) {
-        return getSettingBoolean("settings", "黑白", false);
-    }
-    if ("dark".equals(mode)) return true;
-    if ("light".equals(mode)) return false;
-    boolean manualDark = getSettingBoolean("settings", "黑白", false);
-    if (manualDark) return true;
-    try {
-        int uiMode = activity.getResources().getConfiguration().uiMode;
-        return (uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
-    } catch (Exception e) { return false; }
 }
 
 /**
@@ -1999,31 +1974,31 @@ void executeApplyTheme(final Activity activity, final AlertDialog dialog, final 
     }
     
     final Window window = dialog.getWindow();
-    final boolean isDark = isEffectiveDarkMode(activity);
+    final boolean isDark = isThemeDark(activity);
     currentIsDark = isDark;
     
     try {
-        final String bgType = getSetting("settings", "ui_bg_type", "color");
-        final String bgColor = getSetting("settings", isDark ? "ui_bg_color_dark" : "ui_bg_color_light", 
+        final String bgType = getString("settings", "ui_bg_type", "color");
+        final String bgColor = getString("settings", isDark ? "ui_bg_color_dark" : "ui_bg_color_light", 
             isDark ? "#FF1E1E1E" : "#FFFFFFFF");
-        final String bgGradient = getSetting("settings", isDark ? "ui_bg_gradient_dark" : "ui_bg_gradient_light", 
+        final String bgGradient = getString("settings", isDark ? "ui_bg_gradient_dark" : "ui_bg_gradient_light", 
             isDark ? "#FF2C2C2C,#FF121212,#FF2C2C2C" : "#FFFFFFFF,#FFF5F5F5,#FFFFFFFF");
-        final String textColorUser = getSetting("settings", isDark ? "ui_text_color_dark" : "ui_text_color_light", "");
-        final String fontType = getSetting("settings", "ui_font_type", "default");
+        final String textColorUser = getString("settings", isDark ? "ui_text_color_dark" : "ui_text_color_light", "");
+        final String fontType = getString("settings", "ui_font_type", "default");
         final String imgPath = pluginPath + "/API/background.png";
         
         float fSize = 1.0f;
-        try { fSize = Float.parseFloat(getSetting("settings", "ui_font_size", "1.0")); } catch(Exception e){}
+        try { fSize = Float.parseFloat(getString("settings", "ui_font_size", "1.0")); } catch(Exception e){}
         final float fontSizeScale = fSize;
         final Typeface tf = getCustomTypeface(fontType);
         
         int blurR = 0, alpha = 100;
-        try { blurR = Integer.parseInt(getSetting("settings", "ui_img_blur", "0")); } catch(Exception e){}
-        try { alpha = Integer.parseInt(getSetting("settings", "ui_img_alpha", isDark ? "180" : "100")); } catch(Exception e){}
+        try { blurR = Integer.parseInt(getString("settings", "ui_img_blur", "0")); } catch(Exception e){}
+        try { alpha = Integer.parseInt(getString("settings", "ui_img_alpha", isDark ? "180" : "100")); } catch(Exception e){}
         final int blurRadius = Math.max(0, Math.min(25, blurR));
         final int overlayAlpha = Math.max(0, Math.min(255, alpha));
         
-        String rawBgColor = getSetting("settings", isDark ? "ui_bg_color_dark" : "ui_bg_color_light", 
+        String rawBgColor = getString("settings", isDark ? "ui_bg_color_dark" : "ui_bg_color_light", 
             isDark ? "#FF1E1E1E" : "#FFFFFFFF");
         String validFallbackColor = isValidHexColor(rawBgColor) ? rawBgColor : (isDark ? "#FF1E1E1E" : "#FFFFFFFF");
         
@@ -2099,7 +2074,7 @@ void executeApplyTheme(final Activity activity, final AlertDialog dialog, final 
             }, 100);
         }
         
-        String rawBgColor2 = getSetting("settings", isDark ? "ui_bg_color_dark" : "ui_bg_color_light", 
+        String rawBgColor2 = getString("settings", isDark ? "ui_bg_color_dark" : "ui_bg_color_light", 
             isDark ? "#FF1E1E1E" : "#FFFFFFFF");
         String validBgColor = isValidHexColor(rawBgColor2) ? rawBgColor2 : (isDark ? "#FF1E1E1E" : "#FFFFFFFF");
         if ("gradient".equals(bgType)) {
@@ -2403,7 +2378,7 @@ void applyDialogSize(final Activity activity, final Window window) {
     try {
         float scale = 1.0f;
         try {
-            String scaleStr = getSetting("settings", "ui_dialog_scale", "1.0");
+            String scaleStr = getString("settings", "ui_dialog_scale", "1.0");
             scale = Float.parseFloat(scaleStr);
         } catch (Exception e) {}
         
@@ -2411,7 +2386,7 @@ void applyDialogSize(final Activity activity, final Window window) {
         
         int customWidth = -1;
         try {
-            String widthStr = getSetting("settings", "ui_dialog_width", "");
+            String widthStr = getString("settings", "ui_dialog_width", "");
             if (!widthStr.isEmpty()) {
                 customWidth = (int) (Float.parseFloat(widthStr) * density);
             }
@@ -2985,59 +2960,6 @@ void addInputItem(Activity activity, LinearLayout parent, String title, String v
     addInputItem(activity, parent, title, value, hint, titleColor, saveKey, null);
 }
 
-static java.util.HashMap pendingSettingsChanges = new java.util.HashMap();
-
-/**
- * 保存待处理的设置更改
- * @return 保存的设置数量
- */
-int savePendingSettings() {
-    if (pendingSettingsChanges == null || pendingSettingsChanges.isEmpty()) {
-        return 0;
-    }
-    
-    int count = 0;
-    Object[] keys = pendingSettingsChanges.keySet().toArray();
-    for (Object keyObj : keys) {
-        String key = (String) keyObj;
-        Object value = pendingSettingsChanges.get(key);
-        if (value != null) {
-            putString("settings", key, value.toString());
-            count++;
-        }
-    }
-    
-    pendingSettingsChanges.clear();
-    return count;
-}
-
-/**
- * 重置所有设置为默认值
- * @return 重置的设置数量
- */
-int resetAllSettingsToDefault() {
-    String[] settingKeys = {
-        "ui_theme_mode", "ui_dialog_scale", "ui_dialog_width", "ui_dialog_height", 
-        "振动反馈", "ui_bg_type", "ui_bg_color_dark", "ui_bg_color_light", 
-        "ui_bg_gradient_dark", "ui_bg_gradient_light", "ui_img_blur", "ui_img_alpha", 
-        "ui_font_type", "ui_font_size", "ui_text_color_dark", "ui_text_color_light", 
-        "thread_pool_priority", "thread_pool_queue_capacity", "thread_pool_keep_alive", 
-        "thread_pool_name_prefix", "thread_pool_reject_policy", "悬浮窗大小", 
-        "关闭区域图标大小", "拖拽灵敏度", "长按关闭阈值", "移动阈值"
-    };
-    
-    int count = 0;
-    for (String key : settingKeys) {
-        putString("settings", key, "");
-        count++;
-    }
-    
-    if (pendingSettingsChanges != null) {
-        pendingSettingsChanges.clear();
-    }
-    
-    return count;
-}
 
 /**
  * 创建Switch开关控件
