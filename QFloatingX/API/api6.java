@@ -625,7 +625,6 @@ public void 运行状态Dialog(Activity activity) {
     }
     
     try {
-        vibrate(activity, 48);
         activity.runOnUiThread(new Runnable() {
             public void run() {
                 try {
