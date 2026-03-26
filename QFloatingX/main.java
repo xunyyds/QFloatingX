@@ -252,7 +252,6 @@ volatile boolean 悬浮窗显示状态 = false;
 volatile boolean 应用前台状态 = false;
 volatile boolean 非UI初始化完成 = false;
 volatile boolean UI初始化完成 = false;
-volatile boolean OK = false;
 volatile boolean 允许触摸 = true;
 
 // [精准前后台检测] Activity计数器
