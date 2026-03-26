@@ -1916,7 +1916,6 @@ public void showStatsDialog(Activity activity) {
         return;
     }
 
-    vibrate(activity, 48);
     readFullStats();
     
     boolean isDark = isThemeDark(activity);
@@ -2660,24 +2659,6 @@ void showAllVariablesDialog(final Activity activity, final Object scriptScope) {
 }
 
 import me.yxp.qfun.utils.qq.HostInfo;
-void 输入框提示开关() {
-    Activity activity = getNowActivity();
-    if (activity == null) activity = 最后Activity;
-    final Activity finalActivity = activity;
-    if (finalActivity == null) {
-        return;
-    }
-    
-    boolean 输入框开关 = !getBoolean("输入框", "输入框开关", false);
-    putBoolean("输入框", "输入框开关", 输入框开关);
-    vibrate(finalActivity, 48);
-
-    if (输入框开关) {
-        Toast("已开启输入框提示功能");
-    } else {
-        Toast("已关闭输入框提示功能");
-    }
-}
 
 void chatInterface(int chatType, String peerUin, String peerName) {
     Activity activity = getNowActivity();
