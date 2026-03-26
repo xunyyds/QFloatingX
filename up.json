@@ -1,12 +1,10 @@
 {
-  "version": "2.3.4.1",
-  "versionType": "测试版",
+  "version": "2.3.4.2",
+  "versionType": "正式版",
   "updateType": "补丁",
-  "updateTime": "2026-03-26 17:04:58",
-  "changelog": "- 修复悬浮窗点击无反应以及优化状态判断",
+  "updateTime": "2026-03-26 23:28:14",
+  "changelog": "- fix:后台保活有一部分未被开关控制",
   "files": [
-    "QFloatingX\/API\/api.java",
-    "QFloatingX\/API\/api4.java",
     "QFloatingX\/main.java",
     "QFloatingX\/info.prop",
     "QFloatingX\/更新日志.txt"
