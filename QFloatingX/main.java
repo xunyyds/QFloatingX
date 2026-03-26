@@ -309,8 +309,9 @@ private void checkAndUpdateForegroundState(final Activity activity) {
         应用前台状态 = true;
         允许触摸 = true;
         最后Activity = activity;
-
+		if (getBoolean("settings", "后台保活", false)) {
         stopKeepAlive();
+        }
 
         if (UI初始化完成 && !悬浮窗显示状态 && getBoolean("settings", "开关", false)) {
             启动悬浮窗(activity);
@@ -336,7 +337,9 @@ private void checkAndUpdateBackgroundState() {
                 应用前台状态 = false;
                 允许触摸 = false;
                 if (悬浮窗显示状态) 停止悬浮窗();
+                if (getBoolean("settings", "后台保活", false)) {
                 startKeepAliveService();
+                }
             }
         }
     }, 400);
