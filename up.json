@@ -1,18 +1,20 @@
 {
-  "version": "2.3.3",
-  "versionType": "测试版",
+  "version": "2.3.4",
+  "versionType": "正式版",
   "updateType": "补丁",
-  "updateTime": "2026-03-21 00:03:02",
-  "changelog": "- 修复空间操作秒数不能设置为0的bug\n- 适配QFun1.2.9-101版本\n- 重构设置界面(新增许多未知bug 谨慎更新)",
+  "updateTime": "2026-03-26 16:17:51",
+  "changelog": "- 完善脚本设置\n- 优化暗黑模式逻辑\n- 为加载提示\/后台保活添加了开关\n- 移除了未使用的文件\n- 修复脚本设置偶现打不开的问题",
   "files": [
     "QFloatingX\/API\/uitools.java",
     "QFloatingX\/API\/Dialog.java",
-    "QFloatingX\/API\/api9.java",
-    "QFloatingX\/API\/api8.java",
     "QFloatingX\/API\/setwindow.java",
-    "QFloatingX\/API\/import.java",
+    "QFloatingX\/API\/KeepAlive.java",
+    "QFloatingX\/API\/api.java",
+    "QFloatingX\/API\/api3.java",
+    "QFloatingX\/API\/api6.java",
+    "QFloatingX\/desc.txt",
     "QFloatingX\/main.java",
-    "QFloatingX\/更新日志.txt",
-    "QFloatingX\/info.prop"
+    "QFloatingX\/info.prop",
+    "QFloatingX\/更新日志.txt"
   ]
 }
