@@ -1,6 +1,5 @@
 /**
- * 设置界面 - 全屏设置风格
- * 统一使用showMenu方法和add方法构建菜单
+ * 设置界面
  */
 
 static Dialog settingsMenuDialog;
@@ -9,20 +8,12 @@ static Map settingsCategoryContainers;
 static Activity settingsCurrentActivity;
 static boolean settingsIsDarkMode;
 static Map settingsItemTextViews;
-
-/**
- * 选择回调接口
- */
-interface OnChoiceSelectedCallback {
-    void onSelect(String selectedValue);
-}
-
-/**
- * 颜色选择回调接口
- */
-interface OnColorPickedCallback {
-    void onColorPicked(String colorHexValue);
-}
+static List settingsDialogStack;
+static View settingsHighlightView;
+static Map settingsItemViews;
+static ScrollView settingsScrollView;
+static Dialog settingsSearchDialog;
+static String settingsPendingHighlightKey;
 
 /**
  * 获取主题颜色值
@@ -177,7 +168,6 @@ View createSettingsSwitchView(Context context, boolean initialValue, final Strin
     
     return containerLayout;
 }
-
 /**
  * 拼音匹配
  * @param textValue 文本值
@@ -263,8 +253,182 @@ void cleanupSettingsResources() {
         settingsCategoryContainers.clear();
         settingsCategoryContainers = null;
     }
+    if (settingsItemViews != null) {
+        settingsItemViews.clear();
+        settingsItemViews = null;
+    }
     settingsListContainer = null;
+    settingsScrollView = null;
+    settingsHighlightView = null;
+    settingsPendingHighlightKey = null;
+}
+
+/**
+ * 清理所有对话框
+ */
+void cleanupAllDialogs() {
+    if (settingsSearchDialog != null && settingsSearchDialog.isShowing()) {
+        try {
+            settingsSearchDialog.dismiss();
+        } catch (Throwable exception) {}
+    }
+    settingsSearchDialog = null;
+    
+    if (settingsDialogStack != null) {
+        for (int i = settingsDialogStack.size() - 1; i >= 0; i--) {
+            Dialog dialog = (Dialog) settingsDialogStack.get(i);
+            if (dialog != null && dialog.isShowing()) {
+                try {
+                    dialog.dismiss();
+                } catch (Throwable exception) {
+                    log("settings_error.log", "cleanup dialog: " + exception.getMessage());
+                }
+            }
+        }
+        settingsDialogStack.clear();
+    }
+    settingsMenuDialog = null;
     settingsCurrentActivity = null;
+    cleanupSettingsResources();
+}
+
+/**
+ * 高亮显示目标项
+ * @param targetView 目标视图
+ */
+void highlightSettingsItem(final View targetView) {
+    if (targetView == null) return;
+
+    settingsHighlightView = targetView;
+    final GradientDrawable highlightBg = new GradientDrawable();
+    highlightBg.setColor(Color.parseColor(settingsIsDarkMode ? "#338AB4F8" : "#332196F3"));
+    highlightBg.setCornerRadius(dp(settingsCurrentActivity, 16));
+
+    // 第一次高亮
+    targetView.setBackground(highlightBg);
+
+    uiHandler.postDelayed(() -> {
+        // 第一次恢复
+        targetView.setBackground(makeFeedbackBg(Color.parseColor(getSettingsThemeColor("surface")), Color.parseColor(getSettingsThemeColor("ripple")), 0));
+        
+        uiHandler.postDelayed(() -> {
+            // 第二次高亮
+            if (settingsHighlightView == targetView) targetView.setBackground(highlightBg);
+            
+            uiHandler.postDelayed(() -> {
+                // 最终恢复
+                if (settingsHighlightView == targetView) {
+                    targetView.setBackground(makeFeedbackBg(Color.parseColor(getSettingsThemeColor("surface")), Color.parseColor(getSettingsThemeColor("ripple")), 0));
+                    settingsHighlightView = null;
+                }
+            }, 500);
+        }, 200);
+    }, 500);
+}
+
+
+/**
+ * 滚动并高亮目标项
+ * @param itemKey 项目键
+ */
+void scrollToAndHighlight(String itemKey) {
+    if (settingsItemViews == null || !settingsItemViews.containsKey(itemKey)) {
+        log("settings_error.log", "scrollToAndHighlight: itemKey not found: " + itemKey);
+        return;
+    }
+    
+    final View targetView = (View) settingsItemViews.get(itemKey);
+    if (targetView == null) {
+        log("settings_error.log", "scrollToAndHighlight: targetView is null");
+        return;
+    }
+    
+    if (settingsScrollView == null) {
+        log("settings_error.log", "scrollToAndHighlight: scrollView is null");
+        return;
+    }
+    
+    uiHandler.post(new Runnable() {
+        public void run() {
+            try {
+                final int[] location = new int[2];
+                targetView.getLocationOnScreen(location);
+                final int scrollY = location[1] - dp(settingsCurrentActivity, 150);
+                settingsScrollView.smoothScrollTo(0, Math.max(0, scrollY));
+                
+                uiHandler.postDelayed(new Runnable() {
+                    public void run() {
+                        highlightSettingsItem(targetView);
+                    }
+                }, 400);
+            } catch (Throwable exception) {
+                log("settings_error.log", "scrollToAndHighlight error: " + exception.getMessage());
+            }
+        }
+    });
+}
+
+/**
+ * 处理搜索结果点击
+ * @param activity 活动
+ * @param itemKey 项目键
+ * @param level1 一级菜单
+ * @param level2 二级菜单
+ */
+void handleSearchResultClick(final Activity activity, final String itemKey, final String level1, final String level2) {
+    vibrate(activity, 32);
+    
+    // 关闭搜索对话框
+    if (settingsSearchDialog != null && settingsSearchDialog.isShowing()) {
+        settingsSearchDialog.dismiss();
+    }
+    settingsSearchDialog = null;
+    
+    // 设置待高亮的key
+    settingsPendingHighlightKey = itemKey;
+    
+    // 检查是否需要打开新界面
+    boolean needOpenNewMenu = true;
+    
+    if (settingsDialogStack != null && !settingsDialogStack.isEmpty()) {
+        // 检查当前界面是否已经是目标界面
+        Dialog topDialog = (Dialog) settingsDialogStack.get(settingsDialogStack.size() - 1);
+        if (topDialog != null && topDialog.isShowing()) {
+            // 如果是一级菜单的目标项，直接定位
+            if (level1 != null && level2 == null) {
+                // 检查是否已经在一级菜单
+                if (settingsDialogStack.size() == 1) {
+                    needOpenNewMenu = false;
+                    uiHandler.postDelayed(new Runnable() {
+                        public void run() {
+                            scrollToAndHighlight(itemKey);
+                        }
+                    }, 100);
+                }
+            }
+            // 如果是二级菜单的目标项
+            else if (level1 != null && level2 != null) {
+                // 检查是否已经在对应的二级菜单
+                if (settingsDialogStack.size() == 2) {
+                    needOpenNewMenu = false;
+                    uiHandler.postDelayed(new Runnable() {
+                        public void run() {
+                            scrollToAndHighlight(itemKey);
+                        }
+                    }, 100);
+                }
+            }
+        }
+    }
+    
+    // 需要打开新界面
+    if (needOpenNewMenu) {
+        uiHandler.postDelayed(new Runnable() {
+            public void run() {
+                showSettingsMenu(activity, level1, level2, null);
+            }
+        }, 150);
+    }
 }
 
 /**
@@ -280,12 +444,16 @@ void showSettingsMenu(final Activity activity, final String level1Title, final S
     uiHandler.post(new Runnable() {
         public void run() {
             try {
-                if (settingsMenuDialog != null && settingsMenuDialog.isShowing()) {
-                    settingsMenuDialog.dismiss();
+                if (settingsCurrentActivity == null) {
+                    settingsCurrentActivity = activity;
+                }
+                if (settingsIsDarkMode != isThemeDark(activity)) {
+                    settingsIsDarkMode = isThemeDark(activity);
                 }
                 
-                settingsCurrentActivity = activity;
-                settingsIsDarkMode = isThemeDark(activity);
+                if (settingsDialogStack == null) {
+                    settingsDialogStack = new ArrayList();
+                }
                 
                 if (settingsCategoryContainers == null) {
                     settingsCategoryContainers = new HashMap();
@@ -299,8 +467,14 @@ void showSettingsMenu(final Activity activity, final String level1Title, final S
                     settingsItemTextViews.clear();
                 }
                 
-                settingsMenuDialog = new Dialog(activity, android.R.style.Theme_Black_NoTitleBar);
-                settingsMenuDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+                if (settingsItemViews == null) {
+                    settingsItemViews = new HashMap();
+                } else {
+                    settingsItemViews.clear();
+                }
+                
+                final Dialog currentDialog = new Dialog(activity, android.R.style.Theme_Black_NoTitleBar);
+                currentDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
                 
                 LinearLayout rootLayout = new LinearLayout(activity);
                 rootLayout.setOrientation(LinearLayout.VERTICAL);
@@ -322,21 +496,35 @@ void showSettingsMenu(final Activity activity, final String level1Title, final S
                 backBtnContainer.setLayoutParams(backContainerParams);
                 
                 TextView backBtn = new TextView(activity);
-                backBtn.setText("‹");
                 backBtn.setTextSize(28);
                 backBtn.setTextColor(Color.parseColor(getSettingsThemeColor("on_surface")));
                 backBtn.setGravity(Gravity.CENTER);
                 FrameLayout.LayoutParams backBtnParams = new FrameLayout.LayoutParams(-2, -2);
                 backBtnParams.gravity = Gravity.CENTER;
                 backBtn.setLayoutParams(backBtnParams);
-                backBtn.setOnClickListener(new View.OnClickListener() {
-                    public void onClick(View view) {
-                        vibrate(activity, 32);
-                        if (settingsMenuDialog != null) {
-                            settingsMenuDialog.dismiss();
+                
+                if (settingsDialogStack.isEmpty()) {
+                    backBtn.setText("‹");
+                    backBtn.setOnClickListener(new View.OnClickListener() {
+                        public void onClick(View view) {
+                            vibrate(activity, 32);
+                            cleanupAllDialogs();
                         }
-                    }
-                });
+                    });
+                } else {
+                    backBtn.setText("‹");
+                    backBtn.setOnClickListener(new View.OnClickListener() {
+                        public void onClick(View view) {
+                            vibrate(activity, 32);
+                            if (currentDialog != null && currentDialog.isShowing()) {
+                                currentDialog.dismiss();
+                            }
+                            if (settingsDialogStack != null && !settingsDialogStack.isEmpty()) {
+                                settingsDialogStack.remove(settingsDialogStack.size() - 1);
+                            }
+                        }
+                    });
+                }
                 backBtnContainer.addView(backBtn);
                 titleBarLayout.addView(backBtnContainer);
                 
@@ -355,7 +543,7 @@ void showSettingsMenu(final Activity activity, final String level1Title, final S
                 titleView.setLayoutParams(titleParams);
                 titleBarLayout.addView(titleView);
                 
-                if (level1Title == null) {
+                if (level1Title == null && level2Title == null && level3Title == null) {
                     FrameLayout searchBtnContainer = new FrameLayout(activity);
                     FrameLayout.LayoutParams searchContainerParams = new FrameLayout.LayoutParams(dp(activity, 40), dp(activity, 40));
                     searchBtnContainer.setLayoutParams(searchContainerParams);
@@ -380,9 +568,9 @@ void showSettingsMenu(final Activity activity, final String level1Title, final S
                 
                 rootLayout.addView(titleBarLayout);
                 
-                ScrollView scrollView = new ScrollView(activity);
-                scrollView.setVerticalScrollBarEnabled(false);
-                scrollView.setLayoutParams(new LinearLayout.LayoutParams(-1, 0, 1.0f));
+                settingsScrollView = new ScrollView(activity);
+                settingsScrollView.setVerticalScrollBarEnabled(false);
+                settingsScrollView.setLayoutParams(new LinearLayout.LayoutParams(-1, 0, 1.0f));
                 
                 settingsListContainer = new LinearLayout(activity);
                 settingsListContainer.setOrientation(LinearLayout.VERTICAL);
@@ -390,35 +578,53 @@ void showSettingsMenu(final Activity activity, final String level1Title, final S
                 
                 buildSettingsMenuContent(activity, level1Title, level2Title, level3Title);
                 
-                if (level1Title == null) {
+                if (level1Title == null && level2Title == null && level3Title == null) {
                     buildSettingsBottomArea(activity);
                 }
                 
-                scrollView.addView(settingsListContainer);
-                rootLayout.addView(scrollView);
+                settingsScrollView.addView(settingsListContainer);
+                rootLayout.addView(settingsScrollView);
                 
-                settingsMenuDialog.setContentView(rootLayout);
-                settingsMenuDialog.setCancelable(true);
-                settingsMenuDialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
+                currentDialog.setContentView(rootLayout);
+                currentDialog.setCancelable(true);
+                currentDialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
                     public void onDismiss(DialogInterface dialog) {
-                        settingsMenuDialog = null;
-                        cleanupSettingsResources();
+                        if (settingsDialogStack != null) {
+                            settingsDialogStack.remove(currentDialog);
+                        }
+                        if (settingsDialogStack == null || settingsDialogStack.isEmpty()) {
+                            settingsCurrentActivity = null;
+                            cleanupSettingsResources();
+                        }
                     }
                 });
                 
-                Window window = settingsMenuDialog.getWindow();
+                Window window = currentDialog.getWindow();
                 if (window != null) {
                     window.setLayout(-1, -1);
                     window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
                     setSettingsImmersiveStatusBar(activity, window, !settingsIsDarkMode);
                 }
                 
-                settingsMenuDialog.show();
+                settingsDialogStack.add(currentDialog);
+                settingsMenuDialog = currentDialog;
+                currentDialog.show();
+                
+                // 处理待高亮的项
+                if (settingsPendingHighlightKey != null && !settingsPendingHighlightKey.isEmpty()) {
+                    final String keyToHighlight = settingsPendingHighlightKey;
+                    settingsPendingHighlightKey = null;
+                    uiHandler.postDelayed(new Runnable() {
+                        public void run() {
+                            scrollToAndHighlight(keyToHighlight);
+                        }
+                    }, 300);
+                }
                 
             } catch (Throwable exception) {
                 log("settings_error.log", "showSettingsMenu: " + exception.getMessage());
                 Toast("菜单打开失败: " + exception.getMessage());
-                cleanupSettingsResources();
+                cleanupAllDialogs();
             }
         }
     });
@@ -434,8 +640,8 @@ void showSettingsSearchPage(final Activity activity) {
             try {
                 final boolean isDark = isThemeDark(activity);
                 
-                final Dialog searchDialog = new Dialog(activity, android.R.style.Theme_Black_NoTitleBar);
-                searchDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+                settingsSearchDialog = new Dialog(activity, android.R.style.Theme_Black_NoTitleBar);
+                settingsSearchDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
                 
                 LinearLayout rootLayout = new LinearLayout(activity);
                 rootLayout.setOrientation(LinearLayout.VERTICAL);
@@ -467,7 +673,10 @@ void showSettingsSearchPage(final Activity activity) {
                 backBtn.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View view) {
                         vibrate(activity, 32);
-                        searchDialog.dismiss();
+                        if (settingsSearchDialog != null && settingsSearchDialog.isShowing()) {
+                            settingsSearchDialog.dismiss();
+                        }
+                        settingsSearchDialog = null;
                     }
                 });
                 backBtnContainer.addView(backBtn);
@@ -497,7 +706,7 @@ void showSettingsSearchPage(final Activity activity) {
                 scrollView.addView(contentContainer);
                 rootLayout.addView(scrollView);
                 
-                final String historyString = getSetting("settings", "search_history", "");
+                final String historyString = getString("settings", "search_history", "");
                 final List historyList = new ArrayList();
                 if (historyString != null && !historyString.isEmpty()) {
                     String[] historyItems = historyString.split("\\|");
@@ -580,25 +789,28 @@ void showSettingsSearchPage(final Activity activity) {
                             putString("settings", "search_history", historyBuilder.toString());
                         }
                         
-                        addSearchResultItem(activity, resultsContainer, "功能 > Java脚本", queryValue, "功能", "Java脚本", null);
-                        addSearchResultItem(activity, resultsContainer, "功能 > 脚本设置", queryValue, "功能", "脚本设置", null);
-                        addSearchResultItem(activity, resultsContainer, "功能 > 设置界面", queryValue, "设置", null, null);
-                        addSearchResultItem(activity, resultsContainer, "开关 > 模拟定位", queryValue, "开关", "模拟定位", null);
-                        addSearchResultItem(activity, resultsContainer, "开关 > 输入框提示", queryValue, "开关", "输入框提示", null);
-                        addSearchResultItem(activity, resultsContainer, "工具 > 设置经纬度", queryValue, "工具", "设置经纬度", null);
-                        addSearchResultItem(activity, resultsContainer, "工具 > 设置输入框提示词", queryValue, "工具", "设置输入框提示词", null);
-                        addSearchResultItem(activity, resultsContainer, "工具 > 消息统计", queryValue, "工具", "消息统计", null);
-                        addSearchResultItem(activity, resultsContainer, "工具 > 空间操作", queryValue, "工具", "空间操作", null);
-                        addSearchResultItem(activity, resultsContainer, "工具 > 运行状态", queryValue, "工具", "运行状态", null);
-                        addSearchResultItem(activity, resultsContainer, "工具 > HTML浏览器", queryValue, "工具", "HTML浏览器", null);
-                        addSearchResultItem(activity, resultsContainer, "其他 > 取消/重载", queryValue, "其他", "取消/重载", null);
-                        addSearchResultItem(activity, resultsContainer, "设置 > 基础模式", queryValue, "设置", "基础模式", null);
-                        addSearchResultItem(activity, resultsContainer, "设置 > 背景与图标", queryValue, "设置", "背景与图标", null);
-                        addSearchResultItem(activity, resultsContainer, "设置 > 字体样式", queryValue, "设置", "字体样式", null);
-                        addSearchResultItem(activity, resultsContainer, "设置 > 提示", queryValue, "设置", "提示", null);
-                        addSearchResultItem(activity, resultsContainer, "设置 > 线程池", queryValue, "设置", "线程池", null);
-                        addSearchResultItem(activity, resultsContainer, "设置 > 悬浮窗设置", queryValue, "设置", "悬浮窗设置", null);
-                        addSearchResultItem(activity, resultsContainer, "设置 > 调试", queryValue, "设置", "调试", null);
+                        // 一级菜单项
+                        addSearchResultItem(activity, resultsContainer, "功能 > Java脚本", queryValue, "item_java_script", null, null);
+                        addSearchResultItem(activity, resultsContainer, "功能 > 脚本设置", queryValue, "item_script_settings", null, null);
+                        addSearchResultItem(activity, resultsContainer, "功能 > 设置界面", queryValue, "item_settings_ui", "设置", null);
+                        addSearchResultItem(activity, resultsContainer, "开关 > 模拟定位", queryValue, "item_mock_location", null, null);
+                        addSearchResultItem(activity, resultsContainer, "开关 > 输入框提示", queryValue, "item_input_hint", null, null);
+                        addSearchResultItem(activity, resultsContainer, "工具 > 设置经纬度", queryValue, "item_set_location", null, null);
+                        addSearchResultItem(activity, resultsContainer, "工具 > 设置输入框提示词", queryValue, "item_set_input_hint", null, null);
+                        addSearchResultItem(activity, resultsContainer, "工具 > 消息统计", queryValue, "item_msg_stats", null, null);
+                        addSearchResultItem(activity, resultsContainer, "工具 > 空间操作", queryValue, "item_qzone", null, null);
+                        addSearchResultItem(activity, resultsContainer, "工具 > 运行状态", queryValue, "item_run_status", null, null);
+                        addSearchResultItem(activity, resultsContainer, "工具 > HTML浏览器", queryValue, "item_html_browser", null, null);
+                        addSearchResultItem(activity, resultsContainer, "其他 > 取消/重载", queryValue, "item_cancel_reload", null, null);
+                        
+                        // 二级菜单项
+                        addSearchResultItem(activity, resultsContainer, "设置 > 基础模式", queryValue, "item_basic_mode", "设置", "基础模式");
+                        addSearchResultItem(activity, resultsContainer, "设置 > 背景与图标", queryValue, "item_bg_icon", "设置", "背景与图标");
+                        addSearchResultItem(activity, resultsContainer, "设置 > 字体样式", queryValue, "item_font_style", "设置", "字体样式");
+                        addSearchResultItem(activity, resultsContainer, "设置 > 提示", queryValue, "item_toast_hint", "设置", "提示");
+                        addSearchResultItem(activity, resultsContainer, "设置 > 线程池", queryValue, "item_thread_pool", "设置", "线程池");
+                        addSearchResultItem(activity, resultsContainer, "设置 > 悬浮窗设置", queryValue, "item_float_window", "设置", "悬浮窗设置");
+                        addSearchResultItem(activity, resultsContainer, "设置 > 调试", queryValue, "item_debug", "设置", "调试");
                         
                         if (resultsContainer.getChildCount() == 0) {
                             TextView noResult = new TextView(activity);
@@ -623,10 +835,15 @@ void showSettingsSearchPage(final Activity activity) {
                     }
                 });
                 
-                searchDialog.setContentView(rootLayout);
-                searchDialog.setCancelable(true);
+                settingsSearchDialog.setContentView(rootLayout);
+                settingsSearchDialog.setCancelable(true);
+                settingsSearchDialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
+                    public void onDismiss(DialogInterface dialog) {
+                        settingsSearchDialog = null;
+                    }
+                });
                 
-                Window window = searchDialog.getWindow();
+                Window window = settingsSearchDialog.getWindow();
                 if (window != null) {
                     window.setLayout(-1, -1);
                     window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
@@ -634,7 +851,7 @@ void showSettingsSearchPage(final Activity activity) {
                     window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE);
                 }
                 
-                searchDialog.show();
+                settingsSearchDialog.show();
                 searchInput.requestFocus();
                 
             } catch (Throwable exception) {
@@ -651,11 +868,11 @@ void showSettingsSearchPage(final Activity activity) {
  * @param container 容器
  * @param itemText 项目文本
  * @param queryValue 查询值
- * @param targetLevel1 目标一级菜单
- * @param targetLevel2 目标二级菜单
- * @param targetLevel3 目标三级菜单
+ * @param itemKey 项目键
+ * @param level1 一级菜单
+ * @param level2 二级菜单
  */
-void addSearchResultItem(Activity activity, LinearLayout container, String itemText, String queryValue, final String targetLevel1, final String targetLevel2, final String targetLevel3) {
+void addSearchResultItem(Activity activity, LinearLayout container, String itemText, String queryValue, final String itemKey, final String level1, final String level2) {
     if (pinyinMatchText(itemText, queryValue)) {
         boolean isDark = isThemeDark(activity);
         TextView resultItem = new TextView(activity);
@@ -663,33 +880,14 @@ void addSearchResultItem(Activity activity, LinearLayout container, String itemT
         resultItem.setTextSize(16);
         resultItem.setTextColor(Color.parseColor(isDark ? "#FFEFEFEF" : "#FF1A1A1A"));
         resultItem.setPadding(dp(activity, 4), dp(activity, 12), dp(activity, 4), dp(activity, 12));
+        resultItem.setClickable(true);
         resultItem.setOnClickListener(new View.OnClickListener() {
             public void onClick(View view) {
-                vibrate(activity, 32);
-                navigateToSettingsItem(activity, targetLevel1, targetLevel2, targetLevel3);
+                handleSearchResultClick(activity, itemKey, level1, level2);
             }
         });
         container.addView(resultItem);
     }
-}
-
-/**
- * 导航到设置项
- * @param activity 活动
- * @param level1 一级菜单
- * @param level2 二级菜单
- * @param level3 三级菜单
- */
-void navigateToSettingsItem(Activity activity, String level1, String level2, String level3) {
-    if (settingsMenuDialog != null && settingsMenuDialog.isShowing()) {
-        settingsMenuDialog.dismiss();
-    }
-    
-    uiHandler.postDelayed(new Runnable() {
-        public void run() {
-            showSettingsMenu(activity, level1, level2, level3);
-        }
-    }, 100);
 }
 
 /**
@@ -712,8 +910,7 @@ void buildSettingsBottomArea(Activity activity) {
     
     ImageView projectBtn = new ImageView(activity);
     try {
-        String imageName = settingsIsDarkMode ? "黑.png" : "白.png";
-        String imagePath = rootPath + imageName;
+        String imagePath = rootPath + "GitHub.png";
         File imageFile = new File(imagePath);
         if (imageFile.exists()) {
             Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
@@ -729,9 +926,9 @@ void buildSettingsBottomArea(Activity activity) {
     projectBtn.setOnClickListener(new View.OnClickListener() {
         public void onClick(View view) {
             vibrate(activity, 32);
-            showSettingsConfirmDialog(activity, "即将打开项目主页", "https://gitee.com/ovoxiaomo/qfloating-x", new Runnable() {
+            showSettingsConfirmDialog(activity, "即将打开项目主页", "https://github.com/xunyyds/QFloatingX", new Runnable() {
                 public void run() {
-                    openSettingsExternalBrowser(activity, "https://gitee.com/ovoxiaomo/qfloating-x");
+                    openSettingsExternalBrowser(activity, "https://github.com/xunyyds/QFloatingX");
                 }
             });
         }
@@ -739,7 +936,7 @@ void buildSettingsBottomArea(Activity activity) {
     icon1Container.addView(projectBtn);
     
     TextView text1 = new TextView(activity);
-    text1.setText("Gitee");
+    text1.setText("GitHub");
     text1.setTextSize(12);
     text1.setTextColor(Color.parseColor(getSettingsThemeColor("on_surface_variant")));
     text1.setGravity(Gravity.CENTER);
@@ -757,8 +954,7 @@ void buildSettingsBottomArea(Activity activity) {
     
     ImageView qqBtn = new ImageView(activity);
     try {
-        String imageName = settingsIsDarkMode ? "黑.png" : "白.png";
-        String imagePath = rootPath + imageName;
+        String imagePath = rootPath + "QQ.png";
         File imageFile = new File(imagePath);
         if (imageFile.exists()) {
             Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
@@ -857,27 +1053,36 @@ void buildSettingsMenuContent(Activity activity, String level1Title, String leve
  */
 void buildLevel1MenuContent(Activity activity) {
     addSettingsCategory("功能", "");
-    addSettingsItemClick("功能", "Java脚本", "", new Runnable() { public void run() { 跳转到页面("me.yxp.qfun.activity.PluginActivity"); }});
-    addSettingsItemClick("功能", "脚本设置", "", new Runnable() { public void run() { 跳转到页面("me.yxp.qfun.activity.SettingActivity"); }});
-    addSettingsItemClick("功能", "设置界面", "", new Runnable() { public void run() { showSettingsMenu(activity, "设置", null, null); }});
+    addSettingsItemClickWithKey("功能", "Java脚本", "", "item_java_script", new Runnable() { public void run() { 跳转到页面("me.yxp.qfun.activity.PluginActivity"); }});
+    addSettingsItemClickWithKey("功能", "脚本设置", "", "item_script_settings", new Runnable() { public void run() { 跳转到页面("me.yxp.qfun.activity.SettingActivity"); }});
+    addSettingsItemClickWithKey("功能", "设置界面", "", "item_settings_ui", new Runnable() { public void run() { showSettingsMenu(activity, "设置", null, null); }});
     
     addSettingsCategory("开关", "");
     boolean mockLocationState = getBoolean("模拟定位开关", "模拟定位开关", false);
-    addSettingsItemSwitch("开关", "模拟定位", "模拟定位开关", "模拟定位开关", mockLocationState, new Runnable() { public void run() { 模拟定位开关(); }});
+    addSettingsItemSwitchWithKey("开关", "模拟定位", "item_mock_location", null, null, mockLocationState, new Runnable() { public void run() { 
+    boolean 模拟定位开关 = !getBoolean("模拟定位开关", "模拟定位开关", false);
+    putBoolean("模拟定位开关", "模拟定位开关", 模拟定位开关);
+    if (模拟定位开关) {
+        开模拟定位();
+    } else {
+        关模拟定位();
+    }
+}});
     boolean inputHintState = getBoolean("输入框", "输入框开关", false);
-    addSettingsItemSwitch("开关", "输入框提示", "输入框", "输入框开关", inputHintState, new Runnable() { public void run() { 输入框提示开关(); }});
+    addSettingsItemSwitchWithKey("开关", "输入框提示", "item_input_hint", "输入框", "输入框开关", inputHintState, null);
+    boolean KeepAlive = getBoolean("settings", "后台保活", false);
+    addSettingsItemSwitchWithKey("开关", "后台保活", "item_KeepAlive", "settings", "后台保活", KeepAlive, null);
     
     addSettingsCategory("工具", "");
-    addSettingsItemClick("工具", "设置经纬度", "", new Runnable() { public void run() { showLocationDialog(activity); }});
-    addSettingsItemClick("工具", "设置输入框提示词", "", new Runnable() { public void run() { showInputDialog(activity); }});
-    addSettingsItemClick("工具", "消息统计", "", new Runnable() { public void run() { showStatsDialog(activity); }});
-    addSettingsItemClick("工具", "空间操作", "", new Runnable() { public void run() { showQzoneConfig(); }});
-    addSettingsItemClick("工具", "运行状态", "", new Runnable() { public void run() { 运行状态Dialog(activity); }});
-    addSettingsItemClick("工具", "HTML浏览器", "", new Runnable() { public void run() { showHtmlOptionDialog(activity); }});
+    addSettingsItemClickWithKey("工具", "设置经纬度", "", "item_set_location", new Runnable() { public void run() { showLocationDialog(activity); }});
+    addSettingsItemClickWithKey("工具", "设置输入框提示词", "", "item_set_input_hint", new Runnable() { public void run() { showInputDialog(activity); }});
+    addSettingsItemClickWithKey("工具", "消息统计", "", "item_msg_stats", new Runnable() { public void run() { showStatsDialog(activity); }});
+    addSettingsItemClickWithKey("工具", "空间操作", "", "item_qzone", new Runnable() { public void run() { showQzoneConfig(); }});
+    addSettingsItemClickWithKey("工具", "运行状态", "", "item_run_status", new Runnable() { public void run() { 运行状态Dialog(activity); }});
+    addSettingsItemClickWithKey("工具", "HTML浏览器", "", "item_html_browser", new Runnable() { public void run() { showHtmlOptionDialog(activity); }});
     
     addSettingsCategory("其他", "");
-    addSettingsItemClick("其他", "取消/重载", "", new Runnable() { public void run() { 
-        vibrate(activity, 48);
+    addSettingsItemClickWithKey("其他", "取消/重载", "", "item_cancel_reload", new Runnable() { public void run() { 
         showSelectionDialog(activity, "你想选哪个呢？", "取消加载脚本", "重新加载脚本"); 
     }});
 }
@@ -890,17 +1095,17 @@ void buildLevel1MenuContent(Activity activity) {
 void buildLevel2MenuContent(Activity activity, String level1Title) {
     if ("设置".equals(level1Title)) {
         addSettingsCategory("界面", "");
-        addSettingsItemClick("界面", "基础模式", "主题、弹窗大小、振动反馈", new Runnable() { public void run() { showSettingsMenu(activity, "设置", "基础模式", null); }});
-        addSettingsItemClick("界面", "背景与图标", "背景类型、颜色、图片", new Runnable() { public void run() { showSettingsMenu(activity, "设置", "背景与图标", null); }});
-        addSettingsItemClick("界面", "字体样式", "字体风格、大小、颜色", new Runnable() { public void run() { showSettingsMenu(activity, "设置", "字体样式", null); }});
+        addSettingsItemClickWithKey("界面", "基础模式", "主题、弹窗大小、振动反馈", "item_basic_mode", new Runnable() { public void run() { showSettingsMenu(activity, "设置", "基础模式", null); }});
+        addSettingsItemClickWithKey("界面", "背景与图标", "背景类型、颜色、图片", "item_bg_icon", new Runnable() { public void run() { showSettingsMenu(activity, "设置", "背景与图标", null); }});
+        addSettingsItemClickWithKey("界面", "字体样式", "字体风格、大小、颜色", "item_font_style", new Runnable() { public void run() { showSettingsMenu(activity, "设置", "字体样式", null); }});
         
         addSettingsCategory("提示", "");
-        addSettingsItemClick("提示", "开关加载提示", "开关和配置你的相关吐司提示", new Runnable() { public void run() { showSettingsMenu(activity, "设置", "提示", null); }});
+        addSettingsItemClickWithKey("提示", "开关吐司提示", "开关和配置你的相关吐司提示", "item_toast_hint", new Runnable() { public void run() { showSettingsMenu(activity, "设置", "提示", null); }});
         
         addSettingsCategory("高级", "");
-        addSettingsItemClick("高级", "线程池", "优先级、队列、策略", new Runnable() { public void run() { showSettingsMenu(activity, "设置", "线程池", null); }});
-        addSettingsItemClick("高级", "悬浮窗设置", "图标、大小、灵敏度", new Runnable() { public void run() { showSettingsMenu(activity, "设置", "悬浮窗设置", null); }});
-        addSettingsItemClick("高级", "调试", "预览、重置、更新日志", new Runnable() { public void run() { showSettingsMenu(activity, "设置", "调试", null); }});
+        addSettingsItemClickWithKey("高级", "线程池", "优先级、队列、策略", "item_thread_pool", new Runnable() { public void run() { showSettingsMenu(activity, "设置", "线程池", null); }});
+        addSettingsItemClickWithKey("高级", "悬浮窗设置", "图标、大小、灵敏度", "item_float_window", new Runnable() { public void run() { showSettingsMenu(activity, "设置", "悬浮窗设置", null); }});
+        addSettingsItemClickWithKey("高级", "调试", "预览、重置、更新日志", "item_debug", new Runnable() { public void run() { showSettingsMenu(activity, "设置", "调试", null); }});
     }
 }
 
@@ -927,13 +1132,13 @@ void buildLevel3MenuContent(Activity activity, String level1Title, String level2
             addSettingsCategory("背景与图标");
             addSettingsItemChoice("背景与图标", "背景类型", "ui_bg_type", getBgTypeDisplayText(), new Runnable() { public void run() { showBgTypeChoiceDialog(activity); }});
             
-            String bgType = getSetting("settings", "ui_bg_type", "color");
+            String bgType = getString("settings", "ui_bg_type", "color");
             String suffix = settingsIsDarkMode ? " (深色模式)" : " (浅色模式)";
             
             if ("color".equals(bgType)) {
                 addSettingsItemClick("背景与图标", "预设颜色" + suffix, "点击选择内置配色", new Runnable() { public void run() { showPresetColorDialog(activity); }});
                 String colorKey = settingsIsDarkMode ? "ui_bg_color_dark" : "ui_bg_color_light";
-                String colorValue = getSetting("settings", colorKey, settingsIsDarkMode ? "#FF1E1E1E" : "#FFFFFF");
+                String colorValue = getString("settings", colorKey, settingsIsDarkMode ? "#FF1E1E1E" : "#FFFFFF");
                 addSettingsColorItem("背景与图标", "自定义Hex", null, colorKey, colorValue, null);
             } else if ("gradient".equals(bgType)) {
                 addSettingsItemClick("背景与图标", "预设渐变" + suffix, "点击选择内置渐变", new Runnable() { public void run() { showPresetGradientDialog(activity); }});
@@ -961,15 +1166,17 @@ void buildLevel3MenuContent(Activity activity, String level1Title, String level2
             addSettingsItemChoice("字体样式", "字体风格", "ui_font_type", getFontTypeDisplayText(), new Runnable() { public void run() { showFontTypeChoiceDialog(activity); }});
             addSettingsItemChoice("字体样式", "字体大小", "ui_font_size", getFontSizeDisplayText(), new Runnable() { public void run() { showFontSizeChoiceDialog(activity); }});
             String textColorKey = settingsIsDarkMode ? "ui_text_color_dark" : "ui_text_color_light";
-            String textColorValue = getSetting("settings", textColorKey, "");
+            String textColorValue = getString("settings", textColorKey, "");
             String suffix = settingsIsDarkMode ? " (深色模式)" : " (浅色模式)";
             addSettingsColorItem("字体样式", "字体颜色" + suffix, "留空自动配色 (推荐)", textColorKey, textColorValue, null);
         }
         
         if ("提示".equals(level2Title)) {
             addSettingsCategory("提示");
-            boolean toastSwitchState = getBoolean("settings", "吐司开关", true);
-            addSettingsSwitchItem("提示", "吐司开关", "开启后显示相关吐司提示", "吐司开关", toastSwitchState, null);
+            boolean toastSwitchState = getBoolean("settings", "加载提示", false);
+            addSettingsSwitchItem("提示", "加载提示", "开启后在脚本加载时显示提示", "加载提示", toastSwitchState, null);
+            boolean NoticeSwitchState = getBoolean("settings", "加载提示", false);
+            addSettingsSwitchItem("提示", "加载通知", "开启后在脚本加载时发送通知提示", "加载通知", NoticeSwitchState, null);
         }
         
         if ("线程池".equals(level2Title)) {
@@ -999,21 +1206,20 @@ void buildLevel3MenuContent(Activity activity, String level1Title, String level2
             addSettingsInputItem("悬浮窗设置", "长按关闭阈值", "默认650ms", "长按关闭阈值", "毫秒", "650", null);
             addSettingsInputItem("悬浮窗设置", "图标透明度", "0-255", "iconAlpha", "0-255", "255", null);
             
-            String iconPath = getSetting("settings", "iconPath", "");
+            String iconPath = getString("settings", "iconPath", "");
             boolean isAnimatedIcon = iconPath.toLowerCase().endsWith(".gif");
             if (isAnimatedIcon) {
                 addSettingsItemChoice("悬浮窗设置", "帧率设置", "gifDelay", getFpsDisplayText(), new Runnable() { public void run() { showFpsChoiceDialog(activity); }});
-                String currentDelay = getSetting("settings", "gifDelay", "100");
+                String currentDelay = getString("settings", "gifDelay", "100");
                 addSettingsInputItem("悬浮窗设置", "动画速度 (每帧延迟ms)", "越小越快", "gifDelay", "毫秒", currentDelay, null);
             }
         }
         
         if ("调试".equals(level2Title)) {
-            addSettingsCategory("调试", "开发者选项");
+            addSettingsCategory("调试", null);
             addSettingsItemClick("调试", "预览设置", "预览当前设置效果", new Runnable() { public void run() { showSettingsPreviewPopup(activity); }});
             addSettingsItemClick("调试", "重置设置", "恢复默认设置", new Runnable() { public void run() {
-                pendingSettingsChanges.clear();
-                qqToast(2, "设置已重置");
+            showResetAllSettingsConfirmDialog(activity);
             }});
             addSettingsItemClick("调试", "更新日志", "查看版本更新记录", new Runnable() { public void run() {
                 try {
@@ -1025,6 +1231,73 @@ void buildLevel3MenuContent(Activity activity, String level1Title, String level2
             }});
         }
     }
+}
+/**
+ * 显示重置所有设置的二次确认弹窗
+ */
+void showResetAllSettingsConfirmDialog(Activity activity) {
+    LinearLayout content = new LinearLayout(activity);
+    content.setOrientation(LinearLayout.VERTICAL);
+    content.setGravity(Gravity.CENTER);
+    content.setPadding(dp(activity, 24), dp(activity, 20), dp(activity, 24), dp(activity, 20));
+
+    TextView title = new TextView(activity);
+    title.setText("重置所有设置");
+    title.setTextSize(18);
+    title.setTypeface(null, Typeface.BOLD);
+    title.setTextColor(Color.parseColor(getSettingsThemeColor("on_surface")));
+    title.setGravity(Gravity.CENTER);
+    content.addView(title);
+
+    TextView msg = new TextView(activity);
+    msg.setText("确定要重置所有设置为默认值吗？\n此操作不可撤销");
+    msg.setTextSize(14);
+    msg.setTextColor(Color.parseColor(getSettingsThemeColor("on_surface_variant")));
+    msg.setGravity(Gravity.CENTER);
+    msg.setPadding(0, dp(activity, 12), 0, dp(activity, 16));
+    content.addView(msg);
+
+    AlertDialog.Builder builder = new AlertDialog.Builder(activity,
+            settingsIsDarkMode ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
+    builder.setView(content);
+
+    builder.setNegativeButton("取消", null);
+
+    builder.setPositiveButton("确认重置", (dialog, which) -> {
+        int count = resetAllSettingsToDefault();
+        qqToast(0, "已重置 " + count + " 项设置");
+    });
+
+    AlertDialog dialog = builder.show();
+    applyUiTheme(activity, dialog);
+}
+
+/**
+ * 重置所有设置为默认值
+ * @return 重置的设置数量
+ */
+int resetAllSettingsToDefault() {
+    String[] settingKeys = {
+            "ui_theme_mode", "ui_dialog_scale", "ui_dialog_width", "ui_dialog_height",
+            "振动反馈", "ui_bg_type", "ui_bg_color_dark", "ui_bg_color_light",
+            "ui_bg_gradient_dark", "ui_bg_gradient_light", "ui_img_blur", "ui_img_alpha",
+            "ui_font_type", "ui_font_size", "ui_text_color_dark", "ui_text_color_light",
+            "thread_pool_priority", "thread_pool_queue_capacity", "thread_pool_keep_alive",
+            "thread_pool_name_prefix", "thread_pool_reject_policy", "悬浮窗大小",
+            "关闭区域图标大小", "拖拽灵敏度", "长按关闭阈值", "移动阈值"
+    };
+
+    int count = 0;
+    for (String key : settingKeys) {
+        putString("settings", key, "");
+        count++;
+    }
+
+    if (pendingSettingsChanges != null) {
+        pendingSettingsChanges.clear();
+    }
+
+    return count;
 }
 
 /**
@@ -1095,6 +1368,18 @@ void addSettingsItemClick(String categoryName, String itemName, Runnable clickCa
  * @param clickCallback 点击回调
  */
 void addSettingsItemClick(String categoryName, String itemName, String descriptionText, final Runnable clickCallback) {
+    addSettingsItemClickWithKey(categoryName, itemName, descriptionText, null, clickCallback);
+}
+
+/**
+ * 添加纯点击项（带键）
+ * @param categoryName 分类名称
+ * @param itemName 项目名称
+ * @param descriptionText 描述文本
+ * @param itemKey 项目键
+ * @param clickCallback 点击回调
+ */
+void addSettingsItemClickWithKey(String categoryName, String itemName, String descriptionText, String itemKey, final Runnable clickCallback) {
     LinearLayout container = (LinearLayout) settingsCategoryContainers.get(categoryName);
     if (container == null) return;
     
@@ -1145,6 +1430,10 @@ void addSettingsItemClick(String categoryName, String itemName, String descripti
         }
     });
     
+    if (itemKey != null && !itemKey.isEmpty() && settingsItemViews != null) {
+        settingsItemViews.put(itemKey, itemWrapper);
+    }
+    
     container.addView(itemWrapper);
 }
 
@@ -1163,31 +1452,38 @@ void addSettingsItemChoice(String categoryName, String itemName, String updateKe
     FrameLayout itemWrapper = new FrameLayout(settingsCurrentActivity);
     
     LinearLayout itemLayout = new LinearLayout(settingsCurrentActivity);
-    itemLayout.setOrientation(LinearLayout.HORIZONTAL);
-    itemLayout.setGravity(Gravity.CENTER_VERTICAL);
+    itemLayout.setOrientation(LinearLayout.VERTICAL);
     itemLayout.setPadding(dp(settingsCurrentActivity, 16), dp(settingsCurrentActivity, 14), dp(settingsCurrentActivity, 16), dp(settingsCurrentActivity, 14));
+    
+    LinearLayout titleRow = new LinearLayout(settingsCurrentActivity);
+    titleRow.setOrientation(LinearLayout.HORIZONTAL);
+    titleRow.setGravity(Gravity.CENTER_VERTICAL);
+    titleRow.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
     
     TextView nameView = new TextView(settingsCurrentActivity);
     nameView.setText(itemName);
     nameView.setTextSize(16);
     nameView.setTextColor(Color.parseColor(getSettingsThemeColor("on_surface")));
     nameView.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
-    itemLayout.addView(nameView);
-    
-    final TextView valueView = new TextView(settingsCurrentActivity);
-    valueView.setText(valueText);
-    valueView.setTextSize(14);
-    valueView.setTextColor(Color.parseColor(getSettingsThemeColor("primary")));
-    itemLayout.addView(valueView);
-    
-    if (settingsItemTextViews == null) settingsItemTextViews = new HashMap();
-    settingsItemTextViews.put(updateKey, valueView);
+    titleRow.addView(nameView);
     
     TextView arrowView = new TextView(settingsCurrentActivity);
     arrowView.setText("›");
     arrowView.setTextSize(20);
     arrowView.setTextColor(Color.parseColor(getSettingsThemeColor("on_surface_variant")));
-    itemLayout.addView(arrowView);
+    titleRow.addView(arrowView);
+    
+    itemLayout.addView(titleRow);
+    
+    final TextView valueView = new TextView(settingsCurrentActivity);
+    valueView.setText(valueText);
+    valueView.setTextSize(12);
+    valueView.setTextColor(Color.parseColor(getSettingsThemeColor("on_surface_variant")));
+    valueView.setPadding(0, dp(settingsCurrentActivity, 2), 0, 0);
+    itemLayout.addView(valueView);
+    
+    if (settingsItemTextViews == null) settingsItemTextViews = new HashMap();
+    settingsItemTextViews.put(updateKey, valueView);
     
     itemWrapper.addView(itemLayout);
     
@@ -1227,6 +1523,20 @@ void updateSettingsItemText(String updateKey, String newText) {
  * @param switchCallback 开关回调
  */
 void addSettingsItemSwitch(String categoryName, String itemName, String configName, String keyName, boolean currentValue, final Runnable switchCallback) {
+    addSettingsItemSwitchWithKey(categoryName, itemName, null, configName, keyName, currentValue, switchCallback);
+}
+
+/**
+ * 添加开关项（带键）
+ * @param categoryName 分类名称
+ * @param itemName 项目名称
+ * @param itemKey 项目键
+ * @param configName 配置名称
+ * @param keyName 键名
+ * @param currentValue 当前值
+ * @param switchCallback 开关回调
+ */
+void addSettingsItemSwitchWithKey(String categoryName, String itemName, String itemKey, String configName, String keyName, boolean currentValue, final Runnable switchCallback) {
     LinearLayout container = (LinearLayout) settingsCategoryContainers.get(categoryName);
     if (container == null) return;
     
@@ -1251,6 +1561,10 @@ void addSettingsItemSwitch(String categoryName, String itemName, String configNa
     
     itemWrapper.setBackground(makeFeedbackBg(Color.parseColor(getSettingsThemeColor("surface")), Color.parseColor(getSettingsThemeColor("ripple")), 0));
     itemWrapper.setClickable(false);
+    
+    if (itemKey != null && !itemKey.isEmpty() && settingsItemViews != null) {
+        settingsItemViews.put(itemKey, itemWrapper);
+    }
     
     container.addView(itemWrapper);
 }
@@ -1326,7 +1640,7 @@ void addSettingsInputItem(String categoryName, String itemName, String descripti
     LinearLayout container = (LinearLayout) settingsCategoryContainers.get(categoryName);
     if (container == null) return;
     
-    String currentValue = getSetting("settings", keyName, defaultValue);
+    String currentValue = getString("settings", keyName, defaultValue);
     
     LinearLayout itemLayout = new LinearLayout(settingsCurrentActivity);
     itemLayout.setOrientation(LinearLayout.VERTICAL);
@@ -1390,7 +1704,7 @@ void addSettingsColorItem(String categoryName, String itemName, String descripti
     LinearLayout container = (LinearLayout) settingsCategoryContainers.get(categoryName);
     if (container == null) return;
     
-    String currentValue = getSetting("settings", keyName, defaultValue);
+    String currentValue = getString("settings", keyName, defaultValue);
     
     LinearLayout itemLayout = new LinearLayout(settingsCurrentActivity);
     itemLayout.setOrientation(LinearLayout.VERTICAL);
@@ -1445,7 +1759,7 @@ void addSettingsColorItem(String categoryName, String itemName, String descripti
     final String finalDefaultValue = defaultValue;
     itemLayout.setOnClickListener(new View.OnClickListener() {
         public void onClick(View view) {
-            String currentColor = getSetting("settings", finalKeyName, finalDefaultValue);
+            String currentColor = getString("settings", finalKeyName, finalDefaultValue);
             showSimpleColorPickerDialog(settingsCurrentActivity, finalKeyName, currentColor, colorPreview, onColorChanged);
         }
     });
@@ -1458,7 +1772,7 @@ void addSettingsColorItem(String categoryName, String itemName, String descripti
  * @return 显示文本
  */
 String getThemeModeDisplayText() {
-    String mode = getSetting("settings", "ui_theme_mode", "default");
+    String mode = getString("settings", "ui_theme_mode", "default");
     if ("system".equals(mode)) return "跟随系统";
     if ("light".equals(mode)) return "强制浅色";
     if ("dark".equals(mode)) return "强制深色";
@@ -1470,7 +1784,7 @@ String getThemeModeDisplayText() {
  * @return 显示文本
  */
 String getScaleDisplayText() {
-    String scale = getSetting("settings", "ui_dialog_scale", "");
+    String scale = getString("settings", "ui_dialog_scale", "");
     return scale.isEmpty() ? "1.0x (默认)" : scale + "x";
 }
 
@@ -1479,7 +1793,7 @@ String getScaleDisplayText() {
  * @return 显示文本
  */
 String getBgTypeDisplayText() {
-    String bgType = getSetting("settings", "ui_bg_type", "color");
+    String bgType = getString("settings", "ui_bg_type", "color");
     if ("image".equals(bgType)) return "图片背景";
     if ("gradient".equals(bgType)) return "三色渐变";
     return "纯色背景";
@@ -1490,7 +1804,7 @@ String getBgTypeDisplayText() {
  * @return 显示文本
  */
 String getFontTypeDisplayText() {
-    String font = getSetting("settings", "ui_font_type", "default");
+    String font = getString("settings", "ui_font_type", "default");
     if ("serif".equals(font)) return "衬线体";
     if ("sans".equals(font)) return "无衬线";
     if ("monospace".equals(font)) return "等宽";
@@ -1503,7 +1817,7 @@ String getFontTypeDisplayText() {
  * @return 显示文本
  */
 String getFontSizeDisplayText() {
-    String size = getSetting("settings", "ui_font_size", "1.0");
+    String size = getString("settings", "ui_font_size", "1.0");
     if ("0.85".equals(size)) return "小 (0.85x)";
     if ("1.15".equals(size)) return "中 (1.15x)";
     if ("1.3".equals(size)) return "大 (1.3x)";
@@ -1515,7 +1829,7 @@ String getFontSizeDisplayText() {
  * @return 显示文本
  */
 String getThreadPriorityDisplayText() {
-    String priority = getSetting("settings", "thread_pool_priority", "");
+    String priority = getString("settings", "thread_pool_priority", "");
     if (priority.isEmpty()) return "5 (默认)";
     try {
         int p = Integer.parseInt(priority);
@@ -1532,7 +1846,7 @@ String getThreadPriorityDisplayText() {
  * @return 显示文本
  */
 String getRejectPolicyDisplayText() {
-    String policy = getSetting("settings", "thread_pool_reject_policy", "0");
+    String policy = getString("settings", "thread_pool_reject_policy", "0");
     if ("1".equals(policy)) return "丢弃最新任务";
     if ("2".equals(policy)) return "抛出异常";
     if ("3".equals(policy)) return "调用者执行";
@@ -1544,7 +1858,7 @@ String getRejectPolicyDisplayText() {
  * @return 显示文本
  */
 String getIconTypeDisplayText() {
-    String iconPath = getSetting("settings", "iconPath", "");
+    String iconPath = getString("settings", "iconPath", "");
     if (iconPath.isEmpty()) return "未设置";
     if (iconPath.toLowerCase().endsWith(".gif")) return "动态图标 (GIF)";
     return "静态图标";
@@ -1555,7 +1869,7 @@ String getIconTypeDisplayText() {
  * @return 显示文本
  */
 String getFpsDisplayText() {
-    String delay = getSetting("settings", "gifDelay", "100");
+    String delay = getString("settings", "gifDelay", "100");
     try {
         int d = Integer.parseInt(delay);
         int fps = d > 0 ? 1000 / d : 0;
@@ -1711,7 +2025,7 @@ void showThemeModeChoiceDialog(final Activity activity) {
     final String[] modes = {"默认（推荐）", "跟随系统", "强制浅色", "强制深色"};
     final String[] modeValues = {"default", "system", "light", "dark"};
     
-    String currentMode = getSetting("settings", "ui_theme_mode", "default");
+    String currentMode = getString("settings", "ui_theme_mode", "default");
     int checkedItem = 0;
     for (int i = 0; i < modeValues.length; i++) {
         if (modeValues[i].equals(currentMode)) {
@@ -1750,7 +2064,7 @@ void showBgTypeChoiceDialog(final Activity activity) {
     final String[] types = {"纯色背景", "三色渐变", "图片背景"};
     final String[] typeValues = {"color", "gradient", "image"};
     
-    String currentType = getSetting("settings", "ui_bg_type", "color");
+    String currentType = getString("settings", "ui_bg_type", "color");
     int checkedItem = 0;
     for (int i = 0; i < typeValues.length; i++) {
         if (typeValues[i].equals(currentType)) {
@@ -1768,9 +2082,7 @@ void showBgTypeChoiceDialog(final Activity activity) {
             updateSettingsItemText("ui_bg_type", types[which]);
             qqToast(2, "背景类型已更改");
             dialog.dismiss();
-            if (settingsMenuDialog != null) {
-                settingsMenuDialog.dismiss();
-            }
+            cleanupAllDialogs();
             uiHandler.postDelayed(new Runnable() {
                 public void run() {
                     showSettingsMenu(activity, "设置", "背景与图标", null);
@@ -1796,7 +2108,7 @@ void showPresetColorDialog(final Activity activity) {
         : new String[]{"#FFFFFF", "#FFF8F0", "#FFF0F5", "#E6F7FF", "#F0FFF0", "#E6E6FA", "#FFFFF0", "#F5F5F5"};
     
     final String keyName = settingsIsDarkMode ? "ui_bg_color_dark" : "ui_bg_color_light";
-    String currentColor = getSetting("settings", keyName, settingsIsDarkMode ? "#FF1E1E1E" : "#FFFFFF");
+    String currentColor = getString("settings", keyName, settingsIsDarkMode ? "#FF1E1E1E" : "#FFFFFF");
     int checkedItem = 0;
     for (int i = 0; i < colorValues.length; i++) {
         if (colorValues[i].equals(currentColor)) {
@@ -1831,7 +2143,7 @@ void showPresetGradientDialog(final Activity activity) {
         : new String[]{"#FFFFFFFF,#FFF5F5F5,#FFFFFFFF", "#FFFFE0B2,#FFFFCC80,#FFFFE0B2", "#FFBBDEFB,#FF90CAF9,#FFBBDEFB", "#FFC8E6C9,#FFA5D6A7,#FFC8E6C9", "#FFE1BEE7,#FFCE93D8,#FFE1BEE7", "#FFB2EBF2,#FF80DEEA,#FFB2EBF2", "#FFF5F5F5,#FFE0E0E0,#FFF5F5F5", "#FFF8F8F8,#FFECECEC,#FFF8F8F8"};
     
     final String keyName = settingsIsDarkMode ? "ui_bg_gradient_dark" : "ui_bg_gradient_light";
-    String currentGrad = getSetting("settings", keyName, "");
+    String currentGrad = getString("settings", keyName, "");
     int checkedItem = -1;
     for (int i = 0; i < gradValues.length; i++) {
         if (gradValues[i].equals(currentGrad)) {
@@ -1863,7 +2175,7 @@ void showFontTypeChoiceDialog(final Activity activity) {
     final String[] fonts = {"默认字体", "衬线体", "无衬线", "等宽", "粗体"};
     final String[] fontValues = {"default", "serif", "sans", "monospace", "bold"};
     
-    String currentFont = getSetting("settings", "ui_font_type", "default");
+    String currentFont = getString("settings", "ui_font_type", "default");
     int checkedItem = 0;
     for (int i = 0; i < fontValues.length; i++) {
         if (fontValues[i].equals(currentFont)) {
@@ -1896,7 +2208,7 @@ void showFontSizeChoiceDialog(final Activity activity) {
     final String[] sizes = {"小 (0.85x)", "默认 (1.0x)", "中 (1.15x)", "大 (1.3x)"};
     final String[] sizeValues = {"0.85", "1.0", "1.15", "1.3"};
     
-    String currentSize = getSetting("settings", "ui_font_size", "1.0");
+    String currentSize = getString("settings", "ui_font_size", "1.0");
     int checkedItem = 1;
     for (int i = 0; i < sizeValues.length; i++) {
         if (sizeValues[i].equals(currentSize)) {
@@ -1929,7 +2241,7 @@ void showThreadPriorityChoiceDialog(final Activity activity) {
     final String[] priorities = {"1 (最低)", "2", "3", "4", "5 (默认)", "6", "7", "8", "9", "10 (最高)"};
     final String[] priorityNumbers = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"};
     
-    String currentPriority = getSetting("settings", "thread_pool_priority", "");
+    String currentPriority = getString("settings", "thread_pool_priority", "");
     int checkedItem = 4;
     for (int i = 0; i < priorityNumbers.length; i++) {
         if (priorityNumbers[i].equals(currentPriority)) {
@@ -1962,7 +2274,7 @@ void showRejectPolicyChoiceDialog(final Activity activity) {
     final String[] policies = {"丢弃最旧任务 (默认)", "丢弃最新任务", "抛出异常", "调用者执行"};
     final String[] policyValues = {"0", "1", "2", "3"};
     
-    String currentPolicy = getSetting("settings", "thread_pool_reject_policy", "0");
+    String currentPolicy = getString("settings", "thread_pool_reject_policy", "0");
     int checkedItem = 0;
     for (int i = 0; i < policyValues.length; i++) {
         if (policyValues[i].equals(currentPolicy)) {
@@ -2026,7 +2338,7 @@ void showFpsChoiceDialog(final Activity activity) {
     final String[] fpsArray = (String[]) fpsList.toArray(new String[0]);
     final String[] delayArray = (String[]) delayList.toArray(new String[0]);
     
-    String currentDelay = getSetting("settings", "gifDelay", "100");
+    String currentDelay = getString("settings", "gifDelay", "100");
     int checkedItem = -1;
     for (int i = 0; i < delayArray.length; i++) {
         if (delayArray[i].equals(currentDelay)) {
@@ -2207,20 +2519,4 @@ void showSettingsPreviewPopup(Activity activity) {
     
     AlertDialog previewDialog = previewBuilder.show();
     applyUiTheme(activity, previewDialog);
-}
-
-/**
- * 显示菜单入口方法
- * @param activity 活动
- */
-void 显示菜单(final Activity activity) {
-    showSettingsMenu(activity, null, null, null);
-}
-
-/**
- * 显示设置界面入口方法
- * @param activity 活动
- */
-void showStyleSettingsDialog(final Activity activity) {
-    showSettingsMenu(activity, "设置", null, null);
 }
