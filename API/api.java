@@ -47,16 +47,6 @@ int UI_COLOR_STROKE_DARK = Color.parseColor("#33FFFFFF"); // 暗色模式：淡�
 int UI_COLOR_ACCENT_LIGHT = Color.parseColor("#FF2196F3");
 int UI_COLOR_ACCENT_DARK = Color.parseColor("#FF8AB4F8");
 
-
-boolean isThemeDark(Activity activity) {
-	// 脚本手动强制暗黑开关
-	try {
-		boolean forceDark = getBoolean("settings", "黑白", false);
-		if (forceDark) return true; // 如果手动开启了暗黑，直接返回真
-	} catch (Throwable e) {}
-	return false; // 默认浅色
-}
-
 public String get(String url) {
 	StringBuffer buffer = new StringBuffer();
 	InputStreamReader isr = null;
@@ -1663,7 +1653,6 @@ double longitude = loc[0];
 double latitude = loc[1];
 
 private void showLocationDialog(Activity activity) {
-    vibrate(activity, 48);
     boolean isDark = isThemeDark(activity);
     int cornerRadius = dp(activity, 8);
 
@@ -3079,7 +3068,6 @@ boolean checkAllIconsExist() {
 
     String iconBase = extractBasePath(iconPath);
     String closeBase = extractBasePath(closeIconPath);
-    String settingBase = extractBasePath(settingiconPath);
     
     // 检查icon
     if (!checkWithSuffixes(iconBase, new String[]{".png", ".gif"})) {
@@ -3091,17 +3079,12 @@ boolean checkAllIconsExist() {
         return false;
     }
     
-    // 检查settingIcon
-    if (!checkWithSuffixes(settingBase, new String[]{".png", ".gif"})) {
-        return false;
-    }
-    
     // 检查固定png文件
-    if (!new java.io.File(pluginPath + "/API/黑.png").exists()) {
+    if (!new java.io.File(pluginPath + "/API/QQ.png").exists()) {
         return false;
     }
     
-    if (!new java.io.File(pluginPath + "/API/白.png").exists()) {
+    if (!new java.io.File(pluginPath + "/API/GitHub.png").exists()) {
         return false;
     }
     
@@ -3276,7 +3259,6 @@ void 跳转到页面(String className) {
     if (activity == null) activity = 最后Activity;
     if (activity == null) return;
     
-    vibrate(activity, 48);
     Intent intent = new Intent();
     intent.setAction(Intent.ACTION_MAIN);
     intent.setComponent(new ComponentName(currentPackageName, className));
