@@ -1194,29 +1194,35 @@ void 设置触摸事件(final Activity activity) {
  * 处理图标点击事件
  */
 void 处理图标点击() {
+    if (settingsMenuDialog != null && settingsMenuDialog.isShowing()) {
+        return;
+    }
+
     try {
         Activity activity = getNowActivity();
         if (activity == null && 最后Activity != null) {
             activity = 最后Activity;
         }
-        if (activity == null || activity.isFinishing()) {
+        if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
             return;
         }
+
         final Activity finalActivity = activity;
         activity.runOnUiThread(new Runnable() {
             public void run() {
                 try {
-                    vibrate(finalActivity, 48);
-                    if (!OK) {
-                        显示菜单(finalActivity);
-                        OK = true;
+                    if (settingsMenuDialog != null && settingsMenuDialog.isShowing()) {
+                        return;
                     }
+                    vibrate(finalActivity, 48);
+                    showSettingsMenu(finalActivity, null, null, null);
                 } catch (Exception e) {
+                    traceLog("icon_click_error", "菜单弹窗异常: " + e.getMessage());
                 }
             }
         });
     } catch (Exception e) {
-        OK = false;
+        traceLog("icon_click_error", "图标点击异常: " + e.getMessage());
     }
 }
 
@@ -1311,11 +1317,9 @@ public void 启动悬浮窗(final Activity activity) {
         }
 
         if (悬浮窗状态 == STATE_VISIBLE) {
-            OK = false;
             允许触摸 = true;
         }
     } catch (Exception e) {
-        e.printStackTrace();
     }
 }
 
