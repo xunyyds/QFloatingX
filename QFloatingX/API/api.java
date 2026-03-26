@@ -2246,7 +2246,6 @@ void 执行卸载核心逻辑() {
 				清理Handler(uiHandler);
 				uiHandler = null;
 				延迟启动完成 = false;
-				OK = false;
 				悬浮窗显示状态 = false;
 				应用前台状态 = false;
 				Toast("脚本卸载完成，欢迎下次使用");
@@ -2270,8 +2269,6 @@ void 异步关闭线程池() {
 }
 
 void 重新加载脚本() {
-	OK = false;
-
 	if (uiHandler != null) {
 		uiHandler.postDelayed(new Runnable() {
 			public void run() {
@@ -2288,8 +2285,6 @@ void 重新加载脚本() {
 }
 
 void 取消加载脚本() {
-	OK = false;
-
 	if (uiHandler != null) {
 		uiHandler.postDelayed(new Runnable() {
 			public void run() {
@@ -2333,7 +2328,6 @@ void 重新加载操作(Activity activity) {
 
 		if (target != null) pm.reloadPlugin(target);
 	} catch (Throwable e) {
-		OK = false;
 	}
 }
 
@@ -2365,7 +2359,6 @@ void 取消加载操作(Activity activity) {
 
 		if (target != null) pm.stopPlugin(target);
 	} catch (Throwable e) {
-		OK = false;
 	}
 }
 
