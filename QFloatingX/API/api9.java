@@ -2074,12 +2074,10 @@ void RecallMessage(Object data, long seq) {
         return;
     }
 
-    // 根据新定义：群聊 type=2，私聊 type=1
-    final int chatType = data.type; // 直接使用传入的 type，已符合新定义
+    final int chatType = data.type;
     final String peerUid;
     final long msgId = data.data.msgId;
 
-    // 根据 chatType 处理 peerUid 类型
     if (chatType == 2) { // 群聊
         peerUid = String.valueOf(data.peerUin);
     } else if (chatType == 1) { // 私聊
@@ -2106,10 +2104,8 @@ void RecallMessage(Object data, long seq) {
                 String serviceCmd;
                 JSONObject json = new JSONObject();
 
-                if (chatType == 1) { // 群聊撤回
-                    long groupUin = Long.parseLong(peerUid);
-                    long msgRandom = realData.data.msgRandom;
-                    long msgSeq = realData.data.msgSeq;
+                if (chatType == 2) { // 群聊撤回
+
 
                     if (groupUin <= 0 || msgSeq <= 0 || msgRandom <= 0) {
                         qqToast(1, "群聊参数无效");
@@ -2173,7 +2169,6 @@ void RecallMessage(Object data, long seq) {
 
                 traceLog("recall_error.log", json.toString());
 
-                // 转换为 FunProtoData 并发送
                 FunProtoData proto = new FunProtoData();
                 proto.fromJSON(json);
                 byte[] pbData = proto.toBytes();
@@ -2193,4 +2188,42 @@ void RecallMessage(Object data, long seq) {
             }
         }
     });
+}
+void setMsgEssence(Object data, boolean isEssence) {
+    try {
+        long groupUin = Long.parseLong(data.peerUid);
+        long msgSeq = data.data.msgSeq;
+        long msgRandom = data.data.msgRandom;
+
+        JSONObject body = new JSONObject();
+        body.put("1", groupUin);
+        body.put("2", msgSeq);
+        body.put("3", msgRandom);
+
+        // 构造根JSON
+        JSONObject root = new JSONObject();
+        root.put("1", 3756);
+        root.put("2", 1);
+        root.put("3", 0);
+        root.put("4", body);
+
+        String cmd = isEssence ? "OidbSvc.0xeac_1" : "OidbSvc.0xeac_2";
+
+        FunProtoData proto = new FunProtoData();
+        proto.fromJSON(root);
+        byte[] pbData = proto.toBytes();
+
+        PacketHelper.sendRequest(cmd, pbData, new IReceiver() {
+            public void onReceive(byte[] resp) {
+                if (resp != null) {
+                    qqToast(2, isEssence ? "设为精华成功" : "取消精华成功");
+                } else {
+                    qqToast(1, isEssence ? "设为精华失败" : "取消精华失败");
+                }
+            }
+        });
+
+    } catch (Exception e) {
+        qqToast(1, (isEssence ? "设置" : "取消") + "精华异常: " + e.getMessage());
+    }
 }
