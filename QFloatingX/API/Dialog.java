@@ -3671,13 +3671,18 @@ public void 长按消息菜单(Activity activity, Object data) {
     final Object finalAtList = atList;
     final int finalMsgtype = msgtype;
     final String finalNickName = nickName;
-
+    final Object qqmember = getMemberInfo(finalPeerUin, qq);
+    final String role = qqmember.role;
     addMenuItem(menuItems, "消息操作", "复制内容", new Runnable() { public void run() { showCopyConfirmDialog(activity, "消息内容", finalQuntext, isDark); } });
     addMenuItem(menuItems, "消息操作", "复读加一", new Runnable() { public void run() { 复读(data); } });
     addMenuItem(menuItems, "消息操作", "撤回消息", new Runnable() { public void run() { recallMsg(finalChatType, finalPeerUin, finalMsgid); qqToast(2, "撤回操作已执行"); } });
     addMenuItem(menuItems, "消息操作", "原始消息", new Runnable() { public void run() { showRawMessageDialog(finalMsgRecord); } });
     addMenuItem(menuItems, "消息操作", "解析消息", new Runnable() { public void run() { showMsgDataPaeseDialog(activity, data); } });
     addMenuItem(menuItems, "消息操作", "提取音频", new Runnable() { public void run() { showExtractAudioDialog(activity, data); } });
+    if (chatType == 2 && ("OWNER".equals(role) || "ADMIN".equals(role))) {
+    addMenuItem(menuItems, "消息操作", "设为精华", new Runnable() { public void run() { setMsgEssence(data, true); } });
+    addMenuItem(menuItems, "消息操作", "取消精华", new Runnable() { public void run() { setMsgEssence(data, false); } });
+    }
 
     if (chatType == 2) {
         addMenuItem(menuItems, "群管理", "成员信息", new Runnable() { public void run() { showMemberInfoDialog(activity, finalPeerUin, finalUserUin, finalChatType); } });

@@ -1,18 +1,14 @@
 {
-  "version": "2.3.4",
-  "versionType": "正式版",
+  "version": "2.3.5",
+  "versionType": "测试版",
   "updateType": "补丁",
-  "updateTime": "2026-03-26 16:17:51",
-  "changelog": "- 完善脚本设置\n- 优化暗黑模式逻辑\n- 为加载提示\/后台保活添加了开关\n- 移除了未使用的文件\n- 修复脚本设置偶现打不开的问题",
+  "updateTime": "2026-03-27 21:53:56",
+  "changelog": "- 新增消息操作设置精华\/取消精华\n- 优化后台保活\n- 修复脚本设置已知bug",
   "files": [
-    "QFloatingX\/API\/uitools.java",
     "QFloatingX\/API\/Dialog.java",
     "QFloatingX\/API\/setwindow.java",
     "QFloatingX\/API\/KeepAlive.java",
-    "QFloatingX\/API\/api.java",
-    "QFloatingX\/API\/api3.java",
-    "QFloatingX\/API\/api6.java",
-    "QFloatingX\/desc.txt",
+    "QFloatingX\/API\/api9.java",
     "QFloatingX\/main.java",
     "QFloatingX\/info.prop",
     "QFloatingX\/更新日志.txt"
