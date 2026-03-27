@@ -276,8 +276,7 @@ void 卸载loveHook() {
     for (int i = 0; i < hookloveList.size(); i++) {
         try {
             Object unhook = hookloveList.get(i);
-            Method unhookMethod = unhook.getClass().getMethod("unhook");
-            unhookMethod.invoke(unhook);
+            unhook.unhook();
         } catch (Exception e) {}
     }
     hookloveList.clear();
@@ -305,12 +304,12 @@ private void checkAndUpdateForegroundState(final Activity activity) {
     }
 
     if (!应用前台状态) {
-        traceLog("state_log", "状态变更 → 前台");
+        // traceLog("state_log", "状态变更 → 前台");
         应用前台状态 = true;
         允许触摸 = true;
         最后Activity = activity;
 		if (getBoolean("settings", "后台保活", false)) {
-        stopKeepAlive();
+        KeepAlive.stop();
         }
 
         if (UI初始化完成 && !悬浮窗显示状态 && getBoolean("settings", "开关", false)) {
@@ -333,12 +332,12 @@ private void checkAndUpdateBackgroundState() {
         public void run() {
             if (resumedActivityCount > 0) return;
             if (应用前台状态) {
-                traceLog("state_log", "状态变更 → 后台");
+                // traceLog("state_log", "状态变更 → 后台");
                 应用前台状态 = false;
                 允许触摸 = false;
                 if (悬浮窗显示状态) 停止悬浮窗();
                 if (getBoolean("settings", "后台保活", false)) {
-                startKeepAliveService();
+                KeepAlive.start();
                 }
             }
         }
@@ -387,7 +386,7 @@ void Hook生命周期() {
             new XC_MethodHook() {
                 protected void afterHookedMethod(MethodHookParam param) {
                     Activity a = (Activity) param.thisObject;
-                    traceLog(" _log.txt", "" + a.getClass().getSimpleName());
+                    // traceLog(" _log.txt", "" + a.getClass().getSimpleName());
                     if (QQpackage.equals(a.getPackageName())) {
                         resumedActivityCount++;
                         checkAndUpdateForegroundState(a);
@@ -417,7 +416,7 @@ void Hook生命周期() {
         try { initStats(); } catch (Exception e) {}
         try { installQFunHooks(); } catch (Exception e) {}
 		if (getBoolean("settings", "后台保活", false)) {
-		    try { HookQQService(); } catch (Exception e) {}
+		KeepAlive.start();
 		}
 
 
