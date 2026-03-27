@@ -1,10 +1,14 @@
 {
-  "version": "2.3.4.2",
-  "versionType": "正式版",
+  "version": "2.3.5",
+  "versionType": "测试版",
   "updateType": "补丁",
-  "updateTime": "2026-03-26 23:28:14",
-  "changelog": "- fix:后台保活有一部分未被开关控制",
+  "updateTime": "2026-03-27 21:53:56",
+  "changelog": "- 新增消息操作设置精华\/取消精华\n- 优化后台保活\n- 修复脚本设置已知bug",
   "files": [
+    "QFloatingX\/API\/Dialog.java",
+    "QFloatingX\/API\/setwindow.java",
+    "QFloatingX\/API\/KeepAlive.java",
+    "QFloatingX\/API\/api9.java",
     "QFloatingX\/main.java",
     "QFloatingX\/info.prop",
     "QFloatingX\/更新日志.txt"
