@@ -1,15 +1,11 @@
 {
-  "version": "2.3.5",
+  "version": "2.3.5.1",
   "versionType": "测试版",
   "updateType": "补丁",
-  "updateTime": "2026-03-27 21:53:56",
-  "changelog": "- 新增消息操作设置精华\/取消精华\n- 优化后台保活\n- 修复脚本设置已知bug",
+  "updateTime": "2026-03-28 14:25:49",
+  "changelog": "- 修复点击悬浮窗闪退，脚本设置界面返回可能造成卡死的bug",
   "files": [
-    "QFloatingX\/API\/Dialog.java",
-    "QFloatingX\/API\/setwindow.java",
-    "QFloatingX\/API\/KeepAlive.java",
-    "QFloatingX\/API\/api9.java",
-    "QFloatingX\/main.java",
+    "QFloatingX\/API\/api4.java",
     "QFloatingX\/info.prop",
     "QFloatingX\/更新日志.txt"
   ]
