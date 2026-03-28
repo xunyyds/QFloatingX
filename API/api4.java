@@ -1166,7 +1166,7 @@ void 设置触摸事件(final Activity activity) {
 
                             if (pressDuration < longClickThreshold && 
                                 deltaXUp < moveThreshold && deltaYUp < moveThreshold) {
-                                处理图标点击();
+                                处理图标点击(activity);
                             }
                         }
 
@@ -1193,38 +1193,27 @@ void 设置触摸事件(final Activity activity) {
 /**
  * 处理图标点击事件
  */
-void 处理图标点击() {
-    if (settingsMenuDialog != null && settingsMenuDialog.isShowing()) {
+void 处理图标点击(Activity activity) {
+    if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
         return;
     }
 
-    try {
-        Activity activity = getNowActivity();
-        if (activity == null && 最后Activity != null) {
-            activity = 最后Activity;
-        }
-        if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
-            return;
-        }
-
-        final Activity finalActivity = activity;
-        activity.runOnUiThread(new Runnable() {
-            public void run() {
-                try {
-                    if (settingsMenuDialog != null && settingsMenuDialog.isShowing()) {
-                        return;
-                    }
-                    vibrate(finalActivity, 48);
-                    showSettingsMenu(finalActivity, null, null, null);
-                } catch (Exception e) {
-                    traceLog("icon_click_error", "菜单弹窗异常: " + e.getMessage());
+    activity.runOnUiThread(new Runnable() {
+        public void run() {
+            try {
+                if (SettingsState.settingsSearchDialog != null 
+                    && SettingsState.settingsSearchDialog.isShowing()) {
+                    return;
                 }
+                vibrate(activity, 48);
+                showSettingsMenu(activity, null, null, null);
+            } catch (Exception e) {
+                traceLog("icon_click_error", "菜单弹窗异常: " + e.getMessage());
             }
-        });
-    } catch (Exception e) {
-        traceLog("icon_click_error", "图标点击异常: " + e.getMessage());
-    }
+        }
+    });
 }
+
 
 /**
  * 悬浮窗开关 - 切换悬浮窗显示状态
