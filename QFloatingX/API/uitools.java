@@ -87,6 +87,70 @@ boolean isThemeDark(Activity activity) {
     }
 }
 
+private Drawable createBg(Context ctx, int color, int radius) {
+    GradientDrawable gd = new GradientDrawable();
+    gd.setColor(color);
+    gd.setCornerRadius(dp(ctx, radius));
+    return gd;
+}
+
+private Drawable createRippleBg(Context ctx, int bgColor, int radius) {
+    GradientDrawable content = new GradientDrawable();
+    content.setColor(bgColor);
+    content.setCornerRadius(dp(ctx, radius));
+    return new RippleDrawable(ColorStateList.valueOf(Color.parseColor("#1A000000")), content, content);
+}
+
+private Drawable createButtonBg(Context ctx, int bgColor, int radius) {
+    GradientDrawable content = new GradientDrawable();
+    content.setColor(bgColor);
+    content.setCornerRadius(dp(ctx, radius));
+    return new RippleDrawable(ColorStateList.valueOf(Color.parseColor("#1AFFFFFF")), content, content);
+}
+
+private StateListDrawable createInputBg(Context ctx, int surfaceVariant, int outline, int primary) {
+    int r = dp(ctx, 12);
+    GradientDrawable normal = new GradientDrawable();
+    normal.setColor(surfaceVariant);
+    normal.setCornerRadius(r);
+    normal.setStroke(dp(ctx, 1), outline);
+    GradientDrawable focused = new GradientDrawable();
+    focused.setColor(surfaceVariant);
+    focused.setCornerRadius(r);
+    focused.setStroke(dp(ctx, 2), primary);
+    StateListDrawable sld = new StateListDrawable();
+    sld.addState(new int[]{android.R.attr.state_focused}, focused);
+    sld.addState(new int[]{}, normal);
+    return sld;
+}
+
+private Button makeSmallBtn(Context ctx, String text, int color) {
+    Button b = new Button(ctx);
+    b.setText(text);
+    b.setTextColor(color);
+    b.setBackground(createRippleBg(ctx, Color.TRANSPARENT, 20));
+    b.setMinHeight(dp(ctx, 40));
+    b.setPadding(dp(ctx, 16), dp(ctx, 8), dp(ctx, 16), dp(ctx, 8));
+    
+    ObjectAnimator scaleX = ObjectAnimator.ofFloat(b, "scaleX", 1f, 0.95f, 1f);
+    ObjectAnimator scaleY = ObjectAnimator.ofFloat(b, "scaleY", 1f, 0.95f, 1f);
+    scaleX.setDuration(150);
+    scaleY.setDuration(150);
+    AnimatorSet scaleDown = new AnimatorSet();
+    scaleDown.playTogether(scaleX, scaleY);
+    
+    b.setOnTouchListener(new View.OnTouchListener() {
+        public boolean onTouch(View v, MotionEvent event) {
+            if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                scaleDown.start();
+            }
+            return false;
+        }
+    });
+    
+    return b;
+}
+
 /**
  * 创建带按压反馈的圆角背景 Drawable
  * @param normalColor 常态颜色值
