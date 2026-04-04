@@ -1773,137 +1773,119 @@ private void startDialogDismissAnimation(View view, DialogInterface dialog) {
 
 	view.startAnimation(set);
 }
-private void showSelectionDialog(final Activity activity, final String title, final String btn1Text, final String btn2Text) {
-	activity.runOnUiThread(new Runnable() {
-		public void run() {
-			try {
-				// vibrate(activity, 48);
-				boolean isDark = isThemeDark(activity);
 
-				// 主布局容器（垂直排列）
-				LinearLayout mainLayout = new LinearLayout(activity);
-				mainLayout.setOrientation(LinearLayout.VERTICAL);
-				mainLayout.setPadding(dp(activity, 24), dp(activity, 20), dp(activity, 24), dp(activity, 8));
+private void showReOrUnDialog(final Activity activity) {
+    activity.runOnUiThread(new Runnable() {
+        public void run() {
+            try {
+                boolean isDark = isThemeDark(activity);
 
-				// 标题（Material风格：18sp，87%不透明度黑色）
-				TextView titleView = new TextView(activity);
-				titleView.setText(title);
-				titleView.setTextColor(isDark ? Color.parseColor("#DEEFEFEF") : Color.parseColor("#DE000000"));
-				titleView.setTextSize(18);
-				titleView.setPadding(0, dp(activity, 8), 0, dp(activity, 24)); // 底部24dp间距
+                LinearLayout mainLayout = new LinearLayout(activity);
+                mainLayout.setOrientation(LinearLayout.VERTICAL);
+                mainLayout.setPadding(dp(activity, 24), dp(activity, 20), dp(activity, 24), dp(activity, 8));
 
-				// 选项容器（垂直排列，符合Material Actions规范）
-				LinearLayout optionsContainer = new LinearLayout(activity);
-				optionsContainer.setOrientation(LinearLayout.VERTICAL);
+                TextView titleView = new TextView(activity);
+                titleView.setText("你想选哪个呢？");
+                titleView.setTextColor(isDark ? Color.parseColor("#DEEFEFEF") : Color.parseColor("#DE000000"));
+                titleView.setTextSize(18);
+                titleView.setPadding(0, dp(activity, 8), 0, dp(activity, 24));
 
-				// 按钮1（Material Actions风格：红色文字，透明背景，48dp高度）
-				Button btn1 = new Button(activity);
-				btn1.setText(btn1Text.toUpperCase()); // Material风格：大写文字
-				btn1.setTextColor(Color.parseColor("#FFFF0000")); // 红色强调色
-				btn1.setTextSize(14);
-				btn1.setBackgroundColor(Color.parseColor("#00FFFFFF")); // 完全透明背景
-				btn1.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT); // 左对齐
-				LinearLayout.LayoutParams btn1Params = new LinearLayout.LayoutParams(
-					LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 48)
-				);
-				btn1.setLayoutParams(btn1Params);
+                LinearLayout optionsContainer = new LinearLayout(activity);
+                optionsContainer.setOrientation(LinearLayout.VERTICAL);
 
-				// 按钮2（相同风格）
-				Button btn2 = new Button(activity);
-				btn2.setText(btn2Text.toUpperCase());
-				btn2.setTextColor(Color.parseColor("#FFFF0000"));
-				btn2.setTextSize(14);
-				btn2.setBackgroundColor(Color.parseColor("#00FFFFFF"));
-				btn2.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
-				LinearLayout.LayoutParams btn2Params = new LinearLayout.LayoutParams(
-					LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 48)
-				);
-				btn2.setLayoutParams(btn2Params);
+                Button btn1 = new Button(activity);
+                btn1.setText("取消加载脚本".toUpperCase());
+                btn1.setTextColor(Color.parseColor("#FFFF0000"));
+                btn1.setTextSize(14);
+                btn1.setBackgroundColor(Color.parseColor("#00FFFFFF"));
+                btn1.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
+                btn1.setLayoutParams(new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 48)));
 
-				// 分割线（12%透明度，分隔选项和取消）
-				View divider = new View(activity);
-				divider.setBackgroundColor(isDark ? Color.parseColor("#1EFFFFFF") : Color.parseColor("#1E000000")); // Material分割线颜色
-				LinearLayout.LayoutParams divParams = new LinearLayout.LayoutParams(
-					LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 1)
-				);
-				divParams.topMargin = dp(activity, 8);
-				divParams.bottomMargin = dp(activity, 8);
+                Button btn2 = new Button(activity);
+                btn2.setText("重新加载脚本".toUpperCase());
+                btn2.setTextColor(Color.parseColor("#FFFF0000"));
+                btn2.setTextSize(14);
+                btn2.setBackgroundColor(Color.parseColor("#00FFFFFF"));
+                btn2.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
+                btn2.setLayoutParams(new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 48)));
 
-				// 取消按钮（Material风格：黑色文字，透明背景）
-				Button cancelBtn = new Button(activity);
-				cancelBtn.setText("取消");
-				cancelBtn.setTextColor(isDark ? Color.parseColor("#DEEFEFEF") : Color.parseColor("#DE000000")); // 87%不透明度黑色
-				cancelBtn.setTextSize(14);
-				cancelBtn.setBackgroundColor(Color.parseColor("#00FFFFFF"));
-				cancelBtn.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
-				LinearLayout.LayoutParams cancelParams = new LinearLayout.LayoutParams(
-					LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 48)
-				);
-				cancelBtn.setLayoutParams(cancelParams);
+                View divider = new View(activity);
+                divider.setBackgroundColor(isDark ? Color.parseColor("#1EFFFFFF") : Color.parseColor("#1E000000"));
+                LinearLayout.LayoutParams divParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 1));
+                divParams.topMargin = dp(activity, 8);
+                divParams.bottomMargin = dp(activity, 8);
 
-				mainLayout.addView(titleView);
-				optionsContainer.addView(btn1);
-				optionsContainer.addView(btn2);
-				mainLayout.addView(optionsContainer);
-				mainLayout.addView(divider, divParams);
-				mainLayout.addView(cancelBtn);
+                Button cancelBtn = new Button(activity);
+                cancelBtn.setText("取消");
+                cancelBtn.setTextColor(isDark ? Color.parseColor("#DEEFEFEF") : Color.parseColor("#DE000000"));
+                cancelBtn.setTextSize(14);
+                cancelBtn.setBackgroundColor(Color.parseColor("#00FFFFFF"));
+                cancelBtn.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
+                cancelBtn.setLayoutParams(new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 48)));
 
-				AlertDialog.Builder builder = new AlertDialog.Builder(activity,
-					isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-				builder.setView(mainLayout);
+                mainLayout.addView(titleView);
+                optionsContainer.addView(btn1);
+                optionsContainer.addView(btn2);
+                mainLayout.addView(optionsContainer);
+                mainLayout.addView(divider, divParams);
+                mainLayout.addView(cancelBtn);
 
-				final AlertDialog dialog = builder.create();
-				dialog.show();
-				
-                // 应用统一主题
-				applyUiTheme(activity, dialog);
-				
+                AlertDialog.Builder builder = new AlertDialog.Builder(activity,
+                    isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
+                builder.setView(mainLayout);
 
-				btn1.setOnClickListener(new View.OnClickListener() {
-					public void onClick(View v) {
-						try {
-							vibrate(activity, 50);
-							取消加载脚本();
-							dialog.dismiss();
-						} catch (Throwable e) {
-							traceLog("api_log.txt", "按钮1异常: " + e.getMessage());
-						}
-					}
-				});
+                final AlertDialog dialog = builder.create();
+                dialog.show();
+                applyUiTheme(activity, dialog);
 
-				btn2.setOnClickListener(new View.OnClickListener() {
-					public void onClick(View v) {
-						try {
-							vibrate(activity, 50);
-							重新加载脚本();
-							dialog.dismiss();
-						} catch (Throwable e) {
-							traceLog("api_log.txt", "按钮2异常: " + e.getMessage());
-						}
-					}
-				});
+                btn1.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) {
+                        try {
+                            vibrate(activity, 50);
+                            取消加载脚本();
+                            dialog.dismiss();
+                        } catch (Throwable e) {
+                            traceLog("api_log.txt", "取消加载脚本按钮异常: " + e.getMessage());
+                        }
+                    }
+                });
 
-				cancelBtn.setOnClickListener(new View.OnClickListener() {
-					public void onClick(View v) {
-						try {
-							vibrate(activity, 50);
-							dialog.dismiss();
-						} catch (Throwable e) {
-							traceLog("api_log.txt", "取消按钮异常: " + e.getMessage());
-						}
-					}
-				});
+                btn2.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) {
+                        try {
+                            vibrate(activity, 50);
+                            重新加载脚本();
+                            dialog.dismiss();
+                        } catch (Throwable e) {
+                            traceLog("api_log.txt", "重新加载脚本按钮异常: " + e.getMessage());
+                        }
+                    }
+                });
 
-				traceLog("api_log.txt", "Material选择对话框已显示: " + title);
+                cancelBtn.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) {
+                        try {
+                            vibrate(activity, 50);
+                            dialog.dismiss();
+                        } catch (Throwable e) {
+                            traceLog("api_log.txt", "取消按钮异常: " + e.getMessage());
+                        }
+                    }
+                });
 
-			} catch (Throwable e) {
-				traceLog("api_log.txt", "对话框创建失败: " + e.getMessage());
-			}
-		}
-	});
+                traceLog("api_log.txt", "重载/取消选择对话框已显示: 你想选哪个呢？");
+
+            } catch (Throwable e) {
+                traceLog("api_log.txt", "对话框创建失败: " + e.getMessage());
+            }
+        }
+    });
 }
 
-//非常花里胡哨的toast 提示，随机文本颜色，弹出动画消失动画
 public void Toast(String text) {
 	if (Looper.myLooper() == Looper.getMainLooper()) {
 		xToast(text);
@@ -1937,147 +1919,136 @@ public void Toast(String text) {
 }
 
 private void xToast(String text) {
-	try {
-		boolean isDark = isThemeDark(context instanceof Activity ? (Activity) context : null);
+    try {
+        Context ctx = context;
+        if (ctx == null) {
+            Activity act = getNowActivity();
+            if (act == null) act = 最后Activity;
+            ctx = act;
+        }
+        if (ctx == null) {
+            toast("" + text);
+            return;
+        }
 
-		LinearLayout root = new LinearLayout(context);
-		root.setOrientation(LinearLayout.VERTICAL);
-		root.setPadding(dp(16), dp(12), dp(16), dp(12));
-		root.setGravity(Gravity.CENTER);
-		root.setClickable(false);
-		root.setFocusable(false);
+        boolean isDark = isThemeDark(ctx instanceof Activity ? (Activity) ctx : null);
 
-		GradientDrawable bg = new GradientDrawable();
-		bg.setColor(Color.parseColor(isDark ? "#D9333333" : "#8CE0E0E0"));
-		bg.setCornerRadius(dp(16));
-		root.setBackground(bg);
+        LinearLayout root = new LinearLayout(ctx);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(16), dp(12), dp(16), dp(12));
+        root.setGravity(Gravity.CENTER);
+        root.setClickable(false);
+        root.setFocusable(false);
+        root.setFocusableInTouchMode(false);
+        root.setOnTouchListener((v, event) -> false);
 
-		TextView tv = new TextView(context);
-		tv.setText(text);
-		tv.setTextSize(17);
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(Color.parseColor(isDark ? "#D9333333" : "#8CE0E0E0"));
+        bg.setCornerRadius(dp(16));
+        root.setBackground(bg);
 
-		int[] TOAST_TEXT_COLORS;
-		if (isDark) {
-			TOAST_TEXT_COLORS = new int[] {
-				Color.parseColor("#FF5252"),
-					Color.parseColor("#4DB6AC"),
-					Color.parseColor("#448AFF"),
-					Color.parseColor("#66BB6A"),
-					Color.parseColor("#AB47BC"),
-					Color.parseColor("#FF9800"),
-					Color.parseColor("#FFEE58")
-			};
-		} else {
-			TOAST_TEXT_COLORS = new int[] {
-				Color.parseColor("#C62828"),
-					Color.parseColor("#00695C"),
-					Color.parseColor("#1565C0"),
-					Color.parseColor("#2E7D32"),
-					Color.parseColor("#6A1B9A"),
-					Color.parseColor("#E65100"),
-					Color.parseColor("#F57F17")
-			};
-		}
+        TextView tv = new TextView(ctx);
+        tv.setText(text);
+        tv.setTextSize(17);
 
-		Random random = new Random();
-		int randomColorIndex = random.nextInt(TOAST_TEXT_COLORS.length);
-		tv.setTextColor(TOAST_TEXT_COLORS[randomColorIndex]);
-		root.addView(tv);
+        int[] TOAST_TEXT_COLORS;
+        if (isDark) {
+            TOAST_TEXT_COLORS = new int[]{
+                Color.parseColor("#FF5252"),
+                Color.parseColor("#4DB6AC"),
+                Color.parseColor("#448AFF"),
+                Color.parseColor("#66BB6A"),
+                Color.parseColor("#AB47BC"),
+                Color.parseColor("#FF9800"),
+                Color.parseColor("#FFEE58")
+            };
+        } else {
+            TOAST_TEXT_COLORS = new int[]{
+                Color.parseColor("#C62828"),
+                Color.parseColor("#00695C"),
+                Color.parseColor("#1565C0"),
+                Color.parseColor("#2E7D32"),
+                Color.parseColor("#6A1B9A"),
+                Color.parseColor("#E65100"),
+                Color.parseColor("#F57F17")
+            };
+        }
 
-		AnimationSet showAnim = new AnimationSet(true);
-		ScaleAnimation scaleShow = new ScaleAnimation(
-			0.8f, 1.0f,
-			0.8f, 1.0f,
-			Animation.RELATIVE_TO_SELF, 0.5f,
-			Animation.RELATIVE_TO_SELF, 0.5f
-		);
-		AlphaAnimation alphaShow = new AlphaAnimation(0.0f, 1.0f);
-		scaleShow.setDuration(300);
-		alphaShow.setDuration(250);
-		scaleShow.setInterpolator(new AccelerateDecelerateInterpolator());
-		alphaShow.setInterpolator(new AccelerateDecelerateInterpolator());
-		showAnim.addAnimation(scaleShow);
-		showAnim.addAnimation(alphaShow);
-		showAnim.setFillAfter(true);
+        Random random = new Random();
+        int randomColorIndex = random.nextInt(TOAST_TEXT_COLORS.length);
+        tv.setTextColor(TOAST_TEXT_COLORS[randomColorIndex]);
+        root.addView(tv);
 
-		AnimationSet dismissAnim = new AnimationSet(true);
-		ScaleAnimation scaleDismiss = new ScaleAnimation(
-			1.0f, 0.8f,
-			1.0f, 0.8f,
-			Animation.RELATIVE_TO_SELF, 0.5f,
-			Animation.RELATIVE_TO_SELF, 0.5f
-		);
-		AlphaAnimation alphaDismiss = new AlphaAnimation(1.0f, 0.0f);
-		scaleDismiss.setDuration(250);
-		alphaDismiss.setDuration(200);
-		scaleDismiss.setInterpolator(new AccelerateDecelerateInterpolator());
-		alphaDismiss.setInterpolator(new AccelerateDecelerateInterpolator());
-		dismissAnim.addAnimation(scaleDismiss);
-		dismissAnim.addAnimation(alphaDismiss);
-		dismissAnim.setFillAfter(true);
+        AnimationSet showAnim = new AnimationSet(true);
+        ScaleAnimation scaleShow = new ScaleAnimation(
+            0.8f, 1.0f,
+            0.8f, 1.0f,
+            Animation.RELATIVE_TO_SELF, 0.5f,
+            Animation.RELATIVE_TO_SELF, 0.5f
+        );
+        AlphaAnimation alphaShow = new AlphaAnimation(0.0f, 1.0f);
+        scaleShow.setDuration(300);
+        alphaShow.setDuration(250);
+        scaleShow.setInterpolator(new AccelerateDecelerateInterpolator());
+        alphaShow.setInterpolator(new AccelerateDecelerateInterpolator());
+        showAnim.addAnimation(scaleShow);
+        showAnim.addAnimation(alphaShow);
+        showAnim.setFillAfter(true);
 
-		root.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
-			public void onViewAttachedToWindow(View v) {
-				v.startAnimation(showAnim);
-			}
+        AnimationSet dismissAnim = new AnimationSet(true);
+        ScaleAnimation scaleDismiss = new ScaleAnimation(
+            1.0f, 0.8f,
+            1.0f, 0.8f,
+            Animation.RELATIVE_TO_SELF, 0.5f,
+            Animation.RELATIVE_TO_SELF, 0.5f
+        );
+        AlphaAnimation alphaDismiss = new AlphaAnimation(1.0f, 0.0f);
+        scaleDismiss.setDuration(250);
+        alphaDismiss.setDuration(200);
+        scaleDismiss.setInterpolator(new AccelerateDecelerateInterpolator());
+        alphaDismiss.setInterpolator(new AccelerateDecelerateInterpolator());
+        dismissAnim.addAnimation(scaleDismiss);
+        dismissAnim.addAnimation(alphaDismiss);
+        dismissAnim.setFillAfter(true);
 
-			public void onViewDetachedFromWindow(View v) {
-				v.startAnimation(dismissAnim);
-			}
-		});
+        root.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
+            public void onViewAttachedToWindow(View v) {
+                v.startAnimation(showAnim);
+            }
 
-		Toast toast = new Toast(context);
-		toast.setView(root);
-		toast.setDuration(Toast.LENGTH_SHORT);
-		toast.setGravity(Gravity.BOTTOM, 0, dp(64));
-		toast.show();
-	} catch (Exception e) {
-		toast("" + text);
-		traceLog("api_log.txt", "" + e);
-	}
+            public void onViewDetachedFromWindow(View v) {
+                v.startAnimation(dismissAnim);
+            }
+        });
+
+        Toast toast = new Toast(ctx);
+        toast.setView(root);
+        toast.setDuration(Toast.LENGTH_SHORT);
+        toast.setGravity(Gravity.BOTTOM, 0, dp(64));
+        toast.show();
+    } catch (Exception e) {
+        toast("" + text);
+        traceLog("api_log.txt", "" + e);
+    }
 }
 
-
-
-
-
 boolean 应用状态() {
-	long 检测开始时间 = System.currentTimeMillis();
-	try {
-		Activity activity = getNowActivity();
-		if (activity == null) activity = 最后Activity;
-		if (activity == null) {
-			// traceLog("api_log.txt","应用状态检测 - 无Activity，耗时: " + (System.currentTimeMillis() - 检测开始时间) + "ms");
-			return false;
-		}
+    Activity activity = getNowActivity();
+    if (activity == null) activity = 最后Activity;
+    if (activity == null) return false;
 
-		ActivityManager activityManager = (ActivityManager) activity.getSystemService(Context.ACTIVITY_SERVICE);
-		if (activityManager == null) {
-			// traceLog("api_log.txt","应用状态检测 - ActivityManager为空，耗时: " + (System.currentTimeMillis() - 检测开始时间) + "ms");
-			return false;
-		}
+    ActivityManager activityManager = (ActivityManager) activity.getSystemService(Context.ACTIVITY_SERVICE);
+    if (activityManager == null) return false;
 
-		List < ActivityManager.RunningAppProcessInfo > appProcesses = activityManager.getRunningAppProcesses();
+    List<ActivityManager.RunningAppProcessInfo> processes = activityManager.getRunningAppProcesses();
+    if (processes == null) return false;
 
-		if (appProcesses == null) {
-			// traceLog("api_log.txt","应用状态检测 - 进程列表为空，耗时: " + (System.currentTimeMillis() - 检测开始时间) + "ms");
-			return false;
-		}
-
-		for (ActivityManager.RunningAppProcessInfo appProcess: appProcesses) {
-			if (appProcess.processName.equals(currentPackageName)) {
-				boolean isForeground = appProcess.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND;
-				// traceLog("api_log.txt","应用状态检测 - 找到进程，状态: " + isForeground + "，耗时: " + (System.currentTimeMillis() - 检测开始时间) + "ms");
-				return isForeground;
-			}
-		}
-
-		// traceLog("api_log.txt","应用状态检测 - 未找到进程，耗时: " + (System.currentTimeMillis() - 检测开始时间) + "ms");
-		return false;
-	} catch (Exception e) {
-		traceLog("api_log.txt", "应用状态检测异常: " + e + "，耗时: " + (System.currentTimeMillis() - 检测开始时间) + "ms");
-		return false;
-	}
+    for (ActivityManager.RunningAppProcessInfo process : processes) {
+        if (process.processName.equals(currentPackageName)) {
+            return process.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND;
+        }
+    }
+    return false;
 }
 
 import me.yxp.qfun.plugin.loader.PluginManager;
@@ -2376,350 +2347,6 @@ void unLoadPlugin() {
 
 }
 
-
-
-Boolean copyFilefolder(String 原路径, String 目标路径) {
-	traceLog("api_log.txt", "开始复制: " + 原路径 + " -> " + 目标路径);
-	try {
-		File 源文件 = new File(原路径);
-		File 目标文件 = new File(目标路径);
-
-		if (!源文件.exists() || !源文件.isDirectory()) {
-			traceLog("api_log.txt", "源路径无效: " + 原路径);
-			return false;
-		}
-
-		目标文件.getParentFile().mkdirs();
-		return 递归复制文件夹(源文件, 目标文件);
-	} catch (Throwable e) {
-		traceLog("api_log.txt", "致命错误: " + e.getMessage());
-		return false;
-	}
-}
-
-Boolean 递归复制文件夹(File 源, File 目标) {
-	FileInputStream 输入流 = null;
-	FileOutputStream 输出流 = null;
-
-	try {
-		if (源.isDirectory()) {
-			if (!目标.exists() && !目标.mkdirs()) {
-				traceLog("api_log.txt", "创建目录失败: " + 目标);
-				return false;
-			}
-
-			File[] 子文件 = 源.listFiles();
-			if (子文件 != null) {
-				for (int i = 0; i < 子文件.length; i++) {
-					if (!递归复制文件夹(子文件[i], new File(目标, 子文件[i].getName()))) {
-						return false;
-					}
-				}
-			}
-		} else {
-			try {
-				输入流 = new FileInputStream(源);
-				输出流 = new FileOutputStream(目标);
-
-				// 增大缓冲区到4KB，提升复制效率
-				byte[] 缓冲区 = new byte[4096];
-				int 长度;
-				while ((长度 = 输入流.read(缓冲区)) > 0) {
-					输出流.write(缓冲区, 0, 长度);
-				}
-
-				输出流.flush();
-
-				traceLog("api_log.txt", "成功: " + 源.getName() + " (" + 源.length() + " bytes)");
-			} catch (Throwable ioError) {
-				traceLog("api_log.txt", "IO异常: " + ioError.getMessage());
-				return false;
-			} finally {
-				if (输入流 != null) {
-					try {
-						输入流.close();
-					} catch (Throwable e) {
-						traceLog("api_log.txt", e.getMessage());
-					}
-				}
-				if (输出流 != null) {
-					try {
-						输出流.close();
-					} catch (Throwable e) {
-						traceLog("api_log.txt", e.getMessage());
-					}
-				}
-			}
-		}
-		return true;
-	} catch (Throwable e) {
-		traceLog("api_log.txt", e.getMessage());
-		return false;
-	}
-}
-
-
-
-
-Boolean 文件夹迁移弹窗() {
-	String 不再提示状态 = getString("迁移", "不再提示", "false");
-	if (不再提示状态.equals("true")) {
-		return false;
-	}
-
-	Activity activity = getNowActivity();
-	if (activity == null) {
-		traceLog("api_log.txt", "Activity获取失败");
-		return false;
-	}
-	boolean isDark = isThemeDark(activity);
-
-	String 源基础路径 = "/storage/emulated/0/Android/media/com.tencent.mobileqq/QFun/" + qq + "/plugin/";
-	String 源数据路径 = "/storage/emulated/0/Android/media/com.tencent.mobileqq/QFun/" + qq + "/plugin/QFloatingX/config/";
-	if (!源基础路径.endsWith("/")) 源基础路径 += "/";
-	if (!源数据路径.endsWith("/")) 源数据路径 += "/";
-
-	String 目标基础路径 = pluginPath.replace("QFloatingX", "");
-	if (!目标基础路径.endsWith("/")) 目标基础路径 += "/";
-
-	traceLog("api_log.txt", "源基础路径: " + 源基础路径);
-	traceLog("api_log.txt", "目标基础路径: " + 目标基础路径);
-
-	final HashMap 选择状态映射 = new HashMap();
-
-	activity.runOnUiThread(new Runnable() {
-		public void run() {
-			try {
-				LinearLayout 根布局 = new LinearLayout(activity);
-				根布局.setOrientation(LinearLayout.VERTICAL);
-				根布局.setPadding(dp(activity, 20), dp(activity, 15), dp(activity, 20), dp(activity, 15));
-
-				ScrollView 滚动容器 = new ScrollView(activity);
-				LinearLayout.LayoutParams 滚动参数 = new LinearLayout.LayoutParams(
-					LinearLayout.LayoutParams.MATCH_PARENT,
-					0,
-					1.0f// 权重1，占满除按钮外的所有空间
-				);
-				滚动容器.setLayoutParams(滚动参数);
-
-				LinearLayout 列表容器 = new LinearLayout(activity);
-				列表容器.setOrientation(LinearLayout.VERTICAL);
-				列表容器.setId(10001);
-
-				滚动容器.addView(列表容器); // 列表放入ScrollView
-
-				Button 确认按钮 = new Button(activity);
-				确认按钮.setText("确认迁移");
-				确认按钮.setTextColor(Color.parseColor("#FFFFFFFF"));
-				确认按钮.setTextSize(16);
-				确认按钮.setBackgroundColor(isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT);
-				LinearLayout.LayoutParams 按钮参数 = new LinearLayout.LayoutParams(
-					LinearLayout.LayoutParams.MATCH_PARENT,
-					dp(activity, 45)
-				);
-				按钮参数.setMargins(0, dp(activity, 15), 0, 0); // 与ScrollView间距15dp
-				确认按钮.setLayoutParams(按钮参数);
-
-				// 布局组装：先ScrollView（带列表），后按钮
-				根布局.addView(滚动容器);
-				根布局.addView(确认按钮);
-
-				添加列表项(activity, 列表容器, 源数据路径, "本脚本数据", false, 选择状态映射);
-
-				ThreadPool.execute(new Runnable() {
-					public void run() {
-						try {
-							File 基础目录 = new File(源基础路径);
-							File[] 所有文件 = 基础目录.listFiles();
-							if (所有文件 != null) {
-								for (int i = 0; i < 所有文件.length; i++) {
-									final File 文件 = 所有文件[i];
-									if (文件.isDirectory() && !文件.getAbsolutePath().equals(源数据路径)) {
-										activity.runOnUiThread(new Runnable() {
-											public void run() {
-												添加列表项(activity, 列表容器, 文件.getAbsolutePath(), 文件.getName(), false, 选择状态映射);
-											}
-										});
-									}
-								}
-							}
-						} catch (Throwable e) {
-							traceLog("api_log.txt", e.getMessage());
-						}
-					}
-				});
-
-				确认按钮.setOnClickListener(new View.OnClickListener() {
-					public void onClick(View v) {
-						执行迁移操作(activity, 选择状态映射, 目标基础路径);
-					}
-				});
-
-				AlertDialog 弹窗 = new AlertDialog.Builder(activity,
-						isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT)
-					.setTitle("选择要迁移的文件夹")
-					.setView(根布局)
-					.setPositiveButton("不再提示", new DialogInterface.OnClickListener() {
-						public void onClick(DialogInterface dialog, int which) {
-							putString("迁移", "不再提示", "true");
-							Toast("已设置不再提示");
-							dialog.dismiss();
-						}
-					})
-					.setNegativeButton("取消", new DialogInterface.OnClickListener() {
-						public void onClick(DialogInterface dialog, int which) {
-							dialog.dismiss();
-						}
-					})
-					.setCancelable(false)
-					.create();
-
-				弹窗.show();
-				
-                // 应用统一主题
-				applyUiTheme(activity, 弹窗);
-
-				弹窗.getButton(DialogInterface.BUTTON_POSITIVE).setTextColor(isDark ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT);
-				弹窗.getButton(DialogInterface.BUTTON_NEGATIVE).setTextColor(isDark ? UI_COLOR_SUBTEXT_DARK : UI_COLOR_SUBTEXT_LIGHT);
-
-			} catch (Throwable e) {
-				traceLog("api_log.txt", "UI构建失败: " + e.getMessage());
-			}
-		}
-	});
-
-	return true;
-}
-
-void 添加列表项(Activity activity, LinearLayout 容器, String 路径, String 名称, boolean 初始状态, HashMap 状态映射) {
-	activity.runOnUiThread(new Runnable() {
-		public void run() {
-			try {
-				boolean isDark = isThemeDark(activity);
-
-				LinearLayout 行 = new LinearLayout(activity);
-				行.setOrientation(LinearLayout.HORIZONTAL);
-				行.setPadding(0, dp(activity, 10), 0, dp(activity, 10));
-				行.setGravity(Gravity.CENTER_VERTICAL);
-
-				TextView 文本 = new TextView(activity);
-				文本.setText(名称);
-				文本.setTextSize(16);
-				文本.setTextColor(isDark ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT);
-				LinearLayout.LayoutParams 文本参数 = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f);
-				文本.setLayoutParams(文本参数);
-
-				final TextView 勾选视觉 = new TextView(activity);
-				勾选视觉.setText("✓");
-				勾选视觉.setTextSize(18);
-				勾选视觉.setGravity(Gravity.CENTER);
-				LinearLayout.LayoutParams 勾选参数 = new LinearLayout.LayoutParams(dp(activity, 30), dp(activity, 30));
-				勾选参数.setMargins(0, 0, dp(activity, 10), 0);
-				勾选视觉.setLayoutParams(勾选参数);
-
-				状态映射.put(路径, 初始状态);
-				勾选视觉.setTextColor(初始状态 ? Color.parseColor("#FF4CAF50") : Color.parseColor("#00FFFFFF"));
-
-				行.setOnClickListener(new View.OnClickListener() {
-					public void onClick(View v) {
-						boolean 当前状态 = (Boolean) 状态映射.get(路径);
-						boolean 新状态 = !当前状态;
-						状态映射.put(路径, 新状态);
-						勾选视觉.setTextColor(新状态 ? Color.parseColor("#FF4CAF50") : Color.parseColor("#00FFFFFF"));
-						traceLog("api_log.txt", 名称 + ": " + 新状态);
-					}
-				});
-
-				行.setOnTouchListener(new View.OnTouchListener() {
-					public boolean onTouch(View v, MotionEvent event) {
-						if (event.getAction() == MotionEvent.ACTION_DOWN) {
-							行.setAlpha(0.7f);
-						} else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
-							行.setAlpha(1.0f);
-						}
-						return false;
-					}
-				});
-
-				行.addView(文本);
-				行.addView(勾选视觉);
-				容器.addView(行);
-
-			} catch (Throwable e) {
-				traceLog("api_log.txt", e.getMessage());
-			}
-		}
-	});
-}
-
-void 执行迁移操作(Activity activity, HashMap 状态映射, String 目标基础路径) {
-	int 选中数量 = 0;
-	ArrayList 选中路径列表 = new ArrayList();
-
-	Iterator 迭代器 = 状态映射.keySet().iterator();
-	while (迭代器.hasNext()) {
-		String 路径 = (String) 迭代器.next();
-		boolean 是否选中 = (Boolean) 状态映射.get(路径);
-		if (是否选中) {
-			选中数量++;
-			选中路径列表.add(路径);
-		}
-	}
-
-	if (选中数量 == 0) {
-		Toast("请至少选择一个文件夹");
-		return;
-	}
-
-	ThreadPool.execute(new Runnable() {
-		public void run() {
-			try {
-				String configPathDir = configPath;
-				if (configPathDir != null && !configPathDir.isEmpty() && !configPathDir.endsWith("/")) {
-					configPathDir += "/";
-				}
-
-				traceLog("api_log.txt", "configPath标准化: " + configPathDir);
-				traceLog("api_log.txt", "目标基础路径: " + 目标基础路径);
-
-				Toast("开始迁移" + 选中数量 + "个文件夹...");
-
-				for (int i = 0; i < 选中路径列表.size(); i++) {
-					String 源路径 = (String) 选中路径列表.get(i);
-					String 文件夹名 = new File(源路径).getName();
-
-					String 目标路径;
-					if (源路径.contains("QFloatingX/config/")) {
-						if (configPathDir == null || configPathDir.isEmpty()) {
-							traceLog("api_log.txt", "configPath为空，跳过: " + 源路径);
-							continue; // 跳过无效项，继续迁移其他
-						}
-						目标路径 = configPathDir;
-						traceLog("api_log.txt", "config规则 | 源: " + 源路径 + " -> 目标: " + 目标路径);
-					} else {
-						目标路径 = 目标基础路径 + 文件夹名;
-						traceLog("api_log.txt", "标准规则 | 源: " + 源路径 + " -> 目标: " + 目标路径);
-					}
-
-					Boolean 结果 = copyFilefolder(源路径, 目标路径);
-					traceLog("api_log.txt", (i + 1) + "/" + 选中数量 + " | " + 文件夹名 + " -> " + (结果 ? "成功" : "失败"));
-				}
-				Toast("迁移完成，共迁移" + 选中数量 + "个文件夹");
-			} catch (Throwable e) {
-				traceLog("api_log.txt", "迁移线程致命错误: " + e.getMessage());
-				Toast("迁移出错: " + e.getMessage());
-			}
-		}
-	});
-}
-
-try {
-	String 版本 = context.getPackageManager().getPackageInfo("me.yxp.qfun", 0).versionName;
-	if (版本.indexOf("1.2.5") != -1) {
-		文件夹迁移弹窗();
-	}
-} catch (e) {}
-
 /**
  * 更新进度回调接口
  */
@@ -3008,7 +2635,6 @@ void showUpdateDialog(final String version, final String versionType, final Stri
 
             android.app.AlertDialog dialogObj = builder.create();
             dialogObj.show();
-            if (dialogObj.getWindow() != null) applyDialogSize(activity, dialogObj.getWindow());
             applyUiTheme(activity, dialogObj);
         }
     });
