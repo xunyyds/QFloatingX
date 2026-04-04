@@ -3720,7 +3720,7 @@ public void 长按消息菜单(Activity activity, Object data) {
         addMenuItem(menuItems, "其他", "群打卡", new Runnable() { public void run() { boolean ok = CheckSign(finalPeerUin, myUin); qqToast(ok ? 2 : 1, ok ? "打卡成功" : "打卡失败"); } });
         addMenuItem(menuItems, "其他", "群字符", new Runnable() { public void run() { drawLuckyChar(finalPeerUin); } });
     }
-    addMenuItem(menuItems, "其他", "悬浮窗菜单", new Runnable() { public void run() { showSettingsMenu(activity, null, null, null); } });
+    addMenuItem(menuItems, "其他", "设置", new Runnable() { public void run() { showSettingsMenu(activity, null, null, null); } });
     addMenuItem(menuItems, "其他", "双击消息菜单", new Runnable() { public void run() {                                     fetchRealMsgRecord(finalMsgid, finalChatType, finalPeerUin, new MsgLoadedCallback() {
                                         public void onLoaded(MsgData msgData) {
                                             showActionDialog(activity, msgData, null, null);
@@ -5036,7 +5036,6 @@ public void ts(Activity activity, String title, String content) {
 		// Color.parseColor("#96CEB4"),   // 绿色 不好看也不要了
 		Color.parseColor("#DDA0DD") // 紫色
 	};
-	// 普通行颜色
 	final int NORMAL_LINE_COLOR = isDark ? Color.parseColor("#AAAAAA") : Color.parseColor("#666666");
 
 	activity.runOnUiThread(new Runnable() {
@@ -5046,22 +5045,16 @@ public void ts(Activity activity, String title, String content) {
 			} catch (Exception e) {
 				traceLog("api_log.txt", "震动执行异常: " + e.getMessage());
 			}
-			/* 根布局：圆角 + 55% 透明 */
-			GradientDrawable bg = new GradientDrawable();
-			bg.setColor(Color.parseColor(isDark ? UI_COLOR_BG_DARK : "#BFFFFFFF"));
-			bg.setCornerRadius(dp(activity, 16));
-
 			LinearLayout layout = new LinearLayout(activity);
 			layout.setPadding(dp(activity, 20), dp(activity, 20), dp(activity, 20), dp(activity, 20));
 			layout.setOrientation(LinearLayout.VERTICAL);
 
 			TextView textView = new TextView(activity);
-			textView.setTextSize(17);
+			textView.setTextSize(22);
 			textView.setTextIsSelectable(true);
 			textView.setSingleLine(false);
 			textView.setMaxLines(Integer.MAX_VALUE);
 			textView.setEllipsize(null);
-			// 默认文字颜色
 			textView.setTextColor(isDark ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT);
 
 			try {
@@ -5125,249 +5118,220 @@ public void ts(Activity activity, String title, String content) {
 			
             // 应用统一主题
 			applyUiTheme(activity, alertDialog);
-
-			// alertDialog.getWindow().setBackgroundDrawable(bg);
-
-			TextView titleView = (TextView) alertDialog.findViewById(android.R.id.title);
-			if (titleView != null) {
-				titleView.setTextSize(22);
-			}
-
 		}
 	});
 }
 
 loadJar(rootPath + "commonmark-0.21.0.jar");
-
 import org.commonmark.node.Node;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
-
-
-public void mkts(Activity activity, String title, String markdownContent) {
-	if (activity == null || activity.isFinishing()) {
-		traceLog("api_log.txt", "Activity无效");
-		return;
-	}
-
-	final String finalMarkdown = markdownContent == null ? "" : markdownContent;
-	final boolean isDark = isThemeDark(activity);
-
-	ThreadPool.execute(new Runnable() {
-		public void run() {
-			try {
-				traceLog("api_log.txt", "开始解析，长度: " + finalMarkdown.length());
-
-				Parser parser = Parser.builder().build();
-				Node document = parser.parse(finalMarkdown);
-				HtmlRenderer renderer = HtmlRenderer.builder().build();
-				String htmlContent = renderer.render(document);
-
-				traceLog("api_log.txt", "解析成功，输出长度: " + htmlContent.length());
-
-				final String finalHtml = htmlContent;
-
-				traceLog("api_log.txt", "HTML片段: " + finalHtml.substring(0, Math.min(500, finalHtml.length())));
-
-				activity.runOnUiThread(new Runnable() {
-					public void run() {
-						createMarkdownDialog(activity, title, finalHtml, true, isDark);
-					}
-				});
-
-			} catch (Throwable e) {
-				traceLog("api_log.txt", "解析失败: " + e.getClass().getSimpleName() + " - " + e.getMessage());
-
-				final String fallbackHtml = generateFallbackHtml(finalMarkdown, isDark);
-
-				activity.runOnUiThread(new Runnable() {
-					public void run() {
-						createMarkdownDialog(activity, title, fallbackHtml, false, isDark);
-					}
-				});
-			}
-		}
-	});
+public void mkts(final Activity activity, final String title, final String markdownContent) {
+    if (activity == null || activity.isFinishing()) {
+        traceLog("api_log.txt", "Activity无效");
+        return;
+    }
+    final String finalMarkdown = markdownContent == null ? "" : markdownContent;
+    final boolean isDark = isThemeDark(activity);
+    ThreadPool.execute(new Runnable() {
+        public void run() {
+            try {
+                traceLog("api_log.txt", "开始解析，长度: " + finalMarkdown.length());
+                Node document = Parser.builder().build().parse(finalMarkdown);
+                String htmlContent = HtmlRenderer.builder().build().render(document);
+                traceLog("api_log.txt", "解析成功，输出长度: " + htmlContent.length());
+                final String finalHtml = htmlContent;
+                activity.runOnUiThread(new Runnable() {
+                    public void run() {
+                        createMarkdownDialog(activity, title, finalMarkdown, finalHtml, true, isDark);
+                    }
+                });
+            } catch (Throwable e) {
+                traceLog("api_log.txt", "解析失败: " + e.getClass().getSimpleName() + " - " + e.getMessage());
+                String fallbackHtml = "<pre style='background:" + (isDark ? "#2D2D2D" : "#f4f4f4") + ";padding:6px;border-radius:3px;overflow-x:auto;font-family:monospace;font-size:13px;color:" + (isDark ? "#EFEFEF" : "#333") + ";'>" + escapeHtml(finalMarkdown) + "</pre>";
+                final String finalFallback = fallbackHtml;
+                activity.runOnUiThread(new Runnable() {
+                    public void run() {
+                        createMarkdownDialog(activity, title, finalMarkdown, finalFallback, false, isDark);
+                    }
+                });
+            }
+        }
+    });
 }
 
-private void createMarkdownDialog(final Activity activity, String title, String html, boolean parseSuccess, boolean isDark) {
-	GradientDrawable bg = new GradientDrawable();
-	bg.setColor(Color.parseColor(isDark ? UI_COLOR_BG_DARK : "#BFFFFFFF"));
-	bg.setCornerRadius(dp(activity, 16));
-
-	final String wrappedHtml = wrapHtmlWithCss(html, isDark);
-
-	WebView webView = new WebView(activity);
-
-	LinearLayout.LayoutParams webParams = new LinearLayout.LayoutParams(
-		LinearLayout.LayoutParams.MATCH_PARENT,
-		dp(activity, 800)
-	);
-	webView.setLayoutParams(webParams);
-
-	// 启用WebView原生滚动
-	webView.setVerticalScrollBarEnabled(true);
-	webView.setHorizontalScrollBarEnabled(true);
-	webView.setScrollContainer(true);
-
-	// webView.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
-
-	// 透明背景
-	webView.setBackgroundColor(Color.TRANSPARENT);
-
-	webView.getSettings().setJavaScriptEnabled(false);
-	webView.getSettings().setDefaultTextEncodingName("UTF-8");
-
-	webView.setWebViewClient(new WebViewClient() {
-		public void onPageFinished(WebView view, String url) {
-			traceLog("api_log.txt", "页面加载完成，内容高度: " + view.getContentHeight());
-
-			view.post(new Runnable() {
-				public void run() {
-					view.requestLayout();
-					view.invalidate();
-				}
-			});
-		}
-
-		public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
-			traceLog("api_log.txt", "加载失败: " + errorCode + " - " + description);
-		}
-	});
-
-	webView.loadDataWithBaseURL(null, wrappedHtml, "text/html", "UTF-8", null);
-
-	AlertDialog.Builder builder = new AlertDialog.Builder(activity,
-		isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-	builder.setTitle(parseSuccess ? title : title + " (显示异常)");
-	builder.setView(webView);
-
-	builder.setPositiveButton("我知道了", new DialogInterface.OnClickListener() {
-		public void onClick(DialogInterface dialog, int which) {
-			try {
-				Toast("你知道啥了");
-				vibrate(activity, 48);
-			} catch (Exception e) {
-				traceLog("api_log.txt", "按钮点击异常: " + e.getMessage());
-			}
-		}
-	});
-	builder.setCancelable(false);
-
-	AlertDialog alertDialog = builder.create();
-	alertDialog.show();
-	
-    // 应用统一主题
-	applyUiTheme(activity, alertDialog);
-
-	TextView titleView = (TextView) alertDialog.findViewById(android.R.id.title);
-	if (titleView != null) {
-		titleView.setTextSize(22);
-	}
-
-	traceLog("api_log.txt", "Dialog显示成功，解析状态: " + parseSuccess);
+private void createMarkdownDialog(final Activity activity, final String title, final String originalMarkdown, final String initialHtml, final boolean parseSuccess, final boolean isDark) {
+    if (activity == null) return;
+    final boolean[] isReversed = {false};
+    final WebView webView = new WebView(activity);
+    webView.setBackgroundColor(Color.TRANSPARENT);
+    webView.setVerticalScrollBarEnabled(true);
+    webView.setHorizontalScrollBarEnabled(true);
+    webView.setScrollContainer(true);
+    webView.getSettings().setJavaScriptEnabled(false);
+    webView.getSettings().setDefaultTextEncodingName("UTF-8");
+    webView.setWebViewClient(new WebViewClient() {
+        public void onPageFinished(WebView view, String url) {
+            traceLog("api_log.txt", "页面加载完成，内容高度: " + view.getContentHeight());
+            view.post(new Runnable() {
+                public void run() {
+                    view.requestLayout();
+                    view.invalidate();
+                }
+            });
+        }
+        public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+            traceLog("api_log.txt", "加载失败: " + errorCode + " - " + description);
+        }
+    });
+    final Runnable loadContent = new Runnable() {
+        public void run() {
+            String htmlToShow;
+            if (!parseSuccess) {
+                htmlToShow = initialHtml;
+            } else {
+                String markdownToRender = originalMarkdown;
+                if (isReversed[0]) {
+                    markdownToRender = reverseMarkdownBlocks(originalMarkdown);
+                }
+                try {
+                    Node document = Parser.builder().build().parse(markdownToRender);
+                    htmlToShow = HtmlRenderer.builder().build().render(document);
+                    htmlToShow = htmlToShow.replaceAll("\\n{2,}", "\n");
+                } catch (Exception e) {
+                    traceLog("api_log.txt", "倒序解析失败: " + e.getMessage());
+                    htmlToShow = "<pre style='background:" + (isDark ? "#2D2D2D" : "#f4f4f4") + ";padding:6px;border-radius:3px;overflow-x:auto;font-family:monospace;font-size:13px;color:" + (isDark ? "#EFEFEF" : "#333") + ";'>" + escapeHtml(originalMarkdown) + "</pre>";
+                }
+            }
+            String wrappedHtml = wrapHtmlWithCss(htmlToShow, isDark);
+            webView.loadDataWithBaseURL(null, wrappedHtml, "text/html", "UTF-8", null);
+        }
+    };
+    int screenHeight = activity.getWindowManager().getDefaultDisplay().getHeight();
+    int webViewHeight = Math.min(screenHeight * 2 / 3, dp(activity, 800));
+    webView.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, webViewHeight));
+    LinearLayout container = new LinearLayout(activity);
+    container.setOrientation(LinearLayout.VERTICAL);
+    container.addView(webView);
+    LinearLayout titleLayout = new LinearLayout(activity);
+    titleLayout.setOrientation(LinearLayout.HORIZONTAL);
+    titleLayout.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+    int paddingPx = dp(activity, 16);
+    titleLayout.setPadding(paddingPx, paddingPx, paddingPx, paddingPx);
+    TextView titleText = new TextView(activity);
+    titleText.setText(parseSuccess ? title : title + " (显示异常)");
+    titleText.setTextSize(18);
+    titleText.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
+    titleText.setTextColor(isDark ? Color.WHITE : Color.BLACK);
+    titleText.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+    TextView orderButton = new TextView(activity);
+    orderButton.setText("⇅");
+    orderButton.setTextSize(20);
+    orderButton.setPadding(dp(activity, 8), 0, 0, 0);
+    orderButton.setClickable(true);
+    orderButton.setFocusable(true);
+    orderButton.setTextColor(isDark ? Color.parseColor("#BBBBBB") : Color.parseColor("#666666"));
+    orderButton.setOnClickListener(new View.OnClickListener() {
+        public void onClick(View v) {
+            isReversed[0] = !isReversed[0];
+            loadContent.run();
+        }
+    });
+    titleLayout.addView(titleText);
+    titleLayout.addView(orderButton);
+    AlertDialog.Builder builder = new AlertDialog.Builder(activity, isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
+    builder.setCustomTitle(titleLayout);
+    builder.setView(container);
+    builder.setPositiveButton("我知道了", new DialogInterface.OnClickListener() {
+        public void onClick(DialogInterface dialog, int which) {
+            try {
+                Toast("你知道啥了");
+                vibrate(activity, 48);
+            } catch (Exception e) {
+                traceLog("api_log.txt", "按钮点击异常: " + e.getMessage());
+            }
+        }
+    });
+    builder.setCancelable(false);
+    AlertDialog alertDialog = builder.create();
+    alertDialog.show();
+    applyUiTheme(activity, alertDialog);
+    loadContent.run();
+    traceLog("api_log.txt", "Dialog显示成功，解析状态: " + parseSuccess);
 }
 
-//CSS
+private String reverseMarkdownBlocks(String markdown) {
+    if (markdown == null || markdown.isEmpty()) return markdown;
+    Pattern pattern = Pattern.compile("(?m)^### \\*\\*\\[v\\d+\\.\\d+\\.\\d+(?:\\.\\d+)?\\] - \\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}\\*\\*");
+    Matcher matcher = pattern.matcher(markdown);
+    ArrayList blocks = new ArrayList();
+    int lastPos = 0;
+    while (matcher.find()) {
+        if (lastPos < matcher.start()) {
+            String textBefore = markdown.substring(lastPos, matcher.start());
+            if (!textBefore.trim().isEmpty()) {
+                blocks.add(textBefore);
+            }
+        }
+        int start = matcher.start();
+        int end = markdown.length();
+        Matcher next = pattern.matcher(markdown);
+        if (next.find(start + 1)) {
+            end = next.start();
+        }
+        String block = markdown.substring(start, end);
+        blocks.add(block);
+        lastPos = end;
+    }
+    if (lastPos < markdown.length()) {
+        String tail = markdown.substring(lastPos);
+        if (!tail.trim().isEmpty()) {
+            blocks.add(tail);
+        }
+    }
+    ArrayList reversedBlocks = new ArrayList();
+    for (int i = blocks.size() - 1; i >= 0; i--) {
+        reversedBlocks.add(blocks.get(i));
+    }
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < reversedBlocks.size(); i++) {
+        sb.append(reversedBlocks.get(i));
+    }
+    return sb.toString();
+}
+
 private String wrapHtmlWithCss(String htmlContent, boolean isDark) {
-	String textColor = isDark ? "#EFEFEF" : "#333";
-	String bgColor = isDark ? "#2D2D2D" : "#f4f4f4";
-
-	return "<html><head>" +
-		"<meta charset='UTF-8'><style>" +
-		// 强制所有元素继承
-		"*{color:" + textColor + " !important;}" +
-		"body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:8px;line-height:1.4;background:transparent;font-size:14px;}" +
-		// 块级元素样式
-		"pre{background:" + bgColor + " !important;padding:6px !important;border-radius:3px !important;overflow-x:auto !important;font-size:13px !important;}" +
-		"code{background:" + bgColor + " !important;padding:1px 3px !important;border-radius:2px !important;font-family:monospace !important;font-size:13px !important;}" +
-		"h1,h2,h3{margin:8px 0 4px 0 !important;font-weight:600 !important;}" +
-		"h1{font-size:18px !important;}h2{font-size:16px !important;}h3{font-size:15px !important;}" +
-		"p{margin:4px 0 !important;}" +
-		"ul,ol{padding-left:16px !important;margin:4px 0 !important;}" +
-		"li{margin:2px 0 !important;}" +
-		"</style></head><body>" + htmlContent + "</body></html>";
-}
-
-private String generateFallbackHtml(String markdown, boolean isDark) {
-	String escaped = escapeHtml(markdown);
-	String bgColor = isDark ? "#2D2D2D" : "#f4f4f4";
-	String textColor = isDark ? "#EFEFEF" : "#333";
-	return "<pre style='background:" + bgColor + ";padding:6px;border-radius:3px;overflow-x:auto;font-family:monospace;font-size:13px;color:" + textColor + ";'>" + escaped + "</pre>";
+    String titleColor = isDark ? "#FFFFFF" : "#000000";
+    String textColor = isDark ? "#E9EDF0" : "#1C1B1F";
+    String codeBgColor = isDark ? "#1C1C1E" : "#F5F5F5";
+    String borderColor = isDark ? "#3A3A3C" : "#E2E2E6";
+    return "<html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
+        "<style>" +
+        "*{margin:0;padding:0;box-sizing:border-box;}" +
+        "body{font-family:'Google Sans','Roboto Flex',Roboto,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px;line-height:1.2;color:" + textColor + ";background:transparent;padding-left:2em;padding-right:2em;}" +
+        "h1,h2,h3,h4{font-family:'Google Sans','Roboto Flex',Roboto,sans-serif;font-weight:bold;letter-spacing:-0.01em;margin-top:10px;margin-bottom:6px;color:" + titleColor + ";}" +
+        "h1{font-size:20px;margin-top:4px;}h2{font-size:18px;}h3{font-size:16px;font-weight:bold;}" +
+        "p{margin-bottom:8px;color:" + textColor + ";}" +
+        "ul,ol{padding-left:0;margin:4px 0 8px 0;}" +
+        "li{margin:3px 0;line-height:1.2;}" +
+        "code{font-family:'JetBrains Mono','SF Mono','Fira Code',monospace;font-size:12px;background:" + codeBgColor + ";padding:1px 4px;border-radius:6px;color:" + (isDark ? "#FFB86C" : "#C01C2E") + ";}" +
+        "pre{background:" + codeBgColor + ";padding:10px;border-radius:12px;overflow-x:auto;margin:8px 0;border:0.5px solid " + borderColor + ";}" +
+        "pre code{background:transparent;padding:0;color:" + textColor + ";font-size:12px;}" +
+        "blockquote{margin:8px 0;padding-left:0;border-left:3px solid " + (isDark ? "#5C5CFF" : "#6750A4") + ";color:" + (isDark ? "#BDBDC2" : "#4A4A4F") + ";font-style:normal;}" +
+        "a{color:" + (isDark ? "#8AB4F8" : "#6750A4") + ";text-decoration:none;font-weight:500;}" +
+        "img{max-width:100%;border-radius:12px;margin:8px 0;}" +
+        "table{border-collapse:collapse;width:100%;margin:8px 0;border-radius:12px;overflow:hidden;}th,td{border:0.5px solid " + borderColor + ";padding:8px 10px;text-align:left;}th{background:" + (isDark ? "#1C1C1E" : "#F5F5F5") + ";font-weight:500;}" +
+        "hr{margin:12px 0;border:none;height:1px;background:" + borderColor + ";}" +
+        "</style></head><body>" + htmlContent + "</body></html>";
 }
 
 private String escapeHtml(String text) {
-	if (text == null) return "";
-	return text.replace("&", "&amp;")
-		.replace("<", "&lt;")
-		.replace(">", "&gt;")
-		.replace("\"", "&quot;")
-		.replace("'", "&#39;");
-}
-
-
-private Drawable createBg(Context ctx, int color, int radius) {
-    GradientDrawable gd = new GradientDrawable();
-    gd.setColor(color);
-    gd.setCornerRadius(dp(ctx, radius));
-    return gd;
-}
-
-private Drawable createRippleBg(Context ctx, int bgColor, int radius) {
-    GradientDrawable content = new GradientDrawable();
-    content.setColor(bgColor);
-    content.setCornerRadius(dp(ctx, radius));
-    return new RippleDrawable(ColorStateList.valueOf(Color.parseColor("#1A000000")), content, content);
-}
-
-private Drawable createButtonBg(Context ctx, int bgColor, int radius) {
-    GradientDrawable content = new GradientDrawable();
-    content.setColor(bgColor);
-    content.setCornerRadius(dp(ctx, radius));
-    return new RippleDrawable(ColorStateList.valueOf(Color.parseColor("#1AFFFFFF")), content, content);
-}
-
-private StateListDrawable createInputBg(Context ctx, int surfaceVariant, int outline, int primary) {
-    int r = dp(ctx, 12);
-    GradientDrawable normal = new GradientDrawable();
-    normal.setColor(surfaceVariant);
-    normal.setCornerRadius(r);
-    normal.setStroke(dp(ctx, 1), outline);
-    GradientDrawable focused = new GradientDrawable();
-    focused.setColor(surfaceVariant);
-    focused.setCornerRadius(r);
-    focused.setStroke(dp(ctx, 2), primary);
-    StateListDrawable sld = new StateListDrawable();
-    sld.addState(new int[]{android.R.attr.state_focused}, focused);
-    sld.addState(new int[]{}, normal);
-    return sld;
-}
-
-private Button makeSmallBtn(Context ctx, String text, int color) {
-    Button b = new Button(ctx);
-    b.setText(text);
-    b.setTextColor(color);
-    b.setBackground(createRippleBg(ctx, Color.TRANSPARENT, 20));
-    b.setMinHeight(dp(ctx, 40));
-    b.setPadding(dp(ctx, 16), dp(ctx, 8), dp(ctx, 16), dp(ctx, 8));
-    
-    ObjectAnimator scaleX = ObjectAnimator.ofFloat(b, "scaleX", 1f, 0.95f, 1f);
-    ObjectAnimator scaleY = ObjectAnimator.ofFloat(b, "scaleY", 1f, 0.95f, 1f);
-    scaleX.setDuration(150);
-    scaleY.setDuration(150);
-    AnimatorSet scaleDown = new AnimatorSet();
-    scaleDown.playTogether(scaleX, scaleY);
-    
-    b.setOnTouchListener(new View.OnTouchListener() {
-        public boolean onTouch(View v, MotionEvent event) {
-            if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                scaleDown.start();
-            }
-            return false;
-        }
-    });
-    
-    return b;
+    if (text == null) return "";
+    return text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
+        .replace("'", "&#39;");
 }
 
 interface GroupSelectCallback {
