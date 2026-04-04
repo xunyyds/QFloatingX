@@ -846,22 +846,22 @@ void showSettingsSearchPage(final Activity activity) {
                         }
 
                         // 一级菜单项
-                        addSearchResultItem(activity, resultsContainer, "功能 > Java脚本", queryValue, "item_java_script", null, null);
-                        addSearchResultItem(activity, resultsContainer, "功能 > 脚本设置", queryValue, "item_script_settings", null, null);
-                        addSearchResultItem(activity, resultsContainer, "功能 > 设置界面", queryValue, "item_settings_ui", "设置", null);
+                        addSearchResultItem(activity, resultsContainer, "设置 > Java脚本", queryValue, "item_java_script", null, null);
+                        addSearchResultItem(activity, resultsContainer, "设置 > 脚本设置", queryValue, "item_script_settings", null, null);
+                        addSearchResultItem(activity, resultsContainer, "设置 > 设置界面", queryValue, "item_settings_ui", "设置", null);
                         addSearchResultItem(activity, resultsContainer, "开关 > 模拟定位", queryValue, "item_mock_location", null, null);
                         addSearchResultItem(activity, resultsContainer, "开关 > 输入框提示", queryValue, "item_input_hint", null, null);
-                        addSearchResultItem(activity, resultsContainer, "工具 > 设置经纬度", queryValue, "item_set_location", null, null);
-                        addSearchResultItem(activity, resultsContainer, "工具 > 设置输入框提示词", queryValue, "item_set_input_hint", null, null);
-                        addSearchResultItem(activity, resultsContainer, "工具 > 消息统计", queryValue, "item_msg_stats", null, null);
-                        addSearchResultItem(activity, resultsContainer, "工具 > 空间操作", queryValue, "item_qzone", null, null);
-                        addSearchResultItem(activity, resultsContainer, "工具 > 运行状态", queryValue, "item_run_status", null, null);
-                        addSearchResultItem(activity, resultsContainer, "工具 > HTML浏览器", queryValue, "item_html_browser", null, null);
+                        addSearchResultItem(activity, resultsContainer, "功能 > 设置经纬度", queryValue, "item_set_location", null, null);
+                        addSearchResultItem(activity, resultsContainer, "功能 > 设置输入框提示词", queryValue, "item_set_input_hint", null, null);
+                        addSearchResultItem(activity, resultsContainer, "功能 > 消息统计", queryValue, "item_msg_stats", null, null);
+                        addSearchResultItem(activity, resultsContainer, "功能 > 空间操作", queryValue, "item_qzone", null, null);
+                        addSearchResultItem(activity, resultsContainer, "功能 > 运行状态", queryValue, "item_run_status", null, null);
+                        addSearchResultItem(activity, resultsContainer, "功能 > HTML浏览器", queryValue, "item_html_browser", null, null);
                         addSearchResultItem(activity, resultsContainer, "其他 > 取消/重载", queryValue, "item_cancel_reload", null, null);
 
                         // 二级菜单项
                         addSearchResultItem(activity, resultsContainer, "设置 > 基础模式", queryValue, "item_basic_mode", "设置", "基础模式");
-                        addSearchResultItem(activity, resultsContainer, "设置 > 背景与图标", queryValue, "item_bg_icon", "设置", "背景与图标");
+                        addSearchResultItem(activity, resultsContainer, "设置 > 背景样式", queryValue, "item_bg_icon", "设置", "背景样式");
                         addSearchResultItem(activity, resultsContainer, "设置 > 字体样式", queryValue, "item_font_style", "设置", "字体样式");
                         addSearchResultItem(activity, resultsContainer, "设置 > 提示", queryValue, "item_toast_hint", "设置", "提示");
                         addSearchResultItem(activity, resultsContainer, "设置 > 线程池", queryValue, "item_thread_pool", "设置", "线程池");
@@ -1122,10 +1122,10 @@ void buildSettingsMenuContent(Activity activity, String level1Title, String leve
  */
 void buildLevel1MenuContent(Activity activity) {
     if (activity == null) return;
-    addSettingsCategory("功能", "");
-    addSettingsItemClickWithKey("功能", "Java脚本", "", "item_java_script", new Runnable() { public void run() { 跳转到页面("me.yxp.qfun.activity.PluginActivity"); }});
-    addSettingsItemClickWithKey("功能", "脚本设置", "", "item_script_settings", new Runnable() { public void run() { 跳转到页面("me.yxp.qfun.activity.SettingActivity"); }});
-    addSettingsItemClickWithKey("功能", "设置界面", "", "item_settings_ui", new Runnable() { public void run() {
+    addSettingsCategory("设置", "");
+    addSettingsItemClickWithKey("设置", "Java脚本", "", "item_java_script", new Runnable() { public void run() { 跳转到页面("me.yxp.qfun.activity.PluginActivity"); }});
+    addSettingsItemClickWithKey("设置", "模块设置", "", "item_script_settings", new Runnable() { public void run() { 跳转到页面("me.yxp.qfun.activity.SettingActivity"); }});
+    addSettingsItemClickWithKey("设置", "脚本设置", "", "item_settings_ui", new Runnable() { public void run() {
         Activity act = getSettingsCurrentActivity();
         if (act != null) {
             showSettingsMenu(act, "设置", null, null);
@@ -1148,33 +1148,33 @@ void buildLevel1MenuContent(Activity activity) {
     boolean KeepAlive = getBoolean("settings", "后台保活", false);
     addSettingsItemSwitchWithKey("开关", "后台保活", "item_KeepAlive", "settings", "后台保活", KeepAlive, null);
 
-    addSettingsCategory("工具", "");
-    addSettingsItemClickWithKey("工具", "设置经纬度", "", "item_set_location", new Runnable() { public void run() {
+    addSettingsCategory("功能", "");
+    addSettingsItemClickWithKey("功能", "设置经纬度", "", "item_set_location", new Runnable() { public void run() {
         Activity act = getSettingsCurrentActivity();
         if (act != null) {
             showLocationDialog(act);
         }
     }});
-    addSettingsItemClickWithKey("工具", "设置输入框提示词", "", "item_set_input_hint", new Runnable() { public void run() {
+    addSettingsItemClickWithKey("功能", "设置输入框提示词", "", "item_set_input_hint", new Runnable() { public void run() {
         Activity act = getSettingsCurrentActivity();
         if (act != null) {
             showInputDialog(act);
         }
     }});
-    addSettingsItemClickWithKey("工具", "消息统计", "", "item_msg_stats", new Runnable() { public void run() {
+    addSettingsItemClickWithKey("功能", "消息统计", "", "item_msg_stats", new Runnable() { public void run() {
         Activity act = getSettingsCurrentActivity();
         if (act != null) {
             showStatsDialog(act);
         }
     }});
-    addSettingsItemClickWithKey("工具", "空间操作", "", "item_qzone", new Runnable() { public void run() { showQzoneConfig(); }});
-    addSettingsItemClickWithKey("工具", "运行状态", "", "item_run_status", new Runnable() { public void run() {
+    addSettingsItemClickWithKey("功能", "空间操作", "", "item_qzone", new Runnable() { public void run() { showQzoneConfig(); }});
+    addSettingsItemClickWithKey("功能", "运行状态", "", "item_run_status", new Runnable() { public void run() {
         Activity act = getSettingsCurrentActivity();
         if (act != null) {
             运行状态Dialog(act);
         }
     }});
-    addSettingsItemClickWithKey("工具", "HTML浏览器", "", "item_html_browser", new Runnable() { public void run() {
+    addSettingsItemClickWithKey("功能", "HTML浏览器", "", "item_html_browser", new Runnable() { public void run() {
         Activity act = getSettingsCurrentActivity();
         if (act != null) {
             showHtmlOptionDialog(act);
@@ -1185,7 +1185,7 @@ void buildLevel1MenuContent(Activity activity) {
     addSettingsItemClickWithKey("其他", "取消/重载", "", "item_cancel_reload", new Runnable() { public void run() {
         Activity act = getSettingsCurrentActivity();
         if (act != null) {
-            showSelectionDialog(act, "你想选哪个呢？", "取消加载脚本", "重新加载脚本");
+            showReOrUnDialog(act);
         }
     }});
 }
@@ -1205,10 +1205,10 @@ void buildLevel2MenuContent(Activity activity, String level1Title) {
                 showSettingsMenu(act, "设置", "基础模式", null);
             }
         }});
-        addSettingsItemClickWithKey("界面", "背景与图标", "背景类型、颜色、图片", "item_bg_icon", new Runnable() { public void run() {
+        addSettingsItemClickWithKey("界面", "背景样式", "背景类型、颜色、图片", "item_bg_icon", new Runnable() { public void run() {
             Activity act = getSettingsCurrentActivity();
             if (act != null) {
-                showSettingsMenu(act, "设置", "背景与图标", null);
+                showSettingsMenu(act, "设置", "背景样式", null);
             }
         }});
         addSettingsItemClickWithKey("界面", "字体样式", "字体风格、大小、颜色", "item_font_style", new Runnable() { public void run() {
@@ -1226,20 +1226,20 @@ void buildLevel2MenuContent(Activity activity, String level1Title) {
             }
         }});
 
-        addSettingsCategory("高级", "");
-        addSettingsItemClickWithKey("高级", "线程池", "优先级、队列、策略", "item_thread_pool", new Runnable() { public void run() {
+        addSettingsCategory("其他", "");
+        addSettingsItemClickWithKey("其他", "线程池", "优先级、队列、策略", "item_thread_pool", new Runnable() { public void run() {
             Activity act = getSettingsCurrentActivity();
             if (act != null) {
                 showSettingsMenu(act, "设置", "线程池", null);
             }
         }});
-        addSettingsItemClickWithKey("高级", "悬浮窗设置", "图标、大小、灵敏度", "item_float_window", new Runnable() { public void run() {
+        addSettingsItemClickWithKey("其他", "悬浮窗设置", "图标、大小、灵敏度", "item_float_window", new Runnable() { public void run() {
             Activity act = getSettingsCurrentActivity();
             if (act != null) {
                 showSettingsMenu(act, "设置", "悬浮窗设置", null);
             }
         }});
-        addSettingsItemClickWithKey("高级", "调试", "预览、重置、更新日志", "item_debug", new Runnable() { public void run() {
+        addSettingsItemClickWithKey("其他", "调试", "预览、重置、更新日志", "item_debug", new Runnable() { public void run() {
             Activity act = getSettingsCurrentActivity();
             if (act != null) {
                 showSettingsMenu(act, "设置", "调试", null);
@@ -1278,9 +1278,9 @@ void buildLevel3MenuContent(Activity activity, String level1Title, String level2
             addSettingsSwitchItem("基础模式", "振动反馈", null, "振动反馈", vibrationFeedbackState, null);
         }
 
-        if ("背景与图标".equals(level2Title)) {
-            addSettingsCategory("背景与图标");
-            addSettingsItemChoice("背景与图标", "背景类型", "ui_bg_type", getBgTypeDisplayText(), new Runnable() { public void run() {
+        if ("背景样式".equals(level2Title)) {
+            addSettingsCategory("背景样式");
+            addSettingsItemChoice("背景样式", "背景类型", "ui_bg_type", getBgTypeDisplayText(), new Runnable() { public void run() {
                 Activity act = getSettingsCurrentActivity();
                 if (act != null) {
                     showBgTypeChoiceDialog(act);
@@ -1292,7 +1292,7 @@ void buildLevel3MenuContent(Activity activity, String level1Title, String level2
             String suffix = isDark ? " (深色模式)" : " (浅色模式)";
 
             if ("color".equals(bgType)) {
-                addSettingsItemClick("背景与图标", "预设颜色" + suffix, "点击选择内置配色", new Runnable() { public void run() {
+                addSettingsItemClick("背景样式", "预设颜色" + suffix, "点击选择内置配色", new Runnable() { public void run() {
                     Activity act = getSettingsCurrentActivity();
                     if (act != null) {
                         showPresetColorDialog(act);
@@ -1300,18 +1300,18 @@ void buildLevel3MenuContent(Activity activity, String level1Title, String level2
                 }});
                 String colorKey = isDark ? "ui_bg_color_dark" : "ui_bg_color_light";
                 String colorValue = getString("settings", colorKey, isDark ? "#FF1E1E1E" : "#FFFFFF");
-                addSettingsColorItem("背景与图标", "自定义Hex", null, colorKey, colorValue, null);
+                addSettingsColorItem("背景样式", "自定义Hex", null, colorKey, colorValue, null);
             } else if ("gradient".equals(bgType)) {
-                addSettingsItemClick("背景与图标", "预设渐变" + suffix, "点击选择内置渐变", new Runnable() { public void run() {
+                addSettingsItemClick("背景样式", "预设渐变" + suffix, "点击选择内置渐变", new Runnable() { public void run() {
                     Activity act = getSettingsCurrentActivity();
                     if (act != null) {
                         showPresetGradientDialog(act);
                     }
                 }});
                 String gradKey = isDark ? "ui_bg_gradient_dark" : "ui_bg_gradient_light";
-                addSettingsInputItem("背景与图标", "自定义渐变", "Hex1,Hex2,Hex3", gradKey, "#RRGGBB,#RRGGBB,#RRGGBB", "", null);
+                addSettingsInputItem("背景样式", "自定义渐变", "Hex1,Hex2,Hex3", gradKey, "#RRGGBB,#RRGGBB,#RRGGBB", "", null);
             } else if ("image".equals(bgType)) {
-                addSettingsItemClick("背景与图标", "选择背景图片", "点击选择本地图片", new Runnable() { public void run() {
+                addSettingsItemClick("背景样式", "选择背景图片", "点击选择本地图片", new Runnable() { public void run() {
                     Activity act = getSettingsCurrentActivity();
                     if (act == null) return;
                     try {
@@ -1324,8 +1324,8 @@ void buildLevel3MenuContent(Activity activity, String level1Title, String level2
                         Toast("失败: " + exception);
                     }
                 }});
-                addSettingsInputItem("背景与图标", "图片模糊 (0-25)", "0为不模糊", "ui_img_blur", "0-25", "0", null);
-                addSettingsInputItem("背景与图标", "遮罩浓度 (0-255)", "越大越暗", "ui_img_alpha", "0-255", isDark ? "180" : "100", null);
+                addSettingsInputItem("背景样式", "图片模糊 (0-25)", "0为不模糊", "ui_img_blur", "0-25", "0", null);
+                addSettingsInputItem("背景样式", "遮罩浓度 (0-255)", "越大越暗", "ui_img_alpha", "0-255", isDark ? "180" : "100", null);
             }
         }
 
@@ -2347,7 +2347,7 @@ void showBgTypeChoiceDialog(final Activity activity) {
             cleanupAllDialogs();
             uiHandler.postDelayed(new Runnable() {
                 public void run() {
-                    showSettingsMenu(activity, "设置", "背景与图标", null);
+                    showSettingsMenu(activity, "设置", "背景样式", null);
                 }
             }, 200);
         }
