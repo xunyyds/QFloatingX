@@ -1,9 +1,9 @@
 {
-  "version": "2.3.5.2",
-  "versionType": "测试版",
+  "version": "2.3.6",
+  "versionType": "正式版",
   "updateType": "全量",
-  "updateTime": "2026-03-28 22:54:13",
-  "changelog": "- 由于版本更新迭代过快，推送一次全量更新，没有bug的用户可以无视本次更新",
+  "updateTime": "2026-04-04 10:36:26",
+  "changelog": "- 简化部分复杂实现\n- 更正部分命名\n- 优化更新日志显示,新增排序功能\n- 修复了已知bug 新增了许多未知bug\n- 如果你没有进行过全量更新，请进行一次全量更新，此版本过后将不再推送全量更新",
   "files": [
     "QFloatingX\/API\/import.java",
     "QFloatingX\/API\/api.java",
