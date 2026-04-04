@@ -414,7 +414,7 @@ void Hook生命周期() {
         }
 
         try { initStats(); } catch (Exception e) {}
-        try { installQFunHooks(); } catch (Exception e) {}
+        try { DoubleclickMsg(); } catch (Exception e) {}
 		if (getBoolean("settings", "后台保活", false)) {
 		KeepAlive.start();
 		}
