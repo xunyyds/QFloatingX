@@ -236,7 +236,7 @@ import java.lang.RuntimeException;
 import java.lang.StringBuffer;
 import java.lang.StringBuilder;
 import java.lang.System;
-
+import android.os.PowerManager;
 
 // =============== 14. Java 反射 API ===============
 import java.lang.reflect.Constructor;
