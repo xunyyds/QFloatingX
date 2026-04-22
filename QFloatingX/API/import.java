@@ -354,6 +354,7 @@ import me.yxp.qfun.hook.api.OnAIOViewUpdate;
 import me.yxp.qfun.hook.api.AIOViewUpdateListener;
 import me.yxp.qfun.utils.qq.FriendTool;
 import me.yxp.qfun.utils.qq.QQCurrentEnv;
+import me.yxp.qfun.loader.hookapi.HookEngineManager;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
