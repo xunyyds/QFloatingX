@@ -2200,17 +2200,10 @@ void 执行卸载核心逻辑() {
 	traceLog("api_log.txt", "====== 完整卸载开始 ======");
 
 	try {
-		if (isRunning != null) isRunning.set(false);
-		boolean 模拟定位开关 = getBoolean("模拟定位开关", "模拟定位开关", false);
-		if (模拟定位开关) {
-			关模拟定位();
-			Toast("正在关闭模拟定位...");
-		}
-
+		unhookAll();
 		onUnMsgload();
 		a卸载悬浮窗();
 		putBoolean("settings", "开关", false);
-		卸载loveHook();
 		// new Handler(Looper.getMainLooper()).post(new Runnable() {
 			// public void run() {
 				unloadBackgroundCache();
