@@ -1892,7 +1892,6 @@ void sendVoiceMessage(String groupUin, String voiceId, String text) {
     }
 }
 
-
 void showTrafficRedPacketDialog(Object data) {
     if (data == null || data.type != 2) {
         qqToast(1, "仅支持群聊使用");
@@ -1993,7 +1992,10 @@ void showTrafficRedPacketDialog(Object data) {
                         inner12.put("14", inner14);
                         inner.put("12", inner12);
 
-                        String compressed = compressToField7(inner.toString());
+                        String jsonStr = inner.toString();
+                        byte[] jsonBytes = jsonStr.getBytes(StandardCharsets.UTF_8);
+                        byte[] compressedBytes = PacketHelper.compressGzip(jsonBytes);
+                        String hexCompressed = PacketHelper.bytesToHex(compressedBytes);
 
                         JSONObject root = new JSONObject();
                         JSONObject f1 = new JSONObject();
@@ -2019,14 +2021,14 @@ void showTrafficRedPacketDialog(Object data) {
                         f3_1_2_37.put("19", f19);
 
                         f3_1_2_37.put("6", 1);
-                        f3_1_2_37.put("7", compressed);
+                        f3_1_2_37.put("7", hexCompressed);
 
                         f3_1_2.put("37", f3_1_2_37);
                         f3_1.put("2", f3_1_2);
                         f3.put("1", f3_1);
                         root.put("3", f3);
 
-                        root.put("4", 4100116396);
+                        root.put("4", 4100116396L);
                         root.put("5", 0);
 
                         FunProtoData proto = new FunProtoData();
@@ -2058,14 +2060,6 @@ void showTrafficRedPacketDialog(Object data) {
             applyUiTheme(act, dialog);
         }
     });
-}
-String compressToField7(String jsonStr) throws Exception {
-    JSONObject json = new JSONObject(jsonStr);
-    FunProtoData proto = new FunProtoData();
-    proto.fromJSON(json);
-    byte[] protoBytes = proto.toBytes();
-
-    return java.util.Base64.getEncoder().withoutPadding().encodeToString(protoBytes);
 }
 
 void RecallMessage(Object data, long seq) {
@@ -2200,7 +2194,6 @@ void setMsgEssence(Object data, boolean isEssence) {
         body.put("2", msgSeq);
         body.put("3", msgRandom);
 
-        // 构造根JSON
         JSONObject root = new JSONObject();
         root.put("1", 3756);
         root.put("2", 1);
