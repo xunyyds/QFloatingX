@@ -97,7 +97,7 @@ final String[] parallelFiles = {
 
 // API加载耗时，-1表示未初始化
 volatile long apiLoadCostTime = -1;
-private static ThreadLocal dateFormatHolder = new ThreadLocal();
+static ThreadLocal dateFormatHolder = new ThreadLocal();
 
 public static String getTime() {
     try {
@@ -159,19 +159,19 @@ void initThreadPool() {
 
     int threadPriority = 5;
     try {
-        String sp = getString("settings", "thread_pool_priority", "");
+        String sp = getString("settings", "thread_pool_priority", "5");
         if (!sp.isEmpty()) threadPriority = Math.max(1, Math.min(10, Integer.parseInt(sp)));
     } catch (Exception e) {}
 
     int queueCapacity = 50;
     try {
-        String sp = getString("settings", "thread_pool_queue_capacity", "");
+        String sp = getString("settings", "thread_pool_queue_capacity", "50");
         if (!sp.isEmpty()) queueCapacity = Math.max(10, Integer.parseInt(sp));
     } catch (Exception e) {}
 
     long keepAliveTime = 30;
     try {
-        String sp = getString("settings", "thread_pool_keep_alive", "");
+        String sp = getString("settings", "thread_pool_keep_alive", "30");
         if (!sp.isEmpty()) keepAliveTime = Math.max(5, Long.parseLong(sp));
     } catch (Exception e) {}
 
@@ -184,7 +184,7 @@ void initThreadPool() {
     traceLog("main_log", "初始化线程池: 核心=" + corePoolSize);
 
     ThreadFactory threadFactory = new ThreadFactory() {
-        private int threadCount = 1;
+        int threadCount = 1;
         public Thread newThread(Runnable r) {
             Thread t = new Thread(r);
             t.setName(threadNamePrefix + "-" + threadCount++);
@@ -255,32 +255,17 @@ volatile boolean UI初始化完成 = false;
 volatile boolean 允许触摸 = true;
 
 // [精准前后台检测] Activity计数器
-private static volatile int resumedActivityCount = 0;
+static volatile int resumedActivityCount = 0;
 
 // Handlers
 Handler uiHandler = new Handler(Looper.getMainLooper());
 Handler backgroundHandler = new Handler(Looper.getMainLooper());
 
 Activity 最后Activity = null;
-AtomicBoolean isRunning = new AtomicBoolean(false);
 Context appContext = null;
 boolean dialogVisible = false;
 Activity activity = null;
 volatile boolean Hook已调用 = false;
-
-List hookloveList = new ArrayList();
-
-
-void 卸载loveHook() {
-    if (hookloveList.isEmpty()) return;
-    for (int i = 0; i < hookloveList.size(); i++) {
-        try {
-            Object unhook = hookloveList.get(i);
-            unhook.unhook();
-        } catch (Exception e) {}
-    }
-    hookloveList.clear();
-}
 
 /**
  * 检查并更新前台状态。
@@ -292,7 +277,7 @@ void 卸载loveHook() {
  *
  * @param activity 当前可见的 {@link Activity}
  */
-private void checkAndUpdateForegroundState(final Activity activity) {
+void checkAndUpdateForegroundState(final Activity activity) {
     if (resumedActivityCount <= 0) return;
 
     if (非UI初始化完成 && !UI初始化完成) {
@@ -325,7 +310,7 @@ private void checkAndUpdateForegroundState(final Activity activity) {
  * 停止悬浮窗并启动保活服务。
  * </p>
  */
-private void checkAndUpdateBackgroundState() {
+void checkAndUpdateBackgroundState() {
     if (resumedActivityCount > 0) return;
 
     backgroundHandler.postDelayed(new Runnable() {
@@ -343,67 +328,76 @@ private void checkAndUpdateBackgroundState() {
         }
     }, 400);
 }
-/**
- * QFun 专用通用 Hook 辅助函数，替代 XposedHelpers.findAndHookMethod。
- *
- * @param clazz              目标类
- * @param methodName         目标方法名
- * @param typesAndCallback   参数类型列表 + 末位 {@link XC_MethodHook} 回调
- */
-void qfunHook(Class clazz, String methodName, Object[] typesAndCallback) {
-    try {
-        if (clazz == null) return;
 
-        XC_MethodHook callback = (XC_MethodHook) typesAndCallback[typesAndCallback.length - 1];
-        Class[] paramTypes = new Class[typesAndCallback.length - 1];
+static final ConcurrentHashMap METHOD_CACHE = new ConcurrentHashMap();
+List hookloveList = new ArrayList();
+
+Method getCachedMethod(Class clazz, String methodName, Class[] paramTypes) {
+    if (clazz == null) return null;
+    StringBuilder sb = new StringBuilder(clazz.getName()).append("#").append(methodName).append("(");
+    if (paramTypes != null) {
         for (int i = 0; i < paramTypes.length; i++) {
-            paramTypes[i] = (Class) typesAndCallback[i];
+            sb.append(paramTypes[i].getName());
+            if (i < paramTypes.length - 1) sb.append(",");
         }
-
-        Method method = clazz.getDeclaredMethod(methodName, paramTypes);
+    }
+    sb.append(")");
+    String key = sb.toString();
+    Method method = (Method) METHOD_CACHE.get(key);
+    if (method != null) return method;
+    try {
+        method = clazz.getDeclaredMethod(methodName, paramTypes != null ? paramTypes : new Class[0]);
         method.setAccessible(true);
-
-        hookloveList.add(XposedBridge.hookMethod(method, callback));
-    } catch (Throwable e) {
-        traceLog("main_log", "Hook失败 [" + methodName + "]: " + e.toString());
+        METHOD_CACHE.put(key, method);
+        return method;
+    } catch (Exception e) {
+        traceLog("main_log", "反射失败: " + e);
+        return null;
     }
 }
 
-/**
- * Hook QQ 生命周期方法（onResume / onPause / Application.onCreate）。
- * <p>
- * onResume：Activity 可见时递增计数器并检查前台状态。<br>
- * onPause：Activity 不可见时递减计数器并检查后台状态。<br>
- * Application.onCreate：进程下次冷启动时提前拉起 Watchdog，
- * 使保活在脚本完全加载之前即已生效。
- * </p>
- */
+void hook(Class clazz, String methodName, Class[] paramTypes, XC_MethodHook callback) {
+    Method method = getCachedMethod(clazz, methodName, paramTypes);
+    if (method == null) return;
+    try {
+        hookloveList.add(XposedBridge.hookMethod(method, callback));
+    } catch (Exception e) {
+        traceLog("main_log", "Hook注册失败: " + e);
+    }
+}
+
+void unhookAll() {
+    for (Object unhook : hookloveList) {
+        try {
+            unhook?.unhook();
+        } catch (Exception e) {
+            traceLog("main_log", "卸载失败: " + e);
+        }
+    }
+    hookloveList.clear();
+}
+
 void Hook生命周期() {
     try {
-        traceLog("main_log", "开始 Hook生命周期");
+        String hostPkg = HostInfo.INSTANCE.getPackageName();
 
-        qfunHook(android.app.Activity.class, "onResume", new Object[]{
-            new XC_MethodHook() {
-                protected void afterHookedMethod(MethodHookParam param) {
-                    Activity a = (Activity) param.thisObject;
-                    // traceLog(" _log.txt", "" + a.getClass().getSimpleName());
-                    if (QQpackage.equals(a.getPackageName())) {
-                        resumedActivityCount++;
-                        checkAndUpdateForegroundState(a);
-                    }
+        hook(Activity.class, "onResume", new Class[0], new XC_MethodHook() {
+            protected void afterHookedMethod(MethodHookParam param) {
+                Activity a = (Activity) param.thisObject;
+                if (hostPkg.equals(a.getPackageName())) {
+                    resumedActivityCount++;
+                    checkAndUpdateForegroundState(a);
                 }
             }
         });
 
-        qfunHook(android.app.Activity.class, "onPause", new Object[]{
-            new XC_MethodHook() {
-                protected void afterHookedMethod(MethodHookParam param) {
-                    Activity a = (Activity) param.thisObject;
-                    if (QQpackage.equals(a.getPackageName())) {
-                        resumedActivityCount--;
-                        if (resumedActivityCount < 0) resumedActivityCount = 0;
-                        checkAndUpdateBackgroundState();
-                    }
+        hook(Activity.class, "onPause", new Class[0], new XC_MethodHook() {
+            protected void afterHookedMethod(MethodHookParam param) {
+                Activity a = (Activity) param.thisObject;
+                if (hostPkg.equals(a.getPackageName())) {
+                    resumedActivityCount--;
+                    if (resumedActivityCount < 0) resumedActivityCount = 0;
+                    checkAndUpdateBackgroundState();
                 }
             }
         });
@@ -413,20 +407,19 @@ void Hook生命周期() {
             checkAndUpdateForegroundState(getNowActivity());
         }
 
-        try { initStats(); } catch (Exception e) {}
-        try { DoubleclickMsg(); } catch (Exception e) {}
-		if (getBoolean("settings", "后台保活", false)) {
-		KeepAlive.start();
-		}
+        initStats();
+        DoubleclickMsg();
 
+        if (getBoolean("settings", "后台保活", false)) {
+            KeepAlive.start();
+        }
 
         Hook已调用 = true;
 
-    } catch (Throwable e) {
-        traceLog("main_log", "Hook生命周期异常: " + e.getMessage());
+    } catch (Exception e) {
+        traceLog("main_log", "Hook生命周期异常: " + e);
     }
 }
-
 
 void 后台初始化() {
     if (非UI初始化完成) return;
@@ -437,13 +430,7 @@ void 后台初始化() {
         addItem("Java脚本", "openPlugin");
         addItem("设置页面", "openSetting");
         traceLog("main_log", "add项添加完成");
-        isRunning.set(false);
-
-        boolean 模拟定位开关a = getBoolean("模拟定位开关", "模拟定位开关", false);
-        if (模拟定位开关a) {
-            开模拟定位();
-        }
-
+        开模拟定位();
         非UI初始化完成 = true;
 
     } catch (Exception e) {
