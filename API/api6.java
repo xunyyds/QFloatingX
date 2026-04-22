@@ -1,87 +1,7 @@
-String Module = null;
-String ModuleVersionName = null;
-int ModuleAPICode = 0;
-int QQ_version = 0;
-String ModulePackageName = "";
-String LocalPath = Environment.getExternalStorageDirectory().getPath() + "/";
-String CurrentApp = "QQ"; 
-if ("com.tencent.tim".equals(context.getPackageName())) {
-    CurrentApp = "TIM";
-}
+import com.tencent.mobileqq.onlinestatus.api.IOnlineStatusService;
+import me.yxp.qfun.BuildConfig;
+import me.yxp.qfun.utils.qq.HostInfo;
 
-// 辅助方法：获取QQ版本
-public static String getQQVersion() {
-    try {
-        return context.getPackageManager().getPackageInfo(context.getPackageName(), 0).versionName + 
-               "(" + context.getPackageManager().getPackageInfo(context.getPackageName(), 0).versionCode + ")";
-    } catch(Throwable e) {
-        return "未知";
-    }
-}
-
-// 辅助方法：模块信息加载
-void ensureModuleInfoLoaded(Activity context) {
-    if (Module != null) return;
-    try {
-        Module = judge(context);
-        mapModuleToPackageName();
-        if (!ModulePackageName.equals("")) {
-            ModuleAPICode = getModuleAPICode(context);
-            ModuleVersionName = getModuleVersion(context);
-        } else {
-            ModuleVersionName = "内置";
-        }
-    } catch (Exception e) {
-        Module = "未知模块";
-        ModuleVersionName = "获取失败";
-    }
-}
-
-public String judge(Activity context) {
-    try {
-        ClassLoader MClassLoader = this.getClass().getClassLoader();
-        String path = MClassLoader.toString();
-        if(path.contains("lzlnb.cnm.hook")) return "模了个块";
-        else if(path.contains("com.demo.serendipity")) return "Serendipity";
-        else if(path.contains("lin.xposed")) return "QStory";
-        else if(path.contains("me.yxp.qfun")) return "QFun";
-        else return "未知模块";
-    } catch (Exception e) {
-        return "未知模块";
-    }
-}
-
-void mapModuleToPackageName() {
-    if (Module == null) return;
-    if (Module.equals("Serendipity")) ModulePackageName = "com.demo.serendipity";
-    else if (Module.equals("QStory")) ModulePackageName = "lin.xposed";
-    else if (Module.equals("模了个块")) ModulePackageName = "lzlnb.cnm.hook";
-    else if (Module.equals("QFun")) ModulePackageName = "me.yxp.qfun";
-    else ModulePackageName = "";
-}
-
-int getModuleAPICode(Activity context) {
-    if (ModulePackageName.equals("")) return 0;
-    try {
-        PackageManager pmm = context.getPackageManager();
-        ApplicationInfo ai = pmm.getApplicationInfo(ModulePackageName, PackageManager.GET_META_DATA);
-        if (ai.metaData != null) {
-            return ai.metaData.getInt("xposedminversion", 0);
-        }
-    } catch (Exception e) {}
-    return 0;
-}
-
-String getModuleVersion(Activity context) {
-    if (ModulePackageName.equals("")) return "内置";
-    try {
-        return context.getPackageManager().getPackageInfo(ModulePackageName, 0).versionName;
-    } catch (Exception e) {
-        return "内置";
-    }
-}
-
-// 硬件与系统信息获取
 String[] get电池状态(Activity context) {
     try {
         IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
@@ -162,7 +82,8 @@ public static String getCPUInfo() {
 
 String get在线状态() {
     try {
-        Status status = app.getRuntimeService(IOnlineStatusService.class).getOnlineStatus();
+        Object statusObj = QQCurrentEnv.INSTANCE.getQQAppInterface().getRuntimeService(IOnlineStatusService.class, "");
+        Object status = statusObj.getClass().getMethod("getOnlineStatus").invoke(statusObj);
         String StatusString = status + "";
         if(StatusString.equals("null")) return "未知";
         if(StatusString.equals("away")) return "离开";
@@ -182,17 +103,10 @@ public static List getInstalledApplication(boolean needSysAPP) {
     Intent intent = new Intent(Intent.ACTION_MAIN);
     intent.addCategory(Intent.CATEGORY_LAUNCHER);
     List resolveInfos = packageManager.queryIntentActivities(intent, 0);
-    if(!needSysAPP) {
-        List resolveInfosWithoutSystem = new ArrayList();
-        for(int i = 0; i < resolveInfos.size(); i++) {
-            ResolveInfo resolveInfo = (ResolveInfo) resolveInfos.get(i);
-            try {
-                if(!isSysApp(resolveInfo.activityInfo.packageName)) {
-                    resolveInfosWithoutSystem.add(resolveInfo);
-                }
-            } catch(Exception e) {}
-        }
-        return resolveInfosWithoutSystem;
+    if (!needSysAPP) {
+        return (List) resolveInfos.stream()
+                .filter(info -> !isSysApp(((ResolveInfo) info).activityInfo.packageName))
+                .collect(Collectors.toList());
     }
     return resolveInfos;
 }
@@ -200,30 +114,14 @@ public static List getInstalledApplication(boolean needSysAPP) {
 String 获取应用运行状态(Activity context) {
     try {
         ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
-        List processes = am.getRunningAppProcesses();
-        for (int i = 0; i < processes.size(); i++) {
-            ActivityManager.RunningAppProcessInfo process = (ActivityManager.RunningAppProcessInfo) processes.get(i);
-            if (process.processName.equals("com.tencent.mobileqq")) {
-                return process.importance <= 100 ? "运行中" : "后台";
-            }
-        }
-        return "未运行";
+        return (String) am.getRunningAppProcesses().stream()
+                .filter(process -> ((ActivityManager.RunningAppProcessInfo) process).processName.equals(HostInfo.INSTANCE.getPackageName()))
+                .findFirst()
+                .map(process -> ((ActivityManager.RunningAppProcessInfo) process).importance <= 100 ? "运行中" : "后台")
+                .orElse("未运行");
     } catch (Exception e) { return "未知"; }
 }
 
-String getXP框架名() {
-    try {
-        Object cl = this.getClass().getClassLoader();
-        Class clazz = cl.loadClass("de.robv.android.xposed.XposedBridge");
-        Field f = clazz.getField("TAG");
-        f.setAccessible(true);
-        return (String) f.get(null);
-    } catch(Exception e) {
-        return "LSPosed";
-    }
-}
-
-// 消息统计相关接口
 private int getBatchQueueSize() {
     return messageBatchQueue != null ? messageBatchQueue.size() : 0;
 }
@@ -246,7 +144,8 @@ public String getThreadPoolInfo() {
         sb.append("当前线程: #").append(executor.getPoolSize()).append("#  ");
         sb.append("活跃线程: #").append(executor.getActiveCount()).append("#\n");
         sb.append("队列任务: #").append(executor.getQueue().size()).append("#  ");
-        sb.append("队列容量: #").append(50).append("#\n"); // 固定值
+        String sp = getString("settings", "thread_pool_queue_capacity", "");
+        sb.append("队列容量: #").append(sp).append("#\n"); 
         sb.append("总任务:    #").append(executor.getTaskCount()).append("#  ");
         sb.append("累计已完成: #").append(executor.getCompletedTaskCount()).append("#");
         return sb.toString();
@@ -255,8 +154,6 @@ public String getThreadPoolInfo() {
     }
 }
 
-
-// 创建支持 #高亮# 语法的文本视图 (支持多重闭合高亮)
 TextView createTSStyleTextView(Activity context, String text, boolean isDark) {
     TextView textView = new TextView(context);
     textView.setTextSize(14); 
@@ -266,7 +163,6 @@ TextView createTSStyleTextView(Activity context, String text, boolean isDark) {
     textView.setMaxLines(Integer.MAX_VALUE);
     textView.setEllipsize(null);
     
-    // 基础文字颜色
     int normalColor = isDark ? Color.parseColor("#CCCCCC") : Color.parseColor("#555555");
     
     try {
@@ -287,17 +183,14 @@ TextView createTSStyleTextView(Activity context, String text, boolean isDark) {
                 String line = lines[i];
                 int start = 0;
                 
-                // 循环处理单行内的所有 #内容# 对
                 while (true) {
                     int openIdx = line.indexOf("#", start);
                     
                     if (openIdx == -1) {
-                        // 剩余部分为普通文字
                         if (start < line.length()) {
                             String textSegment = line.substring(start);
                             SpannableString sp = new SpannableString(textSegment);
                             sp.setSpan(new ForegroundColorSpan(normalColor), 0, textSegment.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                            // 如果是行首，加粗（模拟标签样式）
                             if (start == 0) {
                                 sp.setSpan(new android.text.style.StyleSpan(Typeface.BOLD), 0, textSegment.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
                             }
@@ -306,7 +199,6 @@ TextView createTSStyleTextView(Activity context, String text, boolean isDark) {
                         break;
                     }
                     
-                    // 添加 # 之前的普通文字
                     if (openIdx > start) {
                         String textSegment = line.substring(start, openIdx);
                         SpannableString sp = new SpannableString(textSegment);
@@ -317,10 +209,8 @@ TextView createTSStyleTextView(Activity context, String text, boolean isDark) {
                         ssb.append(sp);
                     }
                     
-                    // 寻找闭合的 #
                     int closeIdx = line.indexOf("#", openIdx + 1);
                     if (closeIdx == -1) {
-                        // 没有闭合，剩余部分按普通文字处理（包含起始#）
                         String textSegment = line.substring(openIdx);
                         SpannableString sp = new SpannableString(textSegment);
                         sp.setSpan(new ForegroundColorSpan(normalColor), 0, textSegment.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
@@ -328,7 +218,6 @@ TextView createTSStyleTextView(Activity context, String text, boolean isDark) {
                         break;
                     }
                     
-                    // 添加高亮内容
                     String highlightText = line.substring(openIdx + 1, closeIdx);
                     if (highlightText.length() > 0) {
                         SpannableString sp = new SpannableString(highlightText);
@@ -353,23 +242,20 @@ TextView createTSStyleTextView(Activity context, String text, boolean isDark) {
     return textView;
 }
 
-// 创建大标题 (左上角对齐)
 TextView createTitleView(Activity context, String title, boolean isDark) {
     TextView titleTv = new TextView(context);
     titleTv.setText(title);
     titleTv.setTextColor(isDark ? Color.parseColor("#EFEFEF") : Color.parseColor("#212121"));
-    titleTv.setTextSize(18); // Mini标题
+    titleTv.setTextSize(18); 
     titleTv.setTypeface(null, Typeface.BOLD);
     titleTv.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
     titleTv.setPadding(dp(context, 4), dp(context, 4), 0, dp(context, 10));
     return titleTv;
 }
 
-// 创建通用卡片
 LinearLayout createTSCard(Activity context, String title, String content, boolean isDark) {
     LinearLayout card = new LinearLayout(context);
     card.setOrientation(LinearLayout.VERTICAL);
-    // 卡片内边距 12
     card.setPadding(dp(context, 12), dp(context, 12), dp(context, 12), dp(context, 12));
     
     GradientDrawable bg = new GradientDrawable();
@@ -388,13 +274,13 @@ LinearLayout createTSCard(Activity context, String title, String content, boolea
     
     LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
         LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-    params.bottomMargin = dp(context, 10); // 卡片间距 10
+    params.bottomMargin = dp(context, 10); 
     card.setLayoutParams(params);
     
     TextView titleTv = new TextView(context);
     titleTv.setText(title);
     titleTv.setTextColor(isDark ? Color.parseColor("#8AB4F8") : Color.parseColor("#FF6B6B"));
-    titleTv.setTextSize(16); // 标题 16
+    titleTv.setTextSize(16);
     titleTv.setTypeface(titleTv.getTypeface(), Typeface.BOLD);
     titleTv.setPadding(0, 0, 0, dp(context, 6));
     
@@ -407,21 +293,14 @@ LinearLayout createTSCard(Activity context, String title, String content, boolea
 
 void addQQ状态卡片(Activity context, LinearLayout parent, boolean isDark) {
     try {
-        String Path = LocalPath;
-        if (Path != null && Path.length() > 18) Path = Path.substring(18);
-        String doubleOpen = "";
-        if (Path.startsWith("999")) doubleOpen = "分身";
-        else if (Path.startsWith("10")) doubleOpen = "非机主";
-        
         StringBuilder content = new StringBuilder();
-        content.append("账号: #").append(myUin != null ? myUin : "未知").append("#\n");
+        content.append("账号: #").append(qq).append("#\n");
         content.append("状态: #").append(get在线状态()).append("#\n");
-        content.append("版本: #").append(getQQVersion()).append("#");
-        content.append("(").append(doubleOpen.equals("") ? "主QQ" : doubleOpen).append(")");
+        content.append("版本: #").append(HostInfo.INSTANCE.getVersionName()).append("(").append(HostInfo.INSTANCE.getVersionCode()).append(")#");
         
-        parent.addView(createTSCard(context, "📱 QQ运行状态", content.toString(), isDark));
+        parent.addView(createTSCard(context, " QQ运行状态", content.toString(), isDark));
     } catch (Exception e) {
-        parent.addView(createTSCard(context, "📱 QQ运行状态", "错误: " + e.getMessage(), isDark));
+        parent.addView(createTSCard(context, " QQ运行状态", "错误: " + e.getMessage(), isDark));
     }
 }
 
@@ -436,9 +315,9 @@ void add开关状态卡片(Activity context, LinearLayout parent, boolean isDark
         content.append("模拟定位: #").append(mockLocationState ? "开启" : "关闭").append("#\n");
         content.append("输入框提示: #").append(输入框t开关 ? "开启" : "关闭").append("#");
         
-        parent.addView(createTSCard(context, "⚙️ 开关状态", content.toString(), isDark));
+        parent.addView(createTSCard(context, " 开关状态", content.toString(), isDark));
     } catch (Exception e) {
-        parent.addView(createTSCard(context, "⚙️ 开关状态", "错误: " + e.getMessage(), isDark));
+        parent.addView(createTSCard(context, " 开关状态", "错误: " + e.getMessage(), isDark));
     }
 }
 
@@ -455,9 +334,9 @@ void add监控卡片(Activity context, LinearLayout parent, boolean isDark) {
         content.append("写入线程: #").append(threadRunning ? "✅运行中" : "❌已休眠").append("#\n");
         content.append("待写入键: #").append(pendingKeys).append("# 个");
         
-        parent.addView(createTSCard(context, "📊 线程监控", content.toString(), isDark));
+        parent.addView(createTSCard(context, " 线程监控", content.toString(), isDark));
     } catch (Exception e) {
-        parent.addView(createTSCard(context, "📊 线程监控", "错误: " + e.getMessage(), isDark));
+        parent.addView(createTSCard(context, " 线程监控", "错误: " + e.getMessage(), isDark));
     }
 }
 
@@ -468,9 +347,9 @@ void add电池信息卡片(Activity context, LinearLayout parent, boolean isDark
         content.append("电量: #").append(battery[0]).append("# (").append(battery[1]).append(")\n");
         content.append("健康: #").append(get电池健康(context)).append("#\n");
         content.append("温度: #").append(battery[3]).append("#");
-        parent.addView(createTSCard(context, "🔋 电池信息", content.toString(), isDark));
+        parent.addView(createTSCard(context, " 电池信息", content.toString(), isDark));
     } catch (Exception e) {
-        parent.addView(createTSCard(context, "🔋 电池信息", "错误: " + e.getMessage(), isDark));
+        parent.addView(createTSCard(context, " 电池信息", "错误: " + e.getMessage(), isDark));
     }
 }
 
@@ -482,24 +361,23 @@ void add系统资源卡片(Activity context, LinearLayout parent, boolean isDark
         content.append("存储: #").append(get可用内部存储(context)).append(" / ").append(get总内部存储(context)).append("#\n");
         content.append("应用数量: #").append(apps.size() + "个").append("#\n");
         content.append("CPU架构: #").append(getCPUInfo()).append("# (运行:").append(getCPURunningNum()).append("个)");
-        parent.addView(createTSCard(context, "🧠 系统资源", content.toString(), isDark));
+        parent.addView(createTSCard(context, " 系统资源", content.toString(), isDark));
     } catch (Exception e) {
-        parent.addView(createTSCard(context, "🧠 系统资源", "错误: " + e.getMessage(), isDark));
+        parent.addView(createTSCard(context, " 系统资源", "错误: " + e.getMessage(), isDark));
+    }
+}
+void add模块信息卡片(Activity context, LinearLayout parent, boolean isDark) {
+    try {
+        StringBuilder content = new StringBuilder();
+        content.append("模块: #QFun_").append(BuildConfig.VERSION_NAME).append("#\n");
+        content.append("框架: #").append(HookEngineManager.INSTANCE.getEngine().getFrameworkName()).append("#\n");
+        content.append("API Level: #").append(HookEngineManager.INSTANCE.getEngine().getApiLevel()).append("#");
+        parent.addView(createTSCard(context, " 模块信息", content.toString(), isDark));
+    } catch (Exception e) {
+        parent.addView(createTSCard(context, " 模块信息", "错误: " + e.getMessage(), isDark));
     }
 }
 
-void add模块信息卡片(Activity context, LinearLayout parent, boolean isDark) {
-    try {
-        ensureModuleInfoLoaded(context);
-        StringBuilder content = new StringBuilder();
-        content.append("模块: #").append(Module != null ? Module : "未知").append("_").append(ModuleVersionName).append("#\n");
-        content.append("API: #").append(ModuleAPICode).append("#\n");
-        content.append("框架: #").append(getXP框架名()).append("#");
-        parent.addView(createTSCard(context, "📦 模块信息", content.toString(), isDark));
-    } catch (Exception e) {
-        parent.addView(createTSCard(context, "📦 模块信息", "错误: " + e.getMessage(), isDark));
-    }
-}
 
 void add脚本信息卡片(Activity context, LinearLayout parent, boolean isDark) {
     try {
@@ -516,9 +394,9 @@ void add脚本信息卡片(Activity context, LinearLayout parent, boolean isDark
         content.append("脚本作者: #").append(scriptauthor).append("#\n");
         content.append("脚本大小: #").append(formattedSize).append("#\n");
         content.append("脚本运行时间: #").append(formatTime((float)(time - startTime))).append("#");
-        parent.addView(createTSCard(context, "🍭 脚本信息", content.toString(), isDark));
+        parent.addView(createTSCard(context, " 脚本信息", content.toString(), isDark));
     } catch (Exception e) {
-        parent.addView(createTSCard(context, "🔧 脚本信息", "错误: " + e.getMessage(), isDark));
+        parent.addView(createTSCard(context, " 脚本信息", "错误: " + e.getMessage(), isDark));
     }
 }
 
@@ -532,9 +410,9 @@ void addJVM内存信息卡片(Activity context, LinearLayout parent, boolean isD
         content.append("最大内存: #").append(formatSize(runtime.maxMemory())).append("#\n");
         content.append("内存使用率: #").append(String.format("%.2f%%",
                 (double) (runtime.totalMemory() - runtime.freeMemory()) / runtime.maxMemory() * 100)).append("#");
-        parent.addView(createTSCard(context, "💾 JVM内存信息", content.toString(), isDark));
+        parent.addView(createTSCard(context, " JVM内存信息", content.toString(), isDark));
     } catch (Exception e) {
-        parent.addView(createTSCard(context, "💾 JVM内存", "错误: " + e.getMessage(), isDark));
+        parent.addView(createTSCard(context, " JVM内存", "错误: " + e.getMessage(), isDark));
     }
 }
 
@@ -543,26 +421,24 @@ void add设备信息卡片(Activity context, LinearLayout parent, boolean isDark
         StringBuilder content = new StringBuilder();
         content.append("型号: #").append(Build.MANUFACTURER).append(" ").append(Build.MODEL).append("#\n");
         content.append("Android: #").append(Build.VERSION.RELEASE).append(" (API ").append(Build.VERSION.SDK_INT).append(")#\n");
-        content.append("应用: #").append(CurrentApp).append("# (").append(获取应用运行状态(context)).append(")");
-        parent.addView(createTSCard(context, "🔧 设备信息", content.toString(), isDark));
+        content.append("宿主: #").append(HostInfo.INSTANCE.isTIM() ? "TIM" : "QQ").append("# (").append(获取应用运行状态(context)).append(")");
+        parent.addView(createTSCard(context, " 设备信息", content.toString(), isDark));
     } catch (Exception e) {
-        parent.addView(createTSCard(context, "🔧 设备信息", "错误: " + e.getMessage(), isDark));
+        parent.addView(createTSCard(context, " 设备信息", "错误: " + e.getMessage(), isDark));
     }
 }
 
-void display状态对话框(Activity activity) {
+void display状态对话框(final Activity activity) {
     String errorStage = "初始化";
     try {
         boolean isDark = isThemeDark(activity);
         
-        // 主内容容器
         LinearLayout contentLayout = new LinearLayout(activity);
         contentLayout.setOrientation(LinearLayout.VERTICAL);
-        // 容器内边距
         contentLayout.setPadding(dp(activity, 10), dp(activity, 10), dp(activity, 10), dp(activity, 10));
         
         errorStage = "添加组件";
-        contentLayout.addView(createTitleView(activity, "运行状态监控", isDark));
+        contentLayout.addView(createTitleView(activity, "运行状态", isDark));
         addQQ状态卡片(activity, contentLayout, isDark);
         add开关状态卡片(activity, contentLayout, isDark);
         add监控卡片(activity, contentLayout, isDark);
@@ -573,16 +449,14 @@ void display状态对话框(Activity activity) {
         addJVM内存信息卡片(activity, contentLayout, isDark);
         add设备信息卡片(activity, contentLayout, isDark);
         
-        // 底部Footer
         TextView footer = new TextView(activity);
-        footer.setText("Generated by QFloatingX");
+        footer.setText("Powered by QFun Engine");
         footer.setGravity(Gravity.CENTER);
         footer.setTextColor(Color.parseColor(isDark ? "#555555" : "#AAAAAA"));
         footer.setTextSize(10);
         footer.setPadding(0, dp(activity, 4), 0, dp(activity, 4));
         contentLayout.addView(footer);
 
-        // 滚动容器
         ScrollView scrollView = new ScrollView(activity);
         scrollView.setLayoutParams(new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
@@ -598,18 +472,13 @@ void display状态对话框(Activity activity) {
         builder.setCancelable(false);
         
         AlertDialog dialog = builder.create();
-        
         dialog.show();
-        
         applyUiTheme(activity, dialog);
         
-        //  设置高度限制 (屏幕高度的 55%)，宽度保持 300dp
         WindowManager.LayoutParams params = dialog.getWindow().getAttributes();
-        params.width = dp(activity, 300); // 强制固定宽度
-        params.height = (int) (activity.getResources().getDisplayMetrics().heightPixels * 0.55); // 高度55%
+        params.width = dp(activity, 300); 
+        params.height = (int) (activity.getResources().getDisplayMetrics().heightPixels * 0.55); 
         dialog.getWindow().setAttributes(params);
-        
-        traceLog("api6_log.txt","状态对话框显示成功");
         
     } catch (Exception e) {
         traceLog("api6_log.txt","构建对话框失败 [" + errorStage + "]: " + e);
@@ -617,25 +486,12 @@ void display状态对话框(Activity activity) {
     }
 }
 
-// 入口方法
-public void 运行状态Dialog(Activity activity) {
-    if (activity == null || activity.isFinishing()) {
-        Toast("Activity无效");
-        return;
-    }
-    
-    try {
-        activity.runOnUiThread(new Runnable() {
-            public void run() {
-                try {
-                    display状态对话框(activity);
-                } catch (Exception e) {
-                    traceLog("api6_log.txt","弹窗失败: " + e.getMessage());
-                    Toast("显示失败: " + e.getMessage());
-                }
-            }
-        });
-    } catch (Exception e) {
-        traceLog("api6_log.txt","UI线程失败: " + e.getMessage());
-    }
+public void 运行状态Dialog(final Activity activity) {
+    activity.runOnUiThread(() -> {
+        try {
+            display状态对话框(getNowActivity());
+        } catch (Exception e) {
+            Toast("显示失败: " + e.getMessage());
+        }
+    });
 }
