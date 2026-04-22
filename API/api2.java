@@ -21,6 +21,7 @@ public void 模拟定位开关() {
 }
 
 void 开模拟定位() {
+	if(!getBoolean("模拟定位开关", "模拟定位开关", false)) return;
     initFakeLocation();
     hookLocation();
     startLocationUpdates();
