@@ -20,14 +20,22 @@ public void 模拟定位开关() {
     }
 }
 
+Double[] getLocation() {
+    String lngStr = getString("模拟定位", "lng", "");
+    String latStr = getString("模拟定位", "lat", "");
+    if (lngStr?.length() > 0 && latStr?.length() > 0) {
+            double lng = Double.parseDouble(lngStr);
+            double lat = Double.parseDouble(latStr);
+            if (lng >= -180 && lng <= 180 && lat >= -90 && lat <= 90) {
+                return new Double[]{lng, lat};
+            }
+    }
+    return new Double[]{默认经度, 默认纬度};
+}
 private void initFakeLocation() {
-    String locStr = getLocationData();
-    Double[] loc = splitLocation(locStr);
-    if (loc == null || loc.length < 2) throw new RuntimeException("定位数据格式错误");
-    double longitude = loc[0];
-    double latitude = loc[1];
-    fakeLocation.setLatitude(latitude);
-    fakeLocation.setLongitude(longitude);
+    Double[] loc = getLocation();
+    fakeLocation.setLatitude(loc[1]);
+    fakeLocation.setLongitude(loc[0]);
     fakeLocation.setAccuracy(100);
     fakeLocation.setTime(System.currentTimeMillis());
     fakeLocation.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());
