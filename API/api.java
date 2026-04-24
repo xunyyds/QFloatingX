@@ -1606,52 +1606,9 @@ void vibrate(Activity activity, int milliseconds) {
 	}
 }
 
-public String getLocationData() {
-	try {
-		String loc = getString("经纬度", "经纬度", "");
-		if (!TextUtils.isEmpty(loc) && loc.contains(",")) {
-			return loc;
-		} else {
-			putString("经纬度", "经纬度", 默认经纬度);
-			return 默认经纬度;
-		}
-	} catch (Exception e) {
-		putString("经纬度", "经纬度", 默认经纬度);
-		return 默认经纬度;
-	}
-}
-
-public Double[] splitLocation(String locStr) {
-	String location = TextUtils.isEmpty(locStr) ? getLocationData() : locStr;
-	try {
-		String[] locArray = location.split(",");
-		if (locArray.length == 2) {
-			double lng = Double.parseDouble(locArray[0].trim());
-			double lat = Double.parseDouble(locArray[1].trim());
-			if (lng >= -180 && lng <= 180 && lat >= -90 && lat <= 90) {
-				return new Double[] {
-					lng,
-					lat
-				};
-			}
-		}
-	} catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
-		toast("经纬度格式错误，使用默认值");
-	}
-	return new Double[] {
-		默认经度,
-		默认纬度
-	};
-}
 // 默认经纬度（天安门）
-private static final String 默认经纬度 = "116.397128,39.907500";
-private static final double 默认经度 = 116.397128;
-private static final double 默认纬度 = 39.907500;
-String locStr = getLocationData();
-Double[] loc = splitLocation(locStr);
-double longitude = loc[0];
-double latitude = loc[1];
-
+double 默认经度 = 116.397128;
+double 默认纬度 = 39.907500;
 private void showLocationDialog(Activity activity) {
     boolean isDark = isThemeDark(activity);
     int cornerRadius = dp(activity, 8);
@@ -1745,6 +1702,7 @@ private void showLocationDialog(Activity activity) {
         }
     });
 }
+
 //控件打开动画
 private void startDialogShowAnimation(View view) {
 	ScaleAnimation scaleAnim = new ScaleAnimation(
