@@ -1669,19 +1669,43 @@ private void showLocationDialog(Activity activity) {
     LinearLayout layout = new LinearLayout(activity);
     layout.setOrientation(LinearLayout.VERTICAL);
     layout.setPadding(dp(activity, 20), dp(activity, 15), dp(activity, 20), dp(activity, 15));
-    layout.setGravity(Gravity.CENTER);
 
-    final EditText etLocation = new EditText(activity);
-    etLocation.setHint("请输入格式：经度,纬度（例如：116.397,39.917）");
-    etLocation.setText(getLocationData());
-    etLocation.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
-    etLocation.setTextColor(textColor);
-    etLocation.setHintTextColor(subTextColor);
-    etLocation.setPadding(dp(activity, 12), dp(activity, 10), dp(activity, 12), dp(activity, 10));
-    etLocation.setBackground(inputBg);
+    TextView tvLongitude = new TextView(activity);
+    tvLongitude.setText("经度");
+    tvLongitude.setTextColor(textColor);
+    tvLongitude.setTextSize(14);
+    layout.addView(tvLongitude);
+
+    final EditText etLongitude = new EditText(activity);
+    etLongitude.setHint("请输入经度，如 116.397");
+    etLongitude.setText(getString("模拟定位", "lng", ""));
+    etLongitude.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED);
+    etLongitude.setTextColor(textColor);
+    etLongitude.setHintTextColor(subTextColor);
+    etLongitude.setPadding(dp(activity, 12), dp(activity, 10), dp(activity, 12), dp(activity, 10));
+    etLongitude.setBackground(inputBg);
     LinearLayout.LayoutParams etParams = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 48));
-    layout.addView(etLocation, etParams);
+    layout.addView(etLongitude, etParams);
+
+    layout.addView(new android.view.View(activity), new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 12)));
+
+    TextView tvLatitude = new TextView(activity);
+    tvLatitude.setText("纬度");
+    tvLatitude.setTextColor(textColor);
+    tvLatitude.setTextSize(14);
+    layout.addView(tvLatitude);
+
+    final EditText etLatitude = new EditText(activity);
+    etLatitude.setHint("请输入纬度，如 39.917");
+    etLatitude.setText(getString("模拟定位", "lat", ""));
+    etLatitude.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED);
+    etLatitude.setTextColor(textColor);
+    etLatitude.setHintTextColor(subTextColor);
+    etLatitude.setPadding(dp(activity, 12), dp(activity, 10), dp(activity, 12), dp(activity, 10));
+    etLatitude.setBackground(inputBg);
+    layout.addView(etLatitude, etParams);
 
     AlertDialog.Builder builder = new AlertDialog.Builder(activity,
             isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
@@ -1700,23 +1724,27 @@ private void showLocationDialog(Activity activity) {
 
     dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(new View.OnClickListener() {
         public void onClick(View v) {
-            String input = etLocation.getText().toString().trim();
-            if (input.contains(",")) {
-                String[] parts = input.split(",", -1);
-                if (parts.length == 2 && parts[0].length() > 0 && parts[1].length() > 0) {
-                    putString("经纬度", "经纬度", input);
-                    Toast("保存成功：" + input);
-                    dialog.dismiss();
-                } else {
-                    Toast("格式错误！逗号前后不能为空，例如：116.397,39.917");
-                }
-            } else {
-                Toast("格式错误！必须包含逗号，例如：116.397,39.917");
+            String lngStr = etLongitude.getText().toString().trim();
+            String latStr = etLatitude.getText().toString().trim();
+            if (lngStr.isEmpty() || latStr.isEmpty()) {
+                Toast("经度和纬度不能为空");
+                return;
             }
+            double lng, lat;
+            try {
+                lng = Double.parseDouble(lngStr);
+                lat = Double.parseDouble(latStr);
+            } catch (NumberFormatException e) {
+                Toast("请输入有效的坐标");
+                return;
+            }
+            putString("模拟定位", "lng", lngStr);
+            putString("模拟定位", "lat", latStr);
+            Toast("保存成功：" + lngStr + ", " + latStr);
+            dialog.dismiss();
         }
     });
 }
-
 //控件打开动画
 private void startDialogShowAnimation(View view) {
 	ScaleAnimation scaleAnim = new ScaleAnimation(
