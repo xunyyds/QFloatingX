@@ -1,9 +1,9 @@
 {
-  "version": "2.3.6.2",
+  "version": "2.3.7",
   "versionType": "正式版",
   "updateType": "全量",
-  "updateTime": "2026-04-22 15:42:33",
-  "changelog": "-修复部分错误判断",
+  "updateTime": "2026-04-25 01:40:07",
+  "changelog": "- 修复模拟定位实现的问题\n_ 优化设置经纬度使用体验",
   "files": [
     "QFloatingX\/API\/import.java",
     "QFloatingX\/API\/api.java",
