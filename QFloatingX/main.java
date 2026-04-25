@@ -427,7 +427,9 @@ void 后台初始化() {
         addItem("设置页面", "openSetting");
         traceLog("main_log", "add项添加完成");
         开模拟定位();
+        if (getBoolean("settings", "后台保活", false)) {
         KeepAlive.start();
+        }
         非UI初始化完成 = true;
 
     } catch (Exception e) {
