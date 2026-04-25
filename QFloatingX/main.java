@@ -293,8 +293,8 @@ void checkAndUpdateForegroundState(final Activity activity) {
         应用前台状态 = true;
         允许触摸 = true;
         最后Activity = activity;
-		if (getBoolean("settings", "后台保活", false)) {
-        KeepAlive.stop();
+		if (getBoolean("settings", "常驻通知", false)) {
+        toggleKeepNotify(false);
         }
 
         if (UI初始化完成 && !悬浮窗显示状态 && getBoolean("settings", "开关", false)) {
@@ -321,8 +321,8 @@ void checkAndUpdateBackgroundState() {
                 应用前台状态 = false;
                 允许触摸 = false;
                 if (悬浮窗显示状态) 停止悬浮窗();
-                if (getBoolean("settings", "后台保活", false)) {
-                KeepAlive.start();
+                if (getBoolean("settings", "常驻通知", false)) {
+                toggleKeepNotify(true);
                 }
             }
         }
@@ -410,10 +410,6 @@ void Hook生命周期() {
         initStats();
         DoubleclickMsg();
 
-        if (getBoolean("settings", "后台保活", false)) {
-            KeepAlive.start();
-        }
-
         Hook已调用 = true;
 
     } catch (Exception e) {
@@ -431,6 +427,7 @@ void 后台初始化() {
         addItem("设置页面", "openSetting");
         traceLog("main_log", "add项添加完成");
         开模拟定位();
+        KeepAlive.start();
         非UI初始化完成 = true;
 
     } catch (Exception e) {

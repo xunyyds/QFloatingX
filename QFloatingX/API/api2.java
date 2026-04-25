@@ -12,22 +12,28 @@ public void 模拟定位开关() {
     putBoolean("模拟定位开关", "模拟定位开关", state);
     vibrate(finalActivity, 48);
     if (state) {
-        toast("正在开启模拟定位...");
         开模拟定位();
     } else {
-        toast("正在关闭模拟定位...");
         关模拟定位();
     }
 }
 
+Double[] getLocation() {
+    String lngStr = getString("模拟定位", "lng", "");
+    String latStr = getString("模拟定位", "lat", "");
+    if (lngStr?.length() > 0 && latStr?.length() > 0) {
+            double lng = Double.parseDouble(lngStr);
+            double lat = Double.parseDouble(latStr);
+            if (lng >= -180 && lng <= 180 && lat >= -90 && lat <= 90) {
+                return new Double[]{lng, lat};
+            }
+    }
+    return new Double[]{默认经度, 默认纬度};
+}
 private void initFakeLocation() {
-    String locStr = getLocationData();
-    Double[] loc = splitLocation(locStr);
-    if (loc == null || loc.length < 2) throw new RuntimeException("定位数据格式错误");
-    double longitude = loc[0];
-    double latitude = loc[1];
-    fakeLocation.setLatitude(latitude);
-    fakeLocation.setLongitude(longitude);
+    Double[] loc = getLocation();
+    fakeLocation.setLatitude(loc[1]);
+    fakeLocation.setLongitude(loc[0]);
     fakeLocation.setAccuracy(100);
     fakeLocation.setTime(System.currentTimeMillis());
     fakeLocation.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());
@@ -155,7 +161,6 @@ void 关模拟定位() {
         }
     });
     putBoolean("模拟定位开关", "模拟定位开关", false);
-    toast("模拟定位已关闭");
 }
 
 void 开模拟定位() {
@@ -167,7 +172,6 @@ void 开模拟定位() {
                 initFakeLocation();
                 hookLocation();
                 startLocationUpdates();
-                toast("模拟定位已开启");
             } catch (Throwable t) {
                 toast("模拟定位启动失败: " + t.getMessage());
             }

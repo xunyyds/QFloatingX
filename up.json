@@ -1,29 +1,18 @@
 {
-  "version": "2.3.7",
+  "version": "2.3.8",
   "versionType": "正式版",
-  "updateType": "全量",
-  "updateTime": "2026-04-25 01:40:07",
-  "changelog": "- 修复模拟定位实现的问题\n_ 优化设置经纬度使用体验",
+  "updateType": "补丁",
+  "updateTime": "2026-04-25 17:25:00",
+  "changelog": "- 优化保活 拦截一切可能导致宿主死亡的操作\n- 常驻通知分离 单独添加了一个开关\n- 优化md解析 使用QQ自带组件库",
   "files": [
-    "QFloatingX\/API\/import.java",
-    "QFloatingX\/API\/api.java",
-    "QFloatingX\/API\/uitools.java",
-    "QFloatingX\/API\/ColorPicker.java",
-    "QFloatingX\/API\/KeepAlive.java",
-    "QFloatingX\/API\/setwindow.java",
     "QFloatingX\/API\/Dialog.java",
+    "QFloatingX\/API\/setwindow.java",
+    "QFloatingX\/API\/KeepAlive.java",
     "QFloatingX\/API\/api2.java",
-    "QFloatingX\/API\/api3.java",
-    "QFloatingX\/API\/api4.java",
     "QFloatingX\/API\/api6.java",
-    "QFloatingX\/API\/api7.java",
-    "QFloatingX\/API\/api8.java",
-    "QFloatingX\/API\/api9.java",
-    "QFloatingX\/API\/function.java",
+    "QFloatingX\/API\/import.java",
     "QFloatingX\/main.java",
-    "QFloatingX\/LICENSE",
-    "QFloatingX\/info.prop",
-    "QFloatingX\/desc.txt",
-    "QFloatingX\/更新日志.txt"
+    "QFloatingX\/更新日志.txt",
+    "QFloatingX\/info.prop"
   ]
 }

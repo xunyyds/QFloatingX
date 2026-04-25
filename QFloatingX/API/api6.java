@@ -83,18 +83,18 @@ public static String getCPUInfo() {
 String get在线状态() {
     try {
         Object statusObj = QQCurrentEnv.INSTANCE.getQQAppInterface().getRuntimeService(IOnlineStatusService.class, "");
-        Object status = statusObj.getClass().getMethod("getOnlineStatus").invoke(statusObj);
-        String StatusString = status + "";
-        if(StatusString.equals("null")) return "未知";
-        if(StatusString.equals("away")) return "离开";
-        if(StatusString.equals("offline")) return "离线";
-        if(StatusString.equals("invisiable")) return "隐身";
-        if(StatusString.equals("busy")) return "忙碌";
-        if(StatusString.equals("qme")) return "Q我吧";
-        if(StatusString.equals("dnd")) return "请勿打扰";
-        if(StatusString.equals("online")) return "在线";
-        if(StatusString.equals("receiveofflinemsg")) return "失联";
-        return StatusString;
+        Object status = statusObj.getOnlineStatus();
+        String sta = status + "";
+        if(sta.equals("null")) return "未知";
+        if(sta.equals("away")) return "离开";
+        if(sta.equals("offline")) return "离线";
+        if(sta.equals("invisiable")) return "隐身";
+        if(sta.equals("busy")) return "忙碌";
+        if(sta.equals("qme")) return "Q我吧";
+        if(sta.equals("dnd")) return "请勿打扰";
+        if(sta.equals("online")) return "在线";
+        if(sta.equals("receiveofflinemsg")) return "失联";
+        return sta;
     } catch (Exception e) { return "获取失败"; }
 }
 
@@ -144,7 +144,7 @@ public String getThreadPoolInfo() {
         sb.append("当前线程: #").append(executor.getPoolSize()).append("#  ");
         sb.append("活跃线程: #").append(executor.getActiveCount()).append("#\n");
         sb.append("队列任务: #").append(executor.getQueue().size()).append("#  ");
-        String sp = getString("settings", "thread_pool_queue_capacity", "");
+        String sp = getString("settings", "thread_pool_queue_capacity", "50");
         sb.append("队列容量: #").append(sp).append("#\n"); 
         sb.append("总任务:    #").append(executor.getTaskCount()).append("#  ");
         sb.append("累计已完成: #").append(executor.getCompletedTaskCount()).append("#");
