@@ -5122,10 +5122,39 @@ public void ts(Activity activity, String title, String content) {
 	});
 }
 
-loadJar(rootPath + "commonmark-0.21.0.jar");
-import org.commonmark.node.Node;
-import org.commonmark.parser.Parser;
-import org.commonmark.renderer.html.HtmlRenderer;
+import com.tencent.qqnt.aio.markdown.api.IMarkdownFeatureCompatApi;
+private Object markdownParser;
+private String parseMarkdownToHtml(String markdown) throws Exception {
+    if (markdownParser == null) {
+        IMarkdownFeatureCompatApi svc = QRoute.api(IMarkdownFeatureCompatApi.class);
+        java.lang.reflect.Field f = svc.getClass().getDeclaredField("$$delegate_1");
+        f.setAccessible(true);
+        markdownParser = f.get(svc);
+    }
+    CharSequence cs = (CharSequence) markdownParser.getClass().getMethod("b", String.class).invoke(markdownParser, markdown);
+    if (cs instanceof Spanned) {
+        String html = Html.toHtml((Spanned) cs, Html.TO_HTML_PARAGRAPH_LINES_CONSECUTIVE);
+        html = decodeNumericEntities(html);
+        html = html.replaceAll("\\n{2,}", "\n");
+        return html;
+    } else {
+        throw new Exception("解析结果不是 Spanned");
+    }
+}
+
+private String decodeNumericEntities(String input) {
+    Pattern pattern = Pattern.compile("&#(\\d+);");
+    Matcher matcher = pattern.matcher(input);
+    StringBuffer sb = new StringBuffer();
+    while (matcher.find()) {
+        int code = Integer.parseInt(matcher.group(1));
+        String replacement = new String(Character.toChars(code));
+        matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement));
+    }
+    matcher.appendTail(sb);
+    return sb.toString();
+}
+
 public void mkts(final Activity activity, final String title, final String markdownContent) {
     if (activity == null || activity.isFinishing()) {
         traceLog("api_log.txt", "Activity无效");
@@ -5137,8 +5166,7 @@ public void mkts(final Activity activity, final String title, final String markd
         public void run() {
             try {
                 traceLog("api_log.txt", "开始解析，长度: " + finalMarkdown.length());
-                Node document = Parser.builder().build().parse(finalMarkdown);
-                String htmlContent = HtmlRenderer.builder().build().render(document);
+                String htmlContent = parseMarkdownToHtml(finalMarkdown);
                 traceLog("api_log.txt", "解析成功，输出长度: " + htmlContent.length());
                 final String finalHtml = htmlContent;
                 activity.runOnUiThread(new Runnable() {
@@ -5167,23 +5195,8 @@ private void createMarkdownDialog(final Activity activity, final String title, f
     webView.setBackgroundColor(Color.TRANSPARENT);
     webView.setVerticalScrollBarEnabled(true);
     webView.setHorizontalScrollBarEnabled(true);
-    webView.setScrollContainer(true);
     webView.getSettings().setJavaScriptEnabled(false);
     webView.getSettings().setDefaultTextEncodingName("UTF-8");
-    webView.setWebViewClient(new WebViewClient() {
-        public void onPageFinished(WebView view, String url) {
-            traceLog("api_log.txt", "页面加载完成，内容高度: " + view.getContentHeight());
-            view.post(new Runnable() {
-                public void run() {
-                    view.requestLayout();
-                    view.invalidate();
-                }
-            });
-        }
-        public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
-            traceLog("api_log.txt", "加载失败: " + errorCode + " - " + description);
-        }
-    });
     final Runnable loadContent = new Runnable() {
         public void run() {
             String htmlToShow;
@@ -5195,9 +5208,7 @@ private void createMarkdownDialog(final Activity activity, final String title, f
                     markdownToRender = reverseMarkdownBlocks(originalMarkdown);
                 }
                 try {
-                    Node document = Parser.builder().build().parse(markdownToRender);
-                    htmlToShow = HtmlRenderer.builder().build().render(document);
-                    htmlToShow = htmlToShow.replaceAll("\\n{2,}", "\n");
+                    htmlToShow = parseMarkdownToHtml(markdownToRender);
                 } catch (Exception e) {
                     traceLog("api_log.txt", "倒序解析失败: " + e.getMessage());
                     htmlToShow = "<pre style='background:" + (isDark ? "#2D2D2D" : "#f4f4f4") + ";padding:6px;border-radius:3px;overflow-x:auto;font-family:monospace;font-size:13px;color:" + (isDark ? "#EFEFEF" : "#333") + ";'>" + escapeHtml(originalMarkdown) + "</pre>";
