@@ -1147,6 +1147,9 @@ void buildLevel1MenuContent(Activity activity) {
     addSettingsItemSwitchWithKey("开关", "输入框提示", "item_input_hint", "输入框", "输入框开关", inputHintState, null);
     boolean KeepAlive = getBoolean("settings", "后台保活", false);
     addSettingsItemSwitchWithKey("开关", "后台保活", "item_KeepAlive", "settings", "后台保活", KeepAlive, null);
+    boolean 通知 = getBoolean("settings", "常驻通知", false);
+    
+    addSettingsItemSwitchWithKey("开关", "常驻通知", "item_通知", "settings", "常驻通知", 通知, null);
 
     addSettingsCategory("功能", "");
     addSettingsItemClickWithKey("功能", "设置经纬度", "", "item_set_location", new Runnable() { public void run() {
