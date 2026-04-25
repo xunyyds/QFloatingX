@@ -12,10 +12,8 @@ public void 模拟定位开关() {
     putBoolean("模拟定位开关", "模拟定位开关", state);
     vibrate(finalActivity, 48);
     if (state) {
-        toast("正在开启模拟定位...");
         开模拟定位();
     } else {
-        toast("正在关闭模拟定位...");
         关模拟定位();
     }
 }
@@ -163,7 +161,6 @@ void 关模拟定位() {
         }
     });
     putBoolean("模拟定位开关", "模拟定位开关", false);
-    toast("模拟定位已关闭");
 }
 
 void 开模拟定位() {
@@ -175,7 +172,6 @@ void 开模拟定位() {
                 initFakeLocation();
                 hookLocation();
                 startLocationUpdates();
-                toast("模拟定位已开启");
             } catch (Throwable t) {
                 toast("模拟定位启动失败: " + t.getMessage());
             }
