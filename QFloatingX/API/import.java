@@ -2,6 +2,7 @@
 import com.tencent.common.app.BaseApplicationImpl;
 import com.tencent.mobileqq.activity.QQSettingMe;
 import com.tencent.mobileqq.activity.shortvideo.d;
+import com.tencent.mobileqq.msf.service.MsfService;
 import com.tencent.mobileqq.aio.helper.EmojiReplyHelper;
 import com.tencent.mobileqq.app.BaseActivity;
 import com.tencent.mobileqq.app.BusinessHandlerFactory;
@@ -64,6 +65,7 @@ import oicq.wlogin_sdk.request.WtloginHelper;
 
 // =============== 4. Android 基础组件 ===============
 import android.app.Activity;
+import android.text.*;
 import android.app.ActivityManager;
 import android.app.ActivityManager.MemoryInfo;
 import android.app.ActivityThread;
@@ -98,7 +100,25 @@ import android.os.SystemClock;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.os.VibratorManager;
-
+import android.app.Activity;
+import android.app.ActivityThread;
+import android.app.AlarmManager;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.app.Service;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.net.Uri;
+import android.os.Build;
+import android.os.IBinder;
+import android.os.Process;
+import android.os.PowerManager;
+import android.os.SystemClock;
+import android.provider.Settings;
 
 // =============== 5. Android UI 组件 - 布局 ===============
 import android.widget.FrameLayout;
