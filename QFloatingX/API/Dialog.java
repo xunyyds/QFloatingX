@@ -3728,6 +3728,7 @@ public void 长按消息菜单(Activity activity, Object data) {
                                     });
  } });
     addMenuItem(menuItems, "实验功能", "偷流量红包", new Runnable() { public void run() { showTrafficRedPacketDialog(data); } });
+    addMenuItem(menuItems, "实验功能", "图片转QQ秀", new Runnable() { public void run() { showSuperFaceSendDialog(data); } });
 
     
     final boolean[] isEditMode = new boolean[]{false};
