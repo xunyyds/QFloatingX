@@ -684,13 +684,10 @@ private void processBatch() {
  * @param data 消息数据对象
  */
 public void onMsg(Object data) {
-    if (data == null) {
-        traceLog("api3_log.txt", "data为null，忽略");
-        return;
-    }
-    log大小限制(logPath);
+
     
     try { dispatchEvent(data, 1); 
+        log大小限制(logPath);
         } catch (Throwable e) { traceLog("function_log", "[onMsg]" + e); }
 
     synchronized(writeLock) {
