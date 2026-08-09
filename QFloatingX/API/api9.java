@@ -7,146 +7,24 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.nio.charset.StandardCharsets;
-
 import android.os.Bundle;
 import android.os.SystemClock;
-
 import com.tencent.qphone.base.remote.ToServiceMsg;
 import com.tencent.qphone.base.remote.FromServiceMsg;
 import mqq.app.NewIntent;
 import mqq.app.api.impl.SSOEasyServlet;
-
 import org.json.JSONArray;
 import org.json.JSONObject;
-
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 
-/**
- * 增强版发包工具
- * <p>
- * 本工具基于 @QFunDeveloper 的开源发包工具进行功能增强与重构
- * 代码中加入了详尽且规范的注释，旨在为开发者提供学习和交流的参考
- * 同时也便于后续的维护与协作改进
- * <p>
- * 欢迎大家在此基础上进行二次开发、优化和贡献
- *
- */
-
-/**
- * IReceiver接口 - 数据接收回调接口
- * 
- * 用于接收服务器返回的PB数据，在发送请求后通过异步回调方式返回结果
- * 
- * 使用示例：
- * PacketHelper.sendRequest("MessageSvc.PbSendMsg", data, new IReceiver() {
- *     void onReceive(byte[] data) {
- *         if (data != null) {
- *             FunProtoData proto = new FunProtoData();
- *             proto.fromBytes(data);
- *             traceLog("response.log", proto.toJSON().toString());
- *         }
- *     }
- * });
- */
 public interface IReceiver {
-    
-    /**
-     * 接收服务器返回数据的回调方法
-     * 
-     * 当请求成功完成时，此方法会被调用并传入服务器返回的原始字节数据。
-     * 如果请求失败或返回数据为空，参数将为null。
-     * 
-     * 注意：此方法在IO线程中执行，如需操作UI请切换到主线程。
-     * 
-     * param data 服务器返回的PB格式字节数组，失败时为null
-     */
     void onReceive(byte[] data);
 }
 
-/**
- * FunProtoData - 动态Protobuf数据处理类
- * 
- * 这是一个强大的Protobuf数据处理工具类，支持动态解析和编码Protobuf格式的数据，
- * 无需预定义.proto文件。通过JSON作为中间格式，可以方便地构建和解析复杂的嵌套PB结构。
- * 
- * 核心功能：
- * - JSON转PB：将JSON对象编码为Protobuf二进制格式
- * - PB转JSON：将Protobuf二进制数据解码为JSON对象
- * - 动态字段：支持任意字段编号和数据类型
- * - 嵌套结构：支持多层嵌套的消息结构
- * - 数组支持：支持repeated字段（数组）
- * 
- * 工作原理：
- * Protobuf使用字段编号（field number）和线类型（wire type）来标识每个字段。
- * 本类通过HashMap存储字段数据，键为字段编号，值为该字段的所有值列表（支持repeated字段）。
- * 
- * 线类型说明：
- * - 0 (Varint)：用于整数类型（int32, int64, uint32, uint64, sint32, sint64, bool, enum）
- * - 1 (64-bit)：用于固定64位类型（fixed64, sfixed64, double）
- * - 2 (Length-delimited)：用于字符串、字节、嵌套消息、packed repeated字段
- * - 5 (32-bit)：用于固定32位类型（fixed32, sfixed32, float）
- * 
- * 使用示例1 - 从JSON构建PB数据：
- * JSONObject json = new JSONObject();
- * json.put("1", 12345);           // 字段1: 整数
- * json.put("2", "Hello World");   // 字段2: 字符串
- * 
- * JSONObject nested = new JSONObject();
- * nested.put("1", 100);
- * json.put("3", nested);          // 字段3: 嵌套消息
- * 
- * FunProtoData proto = new FunProtoData();
- * proto.fromJSON(json);
- * byte[] pbBytes = proto.toBytes();
- * 
- * 使用示例2 - 从PB数据解析为JSON：
- * FunProtoData proto = new FunProtoData();
- * proto.fromBytes(pbBytes);
- * JSONObject json = proto.toJSON();
- * traceLog("pb.log", "解析结果: " + json.toString(2));
- * 
- * 使用示例3 - 直接构建PB数据：
- * FunProtoData proto = new FunProtoData();
- * proto.putValue(1, 12345L);      // 添加整数
- * proto.putValue(2, "Hello");     // 添加字符串
- * 
- * FunProtoData nested = new FunProtoData();
- * nested.putValue(1, 100);
- * proto.putValue(3, nested);      // 添加嵌套消息
- * 
- * byte[] pbBytes = proto.toBytes();
- */
 public class FunProtoData {
-    
-    /**
-     * 字段数据存储映射
-     * 
-     * 键为字段编号（Integer），值为该字段的所有值列表（List）。
-     * 使用List是为了支持Protobuf的repeated字段，同一个字段编号可以有多个值。
-     * 
-     * 值类型说明：
-     * - Long：整数类型（int32, int64, uint32, uint64等）
-     * - Integer：32位固定整数（从fixed32解析）
-     * - String：字符串类型，或无法解析的二进制数据（以"hex->"为前缀）
-     * - FunProtoData：嵌套的Protobuf消息
-     */
     public HashMap values = new HashMap();
-    
-    /**
-     * 从JSON对象解析并填充数据
-     * 
-     * 将JSON对象转换为Protobuf字段结构。JSON的键必须是数字字符串（表示字段编号），
-     * 值可以是基本类型、JSON对象（嵌套消息）或JSON数组（repeated字段）。
-     * 
-     * 支持的JSON值类型：
-     * - Integer/Long：转换为整数字段
-     * - String：转换为字符串字段
-     * - JSONObject：递归解析为嵌套消息
-     * - JSONArray：遍历每个元素作为repeated字段
-     * 
-     * param json 要解析的JSON对象，可以为null
-     */
+
     public void fromJSON(JSONObject json) {
         if (json == null) return;
         try {
@@ -155,7 +33,7 @@ public class FunProtoData {
                 String key = (String) keyIt.next();
                 int fieldNumber = Integer.parseInt(key);
                 Object value = json.get(key);
-                
+
                 if (value instanceof JSONObject) {
                     FunProtoData nestedProto = new FunProtoData();
                     nestedProto.fromJSON((JSONObject) value);
@@ -178,16 +56,7 @@ public class FunProtoData {
             }
         } catch (Exception ignored) {}
     }
-    
-    /**
-     * 添加字段值到内部存储
-     * 
-     * 将值添加到指定字段编号的值列表中。如果该字段编号不存在，
-     * 会自动创建新的值列表。支持同一字段编号多次添加（实现repeated字段）。
-     * 
-     * param fieldNumber Protobuf字段编号（正整数）
-     * param value 字段值（支持Long、Integer、String、FunProtoData等类型）
-     */
+
     public void putValue(int fieldNumber, Object value) {
         List list = (List) values.get(fieldNumber);
         if (list == null) {
@@ -196,40 +65,21 @@ public class FunProtoData {
         }
         list.add(value);
     }
-    
-    /**
-     * 从Protobuf字节数组解析数据
-     * 
-     * 解析原始的Protobuf二进制数据，自动识别字段编号和线类型，
-     * 并将解析结果存储到内部映射中。
-     * 
-     * 解析逻辑：
-     * 1. 读取Tag（字段编号 + 线类型）
-     * 2. 根据线类型读取对应的数据
-     * 3. 对于Length-delimited类型，尝试先解析为嵌套消息，失败则作为字符串
-     * 4. 如果字符串解析也失败，则存储为十六进制表示
-     * 
-     * 特殊处理：
-     * - 如果数据以4个0字节开头，会自动跳过（处理某些QQ协议的头部）
-     * - 无法解析的二进制数据会以"hex->"前缀存储
-     * 
-     * param b Protobuf格式的字节数组，可以为null
-     */
+
     public void fromBytes(byte[] b) throws Exception {
         if (b == null) return;
-        
-        // 处理可能的协议头（4字节长度前缀）
+
         if (b.length >= 4 && (b[0] & 0xFF) == 0) {
             b = Arrays.copyOfRange(b, 4, b.length);
         }
-        
+
         CodedInputStream in = CodedInputStream.newInstance(b);
-        
+
         while (in.getBytesUntilLimit() > 0) {
             int tag = in.readTag();
             int fieldNumber = tag >>> 3;
             int wireType = tag & 7;
-            
+
             switch (wireType) {
                 case 0:
                     putValue(fieldNumber, in.readInt64());
@@ -258,27 +108,14 @@ public class FunProtoData {
             }
         }
     }
-    
-    /**
-     * 将数据转换为JSON对象
-     * 
-     * 将内部存储的Protobuf字段数据转换为JSON格式，便于查看和调试。
-     * 嵌套的FunProtoData会递归转换为JSON对象。
-     * 
-     * 输出格式：
-     * - 单值字段：直接输出值
-     * - 多值字段（repeated）：输出为JSON数组
-     * - 嵌套消息：递归输出为JSON对象
-     * 
-     * return 转换后的JSON对象
-     */
+
     public JSONObject toJSON() throws Exception {
         JSONObject obj = new JSONObject();
-        
+
         for (Object kObj : values.keySet()) {
             Integer fieldNumber = (Integer) kObj;
             List list = (List) values.get(fieldNumber);
-            
+
             if (list.size() > 1) {
                 JSONArray arr = new JSONArray();
                 for (Object value : list) {
@@ -291,40 +128,26 @@ public class FunProtoData {
                 }
             }
         }
-        
+
         return obj;
     }
-    
+
     private Object valueToJSON(Object value) throws Exception {
         if (value instanceof FunProtoData) {
             return ((FunProtoData) value).toJSON();
         }
         return value;
     }
-    
-    /**
-     * 将数据编码为Protobuf字节数组
-     * 
-     * 将内部存储的字段数据编码为标准的Protobuf二进制格式。
-     * 支持整数、字符串、嵌套消息等类型的编码。
-     * 
-     * 编码规则：
-     * - Long/Integer：编码为Varint（线类型0）
-     * - String：编码为Length-delimited（线类型2）
-     * - FunProtoData：递归编码为嵌套消息（线类型2）
-     * - hex->前缀字符串：解码十六进制后编码为字节
-     * 
-     * return Protobuf编码后的字节数组，失败时返回空数组
-     */
+
     public byte[] toBytes() {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         CodedOutputStream out = CodedOutputStream.newInstance(bos);
-        
+
         try {
             for (Object kObj : values.keySet()) {
                 Integer fieldNumber = (Integer) kObj;
                 List list = (List) values.get(fieldNumber);
-                
+
                 for (Object value : list) {
                     if (value instanceof Long) {
                         out.writeInt64(fieldNumber, (Long) value);
@@ -343,14 +166,14 @@ public class FunProtoData {
                     }
                 }
             }
-            
+
             out.flush();
             return bos.toByteArray();
         } catch (Exception e) {
             return new byte[0];
         }
     }
-    
+
     private String bytesToHex(byte[] bytes) {
         StringBuilder sb = new StringBuilder();
         for (byte b : bytes) {
@@ -358,7 +181,7 @@ public class FunProtoData {
         }
         return sb.toString();
     }
-    
+
     private byte[] hexToBytes(String hex) {
         int len = hex.length();
         byte[] data = new byte[len / 2];
@@ -368,133 +191,27 @@ public class FunProtoData {
         }
         return data;
     }
-    
-    /**
-     * 获取指定字段的第一个值
-     */
+
     public Object getFirstValue(int fieldNumber) {
         List list = (List) values.get(fieldNumber);
         return (list != null && !list.isEmpty()) ? list.get(0) : null;
     }
-    
-    /**
-     * 获取指定字段的所有值
-     */
+
     public List getValues(int fieldNumber) {
         return (List) values.get(fieldNumber);
     }
-    
-    /**
-     * 检查是否包含指定字段
-     */
+
     public boolean hasField(int fieldNumber) {
         return values.containsKey(fieldNumber);
     }
-    
-    /**
-     * 清空所有字段数据
-     */
+
     public void clear() {
         values.clear();
     }
 }
 
-/**
- * PacketHelper - QQ协议发包工具类
- * 
- * 这是QFun插件的核心发包工具类，提供了完整的QQ协议数据包发送和接收功能。
- * 封装了QQ内部的SSO通信机制，支持发送Protobuf格式的数据到QQ服务器。
- * 
- * 核心功能：
- * - 数据打包：将原始数据封装为QQ协议格式
- * - 请求发送：通过SSO通道发送数据到指定服务
- * - 响应接收：异步接收服务器返回的数据
- * - GZIP压缩：支持数据压缩传输
- * - 格式转换：字节数组与十六进制字符串互转
- * 
- * 工作原理：
- * 
- * 1. QQ SSO通信机制：
- * QQ使用SSO（Single Sign-On）服务进行内部通信。每个请求通过ToServiceMsg封装，
- * 指定目标服务名（serviceCmd），由MobileQQService处理路由和发送。
- * 
- * 2. 数据包结构：
- * +----------------+------------------+------------------+
- * | 4字节长度头    | PB数据体         | ...              |
- * +----------------+------------------+------------------+
- * 长度头 = 数据体长度 + 4（包含自身）
- * 
- * 3. 请求流程：
- * (1) 构建PB数据（使用FunProtoData或原始字节）
- * (2) 调用packet()方法添加长度头
- * (3) 创建ToServiceMsg，设置服务名和数据
- * (4) 通过SSOEasyServlet发送请求
- * (5) 在回调中接收FromServiceMsg响应
- * 
- * 使用示例1 - 发送简单请求：
- * FunProtoData proto = new FunProtoData();
- * proto.putValue(1, 12345L);
- * proto.putValue(2, "Hello");
- * byte[] pbData = proto.toBytes();
- * 
- * PacketHelper.sendRequest("MessageSvc.PbSendMsg", pbData, new IReceiver() {
- *     void onReceive(byte[] data) {
- *         if (data != null) {
- *             FunProtoData response = new FunProtoData();
- *             response.fromBytes(data);
- *             traceLog("response.log", response.toJSON().toString());
- *         }
- *     }
- * });
- * 
- * 使用示例2 - 发送JSON格式的PB数据：
- * JSONObject json = new JSONObject();
- * json.put("1", 100);
- * json.put("2", "test message");
- * 
- * FunProtoData proto = new FunProtoData();
- * proto.fromJSON(json);
- * 
- * PacketHelper.sendRequest("SomeService.Cmd", proto.toBytes(), receiver);
- * 
- * 使用示例3 - 使用十六进制数据：
- * String hexData = "0801120568656C6C6F";
- * byte[] pbData = PacketHelper.hexToBytes(hexData);
- * PacketHelper.sendRequest("TestService.Cmd", pbData, receiver);
- * 
- * 使用示例4 - 自动判断服务名发送：
- * PacketHelper.sendRequest(null, pbData, receiver);
- * // 或使用便捷方法
- * PacketHelper.sendRequest(pbData, receiver);
- * 
- * 常用服务名：
- * - MessageSvc.PbSendMsg - 发送消息
- * - MessageSvc.PbGetMsg - 获取消息
- * - friendlist.getFriendGroupList - 获取好友列表
- * - troop_member_card.get_group_member_card - 获取群成员卡片
- * 
- * 注意事项：
- * - 所有网络操作都是异步的，回调在IO线程执行
- * - 回调中操作UI需要切换到主线程
- * - 服务名需要与QQ协议匹配，否则无法收到响应
- * - 部分服务需要特定的权限或登录状态
- */
 public class PacketHelper {
-    
-    /**
-     * GZIP压缩数据
-     * 
-     * 将字节数组使用GZIP算法进行压缩，用于减少网络传输数据量。
-     * QQ协议中部分大数据包会使用GZIP压缩。
-     * 
-     * 使用场景：
-     * - 发送大量文本消息
-     * - 传输图片、文件等二进制数据
-     * - 减少网络流量消耗
-     * 
-     * param data 要压缩的原始字节数组
-     * return 压缩后的字节数组
-     */
+
     public static byte[] compressGzip(byte[] data) throws Exception {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         GZIPOutputStream gos = new GZIPOutputStream(bos);
@@ -502,25 +219,7 @@ public class PacketHelper {
         gos.close();
         return bos.toByteArray();
     }
-    
-    /**
-     * 将字节数组转换为十六进制字符串
-     * 
-     * 将二进制数据转换为可读的十六进制格式，便于调试、日志记录和数据展示。
-     * 每个字节转换为两个十六进制字符（小写字母）。
-     * 
-     * 转换示例：
-     * 输入: [0x08, 0x01, 0x12, 0x05, 0x68, 0x65, 0x6C, 0x6C, 0x6F]
-     * 输出: "0801120568656c6c6f"
-     * 
-     * 使用场景：
-     * - 记录原始PB数据到日志
-     * - 在UI中显示二进制数据
-     * - 数据传输和存储
-     * 
-     * param bytes 要转换的字节数组
-     * return 十六进制字符串，输入为null时返回空字符串
-     */
+
     public static String bytesToHex(byte[] bytes) {
         if (bytes == null) return "";
         StringBuilder sb = new StringBuilder();
@@ -531,25 +230,7 @@ public class PacketHelper {
         }
         return sb.toString();
     }
-    
-    /**
-     * 将十六进制字符串转换为字节数组
-     * 
-     * 将十六进制格式的字符串还原为二进制数据。
-     * 输入字符串长度必须是偶数，每个字符对代表一个字节。
-     * 
-     * 转换示例：
-     * 输入: "0801120568656c6c6f"
-     * 输出: [0x08, 0x01, 0x12, 0x05, 0x68, 0x65, 0x6C, 0x6C, 0x6F]
-     * 
-     * 使用场景：
-     * - 从日志或配置中恢复PB数据
-     * - 解析用户输入的十六进制数据
-     * - 测试和调试
-     * 
-     * param hex 十六进制字符串（长度必须为偶数）
-     * return 转换后的字节数组
-     */
+
     public static byte[] hexToBytes(String hex) {
         if (hex == null || hex.isEmpty()) return new byte[0];
         int len = hex.length();
@@ -560,29 +241,7 @@ public class PacketHelper {
         }
         return data;
     }
-    
-    /**
-     * 将原始数据封装为QQ协议数据包格式
-     * 
-     * 在原始数据前添加4字节的大端序长度头，这是QQ协议的标准数据包格式。
-     * 长度头的值 = 原始数据长度 + 4（包含长度头自身）。
-     * 
-     * 数据包结构：
-     * +------------+------------------------+
-     * | 4字节长度  | 原始数据               |
-     * +------------+------------------------+
-     * | 00 00 00 N | D0 D1 D2 D3 ... D(n-1) |
-     * +------------+------------------------+
-     * 
-     * 示例：
-     * byte[] pbData = new byte[] {0x08, 0x01, 0x12, 0x05};
-     * byte[] packet = PacketHelper.packet(pbData);
-     * // packet = [0x00, 0x00, 0x00, 0x08, 0x08, 0x01, 0x12, 0x05]
-     * // 长度头 = 4 + 4 = 8
-     * 
-     * param data 原始数据字节数组
-     * return 封装后的数据包
-     */
+
     public static byte[] packet(byte[] data) throws Exception {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         DataOutputStream dos = new DataOutputStream(bos);
@@ -590,63 +249,31 @@ public class PacketHelper {
         dos.write(data);
         return bos.toByteArray();
     }
-    
-    /**
-     * 发送请求到QQ服务（自动判断服务名）
-     * 
-     * 当服务名为null或空时，会尝试根据数据内容自动判断目标服务。
-     * 默认使用MessageSvc.PbSendMsg。
-     * 
-     * param rawData PB格式的原始数据
-     * param receiver 响应接收器
-     */
+
     public static void sendRequest(byte[] rawData, IReceiver receiver) {
         sendRequest(null, rawData, receiver);
     }
-    
-    /**
-     * 发送请求到指定的QQ服务
-     * 
-     * 这是核心的发包方法，通过QQ的SSO通道发送Protobuf格式的数据到指定服务。
-     * 支持异步响应，结果通过IReceiver回调返回。
-     * 
-     * 执行流程：
-     * 1. 检查参数有效性
-     * 2. 如果服务名为空，尝试自动判断
-     * 3. 将原始数据封装为协议格式（添加长度头）
-     * 4. 创建ToServiceMsg，设置服务名和数据
-     * 5. 创建NewIntent，设置观察者回调
-     * 6. 通过QQAppInterface发送请求
-     * 
-     * 自动判断服务名规则：
-     * - 如果数据包含消息发送特征，使用MessageSvc.PbSendMsg
-     * - 默认使用MessageSvc.PbSendMsg作为后备
-     * 
-     * param serviceCmd 服务命令名，如"MessageSvc.PbSendMsg"，为null时自动判断
-     * param rawData PB格式的原始数据（不需要添加长度头，方法内部会自动处理）
-     * param receiver 响应接收器，用于接收服务器返回的数据
-     */
+
     public static void sendRequest(String serviceCmd, byte[] rawData, IReceiver receiver) {
         if (receiver == null) return;
         if (rawData == null || rawData.length == 0) {
             receiver.onReceive(null);
             return;
         }
-        
-        // 自动判断服务名
+
         String finalServiceCmd = serviceCmd;
         if (finalServiceCmd == null || finalServiceCmd.trim().isEmpty()) {
             finalServiceCmd = "MessageSvc.PbSendMsg";
         }
-        
+
         try {
             byte[] reqBytes = packet(rawData);
-            
+
             NewIntent intent = new NewIntent((android.content.Context) context, SSOEasyServlet.class);
-            
+
             ToServiceMsg toServiceMsg = new ToServiceMsg("mobileqq.service", myUin, finalServiceCmd);
             toServiceMsg.wupBuffer = reqBytes;
-            
+
             intent.setObserver((type, isSuccess, bundle) -> {
                 if (isSuccess && bundle != null) {
                     FromServiceMsg fromMsg = bundle.getParcelable("FromServiceMsg");
@@ -660,31 +287,22 @@ public class PacketHelper {
                     receiver.onReceive(null);
                 }
             });
-            
+
             intent.putExtra("ToServiceMsg", toServiceMsg);
             QQCurrentEnv.INSTANCE.getQQAppInterface().startServlet(intent);
-            
+
         } catch (Exception e) {
             traceLog("packet_error.log", "发送请求失败: " + e.getMessage());
             receiver.onReceive(null);
         }
     }
-    
-    /**
-     * 记录收到的PB数据到日志
-     * 
-     * 将服务器返回的PB数据解析并记录到日志文件，便于调试和分析协议。
-     * 日志包含时间戳、服务名、原始十六进制数据和解析后的JSON格式。
-     * 
-     * param serviceCmd 服务命令名
-     * param data PB数据
-     */
+
     private static void logReceivedPB(String serviceCmd, byte[] data) {
         try {
             FunProtoData proto = new FunProtoData();
             proto.fromBytes(data);
             JSONObject json = proto.toJSON();
-            
+
             StringBuilder logContent = new StringBuilder();
             logContent.append("\n========== 收到PB响应 ==========\n");
             logContent.append("时间: ").append(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
@@ -694,37 +312,16 @@ public class PacketHelper {
             logContent.append("原始HEX: ").append(bytesToHex(data)).append("\n");
             logContent.append("解析JSON:\n").append(json.toString(2)).append("\n");
             logContent.append("================================\n");
-            
+
             traceLog("pb_received.log", logContent.toString());
-            
+
         } catch (Exception e) {
-            traceLog("pb_received.log", "解析PB数据失败: " + e.getMessage() + 
+            traceLog("pb_received.log", "解析PB数据失败: " + e.getMessage() +
                 "\n原始HEX: " + bytesToHex(data));
         }
     }
 }
 
-/**
- * 显示PB发包工具弹窗
- * 
- * 这是PB发包工具的主入口方法，创建并显示一个完整的发包界面。
- * 用户可以在界面中输入服务名和PB数据，然后发送到QQ服务器。
- * 
- * 界面组成：
- * - 服务名输入框（默认提示：MessageSvc.PbSendMsg）
- * - PB数据输入框（JSON格式）
- * - 模板管理按钮（保存/使用/预览）
- * - 发送和取消按钮
- * 
- * 使用方法：
- * 在菜单回调中调用：
- * void onSendPBClick(int chatType, String peerUin, String name) {
- *     showPBSenderDialog();
- * }
- * 
- * 或者添加菜单项：
- * addItem("PB发包工具", "showPBSenderDialog");
- */
 void showPBSenderDialog() {
     Activity act = getNowActivity();
     if (act == null) return;
@@ -2219,4 +1816,317 @@ void setMsgEssence(Object data, boolean isEssence) {
     } catch (Exception e) {
         qqToast(1, (isEssence ? "设置" : "取消") + "精华异常: " + e.getMessage());
     }
+}
+
+void sendSuperFacePB(Object data, String faceName) {
+    try {
+        Object pic = null;
+        for (Object el : data.data.elements) {
+            if (el.picElement != null) {
+                pic = el.picElement;
+                break;
+            }
+        }
+        if (pic == null) return;
+
+        String md5 = pic.md5HexStr;
+        String fileName = pic.fileName;
+        String uuid = pic.fileUuid;
+        int width = pic.picWidth;
+        int height = pic.picHeight;
+
+        String rkey;
+        if (data.type == 2) {
+            rkey = getGroupRKey();
+        } else {
+            rkey = getFriendRKey();
+        }
+        if (rkey == null || rkey.isEmpty()) return;
+
+        long peerUin = Long.parseLong(data.peerUin);
+        long selfUin = Long.parseLong(myUin);
+        String selfUid = getUidFromUin(myUin);
+        if (selfUid == null) selfUid = "";
+
+        JSONArray elements = new JSONArray();
+
+        JSONObject elem37 = new JSONObject();
+        elem37.put("1", 19);
+        elem37.put("6", 2);
+        elem37.put("7", "aQoAJ330Au8x79xu3tAI4Ntf0clrbrn66Fux3TbeiYZp6YAiHKgGu+VjtVuHsKjA");
+        elem37.put("12", 1);
+        elem37.put("16", 0);
+        elem37.put("17", 161824);
+
+        JSONObject f19 = new JSONObject();
+        f19.put("1", 5);
+        JSONObject f65 = new JSONObject();
+        f65.put("1", 1);
+        f65.put("2", 20);
+        f19.put("65", f65);
+        f19.put("66", 33554560);
+        f19.put("34", 2000);
+        f19.put("4", 10315);
+        f19.put("71", 3);
+        f19.put("72", 0);
+        JSONObject f73 = new JSONObject();
+        f73.put("1", 45);
+        f73.put("2", 0);
+        f73.put("3", 113);
+        f73.put("6", 5);
+        f73.put("7", 2);
+        f19.put("73", f73);
+        f19.put("41", 0);
+        f19.put("107", 828);
+        f19.put("79", 131136);
+        f19.put("15", 161494);
+        f19.put("80", 37);
+        f19.put("81", 16);
+        f19.put("51", 339);
+        f19.put("116", -444136893304753334L);
+        f19.put("52", 8);
+        f19.put("54", 1);
+        f19.put("55", 1);
+        f19.put("56", 0);
+        f19.put("25", 0);
+        JSONObject f90 = new JSONObject();
+        JSONArray f90Arr = new JSONArray();
+        JSONObject f90Item = new JSONObject();
+        f90Item.put("1", selfUin);
+        f90Item.put("2", selfUid);
+        f90Arr.put(f90Item);
+        f90.put("3", f90Arr);
+        f19.put("90", f90);
+        f19.put("58", 0);
+        f19.put("30", 0);
+        f19.put("31", 0);
+        elem37.put("19", f19);
+        elements.put(elem37);
+
+        JSONObject elem9 = new JSONObject();
+        elem9.put("1", 2141485);
+        elements.put(elem9);
+
+        JSONObject elem53 = new JSONObject();
+        elem53.put("1", 48);
+        elem53.put("3", 20);
+        JSONObject sub53 = new JSONObject();
+        JSONObject sub53_1 = new JSONObject();
+        JSONObject sub53_1_1 = new JSONObject();
+
+        JSONObject imgAttr = new JSONObject();
+        imgAttr.put("1", 1956563);
+        imgAttr.put("2", md5);
+        imgAttr.put("3", "11314e9ab6d9233bb5a78fc4e6b22a728f817b1c");
+        imgAttr.put("4", fileName);
+        JSONObject reso = new JSONObject();
+        reso.put("1", 1);
+        reso.put("2", 2000);
+        imgAttr.put("5", reso);
+        imgAttr.put("6", width);
+        imgAttr.put("7", height);
+        imgAttr.put("8", 0);
+        imgAttr.put("9", 0);
+        sub53_1_1.put("1", imgAttr);
+        sub53_1_1.put("2", rkey);
+        sub53_1_1.put("3", 1);
+        sub53_1_1.put("4", System.currentTimeMillis() / 1000 + 86400);
+        sub53_1_1.put("5", 2678400);
+        sub53_1_1.put("6", 0);
+        sub53_1.put("1", sub53_1_1);
+
+        JSONObject urlInfo = new JSONObject();
+        urlInfo.put("1", "/download?appid=1407&fileid=" + uuid);
+        JSONObject urlSpec = new JSONObject();
+        urlSpec.put("1", "&spec=0");
+        urlSpec.put("2", "&spec=720");
+        urlSpec.put("3", "&spec=198");
+        urlInfo.put("2", urlSpec);
+        urlInfo.put("3", "multimedia.nt.qq.com.cn");
+        sub53_1.put("2", urlInfo);
+        sub53_1.put("5", 0);
+        JSONObject hexData = new JSONObject();
+        hexData.put("2", "hex->E6417C37C58CD6208F835F631E931730EE1A596C");
+        sub53_1.put("6", hexData);
+        sub53.put("1", sub53_1);
+
+        JSONObject sub53_2 = new JSONObject();
+        JSONObject textElem = new JSONObject();
+        textElem.put("1", 0);
+        textElem.put("2", "[" + faceName + "]");
+        textElem.put("1001", 2);
+        textElem.put("1002", 2);
+        textElem.put("1003", 3712448771L);
+        JSONObject inner12 = new JSONObject();
+        inner12.put("1", 1);
+        inner12.put("34", 0);
+        inner12.put("18", new JSONObject());
+        inner12.put("19", new JSONObject());
+        inner12.put("3", 0);
+        inner12.put("4", 0);
+        JSONObject inner21 = new JSONObject();
+        inner21.put("1", 6740);
+        inner21.put("2", faceName);
+        inner21.put("3", 1);
+        inner21.put("4", 100);
+        inner21.put("5", 0);
+        inner21.put("7", new JSONObject());
+        inner12.put("21", inner21);
+        inner12.put("9", "[" + faceName + "]");
+        inner12.put("10", 0);
+        inner12.put("12", new JSONObject());
+        inner12.put("30", "&rkey=" + rkey);
+        inner12.put("31", new JSONObject());
+        textElem.put("12", inner12);
+        sub53_2.put("1", textElem);
+        sub53_2.put("2", new JSONObject().put("3", new JSONObject()));
+        sub53_2.put("3", new JSONObject().put("11", new JSONObject()).put("12", new JSONObject()));
+        sub53_2.put("10", 0);
+        sub53.put("2", sub53_2);
+        elem53.put("2", sub53);
+        elements.put(elem53);
+
+        JSONObject elem16 = new JSONObject();
+        elem16.put("1", "x");
+        elem16.put("3", 1);
+        elem16.put("4", 8);
+        elem16.put("7", new JSONObject());
+        elements.put(elem16);
+
+        JSONObject routing = new JSONObject();
+        if (data.type == 2) {
+            JSONObject grp = new JSONObject();
+            grp.put("1", peerUin);
+            routing.put("2", grp);
+        } else {
+            JSONObject c2c = new JSONObject();
+            c2c.put("2", String.valueOf(peerUin));
+            routing.put("1", c2c);
+        }
+
+        JSONObject field2 = new JSONObject();
+        field2.put("1", 1);
+        field2.put("2", 0);
+        field2.put("3", 0);
+
+        JSONObject body = new JSONObject();
+        JSONObject inner1 = new JSONObject();
+        inner1.put("2", elements);
+        body.put("1", inner1);
+
+        JSONObject pb = new JSONObject();
+        pb.put("1", routing);
+        pb.put("2", field2);
+        pb.put("3", body);
+        pb.put("4", (int) (Math.random() * 1000000));
+        pb.put("5", (int) (Math.random() * 1000000));
+
+        FunProtoData proto = new FunProtoData();
+        proto.fromJSON(pb);
+        PacketHelper.sendRequest("MessageSvc.PbSendMsg", proto.toBytes(), res -> {});
+    } catch (Exception e) {}
+}
+void showSuperFaceSendDialog(Object data) {
+    Activity act = getNowActivity();
+    String savedFaceName = getString("config", "super_face_display_name", "");
+    act?.runOnUiThread(new Runnable() {
+        public void run() {
+            try {
+                boolean isDark = isThemeDark(act);
+                int textColor = isDark ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT;
+                int subTextColor = isDark ? UI_COLOR_SUBTEXT_DARK : UI_COLOR_SUBTEXT_LIGHT;
+                int accentColor = isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT;
+                int inputBgColor = isDark ? UI_COLOR_INPUT_BG_DARK : UI_COLOR_INPUT_BG_LIGHT;
+                int borderColor = adjustAlpha(textColor, 0.3f);
+
+                LinearLayout root = new LinearLayout(act);
+                root.setOrientation(LinearLayout.VERTICAL);
+                root.setPadding(dp(act, 16), dp(act, 20), dp(act, 16), dp(act, 16));
+
+                TextView title = new TextView(act);
+                title.setText("图片转超级QQ秀");
+                title.setTextSize(18);
+                title.setTextColor(textColor);
+                title.setPadding(0, 0, 0, dp(act, 12));
+                root.addView(title);
+
+                TextView hint = new TextView(act);
+                hint.setText("外显");
+                hint.setTextSize(13);
+                hint.setTextColor(subTextColor);
+                hint.setPadding(0, 0, 0, dp(act, 8));
+                root.addView(hint);
+
+                final EditText input = new EditText(act);
+                input.setHint("例如：嘿壳 若未输入则默认使用嘿壳");
+                input.setHintTextColor(subTextColor);
+                input.setTextColor(textColor);
+                input.setTextSize(14);
+                input.setPadding(dp(act, 12), dp(act, 8), dp(act, 12), dp(act, 8));
+                input.setText(savedFaceName);
+                input.setSingleLine(false);
+                input.setMinLines(2);
+                GradientDrawable inputBg = new GradientDrawable();
+                inputBg.setCornerRadius(dp(act, 6));
+                inputBg.setColor(inputBgColor);
+                inputBg.setStroke(dp(act, 1), borderColor);
+                input.setBackground(inputBg);
+                root.addView(input);
+
+                LinearLayout btnBox = new LinearLayout(act);
+                btnBox.setOrientation(LinearLayout.HORIZONTAL);
+                btnBox.setPadding(0, dp(act, 24), 0, 0);
+                btnBox.setGravity(Gravity.RIGHT);
+
+                TextView cancel = new TextView(act);
+                cancel.setText("取消");
+                cancel.setTextSize(14);
+                cancel.setTextColor(subTextColor);
+                cancel.setPadding(dp(act, 16), dp(act, 10), dp(act, 16), dp(act, 10));
+                cancel.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) {
+                        if (ref[0] != null) ref[0].dismiss();
+                    }
+                });
+
+                final TextView send = new TextView(act);
+                send.setText("发送");
+                send.setTextSize(14);
+                send.setTextColor(accentColor);
+                send.setPadding(dp(act, 16), dp(act, 10), dp(act, 16), dp(act, 10));
+
+                btnBox.addView(cancel);
+                btnBox.addView(send);
+                root.addView(btnBox);
+
+                send.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) {
+                        String faceName = input.getText().toString().trim();
+                        if (faceName.isEmpty()) {
+                        faceName = "嘿壳";
+                        } else {
+                        putString("config", "super_face_display_name", faceName);
+                        }
+                        ref[0]?.dismiss();
+                        ThreadPool.execute(new Runnable() {
+                            public void run() {
+                                sendSuperFacePB(data, faceName);
+                            }
+                        });
+                        qqToast(2, "正在发送超级QQ秀…");
+                    }
+                });
+
+                AlertDialog.Builder builder = new AlertDialog.Builder(act,
+                        isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
+                builder.setView(root);
+                final AlertDialog[] ref = new AlertDialog[1];
+                ref[0] = builder?.create();
+                ref[0]?.show();
+                applyUiTheme(act, ref[0]);
+            } catch (Throwable e) {
+                qqToast(1, "弹窗显示失败");
+            }
+        }
+    });
 }
