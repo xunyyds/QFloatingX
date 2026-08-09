@@ -63,6 +63,12 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.PowerManager;
 import android.os.SystemClock;
+import android.app.*;
+import android.content.*;
+import android.media.*;
+import android.os.*;
+import android.text.*;
+import android.text.method.*;
 
 String rootPath        = pluginPath + "/API/";
 String htmlPath        = pluginPath + "/HTML/";
@@ -408,8 +414,6 @@ void Hook生命周期() {
         }
 
         initStats();
-        DoubleclickMsg();
-
         Hook已调用 = true;
 
     } catch (Exception e) {
@@ -427,9 +431,9 @@ void 后台初始化() {
         addItem("设置页面", "openSetting");
         traceLog("main_log", "add项添加完成");
         开模拟定位();
-        if (getBoolean("settings", "后台保活", false)) {
-        KeepAlive.start();
-        }
+        // if (getBoolean("settings", "后台保活", false)) {
+        // KeepAlive.start();
+        // }
         非UI初始化完成 = true;
 
     } catch (Exception e) {
