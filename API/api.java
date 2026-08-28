@@ -2619,7 +2619,7 @@ void showUpdateDialog(final String version, final String versionType, final Stri
     });
 }
 
-/**
+/**？
  * 执行更新检查流程，解析 up.json 并比对版本号
  */
 void checkQFXUpdate() {
