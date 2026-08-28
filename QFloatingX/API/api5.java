@@ -13,23 +13,8 @@ private final HashMap picimageCache = new HashMap();
 /** 原始特殊文本集合 (用于精准渲染 @ 和表情) */
 private final HashSet validSpecialTexts = new HashSet();
 
-/** 全局 Hook 注册表，用于一键卸载 */
-private final List HOOK_REGISTRY = new ArrayList();
-
 /** 滑动菜单状态池 [0:Popup, 1:Slider, 2:Centers, 4:TextViews, 5:BaseInfo, 7:UpdateRunnable, 8:Root] */
 private final Object[] WHEEL_STATE = new Object[10];
-
-/** 双击检测变量：上次点击时间 */
-private volatile long lastClickTime = 0L;
-
-/** 双击检测变量：双击时间阈值 (ms) */
-private static final long DOUBLE_CLICK_THRESHOLD = 300L;
-
-/** 双击检测变量：单击延迟执行时间 (ms) */
-private static final long SINGLE_CLICK_DELAY = 350L;
-
-/** 双击监听器引用，用于卸载 */
-private AIOViewUpdateListener doubleClickListener = null;
 
 /**
  * 获取完整图片链接 (拼接域名和 RKey)
@@ -57,6 +42,13 @@ interface MsgLoadedCallback {
     void onLoaded(MsgData msgData);
 }
 
+import com.tencent.qqnt.kernel.api.ab;
+public void setMsgUnread(String targetUin) {
+    int chatType = isFriend(targetUin) ? 2 : 1;
+    String uid = chatType == 1 ? getUidFromUin(targetUin) : targetUin;
+    Contact contact = new Contact(chatType, uid, "");
+    QRoute.api(ab.class).setMarkUnreadFlag(contact, true);
+}
 /**
  * 通过 Kernel 异步获取完整消息记录
  *
@@ -1081,13 +1073,8 @@ void showActionDialog(final Activity activity, final MsgData msgData, final View
         public void run() {
             dialog.dismiss();
             
-            /**
-             * 原功能回放逻辑
-             * 优先级: Intent > View.performClick()
-             */
             isReplayingClick = true;
             try {
-                /** 方式1: 如果有原始Intent，直接启动 */
                 if (originalIntent != null) {
                     try {
                         originalIntent.putExtra(KEY_HANDLED, true);
@@ -1097,17 +1084,14 @@ void showActionDialog(final Activity activity, final MsgData msgData, final View
                         traceLog("dblclick_log", "原功能Intent启动异常: " + e.getMessage());
                     }
                 }
-                /** 方式2: 如果没有Intent，尝试View点击 */
                 if (originalIntent == null && targetView != null) {
                     boolean clicked = false;
                     
-                    /** 尝试 callOnClick */
                     try {
                         clicked = targetView.callOnClick();
                         traceLog("dblclick_log", "原功能 callOnClick: " + clicked);
                     } catch (Exception e) {}
                     
-                    /** 尝试 performClick */
                     if (!clicked) {
                         try {
                             clicked = targetView.performClick();
@@ -1115,7 +1099,6 @@ void showActionDialog(final Activity activity, final MsgData msgData, final View
                         } catch (Exception e) {}
                     }
                     
-                    /** 尝试子视图点击 */
                     if (!clicked && targetView instanceof ViewGroup) {
                         ViewGroup vg = (ViewGroup) targetView;
                         for (int i = 0; i < vg.getChildCount(); i++) {
@@ -1241,9 +1224,7 @@ void showBigCountConfirm(Activity activity, final MsgData data, final String tex
 /**
  * 多次复读/发送配置弹窗
  * <p>
- * 支持设置发送次数和消息间隔（毫秒），间隔通过 postDelayed 递归实现，
- * 不阻塞线程。弹窗样式自适应系统深色/浅色主题（使用 api.txt 全局颜色变量）
- * 输入框背景使用 uitools.txt 的 createInputBg() 实现焦点高亮。
+ * 支持设置发送次数和消息间隔（毫秒），间隔通过 postDelayed 递归实现
  * </p>
  *
  * @param activity     Activity上下文
@@ -1264,7 +1245,6 @@ void showRepeatCountDialog(final Activity activity, final MsgData data, final St
     root.setOrientation(LinearLayout.VERTICAL);
     root.setPadding(dp(activity, 20), dp(activity, 20), dp(activity, 20), dp(activity, 8));
 
-    /** ── 标题 ── */
     TextView title = new TextView(activity);
     title.setText(currentText != null ? "多次发送" : "多次复读");
     title.setTextSize(17);
@@ -1273,7 +1253,6 @@ void showRepeatCountDialog(final Activity activity, final MsgData data, final St
     title.setPadding(0, 0, 0, dp(activity, 16));
     root.addView(title);
 
-    /** ── 次数输入 ── */
     TextView countLabel = new TextView(activity);
     countLabel.setText("发送次数");
     countLabel.setTextSize(13);
@@ -1293,7 +1272,6 @@ void showRepeatCountDialog(final Activity activity, final MsgData data, final St
     countInput.setBackground(createInputBg(activity, inputBgColor, strokeColor, accentColor));
     root.addView(countInput, new LinearLayout.LayoutParams(-1, -2));
 
-    /** ── 次数提示 ── */
     TextView countTip = new TextView(activity);
     countTip.setText("次数过多可能会造成刷屏");
     countTip.setTextSize(11);
@@ -1301,7 +1279,6 @@ void showRepeatCountDialog(final Activity activity, final MsgData data, final St
     countTip.setPadding(dp(activity, 2), dp(activity, 4), 0, dp(activity, 14));
     root.addView(countTip);
 
-    /** ── 间隔输入 ── */
     TextView delayLabel = new TextView(activity);
     delayLabel.setText("发送间隔（毫秒）");
     delayLabel.setTextSize(13);
@@ -1321,7 +1298,6 @@ void showRepeatCountDialog(final Activity activity, final MsgData data, final St
     delayInput.setBackground(createInputBg(activity, inputBgColor, strokeColor, accentColor));
     root.addView(delayInput, new LinearLayout.LayoutParams(-1, -2));
 
-    /** ── 间隔提示 ── */
     TextView delayTip = new TextView(activity);
     delayTip.setText("每条消息之间的等待时间，填 0 无间隔\n"
             + "间隔过短可能触发风控，建议 ≥ 300ms");
@@ -1330,7 +1306,6 @@ void showRepeatCountDialog(final Activity activity, final MsgData data, final St
     delayTip.setPadding(dp(activity, 2), dp(activity, 4), 0, dp(activity, 6));
     root.addView(delayTip);
 
-    /** ── 按钮行 ── */
     LinearLayout btnRow = new LinearLayout(activity);
     btnRow.setOrientation(LinearLayout.HORIZONTAL);
     btnRow.setGravity(Gravity.RIGHT);
@@ -1396,7 +1371,6 @@ void showRepeatCountDialog(final Activity activity, final MsgData data, final St
             }
 
             if (count > 10) {
-                /** 高频二次确认 */
                 if (ref[0] != null) ref[0].dismiss();
                 showBigCountConfirm(activity, data, currentText, count, delayMs, null);
             } else {
@@ -1420,274 +1394,9 @@ void showRepeatCountDialog(final Activity activity, final MsgData data, final St
     applyUiTheme(activity, ref[0]);
 }
 
-/**
- * 执行原功能回放（延迟执行单击操作）
- * 参考复读功能的 performRepeat 实现
- *
- * @param layout     消息布局视图
- * @param msgRecord  消息记录对象
- */
-void performOriginalClick(final View layout, final MsgRecord msgRecord) {
-    traceLog("dblclick_log", "执行原功能回放: msgId=" + msgRecord.msgId);
-    isReplayingClick = true;
+void initdoublemsg() {
     try {
-        /**
-         * 尝试多种方式触发原点击事件
-         * 1. callOnClick() - 直接调用 OnClickListener
-         * 2. performClick() - 模拟点击事件
-         */
-        boolean clicked = false;
-        
-        /** 方式1: callOnClick 直接调用 OnClickListener */
-        try {
-            clicked = layout.callOnClick();
-            traceLog("dblclick_log", "callOnClick 结果: " + clicked);
-        } catch (Exception e) {
-            traceLog("dblclick_log", "callOnClick 异常: " + e.getMessage());
-        }
-        
-        /** 方式2: 如果 callOnClick 失败，尝试 performClick */
-        if (!clicked) {
-            try {
-                clicked = layout.performClick();
-                traceLog("dblclick_log", "performClick 结果: " + clicked);
-            } catch (Exception e) {
-                traceLog("dblclick_log", "performClick 异常: " + e.getMessage());
-            }
-        }
-        
-        /** 方式3: 尝试触发子视图的点击 */
-        if (!clicked && layout instanceof ViewGroup) {
-            ViewGroup vg = (ViewGroup) layout;
-            for (int i = 0; i < vg.getChildCount(); i++) {
-                View child = vg.getChildAt(i);
-                if (child != null && child.isClickable()) {
-                    try {
-                        child.performClick();
-                        traceLog("dblclick_log", "子视图 performClick 成功");
-                        clicked = true;
-                        break;
-                    } catch (Exception e) {}
-                }
-            }
-        }
-        
-        traceLog("dblclick_log", "原功能回放完成: " + (clicked ? "成功" : "失败"));
-    } catch (Exception e) {
-        traceLog("dblclick_log", "原功能回放异常: " + e.getMessage());
-    } finally {
-        uiHandler.postDelayed(new Runnable() {
-            public void run() { isReplayingClick = false; }
-        }, 500);
-    }
-}
-
-/**
- * 处理消息项双击事件（弹出功能弹窗）
- * 参考复读功能的 performRepeat 实现
- *
- * @param layout     消息布局视图
- * @param msgRecord  消息记录对象
- */
-void performDoubleClick(final View layout, final MsgRecord msgRecord) {
-    traceLog("dblclick_log", "双击触发: msgId=" + msgRecord.msgId);
-    if (isDialogShowing) {
-        traceLog("dblclick_log", "弹窗已显示，跳过");
-        return;
-    }
-    isDialogShowing = true;
-    Activity act = getNowActivity();
-    if (act != null) {
-        try {
-            final MsgData msgData = new MsgData(msgRecord);
-            showActionDialog(act, msgData, layout, null);
-        } catch (Throwable e) {
-            isDialogShowing = false;
-            traceLog("dblclick_log", "MsgData构造失败: " + e.getMessage());
-        }
-    } else {
-        isDialogShowing = false;
-        qqToast(1, "未找到当前Activity");
-    }
-}
-
-/**
- * 初始化双击监听器（注册到OnAIOViewUpdate）
- * 参考复读功能的实现方式，完全拦截消息视图的点击事件
- */
-void initDoubleClickListener() {
-    if (doubleClickListener != null) {
-        traceLog("dblclick_log", "双击监听器已存在，跳过初始化");
-        return;
-    }
-    doubleClickListener = new AIOViewUpdateListener() {
-        public void onUpdate(View layout, MsgRecord msgRecord) {
-            try {
-                if (layout == null || msgRecord == null) return;
-                
-                /**
-                 * 向上遍历视图层级，找到覆盖完整消息气泡的可点击根视图
-                 * onUpdate 回调的 layout 仅为消息内容区域，气泡原始点击监听器
-                 * 挂载在某个父 ViewGroup 上，触摸监听必须设置在那里才能完整拦截
-                 */
-                View bubbleView = layout;
-                ViewParent cursor = layout.getParent();
-                while (cursor instanceof ViewGroup) {
-                    ViewGroup parentVg = (ViewGroup) cursor;
-                    String parentName = parentVg.getClass().getSimpleName();
-                    /** 到达列表容器即停止，不再向上 */
-                    if (parentName.contains("RecyclerView") ||
-                        parentName.contains("ListView") ||
-                        parentName.contains("ScrollView")) {
-                        break;
-                    }
-                    /**
-                     * 找到气泡容器：
-                     * 根据布局分析，QQ 消息气泡容器（@+id/ona）为
-                     * longClickable=true / clickable=false，
-                     * 因此必须同时检测 isLongClickable()
-                     */
-                    if (parentVg.isClickable() || parentVg.isLongClickable() || parentVg.hasOnClickListeners()) {
-                        bubbleView = parentVg;
-                        break;
-                    }
-                    cursor = parentVg.getParent();
-                }
-                
-                /** 使用字面量.equals() 规避父视图 tag 非 String 时的 ClassCastException */
-                if ("dblclick_hooked".equals(bubbleView.getTag())) {
-                    return;
-                }
-                bubbleView.setTag("dblclick_hooked");
-                traceLog("dblclick_log", "绑定双击监听: msgId=" + msgRecord.msgId);
-                
-                final View finalBubble = bubbleView;
-                
-                /**
-                 * 完全拦截消息气泡的触摸事件
-                 * 所有事件都返回 true，阻止事件继续向下传递
-                 */
-                finalBubble.setOnTouchListener(new View.OnTouchListener() {
-                    private long downTime = 0L;
-                    private float downX = 0f;
-                    private float downY = 0f;
-                    private boolean isMoved = false;
-                    
-                    public boolean onTouch(View v, MotionEvent event) {
-                        int action = event.getActionMasked();
-                        
-                        switch (action) {
-                            case MotionEvent.ACTION_DOWN:
-                                downTime = System.currentTimeMillis();
-                                downX = event.getRawX();
-                                downY = event.getRawY();
-                                isMoved = false;
-                                traceLog("dblclick_log", "ACTION_DOWN: msgId=" + msgRecord.msgId);
-                                return true;
-                                
-                            case MotionEvent.ACTION_MOVE:
-                                float dx = Math.abs(event.getRawX() - downX);
-                                float dy = Math.abs(event.getRawY() - downY);
-                                if (dx > 20 || dy > 20) {
-                                    isMoved = true;
-                                    traceLog("dblclick_log", "检测到滑动，取消点击检测");
-                                }
-                                return true;
-                                
-                            case MotionEvent.ACTION_UP:
-                                if (isMoved) {
-                                    traceLog("dblclick_log", "滑动事件，忽略");
-                                    return true;
-                                }
-                                
-                                long now = System.currentTimeMillis();
-                                long clickDuration = now - downTime;
-                                
-                                /**
-                                 * 过滤长按和误触
-                                 */
-                                if (clickDuration > 500 || clickDuration < 50) {
-                                    traceLog("dblclick_log", "长按或误触，忽略: duration=" + clickDuration);
-                                    return true;
-                                }
-                                
-                                /**
-                                 * 双击检测逻辑
-                                 */
-                                long timeDiff = now - lastClickTime;
-                                traceLog("dblclick_log", "ACTION_UP: timeDiff=" + timeDiff + "ms");
-                                
-                                if (timeDiff < DOUBLE_CLICK_THRESHOLD) {
-                                    /**
-                                     * 双击检测成功 -> 弹出自定义弹窗
-                                     */
-                                    lastClickTime = 0L;
-                                    performDoubleClick(finalBubble, msgRecord);
-                                } else {
-                                    /**
-                                     * 单击 -> 延迟后执行原功能回放
-                                     * 如果在延迟期间发生双击，则取消原功能回放
-                                     */
-                                    lastClickTime = now;
-                                    uiHandler.postDelayed(new Runnable() {
-                                        public void run() {
-                                            /**
-                                             * 检查是否在延迟期间发生了双击
-                                             * 如果 lastClickTime 被重置为 0，说明发生了双击，不执行原功能
-                                             */
-                                            if (lastClickTime != 0L) {
-                                                performOriginalClick(finalBubble, msgRecord);
-                                            }
-                                        }
-                                    }, SINGLE_CLICK_DELAY);
-                                }
-                                return true;
-                                
-                            case MotionEvent.ACTION_CANCEL:
-                                traceLog("dblclick_log", "ACTION_CANCEL");
-                                return true;
-                                
-                            default:
-                                return true;
-                        }
-                    }
-                });
-            } catch (Throwable e) {
-                traceLog("dblclick_log", "双击监听异常: " + e.getMessage());
-            }
-        }
-    };
-    OnAIOViewUpdate.INSTANCE.addListener(doubleClickListener);
-    traceLog("dblclick_log", "双击监听器已注册");
-}
-
-/**
- * 卸载所有已注册的Hook
- */
-void uninstallQFunHooks() {
-    if (HOOK_REGISTRY.isEmpty() && doubleClickListener == null) return;
-    for (int i = 0; i < HOOK_REGISTRY.size(); i++) {
-        try {
-            ((XC_MethodHook.Unhook) HOOK_REGISTRY.get(i)).unhook();
-        } catch (Exception e) {}
-    }
-    if (doubleClickListener != null) {
-        OnAIOViewUpdate.INSTANCE.removeListener(doubleClickListener);
-        doubleClickListener = null;
-        traceLog("dblclick_log", "双击监听器已移除");
-    }
-    HOOK_REGISTRY.clear();
-    traceLog("main_log","Hook 已卸载");
-}
-
-/**
- * 安装QFun Hook拦截器
- */
-void installQFunHooks() {
-    uninstallQFunHooks();
-    initDoubleClickListener();
-    try {
-        XC_MethodHook.Unhook h1 = XposedBridge.hookMethod(
+        Object h1 = XposedBridge.hookMethod(
             Instrumentation.class.getDeclaredMethod("execStartActivity", Context.class, IBinder.class, IBinder.class, Activity.class, Intent.class, int.class, Bundle.class),
             new XC_MethodHook() {
                 protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) {
@@ -1747,10 +1456,12 @@ void installQFunHooks() {
                 }
             }
         );
-        HOOK_REGISTRY.add(h1);
+        hookloveList.add(h1);
 
     } catch (Throwable t) {
         traceLog("main_log","安装失败: " + t.getMessage());
         Toast("Hook加载失败: " + t.getMessage());
     }
 }
+
+initdoublemsg();
