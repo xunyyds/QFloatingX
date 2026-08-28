@@ -1409,6 +1409,7 @@ void initdoublemsg() {
     try {
         hookloveList.add(XposedBridge.hookMethod(execStartActivity, new XC_MethodHook() {
             protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) {
+                if (!getBoolean("settings", "双击消息开关", true)) return;
                 if (isReplayingClick) return;
                 Object[] args = param.args;
                 if (args == null) return;
