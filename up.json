@@ -1,18 +1,12 @@
 {
-  "version": "2.3.8",
-  "versionType": "正式版",
+  "version": "2.3.9.1",
+  "versionType": "测试版",
   "updateType": "补丁",
-  "updateTime": "2026-04-25 17:25:00",
-  "changelog": "- 优化保活 拦截一切可能导致宿主死亡的操作\n- 常驻通知分离 单独添加了一个开关\n- 优化md解析 使用QQ自带组件库",
+  "updateTime": "2026-08-28 13:42:09",
+  "changelog": "- 修复安卓16以下可能造成的数组越界问题",
   "files": [
-    "QFloatingX\/API\/Dialog.java",
-    "QFloatingX\/API\/setwindow.java",
-    "QFloatingX\/API\/KeepAlive.java",
-    "QFloatingX\/API\/api2.java",
-    "QFloatingX\/API\/api6.java",
-    "QFloatingX\/API\/import.java",
-    "QFloatingX\/main.java",
-    "QFloatingX\/更新日志.txt",
-    "QFloatingX\/info.prop"
+    "QFloatingX\/API\/api5.java",
+    "QFloatingX\/info.prop",
+    "QFloatingX\/更新日志.txt"
   ]
 }
