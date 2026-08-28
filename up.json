@@ -1,9 +1,9 @@
 {
-  "version": "2.3.9",
-  "versionType": "正式版",
+  "version": "2.3.9.1",
+  "versionType": "测试版",
   "updateType": "补丁",
-  "updateTime": "2026-08-28 13:04:04",
-  "changelog": "- 修复双击消息hook失败的问题",
+  "updateTime": "2026-08-28 13:42:09",
+  "changelog": "- 修复安卓16以下可能造成的数组越界问题",
   "files": [
     "QFloatingX\/API\/api5.java",
     "QFloatingX\/info.prop",
