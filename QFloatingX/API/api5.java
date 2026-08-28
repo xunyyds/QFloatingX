@@ -1395,71 +1395,70 @@ void showRepeatCountDialog(final Activity activity, final MsgData data, final St
 }
 
 void initdoublemsg() {
+    Class[] sig9 = new Class[]{Context.class, IBinder.class, IBinder.class, Activity.class, Intent.class, int.class, Bundle.class, int.class, int.class};
+    Class[] sig8 = new Class[]{Context.class, IBinder.class, IBinder.class, Activity.class, Intent.class, int.class, Bundle.class, int.class};
+    Class[] sig7 = new Class[]{Context.class, IBinder.class, IBinder.class, Activity.class, Intent.class, int.class, Bundle.class};
+    Method execStartActivity = getCachedMethod(Instrumentation.class, "execStartActivity", sig9);
+    if (execStartActivity == null) execStartActivity = getCachedMethod(Instrumentation.class, "execStartActivity", sig8);
+    if (execStartActivity == null) execStartActivity = getCachedMethod(Instrumentation.class, "execStartActivity", sig7);
+    if (execStartActivity == null) {
+        traceLog("main_log", "安装失败: execStartActivity方法未找到");
+        Toast("Hook加载失败: execStartActivity方法未找到");
+        return;
+    }
     try {
-        Object h1 = XposedBridge.hookMethod(
-            Instrumentation.class.getDeclaredMethod("execStartActivity", Context.class, IBinder.class, IBinder.class, Activity.class, Intent.class, int.class, Bundle.class),
-            new XC_MethodHook() {
-                protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) {
-                    try {
-                        if (isReplayingClick) return;
-
-                        final Intent intent = (Intent) param.args[4];
-                        if (intent == null || intent.getBooleanExtra(KEY_HANDLED, false)) return;
-
-                        String target = "";
-                        if (intent.getComponent() != null) target = intent.getComponent().getClassName();
-                        else if (intent.getAction() != null) target = intent.getAction();
-
-                        boolean isTarget = target.contains("TextPreviewActivity") ||
-                                           target.contains("QQGalleryActivity") ||
-                                           target.contains("PhotoPreviewActivity") ||
-                                           target.contains("AIOGalleryActivity") ||
-                                           target.contains("FileBrowserActivity");
-
-                        if (isTarget) {
-                            if (isDialogShowing) {
-                                param.setResult(null);
-                                return;
-                            }
-                            Bundle extras = intent.getExtras();
-                            if (extras != null) {
-                                long msgId = extras.getLong("realMsgId", 0);
-                                if (msgId == 0) msgId = extras.getLong("msgId", 0);
-                                if (msgId == 0) msgId = extras.getLong("uniseq", 0);
-                                int chatType = extras.getInt("nt_chat_type", 0);
-                                if (chatType == 0) chatType = extras.getInt("uintype", 0);
-
-                                String peerUid = extras.getString("key_bundle_nt_peeruid");
-                                if (peerUid == null) peerUid = extras.getString("peerUid", "");
-                                if (peerUid == null) peerUid = extras.getString("uin", "");
-                                if (msgId != 0 && peerUid != null && !peerUid.isEmpty()) {
-                                    traceLog("main_log","Intent拦截: MsgId=" + msgId);
-                                    param.setResult(null);
-                                    Activity act = (Activity) param.args[3];
-                                    if (act == null) act = QQCurrentEnv.INSTANCE.getActivity();
-                                    final Activity finalAct = act;
-                                    final Intent finalIntent = intent;
-                                    isDialogShowing = true;
-                                    fetchRealMsgRecord(msgId, chatType, peerUid, new MsgLoadedCallback() {
-                                        public void onLoaded(MsgData msgData) {
-                                            showActionDialog(finalAct, msgData, null, finalIntent);
-                                        }
-                                    });
-                                } else {
-                                    intent.putExtra(KEY_HANDLED, true);
-                                }
-                            }
-                        }
-                    } catch (Throwable t) {
-                        traceLog("main_log","Intent Hook异常: " + t.getMessage());
-                    }
+        hookloveList.add(XposedBridge.hookMethod(execStartActivity, new XC_MethodHook() {
+            protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) {
+                if (isReplayingClick) return;
+                Object[] args = param.args;
+                if (args == null) return;
+                Intent intent = null;
+                for (int j = 0; j < args.length; j++) {
+                    if (args[j] instanceof Intent) { intent = (Intent) args[j]; break; }
                 }
+                if (intent == null || intent.getBooleanExtra(KEY_HANDLED, false)) return;
+                String comp = "";
+                if (intent.getComponent() != null) comp = intent.getComponent().getClassName();
+                else if (intent.getAction() != null) comp = intent.getAction();
+                if (!comp.contains("TextPreviewActivity")
+                    && !comp.contains("QQGalleryActivity")
+                    && !comp.contains("PhotoPreviewActivity")
+                    && !comp.contains("AIOGalleryActivity")
+                    && !comp.contains("FileBrowserActivity")) return;
+                if (isDialogShowing) { param.setResult(null); return; }
+                Bundle extras = intent.getExtras();
+                if (extras == null) return;
+                long msgId = extras.getLong("realMsgId", 0);
+                if (msgId == 0) msgId = extras.getLong("msgId", 0);
+                if (msgId == 0) msgId = extras.getLong("uniseq", 0);
+                int chatType = extras.getInt("nt_chat_type", 0);
+                if (chatType == 0) chatType = extras.getInt("uintype", 0);
+                String peerUid = extras.getString("key_bundle_nt_peeruid");
+                if (peerUid == null) peerUid = extras.getString("peerUid", "");
+                if (peerUid == null) peerUid = extras.getString("uin", "");
+                if (msgId == 0 || peerUid == null || peerUid.isEmpty()) {
+                    intent.putExtra(KEY_HANDLED, true);
+                    return;
+                }
+                traceLog("main_log", "Intent拦截: MsgId=" + msgId);
+                param.setResult(null);
+                Activity act = null;
+                for (int j = 0; j < args.length; j++) {
+                    if (args[j] instanceof Activity) { act = (Activity) args[j]; break; }
+                }
+                if (act == null) act = QQCurrentEnv.INSTANCE.getActivity();
+                final Activity finalAct = act;
+                final Intent finalIntent = intent;
+                isDialogShowing = true;
+                fetchRealMsgRecord(msgId, chatType, peerUid, new MsgLoadedCallback() {
+                    public void onLoaded(MsgData msgData) {
+                        showActionDialog(finalAct, msgData, null, finalIntent);
+                    }
+                });
             }
-        );
-        hookloveList.add(h1);
-
+        }));
     } catch (Throwable t) {
-        traceLog("main_log","安装失败: " + t.getMessage());
+        traceLog("main_log", "安装失败: " + t.getMessage());
         Toast("Hook加载失败: " + t.getMessage());
     }
 }
