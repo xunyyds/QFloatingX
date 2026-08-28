@@ -690,6 +690,8 @@ public void onMsg(Object data) {
         log大小限制(logPath);
         } catch (Throwable e) { traceLog("function_log", "[onMsg]" + e); }
 
+    if (!getBoolean("settings", "消息统计开关", true)) return;
+
     synchronized(writeLock) {
         messageBatchQueue.add(data);
         writeLock.notifyAll();
