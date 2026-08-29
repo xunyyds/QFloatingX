@@ -1,29 +1,10 @@
-/**
- * 颜色选择回调接口
- */
 interface OnColorPickedListener {
-    /**
-     * 当用户选择颜色时回调
-     * @param color 选中的颜色值
-     */
     void onColorPicked(int color);
 }
 
-/**
- * 颜色变化回调接口
- */
 interface OnColorChangedListener {
-    /**
-     * 当颜色值变化时回调
-     * @param color 新的颜色值
-     */
     void onColorChanged(int color);
 }
-/**
- * 从存储中加载收藏的颜色列表
- * @param activity 当前 Activity
- * @return 包含颜色字符串的 ArrayList
- */
 ArrayList loadFavoriteColors(Activity activity) {
     ArrayList list = new ArrayList();
     try {
@@ -41,11 +22,6 @@ ArrayList loadFavoriteColors(Activity activity) {
     return list;
 }
 
-/**
- * 保存收藏的颜色列表到存储
- * @param activity 当前 Activity
- * @param favorites 包含颜色字符串的 ArrayList
- */
 void saveFavoriteColors(Activity activity, ArrayList favorites) {
     try {
         StringBuilder sb = new StringBuilder();
@@ -58,24 +34,12 @@ void saveFavoriteColors(Activity activity, ArrayList favorites) {
     } catch (Exception e) {}
 }
 
-
-/**
- * SeekBar 包装器类
- */
 class SeekBar extends LinearLayout {
     private SeekBar seekBar; // 滑块控件
     private TextView valueLabel; // 数值显示标签
     private OnColorChangedListener listener; // 颜色变化监听器
     private int index; // 索引
 
-    /**
-     * 构造函数
-     * @param context 上下文
-     * @param label 标签文本
-     * @param color 主色调
-     * @param initialValue 初始值
-     * @param max 最大值
-     */
     public SeekBar(Context context, String label, int color, int initialValue, int max) {
         super(context);
         setOrientation(LinearLayout.HORIZONTAL);
@@ -132,21 +96,17 @@ class SeekBar extends LinearLayout {
         });
     }
     
-    /** 获取当前进度值 */
-    public int getProgress() {
+    // 获取当前进度值   
+     public int getProgress() {
         return seekBar.getProgress();
     }
     
-    /** 设置颜色变化监听器 */
-    public void setOnColorChangedListener(OnColorChangedListener l) {
+    // 设置颜色变化监听器   
+     public void setOnColorChangedListener(OnColorChangedListener l) {
         listener = l;
     }
 }
 
-
-/**
- * HSV (色相, 饱和度, 亮度) 选择器视图类
- */
 class HsvPickerView extends View {
     private Paint huePaint; // 色相条画笔
     private Paint svPaint; // SV 平面画笔
@@ -168,11 +128,6 @@ class HsvPickerView extends View {
     private boolean isSizeValid = false; // 尺寸是否有效
     private Shader hueShader; // 色相渐变着色器
 
-    /**
-     * 构造函数
-     * @param context 上下文
-     * @param initialColor 初始颜色
-     */
     public HsvPickerView(Context context, int initialColor) {
         super(context);
         setWillNotDraw(false);
@@ -196,8 +151,8 @@ class HsvPickerView extends View {
         setColor(initialColor);
     }
     
-    /** 设置当前颜色 */
-    public void setColor(int color) {
+    // 设置当前颜色   
+     public void setColor(int color) {
         try {
             float[] hsv = new float[3];
             Color.colorToHSV(color, hsv);
@@ -208,7 +163,7 @@ class HsvPickerView extends View {
         } catch (Exception e) {}
     }
     
-    /** 设置颜色变化监听器 */
+    // 设置颜色变化监听器    
     public void setOnColorChangedListener(OnColorChangedListener l) {
         listener = l;
     }
@@ -386,7 +341,7 @@ class HsvPickerView extends View {
         return super.onTouchEvent(event);
     }
     
-    /** 更新饱和度和明度 */
+    // 更新饱和度和明度    
     private void updateSV(float x, float y) {
         try {
             currentSat = Math.max(0, Math.min(1, (x - svLeft) / (svRight - svLeft)));
@@ -398,7 +353,7 @@ class HsvPickerView extends View {
         } catch (Exception e) {}
     }
     
-    /** 更新色相 */
+    // 更新色相    
     private void updateHue(float y) {
         try {
             currentHue = (int) (Math.max(0, Math.min(1, (y - hueTop) / (hueBottom - hueTop))) * 360);
@@ -410,10 +365,6 @@ class HsvPickerView extends View {
     }
 }
 
-
-/**
- * 色轮视图类
- */
 class ColorWheelView extends View {
     private Paint wheelPaint; // 色轮画笔
     private Paint centerPaint; // 中心画笔
@@ -426,11 +377,6 @@ class ColorWheelView extends View {
     private Bitmap cacheBitmap; // 缓存位图
     private boolean isSizeValid = false; // 尺寸是否有效
     
-    /**
-     * 构造函数
-     * @param context 上下文
-     * @param initialColor 初始颜色
-     */
     public ColorWheelView(Context context, int initialColor) {
         super(context);
         setWillNotDraw(false);
@@ -448,7 +394,7 @@ class ColorWheelView extends View {
         setColor(initialColor);
     }
     
-    /** 设置当前颜色 */
+    // 设置当前颜色    
     public void setColor(int color) {
         try {
             float[] hsv = new float[3];
@@ -460,7 +406,7 @@ class ColorWheelView extends View {
         } catch (Exception e) {}
     }
     
-    /** 设置颜色变化监听器 */
+    // 设置颜色变化监听器    
     public void setOnColorChangedListener(OnColorChangedListener l) {
         listener = l;
     }
@@ -516,7 +462,7 @@ class ColorWheelView extends View {
         }
     }
     
-    /** 更新光标位置 */
+    // 更新光标位置    
     private void updateCursorPosition() {
         try {
             float angle = (float) Math.toRadians(currentHue);
@@ -596,10 +542,6 @@ class ColorWheelView extends View {
     }
 }
 
-
-/**
- * 颜色条视图 (垂直，右侧，修复版)
- */
 class ColorBarView extends View {
     private Paint paint; // 主画笔
     private Paint cursorPaint; // 光标画笔
@@ -610,11 +552,6 @@ class ColorBarView extends View {
     private int barLeft, barTop, barRight, barBottom; // 条形边界
     private boolean isSizeValid = false; // 尺寸是否有效
     
-    /**
-     * 构造函数
-     * @param context 上下文
-     * @param initialColor 初始颜色
-     */
     public ColorBarView(Context context, int initialColor) {
         super(context);
         setWillNotDraw(false);
@@ -647,13 +584,13 @@ class ColorBarView extends View {
         setColor(initialColor);
     }
     
-    /** 设置当前颜色 */
-    public void setColor(int color) {
+    // 设置当前颜色   
+     public void setColor(int color) {
         currentColor = color;
         invalidate();
     }
     
-    /** 设置颜色变化监听器 */
+    // 设置颜色变化监听器    
     public void setOnColorChangedListener(OnColorChangedListener l) {
         listener = l;
     }
@@ -728,19 +665,11 @@ class ColorBarView extends View {
     }
 }
 
-
-/**
- * 放大镜视图
- */
 class MagnifierView extends View {
     private Paint paint; // 主画笔
     private Paint borderPaint; // 边框画笔
     private Bitmap magnifiedBitmap; // 放大后的位图
     
-    /**
-     * 构造函数
-     * @param context 上下文
-     */
     public MagnifierView(Context context) {
         super(context);
         paint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -752,13 +681,6 @@ class MagnifierView extends View {
         borderPaint.setColor(Color.WHITE);
     }
     
-    /**
-     * 更新放大镜内容
-     * @param source 源位图
-     * @param srcX 源X坐标
-     * @param srcY 源Y坐标
-     * @param currentColor 当前颜色
-     */
     public void update(Bitmap source, int srcX, int srcY, int currentColor) {
         try {
             int size = 30; // 放大尺寸
@@ -830,14 +752,6 @@ class MagnifierView extends View {
     }
 }
 
-
-/**
- * 创建 RGB 调色视图
- * @param activity 当前 Activity
- * @param initialColor 初始颜色
- * @param listener 颜色变化监听器
- * @return 创建的视图
- */
 View createRgbView(Activity activity, int initialColor, final OnColorChangedListener listener) {
     LinearLayout layout = new LinearLayout(activity);
     layout.setOrientation(LinearLayout.VERTICAL);
@@ -879,13 +793,6 @@ View createRgbView(Activity activity, int initialColor, final OnColorChangedList
     return layout;
 }
 
-/**
- * 创建 HSV 调色视图
- * @param activity 当前 Activity
- * @param initialColor 初始颜色
- * @param listener 颜色变化监听器
- * @return 创建的视图
- */
 View createHsvView(Activity activity, int initialColor, final OnColorChangedListener listener) {
     FrameLayout layout = new FrameLayout(activity);
     layout.setPadding(dp(activity, 8), dp(activity, 8), dp(activity, 8), dp(activity, 8));
@@ -897,13 +804,6 @@ View createHsvView(Activity activity, int initialColor, final OnColorChangedList
     return layout;
 }
 
-/**
- * 创建色轮调色视图
- * @param activity 当前 Activity
- * @param initialColor 初始颜色
- * @param listener 颜色变化监听器
- * @return 创建的视图
- */
 View createColorWheelView(Activity activity, int initialColor, final OnColorChangedListener listener) {
     FrameLayout layout = new FrameLayout(activity);
     layout.setPadding(dp(activity, 8), dp(activity, 8), dp(activity, 8), dp(activity, 8));
@@ -915,13 +815,6 @@ View createColorWheelView(Activity activity, int initialColor, final OnColorChan
     return layout;
 }
 
-/**
- * 创建颜色条调色视图
- * @param activity 当前 Activity
- * @param initialColor 初始颜色
- * @param listener 颜色变化监听器
- * @return 创建的视图
- */
 View createColorBarView(Activity activity, int initialColor, final OnColorChangedListener listener) {
     LinearLayout layout = new LinearLayout(activity);
     layout.setOrientation(LinearLayout.HORIZONTAL);
@@ -959,14 +852,6 @@ View createColorBarView(Activity activity, int initialColor, final OnColorChange
     return layout;
 }
 
-
-/**
- * 显示收藏夹视图
- * @param activity 当前 Activity
- * @param container 容器
- * @param favorites 收藏的颜色列表
- * @param listener 颜色选择监听器
- */
 void showFavoritesView(Activity activity, FrameLayout container, ArrayList favorites, final OnColorPickedListener listener) {
     container.removeAllViews();
     
@@ -1068,12 +953,6 @@ void showFavoritesView(Activity activity, FrameLayout container, ArrayList favor
     container.addView(scroll);
 }
 
-
-/**
- * 显示图片取色对话框
- * @param activity 当前 Activity
- * @param callback 颜色选择回调
- */
 void showImagePickerDialog(final Activity activity, final OnColorPickedListener callback) {
     try {
         AlertDialog.Builder builder = new AlertDialog.Builder(activity, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
@@ -1240,13 +1119,6 @@ void showImagePickerDialog(final Activity activity, final OnColorPickedListener 
     } catch (Exception e) {}
 }
 
-
-/**
- * 显示主调色盘对话框
- * @param activity 当前 Activity
- * @param initialColor 初始颜色
- * @param callback 颜色选择回调
- */
 void showColorPickerDialog(final Activity activity, final String initialColor, final OnColorPickedListener callback) {
     try {
         final int[] currentColor = {Color.parseColor("#FF7A9681")};
@@ -1576,12 +1448,6 @@ void showColorPickerDialog(final Activity activity, final String initialColor, f
     } catch (Exception e) {}
 }
 
-/**
- * 更新预览区域
- * @param preview 预览视图
- * @param hexText Hex文本视图
- * @param color 新颜色
- */
 void updatePreview(View preview, TextView hexText, int color) {
     try {
         GradientDrawable bg = new GradientDrawable();
@@ -1593,14 +1459,6 @@ void updatePreview(View preview, TextView hexText, int color) {
     } catch (Exception e) {}
 }
 
-/**
- * 显示模式内容
- * @param activity 当前 Activity
- * @param container 容器
- * @param mode 模式
- * @param initialColor 初始颜色
- * @param listener 颜色变化监听器
- */
 void showModeContent(Activity activity, FrameLayout container, int mode, int initialColor, OnColorChangedListener listener) {
     container.removeAllViews();
     
@@ -1627,18 +1485,6 @@ void showModeContent(Activity activity, FrameLayout container, int mode, int ini
     }
 }
 
-
-/**
- * 添加带调色盘按钮的颜色输入项
- * @param activity 当前 Activity
- * @param parent 父容器
- * @param title 标题文本
- * @param value 初始颜色值
- * @param hint 提示文本
- * @param titleColor 标题颜色
- * @param cardColor 卡片背景颜色
- * @param saveKey 存储键
- */
 void addColorInputItem(final Activity activity, LinearLayout parent, String title, String value, String hint, int titleColor, int cardColor, final String saveKey) {
     try {
         LinearLayout item = new LinearLayout(activity);
