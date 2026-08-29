@@ -1,28 +1,15 @@
-/** 标记 Intent 防止递归 Hook */
-private final String KEY_HANDLED = "qfun_script_handled";
+// 标记 Intent 防止递归 Hookprivate final String KEY_HANDLED = "qfun_script_handled";
 
-/** 全局弹窗显示锁，防止多重弹窗 */
-private volatile boolean isDialogShowing = false;
+// 全局弹窗显示锁，防止多重弹窗private volatile boolean isDialogShowing = false;
 
-/** 原功能重放标记，用于回旋镖逻辑 */
-private volatile boolean isReplayingClick = false;
+// 原功能重放标记，用于回旋镖逻辑private volatile boolean isReplayingClick = false;
 
-/** 图片内存缓存 (Url -> Bitmap) */
-private final HashMap picimageCache = new HashMap();
+// 图片内存缓存 (Url -> Bitmap)private final HashMap picimageCache = new HashMap();
 
-/** 原始特殊文本集合 (用于精准渲染 @ 和表情) */
-private final HashSet validSpecialTexts = new HashSet();
+// 原始特殊文本集合 (用于精准渲染 @ 和表情)private final HashSet validSpecialTexts = new HashSet();
 
-/** 滑动菜单状态池 [0:Popup, 1:Slider, 2:Centers, 4:TextViews, 5:BaseInfo, 7:UpdateRunnable, 8:Root] */
-private final Object[] WHEEL_STATE = new Object[10];
+// 滑动菜单状态池 [0:Popup, 1:Slider, 2:Centers, 4:TextViews, 5:BaseInfo, 7:UpdateRunnable, 8:Root]private final Object[] WHEEL_STATE = new Object[10];
 
-/**
- * 获取完整图片链接 (拼接域名和 RKey)
- *
- * @param url       图片相对路径或完整URL
- * @param chatType  聊天类型，1=私聊，2=群聊
- * @return          完整的图片URL
- */
 String getFullPicUrl(String url, int chatType) {
     if (url == null || url.isEmpty()) return "";
     if (url.startsWith("http")) return url;
@@ -37,7 +24,6 @@ String getFullPicUrl(String url, int chatType) {
     return domain + url + rkey;
 }
 
-
 interface MsgLoadedCallback {
     void onLoaded(MsgData msgData);
 }
@@ -49,14 +35,6 @@ public void setMsgUnread(String targetUin) {
     Contact contact = new Contact(chatType, uid, "");
     QRoute.api(ab.class).setMarkUnreadFlag(contact, true);
 }
-/**
- * 通过 Kernel 异步获取完整消息记录
- *
- * @param msgId     消息ID
- * @param chatType  聊天类型
- * @param peerUid   对方UID
- * @param callback  加载完成回调
- */
 void fetchRealMsgRecord(final long msgId, final int chatType, final String peerUid, final MsgLoadedCallback callback) {
     ThreadPool.execute(new Runnable() {
         public void run() {
@@ -94,16 +72,6 @@ void fetchRealMsgRecord(final long msgId, final int chatType, final String peerU
     });
 }
 
-/**
- * 通过服务器转发消息到指定目标
- * <p>
- * 该方法利用QQ内核服务的转发功能，将消息原样转发到目标联系人。
- * 适用于非文本消息（图片、视频、语音、文件等）的转发场景。
- * </p>
- *
- * @param msgRecordObj 消息记录对象，必须为 MsgRecord 类型
- * @param targetUin    目标用户的QQ号或群号
- */
 void forwardViaServer(Object msgRecordObj, String targetUin) {
     ThreadPool.execute(new Runnable() {
         public void run() {
@@ -131,16 +99,6 @@ void forwardViaServer(Object msgRecordObj, String targetUin) {
     });
 }
 
-/**
- * 判断消息是否为纯文本消息
- * <p>
- * 遍历消息元素列表，检查是否仅包含文本类型元素。
- * 如果存在图片、视频、语音、文件等非文本元素，则返回 false。
- * </p>
- *
- * @param elements 消息元素列表
- * @return 如果是纯文本消息返回 true，否则返回 false
- */
 boolean isTextOnlyMsg(List elements) {
     if (elements == null || elements.isEmpty()) return false;
     for (int i = 0; i < elements.size(); i++) {
@@ -151,14 +109,6 @@ boolean isTextOnlyMsg(List elements) {
     return true;
 }
 
-/**
- * 解析文本中的 [pic=url] 标签，还原为 MsgElements
- *
- * @param text            包含图片标签的文本
- * @param sendElements    输出的消息元素列表
- * @param originalRecord  原始消息记录
- * @param chatType        聊天类型
- */
 void parseTextToElements(String text, ArrayList sendElements, MsgRecord originalRecord, int chatType) {
     Map originalPicMap = new HashMap();
     if (originalRecord.elements != null) {
@@ -187,12 +137,6 @@ void parseTextToElements(String text, ArrayList sendElements, MsgRecord original
     if (!remain.isEmpty()) addTextElement(sendElements, remain);
 }
 
-/**
- * 添加文本元素到消息元素列表
- *
- * @param list     消息元素列表
- * @param content  文本内容
- */
 void addTextElement(ArrayList list, String content) {
     MsgElement el = new MsgElement();
     el.elementType = 1;
@@ -203,38 +147,13 @@ void addTextElement(ArrayList list, String content) {
     list.add(el);
 }
 
-/**
- * 复读消息入口重载
- * @param data     消息数据对象
- */
 void 复读(data){
     doMultiSend(data, null, 1);
 }
-/**
- * 发送或复读消息入口
- *
- * @param data     消息数据对象
- * @param newText  新文本内容，为 null 时表示原样复读
- */
 void doSendOrRepeat(final MsgData data, final String newText) {
     doMultiSend(data, newText, 1);
 }
 
-/**
- * 执行发送逻辑（支持多次发送）
- * <p>
- * 核心发送方法，根据消息内容和类型选择最优发送策略：
- * <ul>
- *   <li>有新文本内容：解析文本中的图片标签，构建消息元素发送</li>
- *   <li>无新文本且为纯文本消息：直接复制元素发送</li>
- *   <li>无新文本且为非文本消息：使用 forwardViaServer 转发</li>
- * </ul>
- * </p>
- *
- * @param data     消息数据对象
- * @param newText  新文本内容，为 null 时表示原样复读
- * @param count    发送次数
- */
 void doMultiSend(final MsgData data, final String newText, final int count) {
     ThreadPool.execute(new Runnable() {
         public void run() {
@@ -282,18 +201,6 @@ void doMultiSend(final MsgData data, final String newText, final int count) {
     });
 }
 
-/**
- * 带间隔的多次发送（非阻塞，使用 postDelayed 递归链）
- * <p>
- * 通过 uiHandler.postDelayed 实现每条消息之间的等待，
- * 不阻塞任何线程。每次发送结束后在主线程调度下一次。
- * </p>
- *
- * @param data     消息数据对象
- * @param newText  新文本内容，null 表示原样复读
- * @param count    总发送次数
- * @param delayMs  每次发送之间的间隔（毫秒）
- */
 void doMultiSendWithDelay(final MsgData data, final String newText, final int count, final int delayMs) {
     if (count <= 0 || data == null) return;
     final int[] sent = {0};
@@ -307,7 +214,7 @@ void doMultiSendWithDelay(final MsgData data, final String newText, final int co
                 uiHandler.post(new Runnable() { public void run() { Toast(tips); } });
                 return;
             }
-            /** 在线程池内执行实际发送，避免主线程网络操作 */
+            // 在线程池内执行实际发送，避免主线程网络操作        
             final int idx = sent[0];
             ThreadPool.execute(new Runnable() {
                 public void run() {
@@ -335,20 +242,19 @@ void doMultiSendWithDelay(final MsgData data, final String newText, final int co
                             }
                         }
                     } catch (Throwable ignored) {}
-                    /** 发送完成后，主线程调度下一条 */
-                    uiHandler.postDelayed(new Runnable() {
+                    // 发送完成后，主线程调度下一条                 
+                       uiHandler.postDelayed(new Runnable() {
                         public void run() {
                             sent[0]++;
                             chain[0].run();
                         }
-                    }, delayMs);
+                    },delayMs);
                 }
             });
         }
     };
     chain[0].run();
 }
-
 
  /*
  * @param url       图片URL
@@ -377,19 +283,13 @@ void downloadImage(final String url, final Runnable callback) {
     });
 }
 
-/** 自定义链接 Span */
-class LinkTagSpan extends ForegroundColorSpan {
+// 自定义链接 
+    class LinkTagSpan extends ForegroundColorSpan {
     public String url;
     public LinkTagSpan(String url) { super(Color.parseColor("#007AFF"));
         this.url = url; }
 }
 
-/**
- * 文本渲染逻辑
- *
- * @param et          编辑框控件
- * @param forceImage  是否强制渲染图片
- */
 void applySpans(final EditText et, final boolean forceImage) {
     Editable s = et.getText();
     String text = s.toString();
@@ -454,11 +354,6 @@ void applySpans(final EditText et, final boolean forceImage) {
     }
 }
 
-/**
- * 触摸监听：处理点击图片 Span 还原为文本
- *
- * @param et  编辑框控件
- */
 void setupEditTextTouch(final EditText et) {
     final GestureDetector gestureDetector = new GestureDetector(et.getContext(), new GestureDetector.SimpleOnGestureListener() {
         public boolean onSingleTapUp(MotionEvent e) {
@@ -489,16 +384,6 @@ void setupEditTextTouch(final EditText et) {
     });
 }
 
-/**
- * 创建按钮组件
- *
- * @param ctx         上下文
- * @param text        按钮文本
- * @param bgColorStr  背景颜色字符串
- * @param textColor   文字颜色
- * @param onClick     点击回调
- * @return            按钮组件
- */
 FrameLayout createButton(Context ctx, String text, String bgColorStr, int textColor, final Runnable onClick) {
     final FrameLayout btn = new FrameLayout(ctx);
     final GradientDrawable bg = new GradientDrawable();
@@ -516,13 +401,6 @@ FrameLayout createButton(Context ctx, String text, String bgColorStr, int textCo
     return btn;
 }
 
-/**
- * 创建预览按钮组件
- *
- * @param ctx      上下文
- * @param onClick  点击回调
- * @return         预览按钮组件
- */
 FrameLayout createPreviewButton(Context ctx, final Runnable onClick) {
     final FrameLayout btn = new FrameLayout(ctx);
     final GradientDrawable bg = new GradientDrawable();
@@ -540,13 +418,6 @@ FrameLayout createPreviewButton(Context ctx, final Runnable onClick) {
     return btn;
 }
 
-/**
- * 创建消息引用展示框
- *
- * @param ctx      上下文
- * @param msgData  消息数据对象
- * @return         引用展示框视图，无引用时返回 null
- */
 View createReplyBox(Context ctx, MsgData msgData) {
     MsgElement replyEl = null;
     if (msgData.data.elements != null) {
@@ -620,24 +491,11 @@ View createReplyBox(Context ctx, MsgData msgData) {
     return replyBox;
 }
 
-
-/**
- * 调用外部作图方法
- *
- * @param activity  Activity上下文
- * @param content   待处理内容
- */
 void 作图(Activity activity, String content) {
     Toast("还是空壳\n" + content);
     // traceLog("main_log","Call makeImage()");
 }
 
-/**
- * 更新滑动选择器物理效果
- *
- * @param rawDx   原始水平位移
- * @param isDrag  是否为拖拽操作
- */
 void updateSliderPhysics(float rawDx, boolean isDrag) {
     View slider = (View) WHEEL_STATE[1];
     Runnable updater = (Runnable) WHEEL_STATE[7];
@@ -648,18 +506,6 @@ void updateSliderPhysics(float rawDx, boolean isDrag) {
     if (updater != null) updater.run();
 }
 
-/**
- * 显示滑动选择器
- *
- * @param activity      Activity上下文
- * @param anchor        锚点视图
- * @param modeIndexRef  当前模式索引引用
- * @param modeNames     模式名称数组
- * @param actionBtn     操作按钮
- * @param btnTv         按钮文本视图
- * @param initialEvent  初始触摸事件
- * @return              弹出窗口实例
- */
 PopupWindow showStyleWheelSelector(
         final Activity activity,
         View anchor,
@@ -804,14 +650,6 @@ PopupWindow showStyleWheelSelector(
     return popup;
 }
 
-/**
- * 显示操作对话框
- *
- * @param activity       Activity上下文
- * @param msgData        消息数据对象
- * @param targetView     目标视图（用于原功能回放）
- * @param originalIntent 原始Intent（用于原功能回放）
- */
 void showActionDialog(final Activity activity, final MsgData msgData, final View targetView, final Intent originalIntent) {
     if (activity == null || activity.isFinishing()) {
         isDialogShowing = false;
@@ -1133,16 +971,6 @@ void showActionDialog(final Activity activity, final MsgData msgData, final View
     dialog.show();
 }
 
-/**
- * 高频复读警告弹窗
- *
- * @param activity  Activity上下文
- * @param data      消息数据对象
- * @param text      文本内容
- * @param count     发送次数
- * @param delayMs   发送间隔（毫秒），0 表示连续发送
- * @param parent    父对话框（可为 null）
- */
 void showBigCountConfirm(Activity activity, final MsgData data, final String text, final int count, final int delayMs, final Dialog parent) {
     boolean isDark = isThemeDark(activity);
     int textColor   = isDark ? UI_COLOR_TEXT_DARK    : UI_COLOR_TEXT_LIGHT;
@@ -1221,16 +1049,6 @@ void showBigCountConfirm(Activity activity, final MsgData data, final String tex
     applyUiTheme(activity, ref[0]);
 }
 
-/**
- * 多次复读/发送配置弹窗
- * <p>
- * 支持设置发送次数和消息间隔（毫秒），间隔通过 postDelayed 递归实现
- * </p>
- *
- * @param activity     Activity上下文
- * @param data         消息数据对象
- * @param currentText  当前编辑框文本，null 表示原样复读
- */
 void showRepeatCountDialog(final Activity activity, final MsgData data, final String currentText) {
     if (activity == null || activity.isFinishing()) return;
 
