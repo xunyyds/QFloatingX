@@ -1,14 +1,20 @@
-// 标记 Intent 防止递归 Hookprivate final String KEY_HANDLED = "qfun_script_handled";
+// 标记 Intent 防止递归 Hookprivate
+ final String KEY_HANDLED = "qfun_script_handled";
 
-// 全局弹窗显示锁，防止多重弹窗private volatile boolean isDialogShowing = false;
+// 全局弹窗显示锁，防止多重弹窗
+private volatile boolean isDialogShowing = false;
 
-// 原功能重放标记，用于回旋镖逻辑private volatile boolean isReplayingClick = false;
+// 原功能重放标记，用于回旋镖逻辑
+private volatile boolean isReplayingClick = false;
 
-// 图片内存缓存 (Url -> Bitmap)private final HashMap picimageCache = new HashMap();
+// 图片内存缓存 (Url -> Bitmap)
+private final HashMap picimageCache = new HashMap();
 
-// 原始特殊文本集合 (用于精准渲染 @ 和表情)private final HashSet validSpecialTexts = new HashSet();
+// 原始特殊文本集合 (用于精准渲染 @ 和表情)
+private final HashSet validSpecialTexts = new HashSet();
 
-// 滑动菜单状态池 [0:Popup, 1:Slider, 2:Centers, 4:TextViews, 5:BaseInfo, 7:UpdateRunnable, 8:Root]private final Object[] WHEEL_STATE = new Object[10];
+// 滑动菜单状态池 [0:Popup, 1:Slider, 2:Centers, 4:TextViews, 5:BaseInfo, 7:UpdateRunnable, 8:Root]
+private final Object[] WHEEL_STATE = new Object[10];
 
 String getFullPicUrl(String url, int chatType) {
     if (url == null || url.isEmpty()) return "";
