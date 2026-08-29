@@ -105,10 +105,6 @@ private static class GifImageView extends ImageView {
     }
 }
 
-/**
- * 获取安全的Activity实例
- * @return Activity 实例，优先返回当前Activity，否则返回最后保存的Activity
- */
 private Activity 获取安全Activity() {
     Activity activity = getNowActivity();
     if (activity == null && 最后Activity != null) {
@@ -117,12 +113,6 @@ private Activity 获取安全Activity() {
     return activity;
 }
 
-/**
- * 获取悬浮窗大小（统一的尺寸）
- * 从"悬浮窗大小"设置读取
- * @param activity Activity实例
- * @return 悬浮窗大小像素值
- */
 private int 获取悬浮窗大小(Activity activity) {
     if (activity == null) {
         return 180;
@@ -146,20 +136,10 @@ private int 获取悬浮窗大小(Activity activity) {
     }
 }
 
-/**
- * 获取悬浮窗尺寸（WindowManager参数）
- * @param activity Activity实例
- * @return 悬浮窗尺寸像素值
- */
 private int 获取悬浮窗尺寸(Activity activity) {
     return 获取悬浮窗大小(activity);
 }
 
-/**
- * 获取关闭区域大小
- * @param activity Activity实例
- * @return 关闭区域大小像素值
- */
 private int 获取关闭区域大小(Activity activity) {
     if (activity == null) {
         return 240;
@@ -180,11 +160,6 @@ private int 获取关闭区域大小(Activity activity) {
     }
 }
 
-/**
- * 获取关闭图标大小
- * @param activity Activity实例
- * @return 关闭图标大小像素值
- */
 private int 获取关闭图标大小(Activity activity) {
     if (activity == null) {
         return 72;
@@ -205,11 +180,6 @@ private int 获取关闭图标大小(Activity activity) {
     }
 }
 
-/**
- * 获取移动阈值
- * @param activity Activity实例
- * @return 移动阈值像素值
- */
 private float 获取移动阈值(Activity activity) {
     if (activity == null) {
         return 36.0f;
@@ -225,10 +195,6 @@ private float 获取移动阈值(Activity activity) {
     }
 }
 
-/**
- * 获取长按关闭阈值
- * @return 长按关闭时间阈值（毫秒）
- */
 private long 获取长按关闭阈值() {
     String value = getString("settings", "长按关闭阈值", "650");
     try {
@@ -240,10 +206,6 @@ private long 获取长按关闭阈值() {
     }
 }
 
-/**
- * 获取拖拽灵敏度
- * @return 拖拽灵敏度值
- */
 private int 获取拖拽灵敏度() {
     String value = getString("settings", "拖拽灵敏度", "12");
     try {
@@ -255,10 +217,6 @@ private int 获取拖拽灵敏度() {
     }
 }
 
-/**
- * 获取静态图标路径
- * @return 图标文件路径字符串
- */
 private String 获取静态图标路径() {
     String customPath = getString("settings", "iconPath", "");
     if (customPath != null && !customPath.isEmpty()) {
@@ -275,10 +233,6 @@ private String 获取静态图标路径() {
     return "";
 }
 
-/**
- * 获取动态图标路径
- * @return GIF文件路径字符串
- */
 private String 获取动态图标路径() {
     String customPath = getString("settings", "iconPath", "");
     if (customPath != null && !customPath.isEmpty()) {
@@ -295,10 +249,6 @@ private String 获取动态图标路径() {
     return "";
 }
 
-/**
- * 判断是否使用动态图标
- * @return true使用GIF，false使用静态图
- */
 private boolean 是否使用动态图标() {
     String animPath = 获取动态图标路径();
     if (!animPath.isEmpty()) {
@@ -315,10 +265,6 @@ private boolean 是否使用动态图标() {
     return false;
 }
 
-/**
- * 获取图标缩放比例
- * @return 缩放比例 float
- */
 private float 获取图标缩放() {
     String value = getString("settings", "iconScale", "1.0");
     try {
@@ -332,10 +278,6 @@ private float 获取图标缩放() {
     }
 }
 
-/**
- * 获取动态图标缩放比例
- * @return 缩放比例 float
- */
 private float 获取动态图标缩放() {
     String value = getString("settings", "animIconScale", "1.0");
     try {
@@ -349,10 +291,6 @@ private float 获取动态图标缩放() {
     }
 }
 
-/**
- * 获取图标透明度
- * @return 透明度值 0-255
- */
 private int 获取图标透明度() {
     String value = getString("settings", "iconAlpha", "255");
     try {
@@ -366,10 +304,6 @@ private int 获取图标透明度() {
     }
 }
 
-/**
- * 获取动态图标透明度
- * @return 透明度值 0-255
- */
 private int 获取动态图标透明度() {
     String value = getString("settings", "animIconAlpha", "255");
     try {
@@ -383,11 +317,6 @@ private int 获取动态图标透明度() {
     }
 }
 
-/**
- * 创建圆形背景Drawable
- * @param colorStr 颜色字符串
- * @return ShapeDrawable对象
- */
 android.graphics.drawable.Drawable createCircleDrawable(String colorStr) {
     try {
         if (colorStr == null || colorStr.isEmpty()) {
@@ -405,12 +334,6 @@ android.graphics.drawable.Drawable createCircleDrawable(String colorStr) {
     }
 }
 
-/**
- * 创建关闭区域的Fallback图标（红色圆圈带X）
- * @param activity Activity实例
- * @param size 图标大小
- * @return Bitmap对象
- */
 Bitmap 创建关闭区域Fallback图标(Activity activity, int size) {
     try {
         if (activity == null) {
@@ -439,13 +362,6 @@ Bitmap 创建关闭区域Fallback图标(Activity activity, int size) {
     }
 }
 
-/**
- * 加载图片文件，支持静态图和GIF
- * @param activity Activity实例
- * @param path 图片路径
- * @param isCloseIcon 是否为关闭图标
- * @return Bitmap对象（GIF返回null）
- */
 Bitmap 加载图片文件(Activity activity, String path, boolean isCloseIcon) {
     try {
         if (path == null || path.isEmpty()) {
@@ -493,11 +409,6 @@ Bitmap 加载图片文件(Activity activity, String path, boolean isCloseIcon) {
     }
 }
 
-/**
- * 创建默认图标（绿色圆圈带三横线）
- * @param activity Activity实例
- * @return Bitmap对象
- */
 Bitmap 创建默认图标(Activity activity) {
     try {
         if (activity == null) {
@@ -529,11 +440,6 @@ Bitmap 创建默认图标(Activity activity) {
     }
 }
 
-/**
- * 加载图标Bitmap（根据设置自动选择静态或动态）
- * @param activity Activity实例
- * @return Bitmap对象
- */
 Bitmap 加载图标Bitmap(Activity activity) {
     Bitmap bitmap = null;
     boolean useAnimIcon = 是否使用动态图标();
@@ -555,11 +461,6 @@ Bitmap 加载图标Bitmap(Activity activity) {
     return bitmap;
 }
 
-/**
- * 设置图标图片（应用缩放和透明度）
- * @param activity Activity实例
- * @param imageView ImageView实例
- */
 void 设置图标图片(Activity activity, ImageView imageView) {
     if (imageView == null || activity == null) {
         return;
@@ -593,11 +494,6 @@ void 设置图标图片(Activity activity, ImageView imageView) {
     }
 }
 
-/**
- * 检查悬浮窗权限
- * @param activity Activity实例
- * @return 是否有权限
- */
 boolean 检查悬浮窗权限(Activity activity) {
     if (activity == null) {
         return false;
@@ -612,10 +508,6 @@ boolean 检查悬浮窗权限(Activity activity) {
     return true;
 }
 
-/**
- * 保存悬浮窗位置
- * @param activity Activity实例
- */
 void 保存悬浮窗位置(Activity activity) {
     try {
         if (params == null || activity == null) {
@@ -632,11 +524,6 @@ void 保存悬浮窗位置(Activity activity) {
     }
 }
 
-/**
- * 加载悬浮窗X坐标
- * @param activity Activity实例
- * @return X坐标
- */
 int 加载悬浮窗位置(Activity activity) {
     try {
         if (activity == null) {
@@ -652,11 +539,6 @@ int 加载悬浮窗位置(Activity activity) {
     }
 }
 
-/**
- * 加载悬浮窗Y坐标
- * @param activity Activity实例
- * @return Y坐标
- */
 int 加载悬浮窗Y位置(Activity activity) {
     try {
         if (activity == null) {
@@ -674,10 +556,6 @@ int 加载悬浮窗Y位置(Activity activity) {
     }
 }
 
-/**
- * 创建关闭区域视图
- * @param activity Activity实例
- */
 void 创建关闭区域视图(final Activity activity) {
     if (activity == null || closeRangeView != null) {
         return;
@@ -713,10 +591,6 @@ void 创建关闭区域视图(final Activity activity) {
     closeRangeView.setVisibility(View.GONE);
 }
 
-/**
- * 显示关闭区域
- * @param activity Activity实例
- */
 void 显示关闭区域(final Activity activity) {
     if (wm == null || params == null) {
         return;
@@ -760,10 +634,6 @@ void 显示关闭区域(final Activity activity) {
     });
 }
 
-/**
- * 隐藏关闭区域
- * @param activity Activity实例
- */
 void 隐藏关闭区域(final Activity activity) {
     if (wm == null) {
         return;
@@ -786,12 +656,6 @@ void 隐藏关闭区域(final Activity activity) {
     });
 }
 
-/**
- * 更新关闭区域状态（检测拖拽进入）
- * @param activity Activity实例
- * @param floatX 悬浮窗X坐标
- * @param floatY 悬浮窗Y坐标
- */
 void 更新关闭区域状态(Activity activity, int floatX, int floatY) {
     if (closeRangeView == null || !isDragging) {
         return;
@@ -828,10 +692,6 @@ void 更新关闭区域状态(Activity activity, int floatX, int floatY) {
     }
 }
 
-/**
- * 启动持续振动
- * @param activity Activity实例
- */
 void 启动持续振动(Activity activity) {
     if (activity == null) {
         return;
@@ -858,9 +718,6 @@ void 启动持续振动(Activity activity) {
     xfcHandler.post(continuousVibrationRunnable);
 }
 
-/**
- * 停止持续振动
- */
 void 停止持续振动() {
     if (vibrator != null) {
         vibrator.cancel();
@@ -868,10 +725,6 @@ void 停止持续振动() {
     xfcHandler.removeCallbacks(continuousVibrationRunnable);
 }
 
-/**
- * 设置窗口参数
- * @param activity Activity实例
- */
 void 设置窗口参数(Activity activity) {
     if (activity == null) {
         return;
@@ -899,10 +752,6 @@ void 设置窗口参数(Activity activity) {
     params.y = 加载悬浮窗Y位置(activity);
 }
 
-/**
- * 创建悬浮窗视图
- * @param activity Activity实例
- */
 void 创建悬浮窗视图(final Activity activity) {
     try {
         if (activity == null) {
@@ -950,10 +799,6 @@ void 创建悬浮窗视图(final Activity activity) {
     }
 }
 
-/**
- * 添加视图到WindowManager
- * @param activity Activity实例
- */
 void 添加到窗口管理器(Activity activity) {
     try {
         if (floatingView == null || wm == null) {
@@ -979,9 +824,6 @@ void 添加到窗口管理器(Activity activity) {
     }
 }
 
-/**
- * 销毁悬浮窗资源
- */
 void 销毁悬浮窗资源() {
     try {
         xfcHandler.removeCallbacksAndMessages(null);
@@ -1019,10 +861,6 @@ void 销毁悬浮窗资源() {
     }
 }
 
-/**
- * 设置触摸事件监听
- * @param activity Activity实例
- */
 void 设置触摸事件(final Activity activity) {
     if (iconImageView == null) {
         return;
@@ -1190,9 +1028,6 @@ void 设置触摸事件(final Activity activity) {
     });
 }
 
-/**
- * 处理图标点击事件
- */
 void 处理图标点击(Activity activity) {
     if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
         return;
@@ -1214,13 +1049,6 @@ void 处理图标点击(Activity activity) {
     });
 }
 
-
-/**
- * 悬浮窗开关 - 切换悬浮窗显示状态
- * @param chatType 聊天类型
- * @param peerUin 对方Uin
- * @param name 名称
- */
 public void 悬浮窗开关(int chatType, String peerUin, String name) {
     Activity activity = 获取安全Activity();
     if (activity == null) {
@@ -1245,10 +1073,6 @@ public void 悬浮窗开关(int chatType, String peerUin, String name) {
     });
 }
 
-/**
- * 启动悬浮窗（有参版本）
- * @param activity Activity实例
- */
 public void 启动悬浮窗(final Activity activity) {
     try {
         if (activity == null) {
@@ -1312,9 +1136,6 @@ public void 启动悬浮窗(final Activity activity) {
     }
 }
 
-/**
- * 启动悬浮窗（无参版本）
- */
 public void 启动悬浮窗() {
     Activity activity = getNowActivity();
     if (activity == null) {
@@ -1325,10 +1146,6 @@ public void 启动悬浮窗() {
     }
 }
 
-/**
- * 停止悬浮窗（有参版本）
- * @param activity Activity实例
- */
 public void 停止悬浮窗(final Activity activity) {
     if (activity == null || activity.isFinishing()) {
         停止悬浮窗();
@@ -1363,9 +1180,6 @@ public void 停止悬浮窗(final Activity activity) {
     }
 }
 
-/**
- * 停止悬浮窗（无参版本）
- */
 public void 停止悬浮窗() {
     Activity activity = getNowActivity();
     if (activity == null) {
@@ -1396,9 +1210,6 @@ public void 停止悬浮窗() {
     悬浮窗显示状态 = false;
 }
 
-/**
- * 卸载悬浮窗 - 彻底清理所有资源
- */
 public void 卸载悬浮窗() {
     停止悬浮窗();
     try {
@@ -1456,9 +1267,6 @@ public void 卸载悬浮窗() {
     }
 }
 
-/**
- * 刷新悬浮窗图标
- */
 public void 刷新悬浮窗() {
     final Activity activity = 获取安全Activity();
     if (activity == null || activity.isFinishing()) {
@@ -1501,10 +1309,6 @@ public void 刷新悬浮窗() {
     });
 }
 
-/**
- * 重建悬浮窗图标视图（用于模式切换）
- * @param activity Activity实例
- */
 private void 重建悬浮窗图标视图(Activity activity) {
     try {
         if (activity == null || floatingView == null) return;

@@ -1,6 +1,3 @@
-/**
- * 核心配置常量
- */
 private static final String SP_NAME = "msg_stats_config";
 private static final String SP_TIME_RANGE_KEY = "selected_time_range";
 private static final String SP_CUSTOM_DATE_KEY = "custom_selected_date";
@@ -10,23 +7,14 @@ private static final String TEMP_FILE_SUFFIX = ".tmp";
 private static final long MIN_UI_UPDATE_INTERVAL = 150;
 private static final int BATCH_SIZE_THRESHOLD = 10;
 
-/**
- * UI与状态管理变量
- */
 volatile boolean dialogVisible = false;
 AlertDialog statsDialog = null;
 
-/**
- * 线程与并发控制变量
- */
 private final Object writeLock = new Object();
 private volatile boolean writeThreadRunning = false;
 private Handler msgHandle = new Handler(Looper.getMainLooper());
 private volatile long lastUIUpdateTime = 0L;
 
-/**
- * 缓存机制变量
- */
 private List weekDatesCache = new ArrayList();
 private List monthDatesCache = new ArrayList();
 private String weekCacheKey = "";
@@ -37,9 +25,6 @@ private View progressBarCache = null;
 private TextView sendTargetLabelCache = null;
 private TextView achievementTextCache = null;
 
-/**
- * 统计类型定义数组
- */
 private static final String[] STAT_TYPES = {
     "Receive", "ReceiveText", "ReceivePic", "ReceiveFile", "ReceiveVideo",
     "ReceiveEmoji", "ReceiveAudio", "ReceiveCard", "ReceiveCall", "ReceiveGrayTip",
@@ -49,18 +34,12 @@ private static final String[] STAT_TYPES = {
     "SendWordCount", "SendUnknown"
 };
 
-/**
- * 数据存储核心变量
- */
 private static final Hashtable OP_STATS = new Hashtable();
 private static final Vector CHANGED_KEYS = new Vector();
 private static final Vector messageBatchQueue = new Vector();
 private static final Hashtable cardExpandStatus = new Hashtable();
 volatile long TOTAL_MSG_SEQ_MAX = 0L;
 
-/**
- * 颜色配置数组
- */
 private int[] COLORS = {
     Color.parseColor("#FF6B6B"), Color.parseColor("#4ECDC4"), Color.parseColor("#45B7D1"),
     Color.parseColor("#96CEB4"), Color.parseColor("#FFEAA7"), Color.parseColor("#DDA0DD"),
@@ -68,14 +47,8 @@ private int[] COLORS = {
     Color.parseColor("#CD853F"), Color.parseColor("#98FB98")
 };
 
-/**
- * 文件路径配置
- */
 String configName = pluginPath + "/config/msg_stats.json";
 
-/**
- * 时间范围类型定义类
- */
 public class TimeRange {
     public static final int TODAY = 0;
     public static final int YESTERDAY = 1;
@@ -83,11 +56,6 @@ public class TimeRange {
     public static final int THIS_MONTH = 3;
     public static final int CUSTOM_DATE = 4;
     
-    /**
-     * 将时间范围常量转换为可读字符串
-     * @param range 时间范围常量
-     * @return 可读的中文字符串
-     */
     public static String toString(int range) {
         switch (range) {
             case TODAY: return "今日";
@@ -103,16 +71,8 @@ public class TimeRange {
 private volatile int currentTimeRange = TimeRange.TODAY;
 private String customDateStr = null;
 
-/**
- * 当前日期字符串，用于跨天检测
- */
 private volatile String todayDateStr = getTodayDateStr();
 
-/**
- * 原子递增操作
- * @param key 统计键名
- * @return 递增后的新值
- */
 private synchronized long atomicIncrement(String key) {
     Long current = (Long) OP_STATS.get(key);
     long newValue = (current != null ? current.longValue() + 1 : 1);
@@ -121,12 +81,6 @@ private synchronized long atomicIncrement(String key) {
     return newValue;
 }
 
-/**
- * 原子增加指定数值操作
- * @param key 统计键名
- * @param delta 增加的数值
- * @return 增加后的新值
- */
 private synchronized long atomicAdd(String key, long delta) {
     Long current = (Long) OP_STATS.get(key);
     long newValue = (current != null ? current.longValue() + delta : delta);
@@ -135,31 +89,17 @@ private synchronized long atomicAdd(String key, long delta) {
     return newValue;
 }
 
-/**
- * 原子获取操作
- * @param key 统计键名
- * @return 当前值，不存在返回0
- */
 private synchronized long atomicGet(String key) {
     Long value = (Long) OP_STATS.get(key);
     return value != null ? value.longValue() : 0L;
 }
 
-/**
- * 添加变更键到脏数据记录表
- * @param key 变更的键名
- */
 private synchronized void addChangedKey(String key) {
     if (!CHANGED_KEYS.contains(key)) {
         CHANGED_KEYS.add(key);
     }
 }
 
-/**
- * 格式化统计数值显示
- * @param value 原始数值
- * @return 格式化后的字符串
- */
 private String formatStatValue(long value) {
     if (value >= 10000) {
         double w = (double) value / 10000.0;
@@ -168,9 +108,6 @@ private String formatStatValue(long value) {
     return String.valueOf(value);
 }
 
-/**
- * 启动后台写入线程（懒调用模式）
- */
 private void startWriteThread() {
     if (writeThreadRunning) return;
     
@@ -204,9 +141,6 @@ private void startWriteThread() {
     traceLog("api3_log.txt","写入任务提交完成");
 }
 
-/**
- * 停止后台写入线程
- */
 private void stopWriteThread() {
     traceLog("api3_log.txt", "停止写入任务");
     writeThreadRunning = false;
@@ -215,11 +149,6 @@ private void stopWriteThread() {
     }
 }
 
-/**
- * 格式化日期字符串用于显示
- * @param dateStr yyyyMMdd格式的日期字符串
- * @return yyyy年MM月dd日格式的日期字符串
- */
 private String formatDateForDisplay(String dateStr) {
     try {
         SimpleDateFormat inputFormat = new SimpleDateFormat("yyyyMMdd", Locale.CHINA);
@@ -230,11 +159,6 @@ private String formatDateForDisplay(String dateStr) {
     }
 }
 
-/**
- * 获取消息类型
- * @param data 消息数据对象
- * @return 消息类型字符串
- */
 private String getMsgType(Object data) {
     if (data == null || data.data == null) return "unknown";
     
@@ -282,11 +206,6 @@ private String getMsgType(Object data) {
     return "unknown";
 }
 
-/**
- * 获取纯文本字数统计
- * @param data 消息数据对象
- * @return 文本字符总数
- */
 private long getPureWordCount(Object data) {
     if (data == null || data.data == null || data.data.elements == null) return 0;
     
@@ -305,9 +224,6 @@ private long getPureWordCount(Object data) {
     return totalLen;
 }
 
-/**
- * 检查并处理跨天重置
- */
 private void checkTodayReset() {
     String currentDate = getTodayDateStr();
     if (todayDateStr == null || todayDateStr.isEmpty()) {
@@ -331,10 +247,6 @@ private void checkTodayReset() {
     }
 }
 
-/**
- * 从SharedPreferences获取每日目标值
- * @return 每日消息目标数
- */
 private int getDailyTargetFromPrefs() {
     Activity activity = getNowActivity();
     if (activity != null) {
@@ -347,11 +259,6 @@ private int getDailyTargetFromPrefs() {
     return DEFAULT_DAILY_TARGET;
 }
 
-/**
- * 获取统计类型对应的颜色
- * @param index 类型索引
- * @return 颜色值
- */
 private int getColorForStat(int index) {
     if (index >= 0 && index < COLORS.length) {
         return COLORS[index];
@@ -359,13 +266,6 @@ private int getColorForStat(int index) {
     return Color.parseColor("#333333");
 }
 
-/**
- * 创建圆角矩形Drawable
- * @param activity Activity上下文
- * @param color 背景颜色
- * @param radius 圆角半径dp值
- * @return GradientDrawable对象
- */
 private GradientDrawable createRoundRectDrawable(Activity activity, int color, int radius) {
     GradientDrawable drawable = new GradientDrawable();
     drawable.setColor(color);
@@ -373,12 +273,6 @@ private GradientDrawable createRoundRectDrawable(Activity activity, int color, i
     return drawable;
 }
 
-/**
- * 创建空白间距View
- * @param activity Activity上下文
- * @param heightDp 高度dp值
- * @return View对象
- */
 private View createSpaceView(Activity activity, int heightDp) {
     View space = new View(activity);
     space.setLayoutParams(new LinearLayout.LayoutParams(
@@ -386,11 +280,6 @@ private View createSpaceView(Activity activity, int heightDp) {
     return space;
 }
 
-/**
- * 创建分割线View
- * @param activity Activity上下文
- * @return 分割线View
- */
 private View createDivider(Activity activity) {
     boolean isDark = isThemeDark(activity);
     View divider = new View(activity);
@@ -402,13 +291,6 @@ private View createDivider(Activity activity) {
     return divider;
 }
 
-/**
- * 创建彩色按钮
- * @param activity Activity上下文
- * @param text 按钮文本
- * @param bgColor 背景颜色
- * @return Button对象
- */
 private Button createColorButton(Activity activity, String text, int bgColor) {
     Button button = new Button(activity);
     button.setText(text);
@@ -424,10 +306,6 @@ private Button createColorButton(Activity activity, String text, int bgColor) {
     return button;
 }
 
-/**
- * 初始化时间范围设置
- * @param activity Activity上下文
- */
 private void initTimeRange(Activity activity) {
     if (activity == null) {
         currentTimeRange = TimeRange.TODAY;
@@ -450,9 +328,6 @@ private void initTimeRange(Activity activity) {
     traceLog("api3_log.txt","加载范围: " + TimeRange.toString(currentTimeRange) + " 自定义日期: " + customDateStr);
 }
 
-/**
- * 读取完整统计数据文件
- */
 private synchronized void readFullStats() {
     if (configName == null || configName.isEmpty()) {
         traceLog("api3_log.txt", "configName无效");
@@ -482,11 +357,6 @@ private synchronized void readFullStats() {
     });
 }
 
-/**
- * 解析统计数据文件
- * @param file 数据文件
- * @return 解析是否成功
- */
 private boolean parseStatsFile(File file) {
     BufferedReader bf = null;
     try {
@@ -515,9 +385,6 @@ private boolean parseStatsFile(File file) {
     }
 }
 
-/**
- * 初始化空统计数据
- */
 private void initEmptyStats() {
     synchronized(writeLock) {
         traceLog("api3_log.txt", "初始化空统计数据");
@@ -533,9 +400,6 @@ private void initEmptyStats() {
     }
 }
 
-/**
- * 初始化统计模块
- */
 public void initStats() {
     traceLog("api3_log.txt", "api3初始化开始");
     Activity activity = getNowActivity();
@@ -545,10 +409,6 @@ public void initStats() {
     traceLog("api3_log.txt", "api3初始化完成");
 }
 
-/**
- * 批量处理消息队列
- * 优化后的日期判断：直接使用消息时间戳确定日期
- */
 private void processBatch() {
     if (messageBatchQueue.isEmpty()) return;
     
@@ -571,10 +431,6 @@ private void processBatch() {
         
         String msgTypeStr = getMsgType(data);
         
-        /**
-         * 优化后的日期判断：
-         * 直接使用消息时间戳计算日期，解决跨天问题
-         */
         String msgDateStr;
         try {
             long msgTimeSec = data.time;
@@ -679,16 +535,14 @@ private void processBatch() {
     triggerUIUpdate();
 }
 
-/**
- * 消息接收回调入口
- * @param data 消息数据对象
- */
 public void onMsg(Object data) {
 
     
     try { dispatchEvent(data, 1); 
         log大小限制(logPath);
         } catch (Throwable e) { traceLog("function_log", "[onMsg]" + e); }
+
+    if (!getBoolean("settings", "消息统计开关", true)) return;
 
     synchronized(writeLock) {
         messageBatchQueue.add(data);
@@ -701,9 +555,6 @@ public void onMsg(Object data) {
     }
 }
 
-/**
- * 写入变更的统计数据
- */
 private void writeStats() {
     if (CHANGED_KEYS.isEmpty() || configName == null || configName.isEmpty()) {
         return;
@@ -724,9 +575,6 @@ private void writeStats() {
     }
 }
 
-/**
- * 强制全量持久化
- */
 private void writeFullStats() {
     traceLog("api3_log.txt", "用户触发强制全量持久化");
     synchronized(writeLock) {
@@ -734,10 +582,6 @@ private void writeFullStats() {
     }
 }
 
-/**
- * 内部写入统计数据实现
- * @param triggeredKeys 触发写入的键列表
- */
 private void writeFullStatsInternal(Vector triggeredKeys) {
     JSONObject statsJson = new JSONObject();
     Iterator iterator = OP_STATS.entrySet().iterator();
@@ -802,10 +646,6 @@ private void writeFullStatsInternal(Vector triggeredKeys) {
     }
 }
 
-/**
- * 重新计算所有累计统计
- * 用于修复累计数据小于当天数据的情况
- */
 private void recalculateTotalStats() {
     traceLog("api3_log.txt", "重新计算所有total统计");
     for (int i = 0; i < STAT_TYPES.length; i++) {
@@ -830,9 +670,6 @@ private void recalculateTotalStats() {
     traceLog("api3_log.txt", "重新计算结束");
 }
 
-/**
- * 创建单一备份文件
- */
 private void createSingleBackup() {
     File mainFile = new File(configName);
     if (!mainFile.exists() || mainFile.length() == 0) return;
@@ -848,9 +685,6 @@ private void createSingleBackup() {
     }
 }
 
-/**
- * 触发UI更新
- */
 private void triggerUIUpdate() {
     if (!dialogVisible || statsDialog == null) {
         return;
@@ -892,9 +726,6 @@ private void triggerUIUpdate() {
     });
 }
 
-/**
- * 立即更新UI
- */
 private void updateUIImmediately() {
     if (statsDialog == null || !statsDialog.isShowing()) {
         traceLog("api3_log.txt", "对话框无效");
@@ -934,11 +765,6 @@ private void updateUIImmediately() {
     updateTodayProgress(todaySend, dailyTarget);
 }
 
-/**
- * 更新缓存的TextView
- * @param tag TextView标签
- * @param text 要设置的文本
- */
 private void updateCachedTextView(String tag, String text) {
     if (tag == null || text == null) return;
     
@@ -972,11 +798,6 @@ private void updateCachedTextView(String tag, String text) {
     }
 }
 
-/**
- * 更新今日进度显示
- * @param todaySend 今日发送数
- * @param dailyTarget 每日目标
- */
 private void updateTodayProgress(long todaySend, int dailyTarget) {
     if (todayCoreCardCache == null) {
         traceLog("api3_log.txt", "todayCoreCardCache为null");
@@ -1004,11 +825,6 @@ private void updateTodayProgress(long todaySend, int dailyTarget) {
     }
 }
 
-/**
- * 根据时间范围获取统计数据
- * @param typeKey 统计类型键
- * @return 统计值
- */
 private long getStatsByTimeRange(String typeKey) {
     long total = 0L;
     String datePrefix = "date_";
@@ -1075,11 +891,6 @@ private long getStatsByTimeRange(String typeKey) {
     return total;
 }
 
-/**
- * 创建时间范围选择器（Spinner样式，美化版）
- * @param activity Activity上下文
- * @return 包含选择器的LinearLayout
- */
 private View createRangeSpinner(Activity activity) {
     final Activity finalActivity = activity;
     final boolean isDark = isThemeDark(activity);
@@ -1247,10 +1058,6 @@ private View createRangeSpinner(Activity activity) {
     return layout;
 }
 
-/**
- * 显示日期选择对话框（保持原有DatePicker，美化样式）
- * @param activity Activity上下文
- */
 private void showDatePickerDialog(final Activity activity) {
     if (activity == null || activity.isFinishing()) return;
     boolean isDark = isThemeDark(activity);
@@ -1300,10 +1107,6 @@ private void showDatePickerDialog(final Activity activity) {
         .show();
 }
 
-/**
- * 显示目标设置对话框
- * @param activity Activity上下文
- */
 private void showTargetSettingDialog(Activity activity) {
     if (activity == null || activity.isFinishing()) return;
     boolean isDark = isThemeDark(activity);
@@ -1355,13 +1158,6 @@ private void showTargetSettingDialog(Activity activity) {
         .show();
 }
 
-/**
- * 创建统计卡片基础布局
- * @param activity Activity上下文
- * @param title 卡片标题
- * @param cardType 卡片类型标识
- * @return LinearLayout卡片
- */
 private LinearLayout createStatsCardBase(Activity activity, String title, String cardType) {
     boolean isDark = isThemeDark(activity);
     LinearLayout card = new LinearLayout(activity);
@@ -1411,11 +1207,6 @@ private LinearLayout createStatsCardBase(Activity activity, String title, String
     return card;
 }
 
-/**
- * 更新卡片展开状态
- * @param card 卡片布局
- * @param isExpanded 是否展开
- */
 private void updateCardExpandStatus(LinearLayout card, boolean isExpanded) {
     String cardType = (String) card.getTag();
     TextView arrowTv = (TextView) card.findViewWithTag(cardType + "_arrow");
@@ -1442,9 +1233,6 @@ private void updateCardExpandStatus(LinearLayout card, boolean isExpanded) {
     }
 }
 
-/**
- * 展开动画类
- */
 class ExpandAnimation extends Animation {
     private final View view;
     private final int targetHeight;
@@ -1466,9 +1254,6 @@ class ExpandAnimation extends Animation {
     }
 }
 
-/**
- * 折叠动画类
- */
 class CollapseAnimation extends Animation {
     private final View view;
     private final int startHeight;
@@ -1489,14 +1274,6 @@ class CollapseAnimation extends Animation {
     }
 }
 
-/**
- * 创建类型统计项布局
- * @param activity Activity上下文
- * @param label 标签文字
- * @param typeKey 类型键
- * @param colorIndex 颜色索引
- * @return LinearLayout项
- */
 private LinearLayout createTypeStatsItemLayout(Activity activity, String label, String typeKey, int colorIndex) {
     boolean isDark = isThemeDark(activity);
     LinearLayout itemLayout = new LinearLayout(activity);
@@ -1529,14 +1306,6 @@ private LinearLayout createTypeStatsItemLayout(Activity activity, String label, 
     return itemLayout;
 }
 
-/**
- * 创建统计项布局
- * @param activity Activity上下文
- * @param label 标签文字
- * @param key 统计键
- * @param colorIndex 颜色索引
- * @return LinearLayout项
- */
 private LinearLayout createStatsItemLayout(Activity activity, String label, String key, int colorIndex) {
     boolean isDark = isThemeDark(activity);
     LinearLayout itemLayout = new LinearLayout(activity);
@@ -1579,12 +1348,6 @@ private LinearLayout createStatsItemLayout(Activity activity, String label, Stri
     return itemLayout;
 }
 
-/**
- * 创建今日核心统计卡片
- * @param activity Activity上下文
- * @param title 卡片标题
- * @return LinearLayout卡片
- */
 private LinearLayout createTodayCoreStatsCard(Activity activity, String title) {
     boolean isDark = isThemeDark(activity);
     LinearLayout card = new LinearLayout(activity);
@@ -1672,12 +1435,6 @@ private LinearLayout createTodayCoreStatsCard(Activity activity, String title) {
     return card;
 }
 
-/**
- * 创建累计统计卡片
- * @param activity Activity上下文
- * @param title 卡片标题
- * @return LinearLayout卡片
- */
 private LinearLayout createTotalStatsCard(Activity activity, String title) {
     boolean isDark = isThemeDark(activity);
     LinearLayout card = new LinearLayout(activity);
@@ -1707,13 +1464,6 @@ private LinearLayout createTotalStatsCard(Activity activity, String title) {
     return card;
 }
 
-/**
- * 创建接收消息统计卡片
- * @param activity Activity上下文
- * @param title 卡片标题
- * @param cardType 卡片类型标识
- * @return LinearLayout卡片
- */
 private LinearLayout createReceiveStatsCard(Activity activity, String title, String cardType) {
     LinearLayout card = createStatsCardBase(activity, title, cardType);
 
@@ -1743,13 +1493,6 @@ private LinearLayout createReceiveStatsCard(Activity activity, String title, Str
     return card;
 }
 
-/**
- * 创建发送消息统计卡片
- * @param activity Activity上下文
- * @param title 卡片标题
- * @param cardType 卡片类型标识
- * @return LinearLayout卡片
- */
 private LinearLayout createSendStatsCard(Activity activity, String title, String cardType) {
     LinearLayout card = createStatsCardBase(activity, title, cardType);
 
@@ -1778,10 +1521,6 @@ private LinearLayout createSendStatsCard(Activity activity, String title, String
     return card;
 }
 
-/**
- * 重置今日统计数据
- * @param activity Activity上下文
- */
 private void resetTodayStats(final Activity activity) {
     traceLog("api3_log.txt", "用户请求重置今日数据");
     boolean isDark = isThemeDark(activity);
@@ -1830,10 +1569,6 @@ private void resetTodayStats(final Activity activity) {
         .show();
 }
 
-/**
- * 重置累计统计数据
- * @param activity Activity上下文
- */
 private void resetTotalStats(final Activity activity) {
     traceLog("api3_log.txt", "用户请求重置累计数据");
     boolean isDark = isThemeDark(activity);
@@ -1870,11 +1605,6 @@ private void resetTotalStats(final Activity activity) {
         .show();
 }
 
-/**
- * 修复统计数据
- * 重新计算所有累计数据，用于修复累计小于当天的情况
- * @param activity Activity上下文
- */
 private void repairStatsData(final Activity activity) {
     traceLog("api3_log.txt", "用户请求修复数据");
     vibrate(activity, 48);
@@ -1889,10 +1619,6 @@ private void repairStatsData(final Activity activity) {
     Toast("数据已修复完成");
 }
 
-/**
- * 显示统计对话框
- * @param activity Activity上下文
- */
 public void showStatsDialog(Activity activity) {
     if (activity == null || activity.isFinishing()) {
         traceLog("api3_log.txt", "activity无效");
@@ -2062,10 +1788,6 @@ public void showStatsDialog(Activity activity) {
     }, 100);
 }
 
-/**
- * 获取发送类型映射表
- * @return 类型键到中文名称的映射
- */
 Map getSendTypeMapping() {
     Map map = new HashMap();
     map.put("SendText", "文本");
@@ -2081,10 +1803,6 @@ Map getSendTypeMapping() {
     return map;
 }
 
-/**
- * 获取接收类型映射表
- * @return 类型键到中文名称的映射
- */
 Map getReceiveTypeMapping() {
     Map map = new HashMap();
     map.put("ReceiveText", "文本");
@@ -2100,11 +1818,6 @@ Map getReceiveTypeMapping() {
     return map;
 }
 
-/**
- * 获取所有变量映射表
- * @param scriptScope 脚本作用域
- * @return 变量名到值的映射
- */
 Map getAllVariablesMap(Object scriptScope) {
     Map map = new HashMap();
 
@@ -2169,12 +1882,6 @@ Map getAllVariablesMap(Object scriptScope) {
     return map;
 }
 
-/**
- * 获取指定变量值
- * @param scriptScope 脚本作用域
- * @param varName 变量名
- * @return 变量值字符串
- */
 String getVariableValue(Object scriptScope, String varName) {
     Map allVars = getAllVariablesMap(scriptScope);
     for (Object obj: allVars.entrySet()) {
@@ -2186,12 +1893,6 @@ String getVariableValue(Object scriptScope, String varName) {
     return null;
 }
 
-/**
- * 获取变量描述
- * @param key 变量键
- * @param value 变量值
- * @return 描述字符串
- */
 String getVarDescription(String key, String value) {
     String desc = "变量值";
 
@@ -2217,11 +1918,6 @@ String getVarDescription(String key, String value) {
     return desc + ": " + value;
 }
 
-/**
- * 获取排序后的变量列表
- * @param scriptScope 脚本作用域
- * @return 排序后的变量条目列表
- */
 List getSortedVariableList(Object scriptScope) {
     Map map = getAllVariablesMap(scriptScope);
     List list = new ArrayList(map.entrySet());
@@ -2241,12 +1937,6 @@ List getSortedVariableList(Object scriptScope) {
     return list;
 }
 
-/**
- * 替换变量占位符
- * @param template 模板字符串
- * @param scriptScope 脚本作用域
- * @return 替换后的字符串
- */
 String 替换变量占位符(String template, Object scriptScope) {
     if (template == null || template.trim().isEmpty()) {
         return "";
@@ -2312,10 +2002,6 @@ String 替换变量占位符(String template, Object scriptScope) {
     return result;
 }
 
-/**
- * 显示输入框设置对话框
- * @param activity Activity上下文
- */
 void showInputDialog(final Activity activity) {
     if (activity == null || activity.isFinishing()) return;
     
@@ -2492,11 +2178,6 @@ void showInputDialog(final Activity activity) {
     });
 }
 
-/**
- * 显示所有变量对话框
- * @param activity Activity上下文
- * @param scriptScope 脚本作用域
- */
 void showAllVariablesDialog(final Activity activity, final Object scriptScope) {
     if (activity == null || activity.isFinishing()) return;
     

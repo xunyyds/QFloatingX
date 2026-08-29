@@ -865,7 +865,6 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
     }
 }
 
-
 try {
     registerActivity(HtmlPreviewActivity.class);
 } catch(Throwable e) {}

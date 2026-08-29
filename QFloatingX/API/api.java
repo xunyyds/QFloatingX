@@ -21,7 +21,6 @@ import com.tencent.mobileqq.data.Card;
 import java.lang.Thread; // Thread.yield()
 Object app = BaseApplicationImpl.getApplication().getRuntime();
 
-
 // 1. 背景颜色 (使用处: 弹窗背景、根布局背景)
 String UI_COLOR_BG_LIGHT = "#FFFFFF"; // 亮色模式：纯白
 String UI_COLOR_BG_DARK = "#FF1E1E1E"; // 暗色模式：深灰 (Material Dark)
@@ -343,9 +342,6 @@ public boolean CheckSign(String qun, String uin) {
     }
 }
 
-/**
- * 发送高优先级通知到系统通知栏，支持点击回调代码执行和长文本展开
- */
 void sendHighPriorityNotification(String title, String content, String channelId, String clickCode) {
     try {
         Context nowContext = getNowActivity();
@@ -437,9 +433,6 @@ void sendHighPriorityNotification(String title, String content, String channelId
     } catch (Throwable e) {}
 }
 
-/**
- * 简版通知发送
- */
 void sendNotification(String title, String content) {
     sendHighPriorityNotification(title, content, "qfun_default_channel", null);
 }
@@ -809,7 +802,6 @@ void pinqpic(final String path1, final String qq, final Object sw, final Object 
 	});
 }
 
-
 //  JSON解析工具  开发者:如如 改进:荨宝（有人记得这个人吗，其实就是ᗜ×ᗜ哦，嘻嘻）
 //  必须配合org.json.JSONObject使用
 
@@ -915,7 +907,6 @@ private boolean 删除文件夹(File folder) {
 	}
 }
 
-
 String formatTime(float time) {
 	String suffix = "豪秒";
 	long seconds = (long)(time / 1000);
@@ -935,12 +926,13 @@ String formatSize(long bytes) {
 		"TB"
 	};
 	int digitGroups = (int)(Math.log10(bytes) / Math.log10(1024));
+	if (digitGroups < 0) digitGroups = 0;
+	if (digitGroups > units.length - 1) digitGroups = units.length - 1;
 	StringBuffer result = new StringBuffer();
 	result.append(new java.text.DecimalFormat("#,##0.##").format(bytes / Math.pow(1024, digitGroups)));
 	result.append(units[digitGroups]);
 	return result.toString();
 }
-// 基础文件大小获取 - 无外部依赖
 long getFileSize(File file) {
 	if (file == null) {
 		traceLog("api_log.txt", "getFileSize参数为null");
@@ -955,6 +947,7 @@ long getFileSize(File file) {
 }
 
 // 递归文件夹大小计算 - 依赖getFileSize
+// 递归文件夹大小计算
 long getFolderSize(File folder) {
 	if (folder == null || !folder.exists()) {
 		traceLog("api_log.txt", "getFolderSize文件夹不存在: " + folder);
@@ -979,27 +972,22 @@ long getFolderSize(File folder) {
 	return size;
 }
 
-// 字节数格式化 - 无外部依赖
 String getFormattedSize(long sizeInBytes) {
-	if (sizeInBytes < 0) {
-		traceLog("api_log.txt", "getFormattedSize接收负值: " + sizeInBytes);
+	if (sizeInBytes <= 0) {
 		return "0KB";
 	}
-
-	double sizeInKB = sizeInBytes / 1024.0;
-
-	if (sizeInKB < 1024) {
-		return String.format("%.3fKB", sizeInKB);
-	} else if (sizeInKB < 1048576) { // 1024*1024
-		double sizeInMB = sizeInKB / 1024.0;
-		return String.format("%.3fMB", sizeInMB);
-	} else {
-		double sizeInGB = sizeInKB / 1048576.0;
-		return String.format("%.3fGB", sizeInGB);
+	java.text.DecimalFormat df = new java.text.DecimalFormat("0.###");
+	double size = sizeInBytes / 1024.0;
+	String unit = "KB";
+	if (size >= 1048576.0) {
+		size = size / 1048576.0;
+		unit = "GB";
+	} else if (size >= 1024.0) {
+		size = size / 1024.0;
+		unit = "MB";
 	}
+	return df.format(size) + unit;
 }
-
-// 文件夹对象格式化 - 依赖getFolderSize和getFormattedSize(long)
 String getFormattedSize(File folder) {
 	if (folder == null) {
 		traceLog("api_log.txt", "getFormattedSize(File)参数为null");
@@ -1125,7 +1113,6 @@ String readprop(String file, String name2) {
 	}
 }
 
-
 private void 写(String Path, String WriteData) {
 	if (Path == null || Path.trim().isEmpty()) {
 		traceLog("api_log.txt", " 【写入失败】路径为空");
@@ -1187,7 +1174,6 @@ private void 写(String Path, String WriteData) {
 	}
 }
 
-
 private void 新建(String Path) {
 	File dir = new File(Path);
 	if (!dir.exists()) {
@@ -1242,7 +1228,6 @@ public void log大小限制(String Path) {
 	}
 }
 
-
 public void setTips(String title, String message) {
 	Activity ThisActivity = getNowActivity();
 	ThisActivity.runOnUiThread(new Runnable() {
@@ -1292,7 +1277,6 @@ public void setTips(String title, String message) {
 	});
 }
 
-
 import java.security.MessageDigest;
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
@@ -1300,7 +1284,6 @@ import java.net.URLEncoder;
 import java.net.URLDecoder;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
-
 
 // 1. Base64
 String encryptBase64(String text) {
@@ -1391,7 +1374,6 @@ String hexToString(String hex) {
 			String str = hex.substring(i, i + 2);
 			output.append((char) Integer.parseInt(str, 16));
 		}
-		// 注意：这里做的是简单字符还原，如果是复杂字节流建议用 new String(bytes)
 		return output.toString();
 	} catch (Exception e) {
 		return "Hex解析失败: " + e.getMessage();
@@ -1726,11 +1708,6 @@ private void startDialogShowAnimation(View view) {
 
 	view.startAnimation(set);
 }
-/**
- * 控件关闭动画：缩放缩小 + 透明度淡出
- * @param view 弹窗的根视图（如 alertDialog.getWindow().getDecorView()）
- * @param dialog 要关闭的弹窗，动画结束后自动dismiss
- */
 private void startDialogDismissAnimation(View view, DialogInterface dialog) {
 	if (view == null || dialog == null) return;
 	//  缩放动画：从1倍缩小到0.7倍，中心缩放
@@ -2326,21 +2303,11 @@ void unLoadPlugin() {
 
 }
 
-/**
- * 更新进度回调接口
- */
 interface ProgressCallback {
     void onProgress(int progress);
     void onProgressTip(String tip);
 }
 
-/**
- * 从指定URL下载文件到本地路径
- * @param url 下载链接
- * @param savePath 本地保存路径
- * @param callback 进度回调
- * @return 下载是否成功
- */
 boolean downloadFile(String url, String savePath, ProgressCallback callback) {
     boolean success = false;
     java.io.FileOutputStream out = null;
@@ -2424,13 +2391,6 @@ boolean downloadFile(String url, String savePath, ProgressCallback callback) {
     return success;
 }
 
-/**
- * 解压ZIP文件到目标目录
- * @param zipPath ZIP文件路径
- * @param destDir 目标目录
- * @param callback 进度回调
- * @return 解压是否成功
- */
 boolean unzipFile(String zipPath, String destDir, ProgressCallback callback) {
     boolean success = false;
     java.io.File zipFile = new java.io.File(zipPath);
@@ -2505,21 +2465,16 @@ boolean unzipFile(String zipPath, String destDir, ProgressCallback callback) {
     return success;
 }
 
-/**
- * 显示更新对话框并执行文件列表下载逻辑
- * @param version 远程版本号
- * @param versionType 远程版本类型（正式版/测试版）
- * @param updateType 更新类型（全量/补丁）
- * @param changelog 更新日志
- * @param updateFiles 需要下载的文件列表
- */
 void showUpdateDialog(final String version, final String versionType, final String updateType, final String changelog, final List updateFiles, final String count) {
 
     Activity activity = getNowActivity();
-    
+
+    if (activity == null) return;
+    final String finalChannel = getUpdateChannelBaseUrl();
+
     activity.runOnUiThread(new Runnable() {
         public void run() {
-        
+
             boolean isDark = isThemeDark(activity);
 
             StringBuilder message = new StringBuilder();
@@ -2527,7 +2482,7 @@ void showUpdateDialog(final String version, final String versionType, final Stri
             message.append("新版本为").append(versionType).append(" ").append(version).append(" 确定要更新嘛～\n");
             message.append("点击确定更新后将自动更新并重启脚本\n\n");
             message.append(changelog.replace("\n", "\n")).append("\n\n");
-            
+
             if (updateFiles != null && !updateFiles.isEmpty()) {
                 message.append("(需下载 ").append(updateFiles.size()).append(" 个文件)");
             }
@@ -2557,12 +2512,12 @@ void showUpdateDialog(final String version, final String versionType, final Stri
                             }
 
                             int total = updateFiles.size();
-                            
+
                             for (int i = 0; i < total; i++) {
                                 final String fileName = (String) updateFiles.get(i);
                                 final int currentIndex = i + 1;
                                 final int remaining = total - currentIndex;
-                                
+
                                 activity.runOnUiThread(new Runnable() {
                                     public void run() {
                                         String displayName = fileName;
@@ -2574,8 +2529,8 @@ void showUpdateDialog(final String version, final String versionType, final Stri
                                     }
                                 });
 
-                                String fileUrl = "https://gitee.com/ovoxiaomo/qfloating-x/raw/QF/" + fileName;
-                                
+                                String fileUrl = finalChannel + "/" + fileName;
+
                                 String relativePath = fileName;
                                 if (relativePath.startsWith("QFloatingX/")) {
                                     relativePath = relativePath.substring("QFloatingX/".length());
@@ -2619,21 +2574,60 @@ void showUpdateDialog(final String version, final String versionType, final Stri
     });
 }
 
-/**
- * 执行更新检查流程，解析 up.json 并比对版本号
- */
+String getUpdateChannelBaseUrl() {
+    String channel = getString("settings", "update_channel", "gitee");
+    if ("github".equals(channel)) {
+        return "https://raw.githubusercontent.com/xunyyds/QFloatingX/QF";
+    }
+    return "https://gitee.com/ovoxiaomo/qfloating-x/raw/QF";
+}
+
+private volatile long qfxUpdateLastCheckTime = 0;
+private static final long QFX_UPDATE_CHECK_INTERVAL = 30 * 60 * 1000L;
+
 void checkQFXUpdate() {
+    final long now = System.currentTimeMillis();
+    if (now - qfxUpdateLastCheckTime < QFX_UPDATE_CHECK_INTERVAL) {
+        return;
+    }
+    qfxUpdateLastCheckTime = now;
+    runQFXUpdateCheck(false);
+}
+
+void manualCheckQFXUpdate() {
+    qfxUpdateLastCheckTime = System.currentTimeMillis();
+    runQFXUpdateCheck(true);
+}
+
+void runQFXUpdateCheck(final boolean manual) {
     ThreadPool.execute(new Runnable() {
         public void run() {
-            String ignored = getString("更新检测", "已忽略版本", "");
-            String jsonStr = get("https://gitee.com/ovoxiaomo/qfloating-x/raw/QF/up.json");
-            String jsonStr2  = get("https://cn.apihz.cn/api/jisuan/jishuqi2.php?id=10013224&key=17e1755199ff8eebc2fd58bce20d950e&type=2&number=2");
-            if (jsonStr == null || jsonStr.isEmpty()) return;
-
             try {
-                JSONObject json  = new JSONObject(jsonStr);
-                JSONObject json2 = new JSONObject(jsonStr2);
-                String count = json2.optString("number2", "0");
+                String ignored = getString("更新检测", "已忽略版本", "");
+                String updateUrl = getUpdateChannelBaseUrl() + "/up.json";
+                String jsonStr = get(updateUrl);
+                if (jsonStr == null || jsonStr.isEmpty()) {
+                    if (manual) {
+                        Activity activity = getNowActivity();
+                        if (activity != null) {
+                            final String msg = "无法访问更新服务器，请检查网络或切换更新通道";
+                            activity.runOnUiThread(new Runnable() {
+                                public void run() { Toast(msg); }
+                            });
+                        }
+                    }
+                    return;
+                }
+
+                JSONObject json = new JSONObject(jsonStr);
+                String count = "0";
+                try {
+                    String jsonStr2 = get("https://cn.apihz.cn/api/jisuan/jishuqi2.php?id=10013224&key=17e1755199ff8eebc2fd58bce20d950e&type=2&number=2");
+                    if (jsonStr2 != null && !jsonStr2.isEmpty()) {
+                        count = new JSONObject(jsonStr2).optString("number2", "0");
+                    }
+                } catch (Throwable ignored2) {}
+
                 String remoteVersion = json.optString("version", "0.0.0");
                 String versionType = json.optString("versionType", "正式版");
                 String updateType = json.optString("updateType", "全量");
@@ -2647,16 +2641,36 @@ void checkQFXUpdate() {
                     }
                 }
 
-                if (remoteVersion.equals(ignored)) return;
-
                 String localVersion = readprop(pluginPath + "/info.prop", "versionCode");
-                if (localVersion == null) localVersion = "0.0.0";
+                if (localVersion == null || localVersion.isEmpty()) localVersion = "0.0.0";
 
-                if (!remoteVersion.equals(localVersion)) {
-                    showUpdateDialog(remoteVersion, versionType, updateType, changelog, files, count);
+                if (remoteVersion.equals(localVersion)) {
+                    if (manual) {
+                        final String currentVer = localVersion;
+                        Activity activity = getNowActivity();
+                        if (activity != null) {
+                            activity.runOnUiThread(new Runnable() {
+                                public void run() { Toast("已是最新版本 v" + currentVer); }
+                            });
+                        }
+                    }
+                    return;
                 }
+
+                if (!manual && remoteVersion.equals(ignored)) return;
+
+                showUpdateDialog(remoteVersion, versionType, updateType, changelog, files, count);
             } catch (Throwable t) {
                 traceLog("main_log", "checkQFXUpdate 异常: " + t.getMessage());
+                if (manual) {
+                    Activity activity = getNowActivity();
+                    if (activity != null) {
+                        final String errMsg = "检查更新失败: " + t.getMessage();
+                        activity.runOnUiThread(new Runnable() {
+                            public void run() { Toast(errMsg); }
+                        });
+                    }
+                }
             }
         }
     });
@@ -2712,11 +2726,6 @@ boolean checkWithSuffixes(String basePath, String[] suffixes) {
     return false;
 }
 
-/**
- * 执行下载并解压（FutureTask风格）
- * @param activity Activity上下文
- * @return true=成功，false=失败
- */
 boolean performDownloadAndUnzip() {
     final String downloadUrl = "https://gitee.com/ovoxiaomo/qfloating-x/raw/QF/icon.zip";
     final String tempZipPath = pluginPath + "/API/icon.zip";
@@ -2780,9 +2789,6 @@ boolean performDownloadAndUnzip() {
     return unzipResult;
 }
 
-/**
- * 清理临时文件
- */
 void cleanupTempFile(String tempPath) {
     try {
         java.io.File file = new java.io.File(tempPath);
@@ -2794,18 +2800,10 @@ void cleanupTempFile(String tempPath) {
     }
 }
 
-/**
- * 下载解压完成后二次验证
- */
 boolean verifyAfterDownload() {
     return checkAllIconsExist();
 }
 
-
-/**
- * 主入口：确保图标资源可用
- * 只有检测到缺失时才提示"正在后台下载..."
- */
 void ensureResourceAvailable() {
 
     boolean allExist = checkAllIconsExist();

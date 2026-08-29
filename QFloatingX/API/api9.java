@@ -522,9 +522,6 @@ void showPBSenderDialog() {
     });
 }
 
-/**
- * 显示模板选择弹窗
- */
 void showTemplateSelectorDialog(Activity act, EditText etService, EditText etPB) {
     Dialog dialog = new Dialog(act);
     dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -623,9 +620,6 @@ void showTemplateSelectorDialog(Activity act, EditText etService, EditText etPB)
     dialog.show();
 }
 
-/**
- * 显示PB数据预览弹窗
- */
 void showPreviewDialog(Activity act, String service, String pbData) {
     Dialog dialog = new Dialog(act);
     dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -702,12 +696,6 @@ void showPreviewDialog(Activity act, String service, String pbData) {
     dialog.show();
 }
 
-/**
- * 发送指定表情回应（群聊）
- *
- * @param data      消息数据对象，包含群号、消息序号等信息
- * @param faceIndex 表情ID（QQ表情编号）
- */
 void sendSpecifiedFaceReply(Object data, int faceIndex) {
     if (data == null || data.data == null || data.type != 2) {
         qqToast(1, "仅支持群聊表情回应");
@@ -758,11 +746,6 @@ void sendSpecifiedFaceReply(Object data, int faceIndex) {
     }
 }
 
-/**
- * 随机选择一个表情进行回应
- *
- * @param data 消息数据对象
- */
 void randomFaceReply(Object data) {
     String cfg = getString("config", "face_reply_config", "1~200");
     List faces = parseFaceConfig(cfg);
@@ -777,18 +760,6 @@ void randomFaceReply(Object data) {
     sendSpecifiedFaceReply(data, randomFace);
 }
 
-/**
- * 解析表情配置字符串
- * <p>
- * 支持格式：
- * <ul>
- *   <li>范围：如 "1~200" 表示1到200之间的所有整数</li>
- *   <li>列表：如 "75,82,355,307" 表示指定表情ID</li>
- * </ul>
- *
- * @param cfg 配置字符串
- * @return 表情ID列表
- */
 private List parseFaceConfig(String cfg) {
     List list = new ArrayList();
     cfg = cfg.trim();
@@ -812,13 +783,6 @@ private List parseFaceConfig(String cfg) {
     return list;
 }
 
-/**
- * 显示表情回应配置弹窗
- * 展示发送者信息、消息预览，允许用户设置表情范围/列表，发送间隔
- * 点击“保存并使用”后，立即按照配置依次发送表情
- *
- * @param data 消息数据对象
- */
 void showFaceReplyConfigDialog(Object data) {
     Activity act = getNowActivity();
     if (act == null || act.isFinishing()) return;
@@ -1105,13 +1069,6 @@ public void drawqunLuckyChar(String qun) {
         qqToast(1, "空壳");
 }
 
-/**
- * 显示语音消息发送配置弹窗
- * <p>
- * 在群聊消息上触发，弹出音色选择和文本输入界面，确认后发送TTS语音消息
- *
- * @param data 消息对象，包含 peerUin（群号）、type（类型）等
- */
 void showVoiceSendDialog(Object data) {
     Activity act = getNowActivity();
     if (act == null || act.isFinishing()) return;
@@ -1328,14 +1285,6 @@ void showVoiceSendDialog(Object data) {
     });
 }
 
-/**
- * 显示音色选择列表弹窗
- *
- * @param act        Activity
- * @param voiceArray 音色 JSON 数组
- * @param etVoiceId  主弹窗中音色ID输入框
- * @param tvVoiceName 主弹窗中显示音色名称的TextView
- */
 void showVoiceListDialog(final Activity act, final JSONArray voiceArray,
                           final EditText etVoiceId, final TextView tvVoiceName) {
     if (act == null || act.isFinishing()) return;
@@ -1432,13 +1381,6 @@ void showVoiceListDialog(final Activity act, final JSONArray voiceArray,
     });
 }
 
-/**
- * 发送语音消息（Oidb 0x11ca_0）
- *
- * @param groupUin 群号
- * @param voiceId  音色ID
- * @param text     要转换的文本
- */
 void sendVoiceMessage(String groupUin, String voiceId, String text) {
     try {
         // 构造 JSON 结构
@@ -1696,7 +1638,6 @@ void RecallMessage(Object data, long seq) {
                 JSONObject json = new JSONObject();
 
                 if (chatType == 2) { // 群聊撤回
-
 
                     if (groupUin <= 0 || msgSeq <= 0 || msgRandom <= 0) {
                         qqToast(1, "群聊参数无效");

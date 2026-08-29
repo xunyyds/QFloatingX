@@ -1,11 +1,22 @@
 {
-  "version": "2.3.9.1",
-  "versionType": "测试版",
+  "version": "2.4.0",
+  "versionType": "正式版",
   "updateType": "补丁",
-  "updateTime": "2026-08-28 13:42:09",
-  "changelog": "- 修复安卓16以下可能造成的数组越界问题",
+  "updateTime": "2026-08-29 11:24:10",
+  "changelog": "-  新增可选更新方式(gitee,github)\n-  部分api适配安卓12\n- 大幅优化脚本大小",
   "files": [
+    "QFloatingX\/API\/ColorPicker.java",
+    "QFloatingX\/API\/api3.java",
+    "QFloatingX\/API\/uitools.java",
+    "QFloatingX\/API\/Dialog.java",
     "QFloatingX\/API\/api5.java",
+    "QFloatingX\/API\/api.java",
+    "QFloatingX\/API\/setwindow.java",
+    "QFloatingX\/API\/api4.java",
+    "QFloatingX\/API\/api9.java",
+    "QFloatingX\/API\/api7.java",
+    "QFloatingX\/API\/import.java",
+    "QFloatingX\/desc.txt",
     "QFloatingX\/info.prop",
     "QFloatingX\/更新日志.txt"
   ]

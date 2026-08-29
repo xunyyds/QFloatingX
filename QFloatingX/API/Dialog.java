@@ -6,12 +6,6 @@ import java.util.stream.Collectors;
 import android.os.Handler;
 import android.os.Looper;
 
-/**
- * 从键值对字符串中提取指定前缀后的值
- * @param pair 键值对字符串
- * @param prefix 前缀
- * @return 提取的值
- */
 String extractValue(String pair, String prefix) {
     try {
         String value = pair.substring(prefix.length()).trim();
@@ -24,12 +18,6 @@ String extractValue(String pair, String prefix) {
     }
 }
 
-
-/**
- * 将角色标识转换为中文显示名称
- * @param role 角色标识
- * @return 中文显示名称
- */
 String convertRole(String role) {
     if ("OWNER".equals(role)) return "群主";
     if ("ADMIN".equals(role)) return "管理员";
@@ -37,11 +25,6 @@ String convertRole(String role) {
     return role != null ? role : "未知";
 }
 
-/**
- * 将时间戳格式化为日期时间字符串
- * @param timestamp 时间戳（毫秒）
- * @return 格式化后的日期时间字符串
- */
 String timestampToDate(long timestamp) {
     try {
         java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
@@ -51,11 +34,6 @@ String timestampToDate(long timestamp) {
     }
 }
 
-/**
- * 根据禁言结束时间戳获取禁言状态描述
- * @param timestamp 禁言结束时间戳（秒）
- * @return 禁言状态描述
- */
 String getGagStatus(String timestamp) {
     try {
         long ts = Long.parseLong(timestamp);
@@ -69,11 +47,6 @@ String getGagStatus(String timestamp) {
     }
 }
 
-/**
- * 将秒数格式化为可读的时间长度字符串
- * @param seconds 秒数
- * @return 格式化后的时间字符串
- */
 String formatRemainingTime(long seconds) {
     if (seconds < 60) return seconds + "秒";
     if (seconds < 3600) return (seconds / 60) + "分钟" + (seconds % 60) + "秒";
@@ -81,11 +54,6 @@ String formatRemainingTime(long seconds) {
     return (seconds / 86400) + "天" + ((seconds % 86400) / 3600) + "小时";
 }
 
-/**
- * 简单美化字符串
- * @param obj 要格式化的字符串
- * @return 格式化后的字符串
- */
 public static String prettyPrint(Object obj) {
     if (obj == null) return "null";
     String input = obj.toString();
@@ -146,10 +114,6 @@ private static void appendIndent(StringBuilder sb, String indent, int level) {
         sb.append(indent);
     }
 }
-/**
- * 菜单功能入口方法
- * @param data 消息数据对象
- */
 void 菜单(Object data) {
     if (!非UI初始化完成) {
         traceLog("api_log.txt", "菜单调用时延迟启动未完成");
@@ -170,13 +134,6 @@ void 菜单(Object data) {
     });
 }
 
-/**
- * 显示禁言成员设置弹窗
- * @param activity Activity实例
- * @param qun 群号
- * @param uin 成员QQ号
- * @param nickName 成员昵称
- */
 public void showShutUpDialog(Activity activity, String qun, String uin, String nickName) {
     activity.runOnUiThread(new Runnable() {
         public void run() {
@@ -271,11 +228,6 @@ public void showShutUpDialog(Activity activity, String qun, String uin, String n
     });
 }
 
-/**
- * 显示全体禁言设置弹窗
- * @param activity Activity实例
- * @param qun 群号
- */
 public void showMuteAllDialog(Activity activity, String qun) {
     activity.runOnUiThread(new Runnable() {
         public void run() {
@@ -402,11 +354,6 @@ public void showMuteAllDialog(Activity activity, String qun) {
     });
 }
 
-/**
- * 显示点赞次数输入弹窗
- * @param activity Activity实例
- * @param targetUin 目标QQ号
- */
 public void showZanDialog(Activity activity, String targetUin) {
     activity.runOnUiThread(new Runnable() {
         public void run() {
@@ -500,13 +447,6 @@ public void showZanDialog(Activity activity, String targetUin) {
     });
 }
 
-/**
- * 显示拍一拍次数输入弹窗
- * @param activity Activity实例
- * @param targetUin 目标QQ号
- * @param peerUin 聊天对象QQ号
- * @param chatType 聊天类型
- */
 public void showPaiDialog(Activity activity, String targetUin, String peerUin, int chatType) {
     activity.runOnUiThread(new Runnable() {
         public void run() {
@@ -614,11 +554,6 @@ public void showPaiDialog(Activity activity, String targetUin, String peerUin, i
     });
 }
 
-/**
- * 显示加解密工具弹窗
- * @param activity Activity实例
- * @param data object对象
- */
 public void showEncryptDecryptDialog(Activity activity, Object data) {
     if (activity == null || activity.isFinishing()) return;
     int MAX_LEN = 8000;
@@ -855,11 +790,6 @@ public void showEncryptDecryptDialog(Activity activity, Object data) {
     });
 }
 
-/**
- * 显示代码执行控制台弹窗
- * @param activity Activity实例
- * @param data 消息数据对象
- */
 public void showCodeConsoleDialog(Activity activity, Object data) {
     if (activity == null || activity.isFinishing()) return;
     if (data == null) { Toast("数据无效"); return; }
@@ -1037,12 +967,6 @@ public void showCodeConsoleDialog(Activity activity, Object data) {
     });
 }
 
-/**
- * 显示展开完整内容弹窗
- * @param activity Activity实例
- * @param content 要显示的内容
- * @param isDark 是否深色主题
- */
 public void showExpandedResultDialog(Activity activity, String content, boolean isDark) {
     if (activity == null || activity.isFinishing()) return;
     activity.runOnUiThread(new Runnable() {
@@ -1129,13 +1053,6 @@ public void showExpandedResultDialog(Activity activity, String content, boolean 
     });
 }
 
-/**
- * 显示设置群头衔弹窗
- * @param activity Activity实例
- * @param qun 群号
- * @param uin 成员QQ号
- * @param nickName 成员昵称
- */
 public void showTitleDialog(Activity activity, String qun, String uin, String nickName) {
     if (activity == null || activity.isFinishing()) return;
     activity.runOnUiThread(new Runnable() {
@@ -1217,13 +1134,6 @@ public void showTitleDialog(Activity activity, String qun, String uin, String ni
     });
 }
 
-/**
- * 显示设置管理员弹窗
- * @param activity Activity实例
- * @param qun 群号
- * @param uin 成员QQ号
- * @param nickName 成员昵称
- */
 public void showSetAdminDialog(Activity activity, String qun, String uin, String nickName) {
     if (activity == null || activity.isFinishing()) return;
     activity.runOnUiThread(new Runnable() {
@@ -1316,13 +1226,6 @@ public void showSetAdminDialog(Activity activity, String qun, String uin, String
     });
 }
 
-/**
- * 显示修改群名片弹窗
- * @param activity Activity实例
- * @param qun 群号
- * @param uin 成员QQ号
- * @param nickName 成员昵称
- */
 public void showChangeCardDialog(Activity activity, String qun, String uin, String nickName) {
     if (activity == null || activity.isFinishing()) return;
     activity.runOnUiThread(new Runnable() {
@@ -1404,11 +1307,6 @@ public void showChangeCardDialog(Activity activity, String qun, String uin, Stri
     });
 }
 
-/**
- * 显示原始消息解析弹窗
- * @param act Activity实例
- * @param data 消息数据对象
- */
 void showMsgDataPaeseDialog(Activity act, Object data) {
     if (act == null || act.isFinishing()) return;
     
@@ -1496,13 +1394,6 @@ void showMsgDataPaeseDialog(Activity act, Object data) {
     });
 }
 
-/**
- * 显示可复制内容的确认弹窗
- * @param act Activity实例
- * @param title 弹窗标题
- * @param text 要显示的文本内容
- * @param isDark 是否深色主题
- */
 void showCopyConfirmDialog(Activity act, String title, String text, boolean isDark) {
     if (act == null) return;
     final String finalText = text != null ? text : "获取失败或内容为空";
@@ -1612,14 +1503,6 @@ void showCopyConfirmDialog(Activity act, String title, String text, boolean isDa
     });
 }
 
-/**
- * 显示确认踢出成员弹窗
- * @param activity Activity实例
- * @param qun 群号
- * @param uin 成员QQ号
- * @param nickName 成员昵称
- * @param isDark 是否深色主题
- */
 void showKickConfirmDialog(Activity activity, String qun, String uin, String nickName, boolean isDark) {
     if (activity == null || activity.isFinishing()) return;
     uiHandler.post(new Runnable() {
@@ -1703,10 +1586,6 @@ void showKickConfirmDialog(Activity activity, String qun, String uin, String nic
     });
 }
 
-/**
- * 显示原始消息内容弹窗（格式化输出）
- * @param msgData 消息数据对象
- */
 void showRawMessageDialog(Object msgData) {
     try {
         String rawText = "获取失败";
@@ -1719,10 +1598,6 @@ void showRawMessageDialog(Object msgData) {
     }
 }
 
-/**
- * 显示艾特列表弹窗
- * @param atListData 艾特列表数据
- */
 void showAtListDialog(Object atListData) {
     Activity activity = getNowActivity();
     if (activity == null || activity.isFinishing()) return;
@@ -1836,12 +1711,6 @@ void showAtListDialog(Object atListData) {
     });
 }
 
-/**
- * 创建现代简约风格的加载动画
- * @param activity Activity实例
- * @param isDark 是否深色主题
- * @return 加载动画布局
- */
 LinearLayout createModernLoading(Activity activity, boolean isDark) {
     LinearLayout container = new LinearLayout(activity);
     container.setOrientation(LinearLayout.VERTICAL);
@@ -1864,12 +1733,6 @@ LinearLayout createModernLoading(Activity activity, boolean isDark) {
     return container;
 }
 
-/**
- * 显示群详细信息弹窗
- * @param activity Activity实例
- * @param groupUin 群号
- * @param isDark 是否深色主题
- */
 void showGroupInfoDialog(Activity activity, String groupUin, boolean isDark) {
     ThreadPool.execute(new Runnable() {
         public void run() {
@@ -1913,13 +1776,6 @@ void showGroupInfoDialog(Activity activity, String groupUin, boolean isDark) {
     });
 }
 
-/**
- * 显示成员详细信息弹窗
- * @param activity Activity实例
- * @param peerUin 聊天对象QQ号
- * @param userUin 成员QQ号
- * @param chatType 聊天类型
- */
 void showMemberInfoDialog(Activity activity, String peerUin, String userUin, int chatType) {
     ThreadPool.execute(new Runnable() {
         public void run() {
@@ -2082,20 +1938,12 @@ void showMemberInfoDialog(Activity activity, String peerUin, String userUin, int
     });
 }
 
-/**
- * 克隆指定 QQ 头像（下载后上传）
- * @param uin QQ号
- */
 void handleCloneAvatar(final String uin) {
     String url = "http://q2.qlogo.cn/headimg_dl?dst_uin=" + uin + "&spec=640";
     String fileName = "avatar_" + getTime() + ".png";
     executeDownloadAndUpload(url, fileName, "开始克隆头像", "克隆头像成功");
 }
 
-/**
- * 上传群消息中的图片作为头像（从 [pic=xxx] 提取链接）
- * @param quntext 包含图片标记的文本
- */
 void handleUploadAvatar(final String quntext) {
     // 正则提取第一个 [pic=...] 中的 URL
     String url = null;
@@ -2113,13 +1961,6 @@ void handleUploadAvatar(final String quntext) {
     executeDownloadAndUpload(url, fileName, "开始上传图片", "上传头像成功");
 }
 
-/**
- * 通用下载并上传头像方法
- * @param url      下载地址
- * @param fileName 保存的文件名（不含路径）
- * @param startMsg 开始下载时的提示
- * @param succMsg  上传成功后的提示
- */
 private void executeDownloadAndUpload(final String url, final String fileName,
                                       final String startMsg, final String succMsg) {
     ThreadPool.execute(new Runnable() {
@@ -2186,11 +2027,6 @@ private void executeDownloadAndUpload(final String url, final String fileName,
     });
 }
 
-/**
- * 显示获取Cookie弹窗
- * @param activity Activity实例
- * @param isDark 是否深色主题
- */
 public void showGetCookieDialog(final Activity activity, final boolean isDark) {
     activity.runOnUiThread(new Runnable() {
         public void run() {
@@ -3013,16 +2849,6 @@ public void showExtractAudioDialog(Activity activity, Object data) {
     });
 }
 
-/**
- * 创建通用信息行视图
- * @param activity Activity实例
- * @param label 标签文本
- * @param value 值文本
- * @param colorText 文字颜色
- * @param colorSubtext 次要文字颜色
- * @param isDark 是否深色主题
- * @return 信息行布局
- */
 LinearLayout createInfoRow(Activity activity, String label, String value, int colorText, int colorSubtext, boolean isDark) {
     LinearLayout row = new LinearLayout(activity);
     row.setOrientation(LinearLayout.HORIZONTAL);
@@ -3069,21 +2895,6 @@ LinearLayout createInfoRow(Activity activity, String label, String value, int co
     return row;
 }
 
-/**
- * 创建群成员信息看板卡片
- * @param activity Activity实例
- * @param userUin 成员QQ号
- * @param peerUin 聊天对象QQ号
- * @param chatType 聊天类型
- * @param isDark 是否深色主题
- * @param colorText 文字颜色
- * @param colorSubtext 次要文字颜色
- * @param msgText 消息文本
- * @param fullMsgText 完整消息文本
- * @param msgRecord 消息记录对象
- * @param nickName 昵称
- * @return 信息卡片布局
- */
 FrameLayout createMemberInfoCard(Activity activity, String userUin, String peerUin, int chatType,
                                  boolean isDark, int colorText, int colorSubtext,
                                  String msgText, String fullMsgText, Object msgRecord, String nickName) {
@@ -3335,18 +3146,6 @@ FrameLayout createMemberInfoCard(Activity activity, String userUin, String peerU
     return cardWrapper;
 }
 
-/**
- * 创建菜单项按钮
- * @param activity Activity实例
- * @param title 按钮标题
- * @param isDark 是否深色主题
- * @param colorPrimary 主色调
- * @param colorCardBg 卡片背景色
- * @param parentDialog 父弹窗
- * @param callback 点击回调
- * @param skipDismiss 是否跳过关闭弹窗
- * @return 菜单项布局
- */
 FrameLayout createMenuItem(Activity activity, String title, boolean isDark, int colorPrimary, int colorCardBg, Dialog parentDialog, Runnable callback, boolean skipDismiss) {
     FrameLayout itemWrapper = new FrameLayout(activity);
     itemWrapper.setLayoutParams(new GridLayout.LayoutParams(GridLayout.spec(GridLayout.UNDEFINED, 1f), GridLayout.spec(GridLayout.UNDEFINED, 1f)));
@@ -3407,13 +3206,6 @@ FrameLayout createMenuItem(Activity activity, String title, boolean isDark, int 
     return itemWrapper;
 }
 
-/**
- * 创建分类标题视图
- * @param activity Activity实例
- * @param category 分类名称
- * @param colorPrimary 主色调
- * @return 标题视图
- */
 TextView createCategoryTitle(Activity activity, String category, int colorPrimary) {
     TextView tv = new TextView(activity);
     tv.setText(category);
@@ -3433,23 +3225,10 @@ String[][] CATEGORY_COLOR_STRS = new String[][]{
     new String[]{"#607D8B","#455A64","#CFD8DC"}
 };
 
-/**
- * 添加菜单项到列表
- * @param list 菜单项列表
- * @param category 分类名称
- * @param title 菜单项标题
- * @param callback 点击回调
- */
 void addMenuItem(List list, String category, String title, Runnable callback) {
     list.add(new Object[]{category, title, callback});
 }
 
-/**
- * 根据分类名称获取对应颜色数组
- * @param category 分类名称
- * @param isDark 是否深色主题
- * @return 颜色数组[主色, 次色]
- */
 int[] getCategoryColorInts(String category, boolean isDark) {
     int index = 5;
     if ("消息操作".equals(category)) index = 0;
@@ -3467,11 +3246,6 @@ class ArrowDrawable extends Drawable {
     private Path path;
     private boolean isUp;
 
-    /**
-     * 构造箭头Drawable
-     * @param color 箭头颜色
-     * @param isUp 是否向上
-     */
     ArrowDrawable(int color, boolean isUp) {
         this.isUp = isUp;
         this.paint = new Paint();
@@ -3483,10 +3257,6 @@ class ArrowDrawable extends Drawable {
         this.path = new Path();
     }
 
-    /**
-     * 设置箭头颜色
-     * @param color 颜色值
-     */
     void setColor(int color) { paint.setColor(color); invalidateSelf(); }
 
     private void rebuildPath() {
@@ -3509,12 +3279,6 @@ class ArrowDrawable extends Drawable {
     public int getOpacity() { return PixelFormat.TRANSLUCENT; }
 }
 
-/**
- * 应用保存的排序配置到菜单数据
- * @param catOrder 分类顺序列表
- * @param catItems 分类菜单项映射
- * @param savedOrder 保存的排序字符串
- */
 void applySavedSortOrder(List catOrder, Map catItems, String savedOrder) {
     if (savedOrder == null || savedOrder.isEmpty()) return;
     try {
@@ -3576,12 +3340,6 @@ void applySavedSortOrder(List catOrder, Map catItems, String savedOrder) {
     }
 }
 
-/**
- * 构建排序配置字符串
- * @param catOrder 分类顺序列表
- * @param catItems 分类菜单项映射
- * @return 排序字符串
- */
 String buildSortOrderString(List catOrder, Map catItems) {
     try {
         return ((List)catOrder).stream()
@@ -3604,11 +3362,6 @@ String buildSortOrderString(List catOrder, Map catItems) {
     }
 }
 
-/**
- * 长按消息显示的主菜单入口
- * @param activity Activity实例
- * @param data 消息数据对象
- */
 public void 长按消息菜单(Activity activity, Object data) {
     if (activity == null || activity.isFinishing()) return;
 
@@ -4074,12 +3827,6 @@ public void 长按消息菜单(Activity activity, Object data) {
     }
 }
 
-/**
- * 显示禁言列表弹窗（流式加载）
- * @param activity Activity实例
- * @param groupUin 群号
- * @param isDark 是否深色主题
- */
 void showProhibitListDialog(Activity activity, String groupUin, boolean isDark) {
     if (activity == null || activity.isFinishing()) return;
     int textColor = isDark ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT;
@@ -4312,12 +4059,6 @@ void showProhibitListDialog(Activity activity, String groupUin, boolean isDark) 
     });
 }
 
-/**
- * 显示群成员列表弹窗（流式加载）
- * @param activity Activity实例
- * @param groupUin 群号
- * @param isDark 是否深色主题
- */
 void showGroupMemberListDialog(Activity activity, String groupUin, boolean isDark) {
     if (activity == null || activity.isFinishing()) return;
     int textColor = isDark ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT;
@@ -4550,11 +4291,6 @@ void showGroupMemberListDialog(Activity activity, String groupUin, boolean isDar
     });
 }
 
-/**
- * 显示我的群列表弹窗（流式加载）
- * @param activity Activity实例
- * @param isDark 是否深色主题
- */
 void showGroupListDialog(Activity activity, boolean isDark) {
     if (activity == null || activity.isFinishing()) return;
     int textColor = isDark ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT;
@@ -4779,11 +4515,6 @@ void showGroupListDialog(Activity activity, boolean isDark) {
     });
 }
 
-/**
- * 显示我的好友列表弹窗（流式加载）
- * @param activity Activity实例
- * @param isDark 是否深色主题
- */
 void showFriendListDialog(Activity activity, boolean isDark) {
     if (activity == null || activity.isFinishing()) return;
     int textColor = isDark ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT;
@@ -5125,14 +4856,47 @@ public void ts(Activity activity, String title, String content) {
 
 import com.tencent.qqnt.aio.markdown.api.IMarkdownFeatureCompatApi;
 private Object markdownParser;
+private java.lang.reflect.Method markdownParseMethod;
+private int markdownParseArgCount = -1;
+private java.lang.reflect.Method resolveMarkdownMethod(Object parser) {
+    String[] names = new String[] { "b", "a" };
+    Class[][] paramVariants = new Class[][] {
+        new Class[] { String.class },
+        new Class[] { CharSequence.class },
+        new Class[] {}
+    };
+    for (int i = 0; i < names.length; i++) {
+        for (int j = 0; j < paramVariants.length; j++) {
+            try {
+                java.lang.reflect.Method m = parser.getClass().getMethod(names[i], paramVariants[j]);
+                if (CharSequence.class.isAssignableFrom(m.getReturnType())) {
+                    m.setAccessible(true);
+                    markdownParseArgCount = paramVariants[j].length;
+                    return m;
+                }
+            } catch (NoSuchMethodException e) {}
+        }
+    }
+    return null;
+}
 private String parseMarkdownToHtml(String markdown) throws Exception {
     if (markdownParser == null) {
         IMarkdownFeatureCompatApi svc = QRoute.api(IMarkdownFeatureCompatApi.class);
         java.lang.reflect.Field f = svc.getClass().getDeclaredField("$$delegate_1");
         f.setAccessible(true);
         markdownParser = f.get(svc);
+        markdownParseMethod = resolveMarkdownMethod(markdownParser);
+        if (markdownParseMethod == null) {
+            throw new NoSuchMethodException("未找到可用的 Markdown 解析方法 (" + markdownParser.getClass().getName() + ")");
+        }
     }
-    CharSequence cs = (CharSequence) markdownParser.getClass().getMethod("b", String.class).invoke(markdownParser, markdown);
+    Object result = markdownParseArgCount == 0
+        ? markdownParseMethod.invoke(markdownParser)
+        : markdownParseMethod.invoke(markdownParser, markdown);
+    if (!(result instanceof CharSequence)) {
+        throw new Exception("解析结果不是 CharSequence，实际: " + (result == null ? "null" : result.getClass().getName()));
+    }
+    CharSequence cs = (CharSequence) result;
     if (cs instanceof Spanned) {
         String html = Html.toHtml((Spanned) cs, Html.TO_HTML_PARAGRAPH_LINES_CONSECUTIVE);
         html = decodeNumericEntities(html);
@@ -5350,24 +5114,6 @@ interface GroupSelectCallback {
     void onSelected(List selected);
 }
 
-/**
- * 显示群组/好友选择对话框。
- * <p>
- * 根据指定的模式显示好友列表、群聊列表或两者的组合，支持多选、搜索、全选、反选等操作。
- * 选择完成后通过回调返回选中的群号或好友QQ号列表。
- * </p>
- *
- * @param act          当前 Activity，用于创建对话框
- * @param mode         选择模式：
- *                     <ul>
- *                       <li>1 - 仅选择好友</li>
- *                       <li>2 - 仅选择群聊</li>
- *                       <li>3 - 选择好友和群聊（混合列表）</li>
- *                     </ul>
- * @param initSelected 初始已选中的项列表（元素为 String 类型的 QQ/群号），可为空
- * @param callback     选择完成后的回调接口，{@link GroupSelectCallback#onSelected(List)} 
- *                     会在用户点击“确定”时被调用，参数为最终选中的列表
- */
 void showGroupSelector(final Activity act, final int mode, final List initSelected, final GroupSelectCallback callback) {
     if (act == null || act.isFinishing()) return;
     
@@ -5699,21 +5445,10 @@ void showGroupSelector(final Activity act, final int mode, final List initSelect
     });
 }
 
-/**
- * Material Design 风格的勾选标记自定义视图，支持线条渐进绘制动画
- * 颜色自动适配深色/浅色模式
- */
 class CheckMarkView extends View {
     private float drawProgress;
     private int checkColor;
 
-    /**
-     * 构造方法，初始化视图、进度、颜色和可见性
-     * 
-     * @param act Activity
-     * @param isChecked 初始选中状态
-     * @param backgroundIsBlue 是否为蓝色背景（用于决定 ✓ 颜色）
-     */
     public CheckMarkView(Activity act, boolean isChecked, boolean backgroundIsBlue) {
         super(act);
         
@@ -5773,23 +5508,9 @@ class CheckMarkView extends View {
     }
 }
 
-/**
- * 创建勾选标记视图
- * 
- * @param act Activity
- * @param isChecked 是否选中
- * @param backgroundIsBlue 当前背景是否为蓝色
- * @return CheckMarkView 实例
- */
 View createCheckMarkView(Activity act, boolean isChecked, boolean backgroundIsBlue) {
     return new CheckMarkView(act, isChecked, backgroundIsBlue);
 }
-/**
- * 执行线条渐进绘制动画（显示时从头画出 ✓，隐藏时反向擦除）
- * 
- * @param checkMark createCheckMarkView 返回的视图
- * @param show true=显示，false=隐藏
- */
 void animateCheckMark(View checkMark, boolean show) {
     if (checkMark == null) return;
 
