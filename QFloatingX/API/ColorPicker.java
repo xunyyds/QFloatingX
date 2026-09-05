@@ -5,6 +5,78 @@ interface OnColorPickedListener {
 interface OnColorChangedListener {
     void onColorChanged(int color);
 }
+
+void applyMd3SeekBar(android.widget.SeekBar sb, int primary, Context ctx) {
+    try {
+        int trackH = dpxc(ctx, 4);
+        int thumbSize = dpxc(ctx, 20);
+        int corner = trackH / 2;
+        int trackPad = (thumbSize - trackH) / 2;
+        
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+        bg.setCornerRadius(corner);
+        bg.setColor((primary & 16777215) | 771751936);
+        bg.setSize(0, trackH);
+        
+        android.graphics.drawable.GradientDrawable prog = new android.graphics.drawable.GradientDrawable();
+        prog.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+        prog.setCornerRadius(corner);
+        prog.setColor(primary);
+        prog.setSize(0, trackH);
+        
+        android.graphics.drawable.ClipDrawable clip = new android.graphics.drawable.ClipDrawable(prog, 3, 1);
+        
+        android.graphics.drawable.Drawable[] layers = new android.graphics.drawable.Drawable[]{bg, clip};
+        android.graphics.drawable.LayerDrawable layer = new android.graphics.drawable.LayerDrawable(layers);
+        layer.setId(0, 16908288);
+        layer.setId(1, 16908301);
+        sb.setProgressDrawable(layer);
+        
+        android.graphics.drawable.GradientDrawable thumb = new android.graphics.drawable.GradientDrawable();
+        thumb.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+        thumb.setSize(thumbSize, thumbSize);
+        thumb.setColor(pc("#FFFFFFFF"));
+        thumb.setStroke(dpxc(ctx, 1), primary);
+        sb.setThumb(thumb);
+        sb.setThumbOffset(0);
+        
+        int pad = thumbSize / 2;
+        sb.setPadding(pad, trackPad, pad, trackPad);
+        sb.setMinimumHeight(thumbSize);
+    } catch (Exception e) { traceLog("ColorPicker", "applyMd3SeekBar error: " + e.getMessage()); }
+}
+
+String colorToHex(int color) {
+    try {
+        String a = Integer.toHexString((color >> 24) & 0xFF);
+        String r = Integer.toHexString((color >> 16) & 0xFF);
+        String g = Integer.toHexString((color >> 8) & 0xFF);
+        String b = Integer.toHexString(color & 0xFF);
+        if (a.length() < 2) a = "0" + a;
+        if (r.length() < 2) r = "0" + r;
+        if (g.length() < 2) g = "0" + g;
+        if (b.length() < 2) b = "0" + b;
+        return "#" + a.toUpperCase() + r.toUpperCase() + g.toUpperCase() + b.toUpperCase();
+    } catch (Exception e) {
+        return "#FF000000";
+    }
+}
+
+boolean isValidHexColor(String colorCode) {
+    if (colorCode == null || colorCode.trim().length() == 0) return false;
+    String c = colorCode.trim();
+    if (!c.startsWith("#")) return false;
+    int len = c.length();
+    if (len != 7 && len != 9) return false;
+    for (int i = 1; i < len; i++) {
+        char ch = c.charAt(i);
+        boolean isHex = (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F');
+        if (!isHex) return false;
+    }
+    return true;
+}
+
 ArrayList loadFavoriteColors(Activity activity) {
     ArrayList list = new ArrayList();
     try {
@@ -18,7 +90,7 @@ ArrayList loadFavoriteColors(Activity activity) {
                 }
             }
         }
-    } catch (Exception e) {}
+    } catch (Exception e) { traceLog("ColorPicker", e.getMessage()); }
     return list;
 }
 
@@ -31,46 +103,41 @@ void saveFavoriteColors(Activity activity, ArrayList favorites) {
             sb.append(favorites.get(i).toString());
         }
         putString("settings", "color_favorites", sb.toString());
-    } catch (Exception e) {}
+    } catch (Exception e) { traceLog("ColorPicker", e.getMessage()); }
 }
 
-class SeekBar extends LinearLayout {
-    private SeekBar seekBar; // 滑块控件
+class ColorSeekBar extends LinearLayout {
+    private android.widget.SeekBar seekBar; // 滑块控件
     private TextView valueLabel; // 数值显示标签
     private OnColorChangedListener listener; // 颜色变化监听器
     private int index; // 索引
 
-    public SeekBar(Context context, String label, int color, int initialValue, int max) {
+    public ColorSeekBar(Context context, String label, int color, int initialValue, int max) {
         super(context);
         setOrientation(LinearLayout.HORIZONTAL);
         setGravity(Gravity.CENTER_VERTICAL);
-        setPadding(0, dp(context, 8), 0, dp(context, 8));
+        setPadding(0, dpxc(context, 8), 0, dpxc(context, 8));
         
         TextView labelView = new TextView(context);
         labelView.setText(label);
         labelView.setTextSize(16);
         labelView.setTextColor(color);
         labelView.setTypeface(null, Typeface.BOLD);
-        labelView.setLayoutParams(new LinearLayout.LayoutParams(dp(context, 32), -2));
+        labelView.setLayoutParams(new LinearLayout.LayoutParams(dpxc(context, 32), -2));
         addView(labelView);
         
         LinearLayout seekContainer = new LinearLayout(context);
         seekContainer.setOrientation(LinearLayout.VERTICAL);
         seekContainer.setGravity(Gravity.CENTER_VERTICAL);
-        seekContainer.setPadding(dp(context, 8), 0, dp(context, 8), 0);
+        seekContainer.setPadding(dpxc(context, 8), 0, dpxc(context, 8), 0);
         seekContainer.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
         
-        seekBar = new SeekBar(context);
+        seekBar = new android.widget.SeekBar(context);
         seekBar.setMax(max);
         seekBar.setProgress(initialValue);
-        seekBar.setPadding(dp(context, 4), dp(context, 8), dp(context, 4), dp(context, 8));
-        
         try {
-            if (Build.VERSION.SDK_INT >= 16) {
-                seekBar.getProgressDrawable().setColorFilter(color, android.graphics.PorterDuff.Mode.SRC_IN);
-                seekBar.getThumb().setColorFilter(Color.WHITE, android.graphics.PorterDuff.Mode.SRC_IN);
-            }
-        } catch (Exception e) {}
+            applyMd3SeekBar(seekBar, color, context);
+        } catch (Exception e) { traceLog("ColorPicker", "ColorSeekBar md3 error: " + e.getMessage()); }
         
         seekContainer.addView(seekBar);
         addView(seekContainer);
@@ -78,13 +145,13 @@ class SeekBar extends LinearLayout {
         valueLabel = new TextView(context);
         valueLabel.setText(String.valueOf(initialValue));
         valueLabel.setTextSize(14);
-        valueLabel.setTextColor(Color.parseColor("#FF666666"));
+        valueLabel.setTextColor(pc(getSettingsThemeColor(context, "on_surface_variant")));
         valueLabel.setTypeface(Typeface.MONOSPACE);
-        valueLabel.setLayoutParams(new LinearLayout.LayoutParams(dp(context, 40), -2));
+        valueLabel.setLayoutParams(new LinearLayout.LayoutParams(dpxc(context, 40), -2));
         valueLabel.setGravity(Gravity.RIGHT);
         addView(valueLabel);
         
-        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+        seekBar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 valueLabel.setText(String.valueOf(progress));
                 if (listener != null) {
@@ -107,564 +174,6 @@ class SeekBar extends LinearLayout {
     }
 }
 
-class HsvPickerView extends View {
-    private Paint huePaint; // 色相条画笔
-    private Paint svPaint; // SV 平面画笔
-    private Paint cursorPaint; // 光标画笔
-    private Paint borderPaint; // 边框画笔
-    
-    private int currentHue = 0; // 当前色相
-    private float currentSat = 1.0f; // 当前饱和度
-    private float currentVal = 1.0f; // 当前明度
-    
-    private OnColorChangedListener listener; // 颜色变化监听器
-    private boolean trackingSV = false; // 是否正在跟踪 SV 操作
-    private boolean trackingHue = false; // 是否正在跟踪 Hue 操作
-    
-    private int svLeft, svTop, svRight, svBottom; // SV 区域边界
-    private int hueLeft, hueTop, hueRight, hueBottom; // Hue 区域边界
-    private int hueWidth = 40; // 色相条宽度
-    
-    private boolean isSizeValid = false; // 尺寸是否有效
-    private Shader hueShader; // 色相渐变着色器
-
-    public HsvPickerView(Context context, int initialColor) {
-        super(context);
-        setWillNotDraw(false);
-        
-        huePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        svPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        cursorPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        
-        cursorPaint.setStyle(Paint.Style.STROKE);
-        cursorPaint.setStrokeWidth(4);
-        cursorPaint.setColor(Color.WHITE);
-        try {
-            cursorPaint.setShadowLayer(2, 0, 0, Color.BLACK);
-        } catch (Exception e) {}
-        
-        borderPaint.setColor(Color.parseColor("#40FFFFFF"));
-        borderPaint.setStyle(Paint.Style.STROKE);
-        borderPaint.setStrokeWidth(1);
-        
-        setColor(initialColor);
-    }
-    
-    // 设置当前颜色   
-     public void setColor(int color) {
-        try {
-            float[] hsv = new float[3];
-            Color.colorToHSV(color, hsv);
-            currentHue = (int) hsv[0];
-            currentSat = hsv[1];
-            currentVal = hsv[2];
-            invalidate();
-        } catch (Exception e) {}
-    }
-    
-    // 设置颜色变化监听器    
-    public void setOnColorChangedListener(OnColorChangedListener l) {
-        listener = l;
-    }
-	protected void onSizeChanged(int w, int h, int oldw, int oldh) {
-	    super.onSizeChanged(w, h, oldw, oldh);
-	    
-	    try {
-	        // 安全检查：防止宽高为0
-	        if (w <= 0 || h <= 0) {
-	            isSizeValid = false;
-	            return;
-	        }
-	        
-	        int padding = dp(getContext(), 8);
-	        int gap = dp(getContext(), 16);
-	        
-	        hueWidth = dp(getContext(), 36);
-	        hueLeft = w - padding - hueWidth;
-	        hueTop = padding;
-	        hueRight = w - padding;
-	        hueBottom = h - padding;
-	        
-	        if (hueRight <= hueLeft || hueBottom <= hueTop || hueWidth <= 0) {
-	            isSizeValid = false;
-	            return;
-	        }
-	        
-	        svLeft = padding;
-	        svTop = padding;
-	        svRight = hueLeft - gap;
-	        svBottom = h - padding;
-	        
-	        if (svRight <= svLeft || svBottom <= svTop) {
-	            isSizeValid = false;
-	            return;
-	        }
-	        
-	        // 使用Color.parseColor(#AARRGGBB)
-	        int[] hueColors = new int[7];
-	        hueColors[0] = Color.parseColor("#FFFF0000"); // 红
-	        hueColors[1] = Color.parseColor("#FFFFFF00"); // 黄
-	        hueColors[2] = Color.parseColor("#FF00FF00"); // 绿
-	        hueColors[3] = Color.parseColor("#FF00FFFF"); // 青
-	        hueColors[4] = Color.parseColor("#FF0000FF"); // 蓝
-	        hueColors[5] = Color.parseColor("#FFFF00FF"); // 洋红
-	        hueColors[6] = Color.parseColor("#FFFF0000"); // 红（闭合）
-	        
-	        float[] positions = null;
-	        
-	        float x0 = 0.0f;
-	        float y0 = (float)hueTop;
-	        float x1 = 0.0f;
-	        float y1 = (float)hueBottom;
-	        
-	        // 使用Object接收构造结果
-	        Object shaderObj = new LinearGradient(
-	            x0, 
-	            y0, 
-	            x1, 
-	            y1, 
-	            hueColors,      // 显式int[]类型变量
-	            positions,      // 显式float[]类型变量（非null字面量）
-	            Shader.TileMode.CLAMP
-	        );
-	        
-	        hueShader = (android.graphics.Shader)shaderObj;
-	        huePaint.setShader(hueShader);
-	        
-	        isSizeValid = true;
-	        traceLog("hsv_picker", "[onSizeChanged] 渐变创建成功");
-	        
-	    } catch (Throwable e) {
-	        traceLog("hsv_picker", "[onSizeChanged] 错误: " + e.getMessage());
-	        isSizeValid = false;
-	    }
-	}
-	
-        protected void onDraw(Canvas canvas) {
-        super.onDraw(canvas);
-        
-        if (!isSizeValid) return;
-        
-        try {
-            // 绘制SV平面背景 (白色到当前色相)
-            int[] svColors = new int[]{
-                Color.WHITE,
-                Color.HSVToColor(new float[]{currentHue, 1.0f, 1.0f})
-            };
-            Shader svShader = new LinearGradient(svLeft, svTop, svRight, svTop, svColors, null, Shader.TileMode.CLAMP);
-            svPaint.setShader(svShader);
-            canvas.drawRect(svLeft, svTop, svRight, svBottom, svPaint);
-            
-            // 叠加明度渐变 (从上到下：透明到黑色)
-            Shader valShader = new LinearGradient(svLeft, svTop, svLeft, svBottom, 
-                Color.TRANSPARENT, Color.BLACK, Shader.TileMode.CLAMP);
-            svPaint.setShader(valShader);
-            canvas.drawRect(svLeft, svTop, svRight, svBottom, svPaint);
-            
-            // 绘制SV平面边框
-            canvas.drawRect(svLeft, svTop, svRight, svBottom, borderPaint);
-            
-            // 绘制色相条 (右侧)
-            canvas.drawRect(hueLeft, hueTop, hueRight, hueBottom, huePaint);
-            canvas.drawRect(hueLeft, hueTop, hueRight, hueBottom, borderPaint);
-            
-            // 绘制SV选择器光标 (空心圆+中心点)
-            float svX = svLeft + (svRight - svLeft) * currentSat;
-            float svY = svTop + (svBottom - svTop) * (1 - currentVal);
-            
-            // 确保光标在区域内
-            svX = Math.max(svLeft + 10, Math.min(svRight - 10, svX));
-            svY = Math.max(svTop + 10, Math.min(svBottom - 10, svY));
-            
-            // 外圈 (黑色描边)
-            cursorPaint.setColor(Color.BLACK);
-            cursorPaint.setStrokeWidth(3);
-            canvas.drawCircle(svX, svY, 10, cursorPaint);
-            // 内圈 (白色)
-            cursorPaint.setColor(Color.WHITE);
-            cursorPaint.setStrokeWidth(2);
-            canvas.drawCircle(svX, svY, 8, cursorPaint);
-            
-            // 绘制色相选择器 (右侧横线)
-            float hueY = hueTop + (hueBottom - hueTop) * (currentHue / 360.0f);
-            hueY = Math.max(hueTop + 5, Math.min(hueBottom - 5, hueY));
-            
-            Paint hueCursorPaint = new Paint();
-            hueCursorPaint.setColor(Color.WHITE);
-            hueCursorPaint.setStrokeWidth(4);
-            try {
-                hueCursorPaint.setShadowLayer(3, 0, 0, Color.BLACK);
-            } catch (Exception e) {}
-            canvas.drawLine(hueLeft - 6, hueY, hueRight + 6, hueY, hueCursorPaint);
-            
-        } catch (Exception e) {}
-    }
-        public boolean onTouchEvent(MotionEvent event) {
-        if (!isSizeValid) return false;
-        
-        try {
-            float x = event.getX();
-            float y = event.getY();
-            
-            switch (event.getAction()) {
-                case MotionEvent.ACTION_DOWN:
-                    if (x >= svLeft && x <= svRight && y >= svTop && y <= svBottom) {
-                        trackingSV = true;
-                        updateSV(x, y);
-                        return true;
-                    } else if (x >= hueLeft && x <= hueRight && y >= hueTop && y <= hueBottom) {
-                        trackingHue = true;
-                        updateHue(y);
-                        return true;
-                    }
-                    break;
-                case MotionEvent.ACTION_MOVE:
-                    if (trackingSV) {
-                        updateSV(x, y);
-                        return true;
-                    } else if (trackingHue) {
-                        updateHue(y);
-                        return true;
-                    }
-                    break;
-                case MotionEvent.ACTION_UP:
-                case MotionEvent.ACTION_CANCEL:
-                    trackingSV = false;
-                    trackingHue = false;
-                    break;
-            }
-        } catch (Exception e) {
-            trackingSV = false;
-            trackingHue = false;
-        }
-        return super.onTouchEvent(event);
-    }
-    
-    // 更新饱和度和明度    
-    private void updateSV(float x, float y) {
-        try {
-            currentSat = Math.max(0, Math.min(1, (x - svLeft) / (svRight - svLeft)));
-            currentVal = Math.max(0, Math.min(1, 1 - (y - svTop) / (svBottom - svTop)));
-            if (listener != null) {
-                listener.onColorChanged(Color.HSVToColor(new float[]{currentHue, currentSat, currentVal}));
-            }
-            invalidate();
-        } catch (Exception e) {}
-    }
-    
-    // 更新色相    
-    private void updateHue(float y) {
-        try {
-            currentHue = (int) (Math.max(0, Math.min(1, (y - hueTop) / (hueBottom - hueTop))) * 360);
-            if (listener != null) {
-                listener.onColorChanged(Color.HSVToColor(new float[]{currentHue, currentSat, currentVal}));
-            }
-            invalidate();
-        } catch (Exception e) {}
-    }
-}
-
-class ColorWheelView extends View {
-    private Paint wheelPaint; // 色轮画笔
-    private Paint centerPaint; // 中心画笔
-    private Paint cursorPaint; // 光标画笔
-    private int centerX, centerY, radius; // 圆心坐标和半径
-    private float cursorX, cursorY; // 光标坐标
-    private int currentHue = 0; // 当前色相
-    private float currentSat = 1.0f; // 当前饱和度
-    private OnColorChangedListener listener; // 颜色变化监听器
-    private Bitmap cacheBitmap; // 缓存位图
-    private boolean isSizeValid = false; // 尺寸是否有效
-    
-    public ColorWheelView(Context context, int initialColor) {
-        super(context);
-        setWillNotDraw(false);
-        
-        wheelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        centerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        cursorPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        cursorPaint.setStyle(Paint.Style.STROKE);
-        cursorPaint.setStrokeWidth(3);
-        cursorPaint.setColor(Color.WHITE);
-        try {
-            cursorPaint.setShadowLayer(2, 0, 0, Color.BLACK);
-        } catch (Exception e) {}
-        
-        setColor(initialColor);
-    }
-    
-    // 设置当前颜色    
-    public void setColor(int color) {
-        try {
-            float[] hsv = new float[3];
-            Color.colorToHSV(color, hsv);
-            currentHue = (int) hsv[0];
-            currentSat = hsv[1];
-            updateCursorPosition();
-            invalidate();
-        } catch (Exception e) {}
-    }
-    
-    // 设置颜色变化监听器    
-    public void setOnColorChangedListener(OnColorChangedListener l) {
-        listener = l;
-    }
-        protected void onSizeChanged(int w, int h, int oldw, int oldh) {
-        super.onSizeChanged(w, h, oldw, oldh);
-        
-        // 安全检查：防止宽高为0
-        if (w <= 0 || h <= 0) {
-            isSizeValid = false;
-            return;
-        }
-        
-        centerX = w / 2;
-        centerY = h / 2;
-        radius = Math.min(w, h) / 2 - dp(getContext(), 16);
-        
-        // 安全检查：半径必须大于0才能创建位图
-        if (radius <= 0) {
-            isSizeValid = false;
-            return;
-        }
-        
-        updateCursorPosition();
-        isSizeValid = true;
-        
-        // 预渲染色轮背景
-        try {
-            if (cacheBitmap != null && !cacheBitmap.isRecycled()) {
-                cacheBitmap.recycle();
-            }
-            cacheBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
-            Canvas cacheCanvas = new Canvas(cacheBitmap);
-            
-            // 绘制色轮 (扫描渐变)
-            Shader shader = new SweepGradient(centerX, centerY, 
-                new int[]{Color.RED, Color.YELLOW, Color.GREEN, Color.CYAN, Color.BLUE, Color.MAGENTA, Color.RED},
-                null);
-            wheelPaint.setShader(shader);
-            cacheCanvas.drawCircle(centerX, centerY, radius, wheelPaint);
-            
-            // 叠加饱和度渐变 (从中心白色到边缘透明)
-            Shader satShader = new RadialGradient(centerX, centerY, radius, 
-                Color.WHITE, Color.TRANSPARENT, Shader.TileMode.CLAMP);
-            centerPaint.setShader(satShader);
-            cacheCanvas.drawCircle(centerX, centerY, radius, centerPaint);
-            
-        } catch (Exception e) {
-            // 如果创建失败，清理资源
-            if (cacheBitmap != null && !cacheBitmap.isRecycled()) {
-                cacheBitmap.recycle();
-            }
-            cacheBitmap = null;
-        }
-    }
-    
-    // 更新光标位置    
-    private void updateCursorPosition() {
-        try {
-            float angle = (float) Math.toRadians(currentHue);
-            float r = currentSat * radius;
-            cursorX = centerX + (float) Math.cos(angle) * r;
-            cursorY = centerY + (float) Math.sin(angle) * r;
-        } catch (Exception e) {}
-    }
-        protected void onDraw(Canvas canvas) {
-        super.onDraw(canvas);
-        
-        if (!isSizeValid) return;
-        
-        try {
-            // 绘制缓存的色轮
-            if (cacheBitmap != null && !cacheBitmap.isRecycled()) {
-                canvas.drawBitmap(cacheBitmap, 0, 0, null);
-            }
-            
-            // 确保光标在有效范围内
-            float dx = cursorX - centerX;
-            float dy = cursorY - centerY;
-            float dist = (float) Math.sqrt(dx * dx + dy * dy);
-            if (dist > radius) {
-                dx = dx / dist * radius;
-                dy = dy / dist * radius;
-                cursorX = centerX + dx;
-                cursorY = centerY + dy;
-            }
-            
-            // 绘制光标 (双圈)
-            Paint shadowPaint = new Paint();
-            shadowPaint.setColor(Color.BLACK);
-            shadowPaint.setStyle(Paint.Style.STROKE);
-            shadowPaint.setStrokeWidth(4);
-            canvas.drawCircle(cursorX, cursorY, 10, shadowPaint);
-            
-            cursorPaint.setColor(Color.WHITE);
-            cursorPaint.setStrokeWidth(2);
-            canvas.drawCircle(cursorX, cursorY, 8, cursorPaint);
-            
-        } catch (Exception e) {}
-    }
-        public boolean onTouchEvent(MotionEvent event) {
-        if (!isSizeValid) return false;
-        
-        try {
-            float x = event.getX();
-            float y = event.getY();
-            
-            float dx = x - centerX;
-            float dy = y - centerY;
-            float dist = (float) Math.sqrt(dx * dx + dy * dy);
-            
-            if (dist > radius) {
-                dx = dx / dist * radius;
-                dy = dy / dist * radius;
-                dist = radius;
-            }
-            
-            cursorX = centerX + dx;
-            cursorY = centerY + dy;
-            
-            currentSat = dist / radius;
-            currentHue = (int) Math.toDegrees(Math.atan2(dy, dx));
-            if (currentHue < 0) currentHue += 360;
-            
-            if (listener != null) {
-                listener.onColorChanged(Color.HSVToColor(new float[]{currentHue, currentSat, 1.0f}));
-            }
-            
-            invalidate();
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-}
-
-class ColorBarView extends View {
-    private Paint paint; // 主画笔
-    private Paint cursorPaint; // 光标画笔
-    private Paint borderPaint; // 边框画笔
-    private int currentColor; // 当前颜色
-    private int[] colors; // 颜色数组
-    private OnColorChangedListener listener; // 颜色变化监听器
-    private int barLeft, barTop, barRight, barBottom; // 条形边界
-    private boolean isSizeValid = false; // 尺寸是否有效
-    
-    public ColorBarView(Context context, int initialColor) {
-        super(context);
-        setWillNotDraw(false);
-        
-        paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        cursorPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        
-        cursorPaint.setStyle(Paint.Style.STROKE);
-        cursorPaint.setStrokeWidth(4);
-        cursorPaint.setColor(Color.WHITE);
-        try {
-            cursorPaint.setShadowLayer(3, 0, 0, Color.BLACK);
-        } catch (Exception e) {}
-        
-        borderPaint.setColor(Color.parseColor("#40FFFFFF"));
-        borderPaint.setStyle(Paint.Style.STROKE);
-        borderPaint.setStrokeWidth(1);
-        
-        colors = new int[]{
-            Color.parseColor("#FFFF0000"),
-            Color.parseColor("#FFFFFF00"),
-            Color.parseColor("#FF00FF00"),
-            Color.parseColor("#FF00FFFF"),
-            Color.parseColor("#FF0000FF"),
-            Color.parseColor("#FFFF00FF"),
-            Color.parseColor("#FFFF0000")
-        };
-        
-        setColor(initialColor);
-    }
-    
-    // 设置当前颜色   
-     public void setColor(int color) {
-        currentColor = color;
-        invalidate();
-    }
-    
-    // 设置颜色变化监听器    
-    public void setOnColorChangedListener(OnColorChangedListener l) {
-        listener = l;
-    }
-        protected void onSizeChanged(int w, int h, int oldw, int oldh) {
-        super.onSizeChanged(w, h, oldw, oldh);
-        
-        // 安全检查：防止宽高为0
-        if (w <= 0 || h <= 0) {
-            isSizeValid = false;
-            return;
-        }
-        
-        int padding = dp(getContext(), 8);
-        barLeft = padding;
-        barTop = padding;
-        barRight = w - padding;
-        barBottom = h - padding;
-        
-        // 安全检查：防止 RectF 坐标无效
-        if (barLeft >= barRight || barTop >= barBottom) {
-            isSizeValid = false;
-            return;
-        }
-        
-        isSizeValid = true;
-    }
-        protected void onDraw(Canvas canvas) {
-        super.onDraw(canvas);
-        
-        if (!isSizeValid) return;
-        
-        try {
-            // 创建Shader (仅在尺寸有效时)
-            Shader shader = new LinearGradient(barLeft, barTop, barLeft, barBottom, colors, null, Shader.TileMode.CLAMP);
-            paint.setShader(shader);
-            
-            RectF rect = new RectF(barLeft, barTop, barRight, barBottom);
-            canvas.drawRoundRect(rect, 8, 8, paint);
-            canvas.drawRoundRect(rect, 8, 8, borderPaint); // 绘制边框
-            
-            // 绘制光标
-            float[] hsv = new float[3];
-            Color.colorToHSV(currentColor, hsv);
-            float y = barTop + (barBottom - barTop) * (hsv[0] / 360.0f);
-            y = Math.max(barTop + 2, Math.min(barBottom - 2, y));
-            
-            canvas.drawLine(barLeft - 4, y, barRight + 4, y, cursorPaint);
-            
-        } catch (Exception e) {}
-    }
-        public boolean onTouchEvent(MotionEvent event) {
-        if (!isSizeValid) return false;
-        
-        try {
-            float y = event.getY();
-            
-            if (y < barTop) y = barTop;
-            if (y > barBottom) y = barBottom;
-            
-            float hue = (y - barTop) / (barBottom - barTop) * 360;
-            currentColor = Color.HSVToColor(new float[]{hue, 1.0f, 1.0f});
-            
-            if (listener != null) {
-                listener.onColorChanged(currentColor);
-            }
-            
-            invalidate();
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-}
-
 class MagnifierView extends View {
     private Paint paint; // 主画笔
     private Paint borderPaint; // 边框画笔
@@ -678,7 +187,7 @@ class MagnifierView extends View {
         borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         borderPaint.setStyle(Paint.Style.STROKE);
         borderPaint.setStrokeWidth(4);
-        borderPaint.setColor(Color.WHITE);
+        borderPaint.setColor(pc("#FFFFFFFF"));
     }
     
     public void update(Bitmap source, int srcX, int srcY, int currentColor) {
@@ -719,14 +228,14 @@ class MagnifierView extends View {
             canvas.restore();
             
             Paint crossPaint = new Paint();
-            crossPaint.setColor(Color.WHITE);
+            crossPaint.setColor(pc("#FFFFFFFF"));
             crossPaint.setStrokeWidth(2);
             int center = size * scale;
             canvas.drawLine(center, 0, center, size * 2 * scale, crossPaint);
             canvas.drawLine(0, center, size * 2 * scale, center, crossPaint);
             
             invalidate();
-        } catch (Exception e) {}
+        } catch (Exception e) { traceLog("ColorPicker", e.getMessage()); }
     }
         protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
@@ -748,20 +257,20 @@ class MagnifierView extends View {
                 
                 canvas.drawCircle(w/2, h/2, radius, borderPaint);
             }
-        } catch (Exception e) {}
+        } catch (Exception e) { traceLog("ColorPicker", e.getMessage()); }
     }
 }
 
 View createRgbView(Activity activity, int initialColor, final OnColorChangedListener listener) {
     LinearLayout layout = new LinearLayout(activity);
     layout.setOrientation(LinearLayout.VERTICAL);
-    layout.setPadding(dp(activity, 16), dp(activity, 24), dp(activity, 16), dp(activity, 24));
+    layout.setPadding(dpx(activity, 16), dpx(activity, 24), dpx(activity, 16), dpx(activity, 24));
     layout.setGravity(Gravity.CENTER_VERTICAL);
     
     final int[] rgb = {Color.red(initialColor), Color.green(initialColor), Color.blue(initialColor)};
     
     // R
-    final SeekBar redBar = new SeekBar(activity, "R", Color.parseColor("#FFFF3B30"), rgb[0], 255);
+    final ColorSeekBar redBar = new ColorSeekBar(activity, "R", pc("#FFFF3B30"), rgb[0], 255);
     redBar.setOnColorChangedListener(new OnColorChangedListener() {
         public void onColorChanged(int progress) {
             rgb[0] = progress;
@@ -771,7 +280,7 @@ View createRgbView(Activity activity, int initialColor, final OnColorChangedList
     layout.addView(redBar);
     
     // G
-    final SeekBar greenBar = new SeekBar(activity, "G", Color.parseColor("#FF34C759"), rgb[1], 255);
+    final ColorSeekBar greenBar = new ColorSeekBar(activity, "G", pc("#FF34C759"), rgb[1], 255);
     greenBar.setOnColorChangedListener(new OnColorChangedListener() {
         public void onColorChanged(int progress) {
             rgb[1] = progress;
@@ -781,7 +290,7 @@ View createRgbView(Activity activity, int initialColor, final OnColorChangedList
     layout.addView(greenBar);
     
     // B
-    final SeekBar blueBar = new SeekBar(activity, "B", Color.parseColor("#FF007AFF"), rgb[2], 255);
+    final ColorSeekBar blueBar = new ColorSeekBar(activity, "B", pc("#FF007AFF"), rgb[2], 255);
     blueBar.setOnColorChangedListener(new OnColorChangedListener() {
         public void onColorChanged(int progress) {
             rgb[2] = progress;
@@ -793,65 +302,228 @@ View createRgbView(Activity activity, int initialColor, final OnColorChangedList
     return layout;
 }
 
+Bitmap createHsvBitmap(int width, int height, int hue) {
+    try {
+        Bitmap bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bmp);
+        int hueW = width / 6;
+        int gap = width / 20;
+        int svW = width - hueW - gap - 16;
+        int svH = height - 16;
+        int hueLeft = svW + gap + 8;
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        int[] hueColors = new int[]{ pc("#FFFF0000"), pc("#FFFFFF00"), pc("#FF00FF00"), pc("#FF00FFFF"), pc("#FF0000FF"), pc("#FFFF00FF"), pc("#FFFF0000") };
+        Shader hueShader = new LinearGradient(0, 8, 0, height - 8, hueColors, null, Shader.TileMode.CLAMP);
+        p.setShader(hueShader);
+        canvas.drawRect(hueLeft, 8, hueLeft + hueW, height - 8, p);
+        int hueColor = hsvColor(hue, 1.0f, 1.0f);
+        Shader satShader = new LinearGradient(8, 8, svW + 8, 8, pc("#FFFFFFFF"), hueColor, Shader.TileMode.CLAMP);
+        p.setShader(satShader);
+        canvas.drawRect(8, 8, svW + 8, svH + 8, p);
+        Shader valShader = new LinearGradient(8, 8, 8, svH + 8, pc("#00000000"), pc("#FF000000"), Shader.TileMode.CLAMP);
+        p.setShader(valShader);
+        canvas.drawRect(8, 8, svW + 8, svH + 8, p);
+        return bmp;
+    } catch (Exception e) { traceLog("ColorPicker", "createHsvBitmap error: " + e.getMessage()); return null; }
+}
+
 View createHsvView(Activity activity, int initialColor, final OnColorChangedListener listener) {
-    FrameLayout layout = new FrameLayout(activity);
-    layout.setPadding(dp(activity, 8), dp(activity, 8), dp(activity, 8), dp(activity, 8));
-    
-    HsvPickerView hsvView = new HsvPickerView(activity, initialColor);
-    hsvView.setOnColorChangedListener(listener);
-    layout.addView(hsvView, new FrameLayout.LayoutParams(-1, -1));
-    
+    final float[] hsv = new float[3];
+    Color.colorToHSV(initialColor, hsv);
+    final int W = dpx(activity, 280);
+    final int H = dpx(activity, 200);
+    final int hueW = W / 6;
+    final int gap = W / 20;
+    final int svW = W - hueW - gap - 16;
+    final int hueLeft = svW + gap + 8;
+    final FrameLayout layout = new FrameLayout(activity);
+    layout.setPadding(dpx(activity, 4), dpx(activity, 4), dpx(activity, 4), dpx(activity, 4));
+    final ImageView img = new ImageView(activity);
+    img.setScaleType(ImageView.ScaleType.FIT_XY);
+    Bitmap bmp = createHsvBitmap(W, H, (int)hsv[0]);
+    if (bmp != null) img.setImageBitmap(bmp);
+    layout.addView(img, new FrameLayout.LayoutParams(W, H));
+    final View svCursor = new View(activity);
+    svCursor.setBackgroundColor(pc("#00000000"));
+    final FrameLayout.LayoutParams svParams = new FrameLayout.LayoutParams(dpx(activity, 16), dpx(activity, 16));
+    svCursor.setLayoutParams(svParams);
+    layout.addView(svCursor);
+    final View hueCursor = new View(activity);
+    hueCursor.setBackgroundColor(pc("#FFFFFFFF"));
+    final FrameLayout.LayoutParams hueParams = new FrameLayout.LayoutParams(dpx(activity, 40), dpx(activity, 3));
+    hueCursor.setLayoutParams(hueParams);
+    layout.addView(hueCursor);
+    final int[] svPos = {0, 0};
+    final int[] huePos = {0};
+    svPos[0] = (int)(8 + svW * hsv[1] - dpx(activity, 8));
+    svPos[1] = (int)(8 + (H - 16) * (1 - hsv[2]) - dpx(activity, 8));
+    svParams.leftMargin = svPos[0];
+    svParams.topMargin = svPos[1];
+    svCursor.setLayoutParams(svParams);
+    huePos[0] = (int)(8 + (H - 16) * (hsv[0] / 360) - dpx(activity, 1.5f));
+    hueParams.leftMargin = hueLeft - dpx(activity, 2);
+    hueParams.topMargin = huePos[0];
+    hueCursor.setLayoutParams(hueParams);
+    img.setOnTouchListener(new View.OnTouchListener() {
+        public boolean onTouch(View v, MotionEvent event) {
+            float x = event.getX();
+            float y = event.getY();
+            float scaleX = W / (float)v.getWidth();
+            float scaleY = H / (float)v.getHeight();
+            x = x * scaleX;
+            y = y * scaleY;
+            if (x >= hueLeft && x <= hueLeft + hueW) {
+                hsv[0] = Math.max(0, Math.min(360, (y - 8) / (H - 16) * 360));
+                Bitmap nb = createHsvBitmap(W, H, (int)hsv[0]);
+                if (nb != null) img.setImageBitmap(nb);
+                huePos[0] = (int)(8 + (H - 16) * (hsv[0] / 360) - dpx(activity, 1.5f));
+                hueParams.topMargin = huePos[0];
+                hueCursor.setLayoutParams(hueParams);
+            } else if (x >= 8 && x <= svW + 8 && y >= 8 && y <= H - 8) {
+                hsv[1] = Math.max(0, Math.min(1, (x - 8) / svW));
+                hsv[2] = Math.max(0, Math.min(1, 1 - (y - 8) / (H - 16)));
+                svPos[0] = (int)(8 + svW * hsv[1] - dpx(activity, 8));
+                svPos[1] = (int)(8 + (H - 16) * (1 - hsv[2]) - dpx(activity, 8));
+                svParams.leftMargin = svPos[0];
+                svParams.topMargin = svPos[1];
+                svCursor.setLayoutParams(svParams);
+            } else {
+                return false;
+            }
+            if (listener != null) listener.onColorChanged(hsvColor(hsv[0], hsv[1], hsv[2]));
+            return true;
+        }
+    });
     return layout;
+}
+
+Bitmap createColorWheelBitmap(int size) {
+    try {
+        Bitmap bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bmp);
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        int cx = size / 2;
+        int cy = size / 2;
+        int r = size / 2 - 4;
+        int[] colors = new int[]{ pc("#FFFF0000"), pc("#FFFFFF00"), pc("#FF00FF00"), pc("#FF00FFFF"), pc("#FF0000FF"), pc("#FFFF00FF"), pc("#FFFF0000") };
+        Shader sweep = new SweepGradient(cx, cy, colors, null);
+        p.setShader(sweep);
+        canvas.drawCircle(cx, cy, r, p);
+        Shader radial = new RadialGradient(cx, cy, r, pc("#FFFFFFFF"), pc("#00FFFFFF"), Shader.TileMode.CLAMP);
+        p.setShader(radial);
+        canvas.drawCircle(cx, cy, r, p);
+        return bmp;
+    } catch (Exception e) { traceLog("ColorPicker", "createColorWheelBitmap error: " + e.getMessage()); return null; }
 }
 
 View createColorWheelView(Activity activity, int initialColor, final OnColorChangedListener listener) {
-    FrameLayout layout = new FrameLayout(activity);
-    layout.setPadding(dp(activity, 8), dp(activity, 8), dp(activity, 8), dp(activity, 8));
-    
-    ColorWheelView wheelView = new ColorWheelView(activity, initialColor);
-    wheelView.setOnColorChangedListener(listener);
-    layout.addView(wheelView, new FrameLayout.LayoutParams(-1, -1));
-    
+    final float[] hsv = new float[3];
+    Color.colorToHSV(initialColor, hsv);
+    final int SIZE = dpx(activity, 200);
+    final int maxR = SIZE / 2 - 4;
+    final FrameLayout layout = new FrameLayout(activity);
+    layout.setPadding(dpx(activity, 8), dpx(activity, 8), dpx(activity, 8), dpx(activity, 8));
+    final ImageView img = new ImageView(activity);
+    img.setScaleType(ImageView.ScaleType.FIT_CENTER);
+    Bitmap bmp = createColorWheelBitmap(SIZE);
+    if (bmp != null) img.setImageBitmap(bmp);
+    layout.addView(img, new FrameLayout.LayoutParams(SIZE, SIZE));
+    final View cursor = new View(activity);
+    cursor.setBackgroundColor(pc("#00000000"));
+    final FrameLayout.LayoutParams cursorParams = new FrameLayout.LayoutParams(dpx(activity, 16), dpx(activity, 16));
+    cursor.setLayoutParams(cursorParams);
+    layout.addView(cursor);
+    float initR = hsv[1] * maxR;
+    float initAngle = (float)Math.toRadians(hsv[0]);
+    cursorParams.leftMargin = (int)(SIZE / 2 + Math.cos(initAngle) * initR - dpx(activity, 8));
+    cursorParams.topMargin = (int)(SIZE / 2 + Math.sin(initAngle) * initR - dpx(activity, 8));
+    cursor.setLayoutParams(cursorParams);
+    img.setOnTouchListener(new View.OnTouchListener() {
+        public boolean onTouch(View v, MotionEvent event) {
+            float x = event.getX();
+            float y = event.getY();
+            float scale = SIZE / (float)Math.min(v.getWidth(), v.getHeight());
+            float offsetX = (v.getWidth() - SIZE / scale) / 2;
+            float offsetY = (v.getHeight() - SIZE / scale) / 2;
+            x = (x - offsetX) * scale;
+            y = (y - offsetY) * scale;
+            float dx = x - SIZE / 2;
+            float dy = y - SIZE / 2;
+            float dist = (float)Math.sqrt(dx * dx + dy * dy);
+            if (dist > maxR) { dx = dx / dist * maxR; dy = dy / dist * maxR; dist = maxR; }
+            hsv[1] = Math.max(0, Math.min(1, dist / maxR));
+            float angle = (float)Math.toDegrees(Math.atan2(dy, dx));
+            if (angle < 0) angle += 360;
+            hsv[0] = angle;
+            hsv[2] = 1.0f;
+            cursorParams.leftMargin = (int)(SIZE / 2 + dx - dpx(activity, 8));
+            cursorParams.topMargin = (int)(SIZE / 2 + dy - dpx(activity, 8));
+            cursor.setLayoutParams(cursorParams);
+            if (listener != null) listener.onColorChanged(hsvColor(hsv[0], hsv[1], hsv[2]));
+            return true;
+        }
+    });
     return layout;
+}
+
+Bitmap createColorBarBitmap(int width, int height) {
+    try {
+        Bitmap bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bmp);
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        int[] colors = new int[]{ pc("#FFFF0000"), pc("#FFFFFF00"), pc("#FF00FF00"), pc("#FF00FFFF"), pc("#FF0000FF"), pc("#FFFF00FF"), pc("#FFFF0000") };
+        Shader shader = new LinearGradient(0, 0, 0, height, colors, null, Shader.TileMode.CLAMP);
+        p.setShader(shader);
+        canvas.drawRect(0, 0, width, height, p);
+        return bmp;
+    } catch (Exception e) { traceLog("ColorPicker", "createColorBarBitmap error: " + e.getMessage()); return null; }
 }
 
 View createColorBarView(Activity activity, int initialColor, final OnColorChangedListener listener) {
+    final float[] hsv = new float[3];
+    Color.colorToHSV(initialColor, hsv);
+    final int BAR_H = dpx(activity, 180);
+    final int BAR_W = dpx(activity, 48);
     LinearLayout layout = new LinearLayout(activity);
     layout.setOrientation(LinearLayout.HORIZONTAL);
-    layout.setPadding(dp(activity, 16), dp(activity, 16), dp(activity, 16), dp(activity, 16));
-    
-    // 左侧预览 (大色块)
+    layout.setPadding(dpx(activity, 16), dpx(activity, 16), dpx(activity, 16), dpx(activity, 16));
     final View preview = new View(activity);
-    LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(dp(activity, 80), -1);
-    previewParams.rightMargin = dp(activity, 16);
+    LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(dpx(activity, 80), BAR_H);
+    previewParams.rightMargin = dpx(activity, 16);
     preview.setLayoutParams(previewParams);
     preview.setBackgroundColor(initialColor);
-    
-    GradientDrawable previewBg = new GradientDrawable();
-    previewBg.setColor(initialColor);
-    previewBg.setCornerRadius(dp(activity, 12));
-    preview.setBackgroundDrawable(previewBg);
-    
     layout.addView(preview);
-    
-    // 右侧颜色条
-    ColorBarView bar = new ColorBarView(activity, initialColor);
-    bar.setLayoutParams(new LinearLayout.LayoutParams(dp(activity, 48), -1));
-    layout.addView(bar);
-    
-    bar.setOnColorChangedListener(new OnColorChangedListener() {
-        public void onColorChanged(int color) {
-            GradientDrawable bg = new GradientDrawable();
-            bg.setColor(color);
-            bg.setCornerRadius(dp(activity, 12));
-            preview.setBackgroundDrawable(bg);
+    final FrameLayout barContainer = new FrameLayout(activity);
+    barContainer.setLayoutParams(new LinearLayout.LayoutParams(BAR_W, BAR_H));
+    final ImageView barImg = new ImageView(activity);
+    barImg.setScaleType(ImageView.ScaleType.FIT_XY);
+    Bitmap barBmp = createColorBarBitmap(BAR_W, BAR_H);
+    if (barBmp != null) barImg.setImageBitmap(barBmp);
+    barContainer.addView(barImg, new FrameLayout.LayoutParams(BAR_W, BAR_H));
+    final View barCursor = new View(activity);
+    barCursor.setBackgroundColor(pc("#FFFFFFFF"));
+    final FrameLayout.LayoutParams barCursorParams = new FrameLayout.LayoutParams(dpx(activity, 56), dpx(activity, 3));
+    barCursorParams.leftMargin = -dpx(activity, 4);
+    barCursorParams.topMargin = (int)(BAR_H * (hsv[0] / 360) - dpx(activity, 1.5f));
+    barCursor.setLayoutParams(barCursorParams);
+    barContainer.addView(barCursor);
+    layout.addView(barContainer);
+    barImg.setOnTouchListener(new View.OnTouchListener() {
+        public boolean onTouch(View v, MotionEvent event) {
+            float y = Math.max(0, Math.min(BAR_H, event.getY()));
+            hsv[0] = y / BAR_H * 360;
+            hsv[1] = 1.0f;
+            hsv[2] = 1.0f;
+            int color = hsvColor(hsv[0], hsv[1], hsv[2]);
+            barCursorParams.topMargin = (int)(y - dpx(activity, 1.5f));
+            barCursor.setLayoutParams(barCursorParams);
+            preview.setBackgroundColor(color);
             if (listener != null) listener.onColorChanged(color);
+            return true;
         }
     });
-    
     return layout;
 }
-
 void showFavoritesView(Activity activity, FrameLayout container, ArrayList favorites, final OnColorPickedListener listener) {
     container.removeAllViews();
     
@@ -860,15 +532,15 @@ void showFavoritesView(Activity activity, FrameLayout container, ArrayList favor
     
     LinearLayout list = new LinearLayout(activity);
     list.setOrientation(LinearLayout.VERTICAL);
-    list.setPadding(dp(activity, 16), dp(activity, 8), dp(activity, 16), dp(activity, 8));
+    list.setPadding(dpx(activity, 16), dpx(activity, 8), dpx(activity, 16), dpx(activity, 8));
     
     if (favorites.isEmpty()) {
         TextView empty = new TextView(activity);
         empty.setText("暂无收藏颜色\n点击 + 添加当前颜色");
         empty.setTextSize(14);
-        empty.setTextColor(Color.GRAY);
+        empty.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
         empty.setGravity(Gravity.CENTER);
-        empty.setPadding(0, dp(activity, 40), 0, 0);
+        empty.setPadding(0, dpx(activity, 40), 0, 0);
         list.addView(empty);
     } else {
         for (int i = 0; i < favorites.size(); i++) {
@@ -878,24 +550,24 @@ void showFavoritesView(Activity activity, FrameLayout container, ArrayList favor
             LinearLayout item = new LinearLayout(activity);
             item.setOrientation(LinearLayout.HORIZONTAL);
             item.setGravity(Gravity.CENTER_VERTICAL);
-            item.setPadding(dp(activity, 12), dp(activity, 12), dp(activity, 12), dp(activity, 12));
-            item.setBackground(createSelectableBackground());
+            item.setPadding(dpx(activity, 12), dpx(activity, 12), dpx(activity, 12), dpx(activity, 12));
+            item.setBackground(getSelectableBg(activity));
             
             // 颜色方块
             View colorBlock = new View(activity);
-            LinearLayout.LayoutParams blockParams = new LinearLayout.LayoutParams(dp(activity, 40), dp(activity, 40));
+            LinearLayout.LayoutParams blockParams = new LinearLayout.LayoutParams(dpx(activity, 40), dpx(activity, 40));
             colorBlock.setLayoutParams(blockParams);
             
             try {
-                int color = Color.parseColor(colorStr);
+                int color = pc(colorStr);
                 GradientDrawable bg = new GradientDrawable();
                 bg.setColor(color);
-                bg.setCornerRadius(dp(activity, 8));
+                bg.setCornerRadius(dpx(activity, 8));
                 // 添加边框
-                bg.setStroke(2, Color.parseColor("#20FFFFFF"));
+                bg.setStroke(2, pc("#20FFFFFF"));
                 colorBlock.setBackgroundDrawable(bg);
             } catch (Exception e) {
-                colorBlock.setBackgroundColor(Color.GRAY);
+                colorBlock.setBackgroundColor(pc("#FF888888"));
             }
             item.addView(colorBlock);
             
@@ -904,26 +576,22 @@ void showFavoritesView(Activity activity, FrameLayout container, ArrayList favor
             codeText.setText(colorStr.toUpperCase());
             codeText.setTextSize(16);
             codeText.setTypeface(Typeface.MONOSPACE);
-            codeText.setTextColor(Color.WHITE);
-            codeText.setPadding(dp(activity, 16), 0, 0, 0);
+            codeText.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
+            codeText.setPadding(dpx(activity, 16), 0, 0, 0);
             codeText.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
             item.addView(codeText);
             
             // 删除按钮
-            TextView deleteBtn = new TextView(activity);
-            deleteBtn.setText("×");
-            deleteBtn.setTextSize(24);
-            deleteBtn.setTextColor(Color.parseColor("#FF999999"));
-            deleteBtn.setPadding(dp(activity, 8), 0, dp(activity, 8), 0);
+            TextView deleteBtn = createButton(activity, "×", pc(getSettingsThemeColor(activity, "on_surface_variant")), Color.TRANSPARENT, 24f, 0, 8, 0, false, 0, 0, null);
             item.addView(deleteBtn);
             
             // 点击选择
             item.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
                     try {
-                        int color = Color.parseColor(colorStr);
+                        int color = pc(colorStr);
                         if (listener != null) listener.onColorPicked(color);
-                    } catch (Exception e) {}
+                    } catch (Exception e) { traceLog("ColorPicker", e.getMessage()); }
                 }
             });
             
@@ -942,7 +610,7 @@ void showFavoritesView(Activity activity, FrameLayout container, ArrayList favor
             // 分隔线
             if (i < favorites.size() - 1) {
                 View line = new View(activity);
-                line.setBackgroundColor(Color.parseColor("#1AFFFFFF"));
+                line.setBackgroundColor(pc("#1AFFFFFF"));
                 line.setLayoutParams(new LinearLayout.LayoutParams(-1, 1));
                 list.addView(line);
             }
@@ -958,14 +626,14 @@ void showImagePickerDialog(final Activity activity, final OnColorPickedListener 
         AlertDialog.Builder builder = new AlertDialog.Builder(activity, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
         
         FrameLayout root = new FrameLayout(activity);
-        root.setBackgroundColor(Color.parseColor("#FF000000"));
+        root.setBackgroundColor(pc("#FF000000"));
         
         String imgPath = null;
         try {
             if (pluginPath != null) {
                 imgPath = pluginPath + "/API/background.png";
             }
-        } catch (Exception e) {}
+        } catch (Exception e) { traceLog("ColorPicker", e.getMessage()); }
         
         if (imgPath == null) {
             Toast("图片路径错误");
@@ -987,59 +655,52 @@ void showImagePickerDialog(final Activity activity, final OnColorPickedListener 
             return;
         }
         
-        // 图片视图 (限制最大高度)
+        // 图片视图 (限制最大高度；短屏取屏幕一半，保证底部确认栏不被裁掉)
         final ImageView imageView = new ImageView(activity);
         imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
         imageView.setImageBitmap(bitmap);
-        FrameLayout.LayoutParams imgParams = new FrameLayout.LayoutParams(-1, dp(activity, 400));
+        int imgHeight = (int) Math.min(dpx(activity, 400), activity.getResources().getDisplayMetrics().heightPixels * 0.5f);
+        FrameLayout.LayoutParams imgParams = new FrameLayout.LayoutParams(-1, imgHeight);
         imgParams.gravity = Gravity.CENTER;
         root.addView(imageView, imgParams);
         
         // 放大镜
         final MagnifierView magnifier = new MagnifierView(activity);
         magnifier.setVisibility(View.GONE);
-        root.addView(magnifier, new FrameLayout.LayoutParams(dp(activity, 120), dp(activity, 120)));
+        root.addView(magnifier, new FrameLayout.LayoutParams(dpx(activity, 120), dpx(activity, 120)));
         
         // 底部颜色预览栏
         LinearLayout bottomBar = new LinearLayout(activity);
         bottomBar.setOrientation(LinearLayout.HORIZONTAL);
         bottomBar.setGravity(Gravity.CENTER_VERTICAL);
-        bottomBar.setBackgroundColor(Color.parseColor("#FF2D2D2D"));
-        bottomBar.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+        bottomBar.setBackgroundColor(pc(getSettingsThemeColor(activity, "surface")));
+        bottomBar.setPadding(dpx(activity, 16), dpx(activity, 12), dpx(activity, 16), dpx(activity, 12));
         FrameLayout.LayoutParams barParams = new FrameLayout.LayoutParams(-1, -2);
         barParams.gravity = Gravity.BOTTOM;
         bottomBar.setLayoutParams(barParams);
         
         final View colorPreview = new View(activity);
-        LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(dp(activity, 48), dp(activity, 48));
+        LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(dpx(activity, 48), dpx(activity, 48));
         colorPreview.setLayoutParams(previewParams);
-        colorPreview.setBackgroundColor(Color.WHITE);
+        colorPreview.setBackgroundColor(pc("#FFFFFFFF"));
         bottomBar.addView(colorPreview);
         
         final TextView hexText = new TextView(activity);
         hexText.setText("#FFFFFF");
         hexText.setTextSize(18);
         hexText.setTypeface(Typeface.MONOSPACE);
-        hexText.setTextColor(Color.WHITE);
-        hexText.setPadding(dp(activity, 16), 0, 0, 0);
+        hexText.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
+        hexText.setPadding(dpx(activity, 16), 0, 0, 0);
         hexText.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
         bottomBar.addView(hexText);
         
-        TextView confirmBtn = new TextView(activity);
-        confirmBtn.setText("确定");
-        confirmBtn.setTextSize(16);
-        confirmBtn.setTextColor(Color.parseColor("#FF7A9681"));
-        confirmBtn.setPadding(dp(activity, 16), dp(activity, 8), dp(activity, 16), dp(activity, 8));
+        TextView confirmBtn = createButton(activity, "确定", pc(getSettingsThemeColor(activity, "primary")), Color.TRANSPARENT, 16f, 0, 16, 8, false, 0, 0, null);
         bottomBar.addView(confirmBtn);
         
         root.addView(bottomBar);
         
         // 取消按钮 (左上角)
-        TextView closeBtn = new TextView(activity);
-        closeBtn.setText("✕");
-        closeBtn.setTextSize(24);
-        closeBtn.setTextColor(Color.WHITE);
-        closeBtn.setPadding(dp(activity, 16), dp(activity, 16), dp(activity, 16), dp(activity, 16));
+        TextView closeBtn = createButton(activity, "✕", pc("#FFFFFFFF"), Color.TRANSPARENT, 24f, 0, 16, 16, false, 0, 0, null);
         FrameLayout.LayoutParams closeParams = new FrameLayout.LayoutParams(-2, -2);
         closeParams.gravity = Gravity.TOP | Gravity.RIGHT;
         closeBtn.setLayoutParams(closeParams);
@@ -1075,8 +736,8 @@ void showImagePickerDialog(final Activity activity, final OnColorPickedListener 
                         case MotionEvent.ACTION_MOVE:
                             magnifier.setVisibility(View.VISIBLE);
                             
-                            int magX = (int) x - dp(activity, 60);
-                            int magY = (int) y - dp(activity, 140);
+                            int magX = (int) x - dpx(activity, 60);
+                            int magY = (int) y - dpx(activity, 140);
                             if (magX < 0) magX = 0;
                             if (magY < 0) magY = 0;
                             magnifier.setX(magX);
@@ -1090,7 +751,7 @@ void showImagePickerDialog(final Activity activity, final OnColorPickedListener 
                         case MotionEvent.ACTION_UP:
                             return true;
                     }
-                } catch (Exception e) {}
+                } catch (Exception e) { traceLog("ColorPicker", e.getMessage()); }
                 return true;
             }
         });
@@ -1107,26 +768,37 @@ void showImagePickerDialog(final Activity activity, final OnColorPickedListener 
         confirmBtn.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 try {
-                    int color = Color.parseColor(hexText.getText().toString());
+                    int color = pc(hexText.getText().toString());
                     if (callback != null) callback.onColorPicked(color);
-                } catch (Exception e) {}
+                } catch (Exception e) { traceLog("ColorPicker", e.getMessage()); }
                 dialog.dismiss();
             }
         });
         
         dialog.show();
-        
-    } catch (Exception e) {}
+
+    } catch (Exception e) { traceLog("ColorPicker", e.getMessage()); }
 }
 
 void showColorPickerDialog(final Activity activity, final String initialColor, final OnColorPickedListener callback) {
-    try {
-        final int[] currentColor = {Color.parseColor("#FF7A9681")};
+    // 兼容壳:解析 hex 字符串为 int,失败回退到中灰,再走 int 主入口
+    int parsedColor = pc("#FF808080");
+    if (initialColor != null && !initialColor.isEmpty()) {
         try {
-            if (initialColor != null && !initialColor.isEmpty()) {
-                currentColor[0] = Color.parseColor(initialColor);
-            }
-        } catch (Exception e) {}
+            parsedColor = pc(initialColor);
+        } catch (Throwable e) {
+            parsedColor = isThemeDark(activity) ? pc("#FFEFEFEF") : pc("#FF1A1A1A");
+        }
+    } else {
+        parsedColor = isThemeDark(activity) ? pc("#FFEFEFEF") : pc("#FF1A1A1A");
+    }
+    showColorPickerDialog(activity, parsedColor, callback);
+}
+
+void showColorPickerDialog(final Activity activity, final int initialColor, final OnColorPickedListener callback) {
+    try {
+        // 主入口:直接接收已解析的 int 颜色,杜绝 String 解析失败导致颜色丢失
+        final int[] currentColor = {initialColor};
         
         final ArrayList favoriteColors = loadFavoriteColors(activity);
         final boolean[] showingFavorites = {false};
@@ -1136,8 +808,8 @@ void showColorPickerDialog(final Activity activity, final String initialColor, f
         // 根布局
         final LinearLayout root = new LinearLayout(activity);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Color.parseColor("#FF2D2D2D"));
-        root.setPadding(dp(activity, 16), dp(activity, 16), dp(activity, 16), dp(activity, 16));
+        root.setBackgroundColor(pc(getSettingsThemeColor(activity, "surface")));
+        root.setPadding(dpx(activity, 16), dpx(activity, 16), dpx(activity, 16), dpx(activity, 16));
         
         // 顶部标题栏
         LinearLayout header = new LinearLayout(activity);
@@ -1147,29 +819,19 @@ void showColorPickerDialog(final Activity activity, final String initialColor, f
         TextView title = new TextView(activity);
         title.setText("颜色");
         title.setTextSize(20);
-        title.setTextColor(Color.WHITE);
+        title.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
         title.setTypeface(null, Typeface.BOLD);
         title.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
         header.addView(title);
         
         // 收藏夹按钮
-        final TextView favBtn = new TextView(activity);
-        favBtn.setText("收藏夹");
-        favBtn.setTextSize(14);
-        favBtn.setTextColor(Color.WHITE);
-        favBtn.setBackground(createRoundRectDrawable(Color.parseColor("#FF7A9681"), dp(activity, 16)));
-        favBtn.setPadding(dp(activity, 16), dp(activity, 8), dp(activity, 16), dp(activity, 8));
+        final TextView favBtn = createButton(activity, "收藏夹", pc("#FFFFFFFF"), pc(getSettingsThemeColor(activity, "primary")), 14f, 16, 16, 8, false, 0, 0, null);
         header.addView(favBtn);
-        
+
         // 取色按钮
-        final TextView pickBtn = new TextView(activity);
-        pickBtn.setText("取色");
-        pickBtn.setTextSize(14);
-        pickBtn.setTextColor(Color.WHITE);
-        pickBtn.setBackground(createRoundRectDrawable(Color.parseColor("#FF5A5A5A"), dp(activity, 16)));
-        pickBtn.setPadding(dp(activity, 16), dp(activity, 8), dp(activity, 16), dp(activity, 8));
+        final TextView pickBtn = createButton(activity, "取色", pc("#FFFFFFFF"), pc("#FF5A5A5A"), 14f, 16, 16, 8, false, 0, 0, null);
         LinearLayout.LayoutParams pickParams = new LinearLayout.LayoutParams(-2, -2);
-        pickParams.leftMargin = dp(activity, 12);
+        pickParams.leftMargin = dpx(activity, 12);
         pickBtn.setLayoutParams(pickParams);
         header.addView(pickBtn);
         
@@ -1179,41 +841,61 @@ void showColorPickerDialog(final Activity activity, final String initialColor, f
         LinearLayout previewRow = new LinearLayout(activity);
         previewRow.setOrientation(LinearLayout.HORIZONTAL);
         previewRow.setGravity(Gravity.CENTER_VERTICAL);
-        previewRow.setPadding(0, dp(activity, 16), 0, dp(activity, 16));
+        previewRow.setPadding(0, dpx(activity, 16), 0, dpx(activity, 16));
         
         final View colorPreview = new View(activity);
-        LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(dp(activity, 56), dp(activity, 56));
-        previewParams.rightMargin = dp(activity, 16);
+        LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(dpx(activity, 56), dpx(activity, 56));
+        previewParams.rightMargin = dpx(activity, 16);
         colorPreview.setLayoutParams(previewParams);
         
         GradientDrawable previewBg = new GradientDrawable();
         previewBg.setColor(currentColor[0]);
-        previewBg.setCornerRadius(dp(activity, 12));
-        previewBg.setStroke(2, Color.parseColor("#40FFFFFF"));
+        previewBg.setCornerRadius(dpx(activity, 12));
+        previewBg.setStroke(2, pc("#40FFFFFF"));
         colorPreview.setBackgroundDrawable(previewBg);
         previewRow.addView(colorPreview);
         
-        final TextView hexText = new TextView(activity);
-        hexText.setText(colorToHex(currentColor[0]));
-        hexText.setTextSize(16);
-        hexText.setTextColor(Color.WHITE);
-        hexText.setTypeface(Typeface.MONOSPACE);
-        hexText.setPadding(dp(activity, 12), dp(activity, 8), dp(activity, 12), dp(activity, 8));
-        hexText.setBackground(createRoundRectDrawable(Color.parseColor("#FF3D3D3D"), dp(activity, 8)));
-        hexText.setClickable(true);
-        hexText.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                copyToClipboard(activity, hexText.getText().toString());
-                Toast("颜色代码已复制");
+        final EditText hexInput = new EditText(activity);
+        hexInput.setText(colorToHex(currentColor[0]));
+        hexInput.setTextSize(16);
+        hexInput.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
+        hexInput.setTypeface(Typeface.MONOSPACE);
+        hexInput.setPadding(dpx(activity, 12), dpx(activity, 8), dpx(activity, 12), dpx(activity, 8));
+        hexInput.setBackground(roundRect(pc(getSettingsThemeColor(activity, "surface")), dpx(activity, 8)));
+        hexInput.setSingleLine(true);
+        hexInput.setSelectAllOnFocus(true);
+        final boolean[] isUpdatingFromInput = {false};
+        hexInput.addTextChangedListener(new android.text.TextWatcher() {
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            public void afterTextChanged(android.text.Editable s) {
+                if (isUpdatingFromInput[0]) return;
+                String input = s.toString().trim();
+                traceLog("ColorPicker", "afterTextChanged input=" + input);
+                try {
+                    if (input.startsWith("#") && (input.length() == 7 || input.length() == 9)) {
+                        int newColor = pc(input);
+                        currentColor[0] = newColor;
+                        isUpdatingFromInput[0] = true;
+                        updatePreview(colorPreview, hexInput, newColor);
+                        alphaSeek.setProgress(Color.alpha(newColor));
+                        alphaValue.setText(String.valueOf(Color.alpha(newColor)));
+                        isUpdatingFromInput[0] = false;
+                        showModeContent(activity, contentContainer, currentMode[0], newColor, new OnColorChangedListener() {
+                            public void onColorChanged(int color) {
+                                currentColor[0] = color;
+                                isUpdatingFromInput[0] = true;
+                                updatePreview(colorPreview, hexInput, color);
+                                isUpdatingFromInput[0] = false;
+                            }
+                        });
+                    }
+                } catch (Throwable e) { traceLog("ColorPicker", "afterTextChanged error: " + e.getMessage()); }
             }
         });
-        previewRow.addView(hexText);
+        previewRow.addView(hexInput);
         
-        final TextView addFavBtn = new TextView(activity);
-        addFavBtn.setText("+");
-        addFavBtn.setTextSize(28);
-        addFavBtn.setTextColor(Color.parseColor("#FF7A9681"));
-        addFavBtn.setPadding(dp(activity, 16), 0, dp(activity, 8), 0);
+        final TextView addFavBtn = createButton(activity, "+", pc(getSettingsThemeColor(activity, "primary")), Color.TRANSPARENT, 28f, 0, 16, 0, false, 0, 0, null);
         previewRow.addView(addFavBtn);
         
         root.addView(previewRow);
@@ -1221,8 +903,8 @@ void showColorPickerDialog(final Activity activity, final String initialColor, f
         // 模式标签栏
         LinearLayout tabRow = new LinearLayout(activity);
         tabRow.setOrientation(LinearLayout.HORIZONTAL);
-        tabRow.setBackground(createRoundRectDrawable(Color.parseColor("#FF1E1E1E"), dp(activity, 8)));
-        tabRow.setPadding(dp(activity, 4), dp(activity, 4), dp(activity, 4), dp(activity, 4));
+        tabRow.setBackground(roundRect(pc(getSettingsThemeColor(activity, "background")), dpx(activity, 8)));
+        tabRow.setPadding(dpx(activity, 4), dpx(activity, 4), dpx(activity, 4), dpx(activity, 4));
         
         final String[] modes = {"RGB", "HSV", "色轮", "颜色条"};
         final TextView[] tabViews = new TextView[4];
@@ -1234,15 +916,15 @@ void showColorPickerDialog(final Activity activity, final String initialColor, f
             tab.setText(modes[i]);
             tab.setTextSize(14);
             tab.setGravity(Gravity.CENTER);
-            tab.setPadding(0, dp(activity, 8), 0, dp(activity, 8));
+            tab.setPadding(0, dpx(activity, 8), 0, dpx(activity, 8));
             tab.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
             
             if (i == currentMode[0]) {
-                tab.setTextColor(Color.parseColor("#FF2D2D2D"));
+                tab.setTextColor(pc(getSettingsThemeColor(activity, "surface")));
                 tab.setTypeface(null, Typeface.BOLD);
-                tab.setBackground(createRoundRectDrawable(Color.parseColor("#FF7A9681"), dp(activity, 6)));
+                tab.setBackground(roundRect(pc(getSettingsThemeColor(activity, "primary")), dpx(activity, 6)));
             } else {
-                tab.setTextColor(Color.GRAY);
+                tab.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
                 tab.setBackground(null);
             }
             
@@ -1252,11 +934,11 @@ void showColorPickerDialog(final Activity activity, final String initialColor, f
                     currentMode[0] = index;
                     for (int j = 0; j < 4; j++) {
                         if (j == index) {
-                            tabViews[j].setTextColor(Color.parseColor("#FF2D2D2D"));
+                            tabViews[j].setTextColor(pc(getSettingsThemeColor(activity, "surface")));
                             tabViews[j].setTypeface(null, Typeface.BOLD);
-                            tabViews[j].setBackground(createRoundRectDrawable(Color.parseColor("#FF7A9681"), dp(activity, 6)));
+                            tabViews[j].setBackground(roundRect(pc(getSettingsThemeColor(activity, "primary")), dpx(activity, 6)));
                         } else {
-                            tabViews[j].setTextColor(Color.GRAY);
+                            tabViews[j].setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
                             tabViews[j].setTypeface(null, Typeface.NORMAL);
                             tabViews[j].setBackground(null);
                         }
@@ -1264,7 +946,7 @@ void showColorPickerDialog(final Activity activity, final String initialColor, f
                     showModeContent(activity, contentContainer, index, currentColor[0], new OnColorChangedListener() {
                         public void onColorChanged(int color) {
                             currentColor[0] = color;
-                            updatePreview(colorPreview, hexText, color);
+                            updatePreview(colorPreview, hexInput, color);
                         }
                     });
                 }
@@ -1276,20 +958,20 @@ void showColorPickerDialog(final Activity activity, final String initialColor, f
         
         root.addView(tabRow);
         
-        // 内容容器 - 固定高度确保显示完整
+        // 内容容器 - 固定高度确保显示完整（降低高度以缓解短屏滚动）
         final FrameLayout contentContainer = new FrameLayout(activity);
-        LinearLayout.LayoutParams contentParams = new LinearLayout.LayoutParams(-1, dp(activity, 280));
-        contentParams.topMargin = dp(activity, 16);
-        contentParams.bottomMargin = dp(activity, 16);
+        LinearLayout.LayoutParams contentParams = new LinearLayout.LayoutParams(-1, dpx(activity, 240));
+        contentParams.topMargin = dpx(activity, 12);
+        contentParams.bottomMargin = dpx(activity, 12);
         contentContainer.setLayoutParams(contentParams);
-        contentContainer.setBackground(createRoundRectDrawable(Color.parseColor("#FF1E1E1E"), dp(activity, 12)));
+        contentContainer.setBackground(roundRect(pc(getSettingsThemeColor(activity, "background")), dpx(activity, 12)));
         root.addView(contentContainer);
         
         // 初始化
         showModeContent(activity, contentContainer, 1, currentColor[0], new OnColorChangedListener() {
             public void onColorChanged(int color) {
                 currentColor[0] = color;
-                updatePreview(colorPreview, hexText, color);
+                updatePreview(colorPreview, hexInput, color);
             }
         });
         
@@ -1297,71 +979,75 @@ void showColorPickerDialog(final Activity activity, final String initialColor, f
         LinearLayout alphaRow = new LinearLayout(activity);
         alphaRow.setOrientation(LinearLayout.HORIZONTAL);
         alphaRow.setGravity(Gravity.CENTER_VERTICAL);
-        alphaRow.setPadding(0, dp(activity, 8), 0, dp(activity, 8));
+        alphaRow.setPadding(0, dpx(activity, 8), 0, dpx(activity, 8));
         
         TextView alphaLabel = new TextView(activity);
         alphaLabel.setText("透明度");
         alphaLabel.setTextSize(14);
-        alphaLabel.setTextColor(Color.parseColor("#FFAAAAAA"));
-        alphaLabel.setLayoutParams(new LinearLayout.LayoutParams(dp(activity, 60), -2));
+        alphaLabel.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
+        alphaLabel.setLayoutParams(new LinearLayout.LayoutParams(dpx(activity, 60), -2));
         alphaRow.addView(alphaLabel);
         
-        final SeekBar alphaSeek = new SeekBar(activity);
+        final android.widget.SeekBar alphaSeek = new android.widget.SeekBar(activity);
         alphaSeek.setMax(255);
         alphaSeek.setProgress(Color.alpha(currentColor[0]));
         alphaSeek.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
+        try {
+            applyMd3SeekBar(alphaSeek, pc(getSettingsThemeColor(activity, "primary")), activity);
+        } catch (Exception e) { traceLog("ColorPicker", "alphaSeek md3 error: " + e.getMessage()); }
         alphaRow.addView(alphaSeek);
         
         final TextView alphaValue = new TextView(activity);
         alphaValue.setText(String.valueOf(Color.alpha(currentColor[0])));
         alphaValue.setTextSize(14);
-        alphaValue.setTextColor(Color.WHITE);
+        alphaValue.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
         alphaValue.setTypeface(Typeface.MONOSPACE);
-        alphaValue.setLayoutParams(new LinearLayout.LayoutParams(dp(activity, 40), -2));
+        alphaValue.setLayoutParams(new LinearLayout.LayoutParams(dpx(activity, 40), -2));
         alphaValue.setGravity(Gravity.RIGHT);
         alphaRow.addView(alphaValue);
         
         root.addView(alphaRow);
         
-        alphaSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+        alphaSeek.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 if (fromUser) {
+                    traceLog("ColorPicker", "alphaSeek progress=" + progress);
                     currentColor[0] = Color.argb(progress, 
                         Color.red(currentColor[0]), 
                         Color.green(currentColor[0]), 
                         Color.blue(currentColor[0]));
-                    updatePreview(colorPreview, hexText, currentColor[0]);
+                    isUpdatingFromInput[0] = true;
+                    updatePreview(colorPreview, hexInput, currentColor[0]);
                     alphaValue.setText(String.valueOf(progress));
+                    isUpdatingFromInput[0] = false;
                 }
             }
             public void onStartTrackingTouch(SeekBar seekBar) {}
             public void onStopTrackingTouch(SeekBar seekBar) {}
         });
         
-        // 底部按钮
+        // 底部按钮：固定在最外层底部，不随内容滚动，短屏上也不会被裁掉
         LinearLayout buttonRow = new LinearLayout(activity);
         buttonRow.setOrientation(LinearLayout.HORIZONTAL);
         buttonRow.setGravity(Gravity.END);
-        buttonRow.setPadding(0, dp(activity, 8), 0, 0);
-        
-        TextView cancelBtn = new TextView(activity);
-        cancelBtn.setText("取消");
-        cancelBtn.setTextSize(16);
-        cancelBtn.setTextColor(Color.parseColor("#FF7A9681"));
-        cancelBtn.setPadding(dp(activity, 24), dp(activity, 12), dp(activity, 24), dp(activity, 12));
+        buttonRow.setPadding(dpx(activity, 16), dpx(activity, 8), dpx(activity, 16), dpx(activity, 12));
+
+        TextView cancelBtn = createButton(activity, "取消", pc(getSettingsThemeColor(activity, "primary")), -1, 16f, 20, 24, 12, false);
         buttonRow.addView(cancelBtn);
-        
-        TextView confirmBtn = new TextView(activity);
-        confirmBtn.setText("确定");
-        confirmBtn.setTextSize(16);
-        confirmBtn.setTypeface(null, Typeface.BOLD);
-        confirmBtn.setTextColor(Color.parseColor("#FF7A9681"));
-        confirmBtn.setPadding(dp(activity, 24), dp(activity, 12), dp(activity, 24), dp(activity, 12));
+
+        TextView confirmBtn = createButton(activity, "确定", pc("#FFFFFFFF"), pc(getSettingsThemeColor(activity, "primary")), 16f, 20, 24, 12, true);
         buttonRow.addView(confirmBtn);
-        
-        root.addView(buttonRow);
-        
-        builder.setView(root);
+
+        // 内容包进 ScrollView，按钮行钉在最外层底部：内容超高时可上下滚动，取消/确定始终可见
+        ScrollView contentScroll = new ScrollView(activity);
+        contentScroll.addView(root);
+        LinearLayout dialogRoot = new LinearLayout(activity);
+        dialogRoot.setOrientation(LinearLayout.VERTICAL);
+        dialogRoot.setBackgroundColor(pc(getSettingsThemeColor(activity, "surface")));
+        dialogRoot.addView(contentScroll, new LinearLayout.LayoutParams(-1, 0, 1.0f));
+        dialogRoot.addView(buttonRow, new LinearLayout.LayoutParams(-1, -2));
+
+        builder.setView(dialogRoot);
         final AlertDialog dialog = builder.create();
         
         // 按钮事件
@@ -1385,22 +1071,22 @@ void showColorPickerDialog(final Activity activity, final String initialColor, f
                 showingFavorites[0] = !showingFavorites[0];
                 if (showingFavorites[0]) {
                     favBtn.setText("返回");
-                    favBtn.setBackground(createRoundRectDrawable(Color.parseColor("#FF5A5A5A"), dp(activity, 16)));
+                    favBtn.setBackground(createRippleBg(activity, pc("#FF5A5A5A"), dpx(activity, 16)));
                     showFavoritesView(activity, contentContainer, favoriteColors, new OnColorPickedListener() {
                         public void onColorPicked(int color) {
                             currentColor[0] = color;
-                            updatePreview(colorPreview, hexText, color);
+                            updatePreview(colorPreview, hexInput, color);
                             alphaSeek.setProgress(Color.alpha(color));
                             alphaValue.setText(String.valueOf(Color.alpha(color)));
                         }
                     });
                 } else {
                     favBtn.setText("收藏夹");
-                    favBtn.setBackground(createRoundRectDrawable(Color.parseColor("#FF7A9681"), dp(activity, 16)));
+                    favBtn.setBackground(createRippleBg(activity, pc(getSettingsThemeColor(activity, "primary")), dpx(activity, 16)));
                     showModeContent(activity, contentContainer, currentMode[0], currentColor[0], new OnColorChangedListener() {
                         public void onColorChanged(int color) {
                             currentColor[0] = color;
-                            updatePreview(colorPreview, hexText, color);
+                            updatePreview(colorPreview, hexInput, color);
                         }
                     });
                 }
@@ -1428,7 +1114,7 @@ void showColorPickerDialog(final Activity activity, final String initialColor, f
                 showImagePickerDialog(activity, new OnColorPickedListener() {
                     public void onColorPicked(int color) {
                         currentColor[0] = color;
-                        updatePreview(colorPreview, hexText, color);
+                        updatePreview(colorPreview, hexInput, color);
                         alphaSeek.setProgress(Color.alpha(color));
                         alphaValue.setText(String.valueOf(Color.alpha(color)));
                     }
@@ -1441,26 +1127,28 @@ void showColorPickerDialog(final Activity activity, final String initialColor, f
         try {
             Window window = dialog.getWindow();
             if (window != null) {
-                window.setBackgroundDrawable(createRoundRectDrawable(Color.parseColor("#FF2D2D2D"), dp(activity, 16)));
+                window.setBackgroundDrawable(roundRect(pc(getSettingsThemeColor(activity, "surface")), dpx(activity, 16)));
             }
-        } catch (Exception e) {}
+        } catch (Exception e) { traceLog("ColorPicker", e.getMessage()); }
         
-    } catch (Exception e) {}
+    } catch (Exception e) { traceLog("ColorPicker", e.getMessage()); }
 }
 
 void updatePreview(View preview, TextView hexText, int color) {
     try {
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(color);
-        bg.setCornerRadius(dp(preview.getContext(), 12));
-        bg.setStroke(2, Color.parseColor("#40FFFFFF"));
-        preview.setBackgroundDrawable(bg);
-        hexText.setText(colorToHex(color));
-    } catch (Exception e) {}
+        traceLog("ColorPicker", "updatePreview color=" + colorToHex(color));
+        preview.setBackgroundColor(color);
+        String hex = colorToHex(color);
+        String current = hexText.getText().toString();
+        if (!current.equalsIgnoreCase(hex)) {
+            traceLog("ColorPicker", "updatePreview setText=" + hex);
+            hexText.setText(hex);
+        }
+    } catch (Exception e) { traceLog("ColorPicker", "updatePreview error: " + e.getMessage()); }
 }
-
 void showModeContent(Activity activity, FrameLayout container, int mode, int initialColor, OnColorChangedListener listener) {
     container.removeAllViews();
+    traceLog("ColorPicker", "showModeContent mode=" + mode + " initialColor=" + colorToHex(initialColor));
     
     View view = null;
     switch (mode) {
@@ -1485,133 +1173,135 @@ void showModeContent(Activity activity, FrameLayout container, int mode, int ini
     }
 }
 
-void addColorInputItem(final Activity activity, LinearLayout parent, String title, String value, String hint, int titleColor, int cardColor, final String saveKey) {
-    try {
-        LinearLayout item = new LinearLayout(activity);
-        item.setOrientation(LinearLayout.VERTICAL);
-        item.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
-        
-        // 内层浅背景 (比卡片浅35%)
-        int itemColor = lightenColor(cardColor, 0.35f);
-        GradientDrawable itemBg = new GradientDrawable();
-        itemBg.setColor(itemColor);
-        itemBg.setCornerRadius(dp(activity, 8));
-        item.setBackgroundDrawable(itemBg);
-        
-        TextView t1 = new TextView(activity); 
-        t1.setText(title); 
-        t1.setTextSize(14); 
-        t1.setTextColor(titleColor);
-        item.addView(t1);
+void addSettingsColorItem(String categoryName, String itemName, String descriptionText, String keyName, String defaultValue, final Runnable onColorChanged, final boolean checkContrast) {
+    if (SettingsState.settingsCategoryContainers == null || categoryName == null) return;
+    Activity activity = getSettingsCurrentActivity();
+    if (activity == null) return;
 
-        LinearLayout inputRow = new LinearLayout(activity);
-        inputRow.setOrientation(LinearLayout.HORIZONTAL);
-        inputRow.setGravity(Gravity.CENTER_VERTICAL);
-        inputRow.setPadding(0, dp(activity, 8), 0, 0);
-        
-        final int[] currentColor = {Color.parseColor("#FF7A9681")}; // 默认颜色
-        boolean hasValidColor = false;
-        String displayValue = "";
-        
-        try {
-            if (value != null && !value.trim().isEmpty()) {
-                currentColor[0] = Color.parseColor(value.trim());
-                hasValidColor = true;
-                displayValue = value.trim();
+    String currentValue = getString("settings", keyName, defaultValue);
+
+    LinearLayout itemLayout = new LinearLayout(activity);
+    itemLayout.setOrientation(LinearLayout.VERTICAL);
+    itemLayout.setPadding(dpx(activity, 16), dpx(activity, 12), dpx(activity, 16), dpx(activity, 12));
+
+    TextView nameView = new TextView(activity);
+    nameView.setText(itemName);
+    nameView.setTextSize(16);
+    nameView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
+    itemLayout.addView(nameView);
+
+    if (descriptionText != null && !descriptionText.isEmpty()) {
+        TextView descView = new TextView(activity);
+        descView.setText(descriptionText);
+        descView.setTextSize(12);
+        descView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
+        descView.setPadding(0, dpx(activity, 2), 0, dpx(activity, 8));
+        itemLayout.addView(descView);
+    }
+
+    LinearLayout colorRow = new LinearLayout(activity);
+    colorRow.setOrientation(LinearLayout.HORIZONTAL);
+    colorRow.setGravity(Gravity.CENTER_VERTICAL);
+
+    final View colorPreview = new View(activity);
+    int previewSize = dpx(activity, 36);
+    LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(previewSize, previewSize);
+    previewParams.rightMargin = dpx(activity, 12);
+    colorPreview.setLayoutParams(previewParams);
+    GradientDrawable previewBackground = new GradientDrawable();
+    previewBackground.setCornerRadius(dpx(activity, 6));
+    if (isValidHexColor(currentValue)) {
+        previewBackground.setColor(pc(currentValue));
+    } else {
+        previewBackground.setColor(pc("#FF888888"));
+    }
+    colorPreview.setBackground(previewBackground);
+    colorRow.addView(colorPreview);
+
+    TextView pickerBtn = new TextView(activity);
+    pickerBtn.setText("🎨 点击选择颜色");
+    pickerBtn.setTextSize(14);
+    pickerBtn.setTextColor(pc(getSettingsThemeColor(activity, "primary")));
+    colorRow.addView(pickerBtn);
+
+    itemLayout.addView(colorRow);
+
+    itemLayout.setBackground(makeFeedbackBg(pc(getSettingsThemeColor(activity, "surface")), pc(getSettingsThemeColor(activity, "ripple")), 0));
+    itemLayout.setClickable(true);
+
+    final String finalKeyName = keyName;
+    final String finalDefaultValue = defaultValue;
+    itemLayout.setOnClickListener(new View.OnClickListener() {
+        public void onClick(View view) {
+            Activity act = getSettingsCurrentActivity();
+            if (act == null) return;
+            String savedColor = getString("settings", finalKeyName, "");
+            String currentColor = (savedColor != null && !savedColor.isEmpty() && isValidHexColor(savedColor)) ? savedColor : finalDefaultValue;
+            if (currentColor == null || currentColor.isEmpty() || !isValidHexColor(currentColor)) {
+                boolean isDark = isThemeDark(act);
+                currentColor = isDark ? "#f7efffef" : "#FF1A1A1A";
             }
-        } catch (Exception e) {
-            displayValue = "";
-        }
-        
-        final EditText input = new EditText(activity);
-        input.setText(displayValue);
-        input.setHint(hint);
-        input.setTextSize(14);
-        input.setTypeface(Typeface.MONOSPACE);
-        input.setBackgroundColor(Color.parseColor("#15FFFFFF"));
-        input.setPadding(dp(activity, 12), dp(activity, 10), dp(activity, 12), dp(activity, 10));
-        
-        if (hasValidColor) {
-            input.setTextColor(currentColor[0]);
-        } else {
-            input.setTextColor(Color.parseColor("#FF333333"));
-        }
-        input.setHintTextColor(Color.GRAY);
-        
-        LinearLayout.LayoutParams inputParams = new LinearLayout.LayoutParams(0, -2, 1.0f);
-        input.setLayoutParams(inputParams);
-        
-        input.addTextChangedListener(new android.text.TextWatcher() {
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            public void onTextChanged(CharSequence s, int start, int before, int count) {}
-            public void afterTextChanged(android.text.Editable s) {
-                String val = s.toString().trim();
-                // 保存到挂起映射
-                pendingSettingsChanges.put(saveKey, val);
-                try {
-                    if (val.startsWith("#") && (val.length() == 7 || val.length() == 9)) {
-                        int color = Color.parseColor(val);
-                        input.setTextColor(color);
-                    }
-                } catch (Exception e) {
-                    input.setTextColor(Color.parseColor("#FF333333"));
+            // 在调用方把 hex 字符串解析成 int,避免 ColorPicker 内部 String 解析失败导致颜色丢失
+            int parsedColor = pc("#FF808080");
+            try {
+                if (currentColor != null && !currentColor.isEmpty()) {
+                    parsedColor = pc(currentColor);
                 }
+            } catch (Throwable e) {
+                parsedColor = isThemeDark(act) ? pc("#FFEFEFEF") : pc("#FF1A1A1A");
             }
-        });
-        
-        inputRow.addView(input);
-
-        final TextView colorBtn = new TextView(activity);
-        colorBtn.setText("🎨");
-        colorBtn.setTextSize(22);
-        colorBtn.setGravity(Gravity.CENTER);
-        colorBtn.setPadding(dp(activity, 12), dp(activity, 8), dp(activity, 12), dp(activity, 8));
-        colorBtn.setBackground(createSelectableBackground());
-        inputRow.addView(colorBtn);
-        
-        item.addView(inputRow);
-        parent.addView(item);
-        
-        // 添加底部间距
-        View space = new View(activity);
-        space.setBackgroundColor(Color.TRANSPARENT);
-        LinearLayout.LayoutParams spaceParams = new LinearLayout.LayoutParams(-1, dp(activity, 4));
-        spaceParams.leftMargin = dp(activity, 6);
-        spaceParams.rightMargin = dp(activity, 6);
-        parent.addView(space, spaceParams);
-        
-        View.OnClickListener clickListener = new View.OnClickListener() {
-            public void onClick(View v) {
-                activity.runOnUiThread(new Runnable() {
-                    public void run() {
-                        try {
-                            String initialColorStr = input.getText().toString().trim();
-                            if (initialColorStr.isEmpty() || initialColorStr.equals(hint)) {
-                                initialColorStr = "#FF7A9681";
-                            }
-                            
-                            showColorPickerDialog(activity, initialColorStr, new OnColorPickedListener() {
-                                public void onColorPicked(final int color) {
-                                    activity.runOnUiThread(new Runnable() {
-                                        public void run() {
-                                            try {
-                                                String hex = colorToHex(color);
-                                                input.setText(hex);
-                                                input.setTextColor(color);
-                                                // 保存到挂起映射
-                                                pendingSettingsChanges.put(saveKey, hex);
-                                            } catch (Exception e) {}
+            showColorPickerDialog(act, parsedColor, new OnColorPickedListener() {
+                    public void onColorPicked(int color) {
+                        String hex = colorToHex(color);
+                        putString("settings", finalKeyName, hex);
+                        if (colorPreview != null) {
+                            GradientDrawable bg = new GradientDrawable();
+                            bg.setColor(color);
+                            bg.setCornerRadius(dp(act, 6));
+                            colorPreview.setBackground(bg);
+                        }
+                        if (onColorChanged != null) {
+                            onColorChanged.run();
+                        }
+                        if (checkContrast) {
+                            Activity checkAct = getSettingsCurrentActivity();
+                            if (checkAct != null) {
+                                String bgColorStr = getString("settings", isThemeDark(checkAct) ? "ui_bg_color_dark" : "ui_bg_color_light", "");
+                                if (bgColorStr != null && !bgColorStr.isEmpty() && isValidHexColor(bgColorStr)) {
+                                    try {
+                                        int bgColor = pc(bgColorStr);
+                                        double luminance = (0.299 * Color.red(color) + 0.587 * Color.green(color) + 0.114 * Color.blue(color)) / 255.0;
+                                        double bgLuminance = (0.299 * Color.red(bgColor) + 0.587 * Color.green(bgColor) + 0.114 * Color.blue(bgColor)) / 255.0;
+                                        double contrast = Math.abs(luminance - bgLuminance);
+                                        if (contrast < 0.2) {
+                                            Toast("提示:当前颜色与背景对比度较低,可能影响可读性");
                                         }
-                                    });
+                                    } catch (Throwable e) {}
                                 }
-                            });
-                        } catch (Exception e) {}
+                            }
+                        }
                     }
                 });
-            }
-        };
-        
-        colorBtn.setOnClickListener(clickListener);
-        
-    } catch (Exception e) {}
+        }
+    });
+
+    if (keyName != null && !keyName.isEmpty() && SettingsState.settingsItemViews != null) {
+        SettingsState.settingsItemViews.put(keyName, itemLayout);
+    }
+    if (keyName != null && !keyName.isEmpty() && SettingsState.settingsItemMeta != null) {
+        SettingsState.settingsItemMeta.put(keyName, new SettingsItemMeta(
+            itemName, descriptionText,
+            SettingsState.settingsCurrentLevel1,
+            SettingsState.settingsCurrentLevel2,
+            SettingsState.settingsCurrentLevel3,
+            SettingsState.settingsCurrentCategory,
+            "color"
+        ));
+    }
+
+    LinearLayout container = (LinearLayout) SettingsState.settingsCategoryContainers.get(categoryName);
+    if (container != null) {
+        container.addView(itemLayout);
+    }
 }
+
