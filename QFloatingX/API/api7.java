@@ -46,6 +46,10 @@ import me.yxp.qfun.activity.BaseComposeActivity;
 
 boolean isHtmlPickerHooked = false; 
 
+// 主题色取值：跟随插件主题设置（亮/暗/自定义），替代 isDark 硬编码双色
+int tc(Activity a, String key) { return pc(getSettingsThemeColor(a, key)); }
+int tca(Activity a, String key, int alpha) { return (pc(getSettingsThemeColor(a, key)) & 0x00FFFFFF) | (alpha << 24); }
+
 public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnClickListener, View.OnTouchListener {
 
     private WebView webView;
@@ -72,7 +76,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
     private boolean isTranslationActive = false;
     
     // 按钮
-    private Button btnBack, btnForward, btnRefresh, btnSniff, btnTranslate, btnZoomIn, btnZoomOut, btnClose;
+    private TextView btnBack, btnForward, btnRefresh, btnSniff, btnTranslate, btnZoomIn, btnZoomOut, btnClose;
     private HashSet sniffedResources = new HashSet();
 
     public void onCreate(Bundle savedInstanceState) {
@@ -80,7 +84,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
 
         try {
             final String filePath = getIntent().getStringExtra("filePath");
-            boolean isDark = isSystemDark();
+            boolean isDark = isThemeDark(this);
 
             // 沉浸式状态栏
             getWindow().getDecorView().setSystemUiVisibility(
@@ -90,7 +94,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
 
             // --- 1. 根布局 ---
             rootFrame = new FrameLayout(this);
-            rootFrame.setBackgroundColor(isDark ? Color.BLACK : Color.WHITE);
+            rootFrame.setBackgroundColor(tc(this, "background"));
 
             // --- 2. 内容容器 ---
             contentWrapper = new LinearLayout(this);
@@ -127,7 +131,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
             bottomSheetLayout.setOrientation(1);
             
             GradientDrawable simpleBg = new GradientDrawable();
-            simpleBg.setColor(isDark ? Color.parseColor("#2D2D2D") : Color.parseColor("#F5F5F5"));
+            simpleBg.setColor(tc(this, "surface"));
             simpleBg.setCornerRadii(new float[]{dp(20), dp(20), dp(20), dp(20), 0, 0, 0, 0});
             bottomSheetLayout.setBackground(simpleBg);
             
@@ -148,7 +152,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
             handleParams.bottomMargin = dp(5);
             dragHandle.setLayoutParams(handleParams);
             GradientDrawable handleBg = new GradientDrawable();
-            handleBg.setColor(isDark ? Color.parseColor("#55FFFFFF") : Color.parseColor("#55000000"));
+            handleBg.setColor(tca(this, "on_surface", 0x55));
             handleBg.setCornerRadius(dp(2.5f));
             dragHandle.setBackground(handleBg);
             headerContainer.addView(dragHandle);
@@ -163,14 +167,14 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
             titleView.setText("加载中...");
             titleView.setTextSize(16);
             titleView.setTypeface(null, Typeface.BOLD);
-            titleView.setTextColor(isDark ? Color.parseColor("#EFEFEF") : Color.parseColor("#333333"));
+            titleView.setTextColor(tc(this, "on_surface"));
             titleView.setSingleLine(true);
             titleView.setEllipsize(android.text.TextUtils.TruncateAt.END);
             LinearLayout.LayoutParams titleTextParams = new LinearLayout.LayoutParams(0, -2);
             titleTextParams.weight = 1.0f;
             titleView.setLayoutParams(titleTextParams);
             
-            btnRefresh = createIconButton("↻", isDark);
+            btnRefresh = createButton(this, "↻", tc(this, "on_surface"), Color.TRANSPARENT, 22f, 0, 12, 0, false, 0, 0, null);
             btnRefresh.setOnClickListener(this);
             titleRow.addView(titleView);
             titleRow.addView(btnRefresh);
@@ -185,10 +189,14 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
             // 第一行
             LinearLayout row1 = new LinearLayout(this);
             row1.setOrientation(0);
-            btnBack = createGridButton("<后退", isDark);
-            btnForward = createGridButton("前进>", isDark);
-            btnZoomOut = createGridButton("缩小-", isDark);
-            btnZoomIn = createGridButton("放大+", isDark);
+            int gridBg = tc(this, "outline");
+            int gridTxt = tc(this, "on_surface");
+            btnBack = createButton(this, "<后退", gridTxt, gridBg, 12f, 8, 12, 12, false, 0, 0, null);
+            btnForward = createButton(this, "前进>", gridTxt, gridBg, 12f, 8, 12, 12, false, 0, 0, null);
+            btnZoomOut = createButton(this, "缩小-", gridTxt, gridBg, 12f, 8, 12, 12, false, 0, 0, null);
+            btnZoomIn = createButton(this, "放大+", gridTxt, gridBg, 12f, 8, 12, 12, false, 0, 0, null);
+            applyGridBtnParams(btnBack); applyGridBtnParams(btnForward);
+            applyGridBtnParams(btnZoomOut); applyGridBtnParams(btnZoomIn);
             row1.addView(btnBack); row1.addView(btnForward);
             row1.addView(btnZoomOut); row1.addView(btnZoomIn);
             
@@ -196,10 +204,11 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
             LinearLayout row2 = new LinearLayout(this);
             row2.setOrientation(0);
             row2.setPadding(0, dp(8), 0, 0);
-            btnSniff = createGridButton("嗅探", isDark);
-            btnTranslate = createGridButton("翻译", isDark);
-            btnClose = createGridButton("退出", isDark);
-            btnClose.setTextColor(Color.parseColor("#FF5252"));
+            btnSniff = createButton(this, "嗅探", gridTxt, gridBg, 12f, 8, 12, 12, false, 0, 0, null);
+            btnTranslate = createButton(this, "翻译", gridTxt, gridBg, 12f, 8, 12, 12, false, 0, 0, null);
+            btnClose = createButton(this, "退出", gridTxt, gridBg, 12f, 8, 12, 12, false, 0, 0, null);
+            applyGridBtnParams(btnSniff); applyGridBtnParams(btnTranslate); applyGridBtnParams(btnClose);
+            btnClose.setTextColor(tc(this, "error"));
             row2.addView(btnSniff); row2.addView(btnTranslate); row2.addView(btnClose);
 
             // 绑定事件
@@ -215,7 +224,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
             rootFrame.addView(bottomSheetLayout);
 
             // --- 5. 嗅探小窗 ---
-            snifferWindow = new SnifferWindow(this, isDark);
+            snifferWindow = new SnifferWindow(this);
             rootFrame.addView(snifferWindow.getView());
 
             setContentView(rootFrame);
@@ -616,30 +625,12 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
         return null;
     }
 
-    private Button createIconButton(String text, boolean isDark) {
-        Button btn = new Button(this);
-        btn.setText(text);
-        btn.setTextSize(22);
-        btn.setTextColor(isDark ? Color.WHITE : Color.BLACK);
-        btn.setBackgroundColor(Color.TRANSPARENT);
-        btn.setPadding(dp(12), 0, dp(12), 0);
-        return btn;
-    }
-
-    private Button createGridButton(String text, boolean isDark) {
-        Button btn = new Button(this);
-        btn.setText(text);
-        btn.setTextSize(12);
-        btn.setTextColor(isDark ? Color.parseColor("#EFEFEF") : Color.parseColor("#333333"));
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(isDark ? Color.parseColor("#26FFFFFF") : Color.parseColor("#10000000"));
-        bg.setCornerRadius(dp(8));
-        btn.setBackground(bg);
+    // 网格按钮共享布局：weight=1 等分、38dp 高、4dp 外边距（样式本体走 uitools.createButton）
+    private void applyGridBtnParams(TextView btn) {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(38));
         params.weight = 1.0f;
         params.setMargins(dp(4), dp(4), dp(4), dp(4));
         btn.setLayoutParams(params);
-        return btn;
     }
 
     class SnifferWindow {
@@ -649,10 +640,9 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
         private boolean isMinimized = true;
         private float dX, dY;
         private Activity act;
-        private boolean isDark;
 
-        public SnifferWindow(Activity activity, boolean dark) {
-            this.act = activity; this.isDark = dark; init();
+        public SnifferWindow(Activity activity) {
+            this.act = activity; init();
         }
 
         private void init() {
@@ -660,9 +650,9 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                 layout = new LinearLayout(act);
                 layout.setOrientation(1);
                 GradientDrawable bg = new GradientDrawable();
-                bg.setColor(isDark ? Color.parseColor("#E62D2D2D") : Color.parseColor("#E6F5F5F5"));
+                bg.setColor(tca(act, "surface", 0xE6));
                 bg.setCornerRadius(dp(12));
-                bg.setStroke(1, isDark ? Color.parseColor("#33FFFFFF") : Color.parseColor("#1A000000"));
+                bg.setStroke(1, tc(act, "outline"));
                 layout.setBackground(bg);
                 
                 FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(dp(140), -2);
@@ -676,12 +666,14 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                 header.setPadding(dp(10), dp(8), dp(10), dp(8));
                 titleTv = new TextView(act);
                 titleTv.setText("资源 (0)"); titleTv.setTextSize(12);
-                titleTv.setTextColor(isDark ? Color.WHITE : Color.BLACK);
+                titleTv.setTextColor(tc(act, "on_surface"));
                 LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, -2, 1f);
                 titleTv.setLayoutParams(tp);
                 
-                Button btnToggle = createMiniBtn(isMinimized ? "展开" : "收起");
-                Button btnCls = createMiniBtn("×");
+                TextView btnToggle = createButton(act, isMinimized ? "展开" : "收起", tc(act, "on_surface_variant"), Color.TRANSPARENT, 10f, 0, 0, 0, false, 0, 0, null);
+                btnToggle.setLayoutParams(new LinearLayout.LayoutParams(dp(36), dp(30)));
+                TextView btnCls = createButton(act, "×", tc(act, "on_surface_variant"), Color.TRANSPARENT, 10f, 0, 0, 0, false, 0, 0, null);
+                btnCls.setLayoutParams(new LinearLayout.LayoutParams(dp(36), dp(30)));
                 btnToggle.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { toggleMinimize(); }});
                 btnCls.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { layout.setVisibility(View.GONE); }});
                 
@@ -714,20 +706,6 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                 layout.addView(contentLayout);
             } catch (Throwable e) {
                 traceLog("api7_log.txt", "初始化异常: " + e.getMessage());
-            }
-        }
-
-        private Button createMiniBtn(String txt) {
-            try {
-                Button b = new Button(act);
-                b.setText(txt); b.setTextSize(10); b.setPadding(0,0,0,0);
-                b.setBackgroundColor(Color.TRANSPARENT);
-                b.setTextColor(isDark ? Color.LTGRAY : Color.DKGRAY);
-                b.setLayoutParams(new LinearLayout.LayoutParams(dp(36), dp(30)));
-                return b;
-            } catch (Throwable e) {
-                traceLog("api7_log.txt", "创建按钮异常: " + e.getMessage());
-                return new Button(act);
             }
         }
 
@@ -771,19 +749,21 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                     TextView urlTv = new TextView(act);
                     urlTv.setText(url); urlTv.setMaxLines(1);
                     urlTv.setEllipsize(android.text.TextUtils.TruncateAt.END);
-                    urlTv.setTextColor(isDark ? Color.LTGRAY : Color.BLACK);
+                    urlTv.setTextColor(tc(act, "on_surface_variant"));
                     urlTv.setTextSize(11);
                     item.addView(urlTv);
                     
                     LinearLayout acts = new LinearLayout(act);
-                    Button play = createActionBtn("播放"), dl = createActionBtn("下载"), copy = createActionBtn("复制");
+                    TextView play = createButton(act, "播放", tc(act, "primary"), Color.TRANSPARENT, 10f, 0, 8, 8, false, 0, 0, null);
+                    TextView dl = createButton(act, "下载", tc(act, "primary"), Color.TRANSPARENT, 10f, 0, 8, 8, false, 0, 0, null);
+                    TextView copy = createButton(act, "复制", tc(act, "primary"), Color.TRANSPARENT, 10f, 0, 8, 8, false, 0, 0, null);
                     play.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { openInSystemPlayer(url); }});
                     dl.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { downloadFile(url); }});
                     copy.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { copyToClipboard(url); }});
                     acts.addView(play); acts.addView(dl); acts.addView(copy);
                     item.addView(acts);
                     
-                    View line = new View(act); line.setBackgroundColor(Color.parseColor("#33888888"));
+                    View line = new View(act); line.setBackgroundColor(tc(act, "outline"));
                     line.setLayoutParams(new LinearLayout.LayoutParams(-1, 1));
                     
                     listContainer.addView(item);
@@ -794,17 +774,6 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
             }
         }
         
-        private Button createActionBtn(String t) {
-            try {
-                Button b = new Button(act); b.setText(t); b.setTextSize(10);
-                b.setBackgroundColor(Color.TRANSPARENT); b.setTextColor(Color.parseColor("#FF2196F3"));
-                return b;
-            } catch (Throwable e) {
-                traceLog("api7_log.txt", "创建按钮异常: " + e.getMessage());
-                return new Button(act);
-            }
-        }
-
         private void toggleMinimize() {
             try {
                 isMinimized = !isMinimized;
@@ -1033,7 +1002,7 @@ private void showHtmlOptionDialog(final Activity activity) {
         public void run() {
             try {
                 boolean isDark = isThemeDark(activity);
-                int dialogTheme = 4; // THEME_DEVICE_DEFAULT_DARK
+                int dialogTheme = isDark ? 4 : 3;
                 
                 LinearLayout mainLayout = new LinearLayout(activity);
                 mainLayout.setOrientation(1);
@@ -1041,7 +1010,7 @@ private void showHtmlOptionDialog(final Activity activity) {
                 
                 TextView titleView = new TextView(activity);
                 titleView.setText("HTML 浏览器");
-                titleView.setTextColor(isDark ? Color.parseColor("#DEEFEFEF") : Color.parseColor("#DE000000"));
+                titleView.setTextColor(tc(activity, "on_surface"));
                 titleView.setTextSize(18);
                 titleView.setPadding(0, dp(activity, 8), 0, dp(activity, 24));
                 mainLayout.addView(titleView);
@@ -1053,11 +1022,11 @@ private void showHtmlOptionDialog(final Activity activity) {
                 urlInput.setImeOptions(EditorInfo.IME_ACTION_GO);
                 urlInput.setBackground(null);
                 urlInput.setPadding(0, dp(activity, 12), 0, dp(activity, 12));
-                urlInput.setTextColor(isDark ? Color.WHITE : Color.BLACK);
-                urlInput.setHintTextColor(Color.GRAY);
+                urlInput.setTextColor(tc(activity, "on_surface"));
+                urlInput.setHintTextColor(tc(activity, "on_surface_variant"));
                 
                 View line = new View(activity);
-                line.setBackgroundColor(Color.parseColor("#FF2196F3"));
+                line.setBackgroundColor(tc(activity, "primary"));
                 line.setLayoutParams(new LinearLayout.LayoutParams(-1, dp(activity, 2)));
                 mainLayout.addView(urlInput);
                 mainLayout.addView(line);
@@ -1067,34 +1036,22 @@ private void showHtmlOptionDialog(final Activity activity) {
                 btnLayout.setPadding(0, dp(activity, 20), 0, 0);
                 
                 // 按钮1：加载本地文件
-                Button btn1 = new Button(activity);
-                btn1.setText("加载本地文件");
-                btn1.setTextColor(Color.parseColor("#FF2196F3"));
-                btn1.setBackgroundColor(Color.TRANSPARENT);
+                TextView btn1 = createButton(activity, "加载本地文件", tc(activity, "primary"), Color.TRANSPARENT, 14f, 0, 12, 16, false, 0, 0, null);
                 btn1.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
-                btn1.setPadding(dp(activity, 12), dp(activity, 16), dp(activity, 12), dp(activity, 16));
                 LinearLayout.LayoutParams btn1Params = new LinearLayout.LayoutParams(-1, -2);
                 btn1Params.bottomMargin = dp(activity, 4);
                 btnLayout.addView(btn1, btn1Params);
-                
+
                 // 按钮2：导入新文件
-                Button btn2 = new Button(activity);
-                btn2.setText("导入新文件");
-                btn2.setTextColor(Color.parseColor("#FF2196F3"));
-                btn2.setBackgroundColor(Color.TRANSPARENT);
+                TextView btn2 = createButton(activity, "导入新文件", tc(activity, "primary"), Color.TRANSPARENT, 14f, 0, 12, 16, false, 0, 0, null);
                 btn2.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
-                btn2.setPadding(dp(activity, 12), dp(activity, 16), dp(activity, 12), dp(activity, 16));
                 LinearLayout.LayoutParams btn2Params = new LinearLayout.LayoutParams(-1, -2);
                 btn2Params.bottomMargin = dp(activity, 4);
                 btnLayout.addView(btn2, btn2Params);
-                
+
                 // 取消按钮
-                Button btnCancel = new Button(activity);
-                btnCancel.setText("取消");
-                btnCancel.setTextColor(isDark ? Color.parseColor("#DEEFEFEF") : Color.parseColor("#DE000000"));
-                btnCancel.setBackgroundColor(Color.TRANSPARENT);
+                TextView btnCancel = createButton(activity, "取消", tc(activity, "on_surface"), Color.TRANSPARENT, 14f, 0, 12, 16, false, 0, 0, null);
                 btnCancel.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
-                btnCancel.setPadding(dp(activity, 12), dp(activity, 16), dp(activity, 12), dp(activity, 16));
                 LinearLayout.LayoutParams cancelParams = new LinearLayout.LayoutParams(-1, -2);
                 cancelParams.topMargin = dp(activity, 8);
                 btnLayout.addView(btnCancel, cancelParams);
@@ -1102,14 +1059,16 @@ private void showHtmlOptionDialog(final Activity activity) {
                 mainLayout.addView(btnLayout);
                 
                 android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(activity, dialogTheme);
-                builder.setView(mainLayout);
+                builder.setView(mainLayout, 0, 0, 0, 0);
                 final android.app.AlertDialog dialog = builder.create();
                 
                 GradientDrawable bg = new GradientDrawable();
-                bg.setColor(isDark ? Color.parseColor("#FF1E1E1E") : Color.WHITE);
+                bg.setColor(tc(activity, "background"));
                 bg.setCornerRadius(dp(activity, 16));
-                dialog.getWindow().setBackgroundDrawable(bg);
+                mainLayout.setBackground(bg);
+                dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
                 dialog.show();
+                mainLayout.setLayoutParams(new android.widget.FrameLayout.LayoutParams(-1, -1));
                 
                 urlInput.setOnEditorActionListener(new TextView.OnEditorActionListener() {
                     public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
@@ -1146,9 +1105,9 @@ private void showHtmlFileBrowser(final Activity activity) {
         public void run() {
             try {
                 boolean isDark = isThemeDark(activity);
-                int dialogTheme = 4; // THEME_DEVICE_DEFAULT_DARK
+                int dialogTheme = isDark ? 4 : 3;
                 
-                int textColor = isDark ? Color.parseColor("#DEEFEFEF") : Color.BLACK;
+                int textColor = tc(activity, "on_surface");
                 
                 LinearLayout root = new LinearLayout(activity);
                 root.setOrientation(1);
@@ -1193,11 +1152,7 @@ private void showHtmlFileBrowser(final Activity activity) {
                                     int contentWidth = activity.getResources().getDisplayMetrics().widthPixels - dp(activity, 72);
                                     content.setLayoutParams(new LinearLayout.LayoutParams(contentWidth, -2));
                                     
-                                    if (!isDark) {
-                                        content.setBackgroundColor(Color.TRANSPARENT);
-                                    } else {
-                                        content.setBackgroundColor(Color.parseColor("#FF1E1E1E"));
-                                    }
+                                    content.setBackgroundColor(tc(activity, "surface"));
                                     
                                     TextView icon = new TextView(activity);
                                     icon.setText(name.endsWith(".zip") ? "📦" : "🌐");
@@ -1213,16 +1168,12 @@ private void showHtmlFileBrowser(final Activity activity) {
                                     nameTv.setTextSize(15);
                                     TextView sizeTv = new TextView(activity);
                                     sizeTv.setText(formatSize(f.length()));
-                                    sizeTv.setTextColor(Color.GRAY);
+                                    sizeTv.setTextColor(tc(activity, "on_surface_variant"));
                                     sizeTv.setTextSize(12);
                                     textLayout.addView(nameTv); textLayout.addView(sizeTv);
                                     content.addView(textLayout);
                                     
-                                    TextView deleteBtn = new TextView(activity);
-                                    deleteBtn.setText("删除");
-                                    deleteBtn.setTextColor(Color.WHITE);
-                                    deleteBtn.setBackgroundColor(Color.parseColor("#FF5252"));
-                                    deleteBtn.setGravity(17);
+                                    TextView deleteBtn = createButton(activity, "删除", Color.WHITE, tc(activity, "error"), 14f, 0, 0, 0, false, 0, 0, null);
                                     deleteBtn.setLayoutParams(new LinearLayout.LayoutParams(dp(activity, 80), -1));
                                     
                                     itemContainer.addView(content);
@@ -1234,7 +1185,7 @@ private void showHtmlFileBrowser(final Activity activity) {
                                     itemWrapper.addView(slideView);
                                     
                                     View itemDivider = new View(activity);
-                                    itemDivider.setBackgroundColor(isDark ? Color.parseColor("#1AFFFFFF") : Color.parseColor("#1A000000"));
+                                    itemDivider.setBackgroundColor(tc(activity, "outline"));
                                     LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(-1, 1);
                                     dividerParams.bottomMargin = dp(activity, 4); // dp间距分隔
                                     itemWrapper.addView(itemDivider, dividerParams);
@@ -1278,15 +1229,16 @@ private void showHtmlFileBrowser(final Activity activity) {
                 root.addView(scrollView, new LinearLayout.LayoutParams(-1, 0, 1.0f));
                 
                 android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(activity, dialogTheme);
-                builder.setView(root);
-                builder.setNegativeButton("关闭", null);
+                builder.setView(root, 0, 0, 0, 0);
                 android.app.AlertDialog dialog = builder.create();
                 
                 GradientDrawable bg = new GradientDrawable();
-                bg.setColor(isDark ? Color.parseColor("#FF1E1E1E") : Color.WHITE);
+                bg.setColor(tc(activity, "background"));
                 bg.setCornerRadius(dp(activity, 16));
-                dialog.getWindow().setBackgroundDrawable(bg);
+                root.setBackground(bg);
+                dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
                 dialog.show();
+                root.setLayoutParams(new android.widget.FrameLayout.LayoutParams(-1, dp(activity, 450)));
                 dialog.getWindow().setLayout(Math.min(dp(activity, 320), activity.getResources().getDisplayMetrics().widthPixels - dp(activity, 32)), dp(activity, 450));
                 
             } catch(Exception e) { 
