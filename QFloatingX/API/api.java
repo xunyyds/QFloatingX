@@ -1210,7 +1210,9 @@ public void log大小限制(String Path) {
 		}
 
 		long 文件夹总大小 = getFolderSize(targetFile);
-		long MB = 1024 * 1024;
+		int 阈值MB = 1;
+		try { 阈值MB = Integer.parseInt(getString("settings", "log_delete_threshold", "1")); } catch (Throwable e) {}
+		long MB = 阈值MB * 1024 * 1024;
 
 		if (文件夹总大小 > MB) {
 			traceLog("api_log.txt", "文件夹总大小超过1MB，准备删除: " + targetFile.getName() +
