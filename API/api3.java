@@ -266,13 +266,6 @@ private int getColorForStat(int index) {
     return Color.parseColor("#333333");
 }
 
-private GradientDrawable createRoundRectDrawable(Activity activity, int color, int radius) {
-    GradientDrawable drawable = new GradientDrawable();
-    drawable.setColor(color);
-    drawable.setCornerRadius(dp(activity, radius));
-    return drawable;
-}
-
 private View createSpaceView(Activity activity, int heightDp) {
     View space = new View(activity);
     space.setLayoutParams(new LinearLayout.LayoutParams(
@@ -289,21 +282,6 @@ private View createDivider(Activity activity) {
     dividerParams.setMargins(0, dp(activity, 6), 0, dp(activity, 6));
     divider.setLayoutParams(dividerParams);
     return divider;
-}
-
-private Button createColorButton(Activity activity, String text, int bgColor) {
-    Button button = new Button(activity);
-    button.setText(text);
-    button.setTextColor(Color.parseColor("#333333"));
-    button.setBackground(createRoundRectDrawable(activity, bgColor, 8));
-    button.setPadding(dp(activity, 16), dp(activity, 8), dp(activity, 16), dp(activity, 8));
-    LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-        dp(activity, 120), dp(activity, 40));
-    params.setMargins(dp(activity, 6), 0, dp(activity, 6), 0);
-    button.setLayoutParams(params);
-    button.setTextSize(13);
-    button.setAllCaps(false);
-    return button;
 }
 
 private void initTimeRange(Activity activity) {
@@ -906,7 +884,7 @@ private View createRangeSpinner(Activity activity) {
 
     LinearLayout layout = new LinearLayout(finalActivity);
     layout.setGravity(Gravity.CENTER_VERTICAL);
-    layout.setBackground(createRoundRectDrawable(finalActivity, cardBgColor, 16));
+    layout.setBackground(roundRect(cardBgColor, dp(finalActivity, 16)));
     layout.setPadding(dp(finalActivity, 16), dp(finalActivity, 14), dp(finalActivity, 16), dp(finalActivity, 14));
     
     layout.setClipChildren(false); 
@@ -1123,7 +1101,7 @@ private void showTargetSettingDialog(Activity activity) {
     editText.setText(String.valueOf(currentTarget));
     editText.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
     editText.setPadding(dp(activity, 12), dp(activity, 10), dp(activity, 12), dp(activity, 10));
-    editText.setBackground(createRoundRectDrawable(activity, isDark ? Color.parseColor("#33FFFFFF") : Color.parseColor("#F5F5F5"), 8));
+    editText.setBackground(roundRect(isDark ? Color.parseColor("#33FFFFFF") : Color.parseColor("#F5F5F5"), dp(activity, 8)));
     editText.setTextColor(isDark ? Color.parseColor("#EFEFEF") : Color.BLACK);
     editText.setHintTextColor(isDark ? Color.parseColor("#AAAAAA") : Color.GRAY);
     editText.setTextSize(14);
@@ -1162,7 +1140,7 @@ private LinearLayout createStatsCardBase(Activity activity, String title, String
     boolean isDark = isThemeDark(activity);
     LinearLayout card = new LinearLayout(activity);
     card.setOrientation(LinearLayout.VERTICAL);
-    card.setBackground(createRoundRectDrawable(activity, isDark ? Color.parseColor("#FF2D2D2D") : Color.WHITE, 12));
+    card.setBackground(roundRect(isDark ? Color.parseColor("#FF2D2D2D") : Color.WHITE, dp(activity, 12)));
     card.setTag(cardType);
     int padding = dp(activity, 16);
     card.setPadding(padding, padding, padding, padding);
@@ -1352,7 +1330,7 @@ private LinearLayout createTodayCoreStatsCard(Activity activity, String title) {
     boolean isDark = isThemeDark(activity);
     LinearLayout card = new LinearLayout(activity);
     card.setOrientation(LinearLayout.VERTICAL);
-    card.setBackground(createRoundRectDrawable(activity, isDark ? Color.parseColor("#FF2D2D2D") : Color.WHITE, 12));
+    card.setBackground(roundRect(isDark ? Color.parseColor("#FF2D2D2D") : Color.WHITE, dp(activity, 12)));
     card.setTag("todayCoreCard");
     int padding = dp(activity, 16);
     card.setPadding(padding, padding, padding, padding);
@@ -1439,7 +1417,7 @@ private LinearLayout createTotalStatsCard(Activity activity, String title) {
     boolean isDark = isThemeDark(activity);
     LinearLayout card = new LinearLayout(activity);
     card.setOrientation(LinearLayout.VERTICAL);
-    card.setBackground(createRoundRectDrawable(activity, isDark ? Color.parseColor("#FF2D2D2D") : Color.WHITE, 12));
+    card.setBackground(roundRect(isDark ? Color.parseColor("#FF2D2D2D") : Color.WHITE, dp(activity, 12)));
     int padding = dp(activity, 16);
     card.setPadding(padding, padding, padding, padding);
 
@@ -1669,7 +1647,10 @@ public void showStatsDialog(Activity activity) {
     buttonLayout1.setGravity(Gravity.CENTER_HORIZONTAL);
     buttonLayout1.setPadding(0, 0, 0, dp(activity, 10));
 
-    Button resetTodayBtn = createColorButton(activity, "重置今日数据", Color.parseColor("#FFCDD2"));
+    TextView resetTodayBtn = createButton(activity, "重置今日数据", Color.parseColor("#333333"), Color.parseColor("#FFCDD2"), 13f, 8, 16, 8, false, 0, 0, null);
+    LinearLayout.LayoutParams resetTodayParams = new LinearLayout.LayoutParams(dp(activity, 120), dp(activity, 40));
+    resetTodayParams.setMargins(dp(activity, 6), 0, dp(activity, 6), 0);
+    resetTodayBtn.setLayoutParams(resetTodayParams);
     resetTodayBtn.setOnClickListener(new View.OnClickListener() {
         public void onClick(View v) {
             vibrate(activity, 48);
@@ -1677,7 +1658,10 @@ public void showStatsDialog(Activity activity) {
         }
     });
 
-    Button resetTotalBtn = createColorButton(activity, "重置累计数据", Color.parseColor("#BBDEFB"));
+    TextView resetTotalBtn = createButton(activity, "重置累计数据", Color.parseColor("#333333"), Color.parseColor("#BBDEFB"), 13f, 8, 16, 8, false, 0, 0, null);
+    LinearLayout.LayoutParams resetTotalParams = new LinearLayout.LayoutParams(dp(activity, 120), dp(activity, 40));
+    resetTotalParams.setMargins(dp(activity, 6), 0, dp(activity, 6), 0);
+    resetTotalBtn.setLayoutParams(resetTotalParams);
     resetTotalBtn.setOnClickListener(new View.OnClickListener() {
         public void onClick(View v) {
             vibrate(activity, 48);
@@ -1693,14 +1677,20 @@ public void showStatsDialog(Activity activity) {
     buttonLayout2.setGravity(Gravity.CENTER_HORIZONTAL);
     buttonLayout2.setPadding(0, 0, 0, dp(activity, 10));
 
-    Button repairBtn = createColorButton(activity, "修复数据", Color.parseColor("#C8E6C9"));
+    TextView repairBtn = createButton(activity, "修复数据", Color.parseColor("#333333"), Color.parseColor("#C8E6C9"), 13f, 8, 16, 8, false, 0, 0, null);
+    LinearLayout.LayoutParams repairParams = new LinearLayout.LayoutParams(dp(activity, 120), dp(activity, 40));
+    repairParams.setMargins(dp(activity, 6), 0, dp(activity, 6), 0);
+    repairBtn.setLayoutParams(repairParams);
     repairBtn.setOnClickListener(new View.OnClickListener() {
         public void onClick(View v) {
             repairStatsData(activity);
         }
     });
 
-    Button targetBtn = createColorButton(activity, "设置每日目标", Color.parseColor("#F8BBD0"));
+    TextView targetBtn = createButton(activity, "设置每日目标", Color.parseColor("#333333"), Color.parseColor("#F8BBD0"), 13f, 8, 16, 8, false, 0, 0, null);
+    LinearLayout.LayoutParams targetParams = new LinearLayout.LayoutParams(dp(activity, 120), dp(activity, 40));
+    targetParams.setMargins(dp(activity, 6), 0, dp(activity, 6), 0);
+    targetBtn.setLayoutParams(targetParams);
     targetBtn.setOnClickListener(new View.OnClickListener() {
         public void onClick(View v) {
             vibrate(activity, 48);
@@ -2091,12 +2081,7 @@ void showInputDialog(final Activity activity) {
                 tipsView.setPadding(dp(activity, 4), dp(activity, 8), dp(activity, 4), 0);
                 root.addView(tipsView);
 
-                TextView viewAllBtn = new TextView(activity);
-                viewAllBtn.setText("🔍 查看所有可用变量");
-                viewAllBtn.setTextSize(13);
-                viewAllBtn.setTextColor(accentColor);
-                viewAllBtn.setTypeface(null, Typeface.BOLD);
-                viewAllBtn.setPadding(dp(activity, 4), dp(activity, 12), 0, 0);
+                TextView viewAllBtn = createButton(activity, "🔍 查看所有可用变量", accentColor, Color.TRANSPARENT, 13f, 0, 4, 12, true, 0, 0, null);
                 viewAllBtn.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         vibrate(activity, 48);
@@ -2110,12 +2095,8 @@ void showInputDialog(final Activity activity) {
                 btnBox.setPadding(0, dp(activity, 20), 0, 0);
                 btnBox.setGravity(Gravity.RIGHT);
 
-                TextView cancel = new TextView(activity);
-                cancel.setText("取消");
-                cancel.setTextSize(14);
-                cancel.setTextColor(subTextColor);
-                cancel.setPadding(dp(activity, 16), dp(activity, 8), dp(activity, 16), dp(activity, 8));
-                
+                TextView cancel = createButton(activity, "取消", subTextColor, Color.TRANSPARENT, 14f, 0, 16, 8, false, 0, 0, null);
+
                 final AlertDialog[] dialogRef = new AlertDialog[1];
 
                 cancel.setOnClickListener(new View.OnClickListener() {
@@ -2124,12 +2105,7 @@ void showInputDialog(final Activity activity) {
                     }
                 });
 
-                TextView confirm = new TextView(activity);
-                confirm.setText("确定");
-                confirm.setTextSize(14);
-                confirm.setTextColor(accentColor);
-                confirm.setTypeface(null, Typeface.BOLD);
-                confirm.setPadding(dp(activity, 16), dp(activity, 8), dp(activity, 16), dp(activity, 8));
+                TextView confirm = createButton(activity, "确定", accentColor, Color.TRANSPARENT, 14f, 0, 16, 8, true, 0, 0, null);
                 confirm.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         String inputStr = input.getText().toString().trim();
@@ -2302,12 +2278,8 @@ void showAllVariablesDialog(final Activity activity, final Object scriptScope) {
     int maxHeight = activity.getResources().getDisplayMetrics().heightPixels / 2;
     root.addView(scrollView, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, maxHeight));
 
-    TextView closeBtn = new TextView(activity);
-    closeBtn.setText("关闭");
-    closeBtn.setGravity(Gravity.CENTER);
-    closeBtn.setPadding(0, dp(activity, 16), 0, dp(activity, 16));
-    closeBtn.setTextColor(textColor);
-    
+    TextView closeBtn = createButton(activity, "关闭", textColor, Color.TRANSPARENT, 14f, 0, 0, 16, false, 0, 0, null);
+
     final AlertDialog[] varDialogRef = new AlertDialog[1];
     closeBtn.setOnClickListener(new View.OnClickListener() {
         public void onClick(View v) {
