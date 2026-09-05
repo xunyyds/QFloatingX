@@ -1194,6 +1194,7 @@ void buildFullSettingsIndex(Activity activity) {
 
     addIndexItem("调试_预览设置", "预览设置", "预览当前设置效果", "设置", "调试", "调试", "click");
     addIndexItem("调试_重置设置", "重置设置", "恢复默认设置", "设置", "调试", "调试", "click");
+    addIndexItem("log_delete_threshold", "日志大小阈值", "日志文件夹超过此MB数自动清理", "设置", "调试", "调试", "input");
 }
 
 void buildSettingsMenuContent(Activity activity, String level1Title, String level2Title, String level3Title) {
@@ -1351,7 +1352,7 @@ void buildLevel2MenuContent(Activity activity, String level1Title) {
                 showSettingsMenu(act, "设置", "悬浮窗设置", null);
             }
         }});
-        addSettingsItemClickWithKey("其他", "调试", "预览、重置", "item_debug", new Runnable() { public void run() {
+        addSettingsItemClickWithKey("其他", "调试", "预览、重置、log删除阈值", "item_debug", new Runnable() { public void run() {
             Activity act = getSettingsCurrentActivity();
             if (act != null) {
                 showSettingsMenu(act, "设置", "调试", null);
@@ -1530,6 +1531,8 @@ void buildLevel3MenuContent(Activity activity, String level1Title, String level2
                     showResetAllSettingsConfirmDialog(act);
                 }
             }});
+            String logThreshold = getString("settings", "log_delete_threshold", "1");
+            addSettingsInputItem("调试", "日志大小阈值(MB)", "日志文件夹超过此大小自动清理", "log_delete_threshold", "如: 1", logThreshold, null);
         }
     }
 }
