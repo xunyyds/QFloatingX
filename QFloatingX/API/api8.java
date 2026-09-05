@@ -123,6 +123,12 @@ public void showQzoneConfig() {
     finalAct.runOnUiThread(new Runnable() {
         public void run() {
             try {
+                // 主题取色（跟随设置页当前主题）
+                final int colorSurface = Color.parseColor(getSettingsThemeColor(finalAct, "surface"));
+                final int colorOnSurface = Color.parseColor(getSettingsThemeColor(finalAct, "on_surface"));
+                final int colorOnSurfaceVariant = Color.parseColor(getSettingsThemeColor(finalAct, "on_surface_variant"));
+                final int colorPrimary = Color.parseColor(getSettingsThemeColor(finalAct, "primary"));
+
                 Dialog d = new Dialog(finalAct);
                 d.requestWindowFeature(1);
                 d.getWindow().setBackgroundDrawable(new ColorDrawable(0));
@@ -133,7 +139,7 @@ public void showQzoneConfig() {
                 outer.addView(scroll);
                 LinearLayout card = new LinearLayout(finalAct);
                 card.setOrientation(LinearLayout.VERTICAL);
-                card.setBackground(roundRect(Color.WHITE, dp(finalAct, 16)));
+                card.setBackground(roundRect(colorSurface, dp(finalAct, 16)));
                 card.setPadding(dp(finalAct, 20), dp(finalAct, 20), dp(finalAct, 20), dp(finalAct, 20));
                 scroll.addView(card);
 
@@ -141,76 +147,27 @@ public void showQzoneConfig() {
                 title.setText("空间操作配置");
                 title.setTextSize(18);
                 title.setTypeface(null, Typeface.BOLD);
-                title.setTextColor(Color.parseColor("#212121"));
+                title.setTextColor(colorOnSurface);
                 title.setPadding(0, 0, 0, dp(finalAct, 16));
                 card.addView(title);
 
-                final boolean initLike = getBoolean("qzone_cfg", "switch_like", false);
-                final boolean initComment = getBoolean("qzone_cfg", "switch_comment", false);
+                // 秒赞 / 秒评 开关（复用设置页开关组件，即时保存并启停）
+                card.addView(buildQzoneSwitchRow(finalAct, "秒赞", "switch_like", colorOnSurface));
+                card.addView(buildQzoneSwitchRow(finalAct, "秒评", "switch_comment", colorOnSurface));
 
-                LinearLayout likeRow = new LinearLayout(finalAct);
-                likeRow.setOrientation(LinearLayout.HORIZONTAL);
-                likeRow.setGravity(Gravity.CENTER_VERTICAL);
-                likeRow.setPadding(0, dp(finalAct, 12), 0, dp(finalAct, 12));
-                TextView likeLabel = new TextView(finalAct);
-                likeLabel.setText("秒赞");
-                likeLabel.setTextSize(16);
-                likeLabel.setTextColor(Color.parseColor("#212121"));
-                likeRow.addView(likeLabel, new LinearLayout.LayoutParams(0, -2, 1.0f));
-                final boolean[] likeState = new boolean[]{initLike};
-                final View likeSwitch = createSwitchView(finalAct, likeState[0]);
-                setClickAnimation(likeSwitch);
-                likeSwitch.setOnClickListener(new View.OnClickListener() {
-                    public void onClick(View v) {
-                        likeState[0] = !likeState[0];
-                        updateSwitchUI(likeSwitch, likeState[0]);
-                    }
-                });
-                likeRow.addView(likeSwitch);
-                card.addView(likeRow);
-
-                LinearLayout commentRow = new LinearLayout(finalAct);
-                commentRow.setOrientation(LinearLayout.HORIZONTAL);
-                commentRow.setGravity(Gravity.CENTER_VERTICAL);
-                commentRow.setPadding(0, dp(finalAct, 12), 0, dp(finalAct, 12));
-                TextView commentLabel = new TextView(finalAct);
-                commentLabel.setText("秒评");
-                commentLabel.setTextSize(16);
-                commentLabel.setTextColor(Color.parseColor("#212121"));
-                commentRow.addView(commentLabel, new LinearLayout.LayoutParams(0, -2, 1.0f));
-                final boolean[] commentState = new boolean[]{initComment};
-                final View commentSwitch = createSwitchView(finalAct, commentState[0]);
-                setClickAnimation(commentSwitch);
-                commentSwitch.setOnClickListener(new View.OnClickListener() {
-                    public void onClick(View v) {
-                        commentState[0] = !commentState[0];
-                        updateSwitchUI(commentSwitch, commentState[0]);
-                    }
-                });
-                commentRow.addView(commentSwitch);
-                card.addView(commentRow);
-
-                TextView commentTitle = new TextView(finalAct);
-                commentTitle.setText("评论内容");
-                commentTitle.setTextSize(14);
-                commentTitle.setTextColor(Color.parseColor("#757575"));
-                commentTitle.setPadding(0, dp(finalAct, 16), 0, dp(finalAct, 8));
-                card.addView(commentTitle);
-
+                // 评论内容
+                card.addView(buildQzoneSectionTitle(finalAct, "评论内容", colorOnSurfaceVariant));
                 String initText = getString("qzone_cfg", "comment", "我来暖说说啦！");
-                final EditText commentInput = makeInput(finalAct, "输入评论（≤100字）", Color.parseColor("#F5F5F5"));
+                EditText commentInput = makeInput(finalAct, "输入评论（≤100字）", colorSurface);
                 commentInput.setText(initText);
+                commentInput.setTextColor(colorOnSurface);
+                commentInput.setHintTextColor(colorOnSurfaceVariant);
                 commentInput.setMaxLines(4);
                 commentInput.setGravity(Gravity.TOP | Gravity.START);
                 card.addView(commentInput);
 
-                TextView delayTitle = new TextView(finalAct);
-                delayTitle.setText("间隔设置");
-                delayTitle.setTextSize(14);
-                delayTitle.setTextColor(Color.parseColor("#757575"));
-                delayTitle.setPadding(0, dp(finalAct, 16), 0, dp(finalAct, 8));
-                card.addView(delayTitle);
-
+                // 间隔设置
+                card.addView(buildQzoneSectionTitle(finalAct, "间隔设置", colorOnSurfaceVariant));
                 LinearLayout intervalRow = new LinearLayout(finalAct);
                 intervalRow.setOrientation(LinearLayout.HORIZONTAL);
                 intervalRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -219,14 +176,11 @@ public void showQzoneConfig() {
                 LinearLayout fetchDelayLayout = new LinearLayout(finalAct);
                 fetchDelayLayout.setOrientation(LinearLayout.VERTICAL);
                 fetchDelayLayout.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
-                TextView fetchDelayLabel = new TextView(finalAct);
-                fetchDelayLabel.setText("拉取列表后延迟（秒）");
-                fetchDelayLabel.setTextSize(12);
-                fetchDelayLabel.setTextColor(Color.parseColor("#757575"));
-                fetchDelayLabel.setPadding(0, 0, 0, dp(finalAct, 4));
-                fetchDelayLayout.addView(fetchDelayLabel);
-                final EditText fetchDelayInput = makeSmallInput(finalAct, "3~15秒", Color.parseColor("#F5F5F5"));
+                fetchDelayLayout.addView(buildQzoneLabel(finalAct, "拉取列表后延迟（秒）", colorOnSurfaceVariant));
+                EditText fetchDelayInput = makeSmallInput(finalAct, "3~15秒", colorSurface);
                 fetchDelayInput.setText(String.valueOf(getInt("qzone_cfg", "fetch_delay_ms", 5000) / 1000));
+                fetchDelayInput.setTextColor(colorOnSurface);
+                fetchDelayInput.setHintTextColor(colorOnSurfaceVariant);
                 fetchDelayLayout.addView(fetchDelayInput);
                 intervalRow.addView(fetchDelayLayout);
 
@@ -237,58 +191,33 @@ public void showQzoneConfig() {
                 LinearLayout feedIntervalLayout = new LinearLayout(finalAct);
                 feedIntervalLayout.setOrientation(LinearLayout.VERTICAL);
                 feedIntervalLayout.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
-                TextView feedIntervalLabel = new TextView(finalAct);
-                feedIntervalLabel.setText("每条说说间隔（秒）");
-                feedIntervalLabel.setTextSize(12);
-                feedIntervalLabel.setTextColor(Color.parseColor("#757575"));
-                feedIntervalLabel.setPadding(0, 0, 0, dp(finalAct, 4));
-                feedIntervalLayout.addView(feedIntervalLabel);
-                final EditText feedIntervalInput = makeSmallInput(finalAct, "0.5~5秒", Color.parseColor("#F5F5F5"));
+                feedIntervalLayout.addView(buildQzoneLabel(finalAct, "每条说说间隔（秒）", colorOnSurfaceVariant));
+                EditText feedIntervalInput = makeSmallInput(finalAct, "0.5~5秒", colorSurface);
                 feedIntervalInput.setText(String.valueOf(getInt("qzone_cfg", "feed_interval_ms", 1000) / 1000));
+                feedIntervalInput.setTextColor(colorOnSurface);
+                feedIntervalInput.setHintTextColor(colorOnSurfaceVariant);
                 feedIntervalLayout.addView(feedIntervalInput);
                 intervalRow.addView(feedIntervalLayout);
                 card.addView(intervalRow);
 
-                TextView blackTitle = new TextView(finalAct);
-                blackTitle.setText("黑名单设置");
-                blackTitle.setTextSize(14);
-                blackTitle.setTextColor(Color.parseColor("#757575"));
-                blackTitle.setPadding(0, dp(finalAct, 16), 0, dp(finalAct, 8));
-                card.addView(blackTitle);
-
+                // 黑名单设置
+                card.addView(buildQzoneSectionTitle(finalAct, "黑名单设置", colorOnSurfaceVariant));
                 LinearLayout blackRow = new LinearLayout(finalAct);
                 blackRow.setOrientation(LinearLayout.HORIZONTAL);
                 blackRow.setGravity(Gravity.CENTER_VERTICAL);
                 blackRow.setPadding(0, dp(finalAct, 8), 0, dp(finalAct, 12));
 
-                TextView blackBtn = makeBtn(finalAct, "设置黑名单", Color.parseColor("#3B71FE"), Color.TRANSPARENT);
-                blackBtn.setBackground(roundRect(Color.TRANSPARENT, dp(finalAct, 24)));
-                blackBtn.setPadding(0, 0, 0, 0);
-                LinearLayout.LayoutParams btnLp = new LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.WRAP_CONTENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
-                );
-                blackRow.addView(blackBtn, btnLp);
+                TextView blackBtn = createButton(finalAct, "设置黑名单", colorPrimary, Color.TRANSPARENT, 14f, 24, 0, 0, false, 0, 0, null);
+                blackRow.addView(blackBtn, new LinearLayout.LayoutParams(-2, -2));
 
-                // 弹性空间，将文本推到右侧
                 Space spacer = new Space(finalAct);
-                LinearLayout.LayoutParams spacerLp = new LinearLayout.LayoutParams(
-                        0,
-                        LinearLayout.LayoutParams.WRAP_CONTENT,
-                        1.0f
-                );
-                blackRow.addView(spacer, spacerLp);
+                blackRow.addView(spacer, new LinearLayout.LayoutParams(0, -2, 1.0f));
 
                 final TextView blackLabel = new TextView(finalAct);
                 blackLabel.setText("已屏蔽 " + blackList.size() + " 人");
                 blackLabel.setTextSize(16);
-                blackLabel.setTextColor(Color.parseColor("#212121"));
-                LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.WRAP_CONTENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
-                );
-                blackRow.addView(blackLabel, labelLp);
-
+                blackLabel.setTextColor(colorOnSurface);
+                blackRow.addView(blackLabel, new LinearLayout.LayoutParams(-2, -2));
                 card.addView(blackRow);
 
                 blackBtn.setOnClickListener(new View.OnClickListener() {
@@ -305,37 +234,23 @@ public void showQzoneConfig() {
                     }
                 });
 
+                // 底部按钮
                 LinearLayout btnRow = new LinearLayout(finalAct);
                 btnRow.setOrientation(LinearLayout.HORIZONTAL);
                 btnRow.setGravity(Gravity.END);
                 btnRow.setPadding(0, dp(finalAct, 24), 0, 0);
 
-                TextView cancel = makeBtn(finalAct, "取消", Color.parseColor("#3B71FE"), Color.TRANSPARENT);
-                GradientDrawable cancelBg = new GradientDrawable();
-                cancelBg.setShape(GradientDrawable.RECTANGLE);
-                cancelBg.setCornerRadius(dp(finalAct, 24));
-                cancelBg.setStroke(dp(finalAct, 1), Color.parseColor("#757575"));
-                cancelBg.setColor(Color.TRANSPARENT);
-                cancel.setBackground(cancelBg);
-                cancel.setPadding(dp(finalAct, 24), 0, dp(finalAct, 24), 0);
-                cancel.setGravity(Gravity.CENTER);
-                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, dp(finalAct, 48));
-                lp.rightMargin = dp(finalAct, 12);
-                btnRow.addView(cancel, lp);
+                TextView cancel = createButton(finalAct, "取消", colorOnSurfaceVariant, Color.TRANSPARENT, 14f, 24, 24, 0, false, 1, colorOnSurfaceVariant, null);
+                LinearLayout.LayoutParams cancelLp = new LinearLayout.LayoutParams(-2, dp(finalAct, 48));
+                cancelLp.rightMargin = dp(finalAct, 12);
+                btnRow.addView(cancel, cancelLp);
 
-                TextView save = makeBtn(finalAct, "保存", Color.WHITE, Color.parseColor("#3B71FE"));
-                save.setBackground(roundRect(Color.parseColor("#3B71FE"), dp(finalAct, 24)));
-                save.setPadding(dp(finalAct, 24), 0, dp(finalAct, 24), 0);
-                save.setGravity(Gravity.CENTER);
+                TextView save = createButton(finalAct, "保存", colorSurface, colorPrimary, 14f, 24, 24, 0, false, 0, 0, null);
                 btnRow.addView(save, new LinearLayout.LayoutParams(-2, dp(finalAct, 48)));
-
                 card.addView(btnRow);
 
                 save.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
-                        putBoolean("qzone_cfg", "switch_like", likeState[0]);
-                        putBoolean("qzone_cfg", "switch_comment", commentState[0]);
-
                         String text = commentInput.getText().toString().trim();
                         if (text.length() > 100) text = text.substring(0, 100);
                         putString("qzone_cfg", "comment", text);
@@ -373,83 +288,44 @@ public void showQzoneConfig() {
     });
 }
 
-View createSwitchView(Context ctx, boolean initVal) {
-    FrameLayout swContainer = new FrameLayout(ctx);
-    int swW = dp(ctx, 52);
-    int swH = dp(ctx, 32);
-    FrameLayout.LayoutParams containerLp = new FrameLayout.LayoutParams(swW, swH);
-    swContainer.setLayoutParams(containerLp);
-    swContainer.setClickable(true);
-    swContainer.setFocusable(true);
+View buildQzoneSwitchRow(Activity act, String labelText, final String keyName, int textColor) {
+    LinearLayout row = new LinearLayout(act);
+    row.setOrientation(LinearLayout.HORIZONTAL);
+    row.setGravity(Gravity.CENTER_VERTICAL);
+    row.setPadding(0, dp(act, 12), 0, dp(act, 12));
 
-    GradientDrawable mask = new GradientDrawable();
-    mask.setCornerRadius(dp(ctx, 16));
-    mask.setColor(Color.WHITE);
-    swContainer.setBackground(new RippleDrawable(
-        ColorStateList.valueOf(Color.parseColor("#1A000000")),
-        null,
-        mask
-    ));
+    TextView label = new TextView(act);
+    label.setText(labelText);
+    label.setTextSize(16);
+    label.setTextColor(textColor);
+    row.addView(label, new LinearLayout.LayoutParams(0, -2, 1.0f));
 
-    View track = new View(ctx);
-    FrameLayout.LayoutParams trackLp = new FrameLayout.LayoutParams(-1, -1);
-    track.setLayoutParams(trackLp);
-    GradientDrawable trackBg = new GradientDrawable();
-    trackBg.setCornerRadius(dp(ctx, 16));
-    track.setTag(trackBg);
-    swContainer.addView(track);
-
-    View thumb = new View(ctx);
-    int thumbSize = dp(ctx, 24);
-    int margin = dp(ctx, 4);
-    FrameLayout.LayoutParams thumbLp = new FrameLayout.LayoutParams(thumbSize, thumbSize);
-    thumbLp.gravity = Gravity.CENTER_VERTICAL | Gravity.LEFT;
-    thumbLp.setMargins(margin, 0, margin, 0);
-    thumb.setLayoutParams(thumbLp);
-    GradientDrawable thumbBg = new GradientDrawable();
-    thumbBg.setColor(Color.WHITE);
-    thumbBg.setCornerRadius(dp(ctx, 12));
-    thumb.setBackground(thumbBg);
-    thumb.setElevation(dp(ctx, 2));
-    swContainer.addView(thumb);
-    swContainer.setTag(thumb);
-
-    updateSwitchUI(swContainer, initVal);
-    return swContainer;
-}
-
-void updateSwitchUI(View switchView, boolean isChecked) {
-    if (switchView == null || switchView.getChildCount() < 2) return;
-    View track = switchView.getChildAt(0);
-    View thumb = (View) switchView.getTag();
-    GradientDrawable trackBg = (GradientDrawable) track.getTag();
-    if (trackBg == null || thumb == null) return;
-
-    int trackColor = isChecked ? Color.parseColor("#3B71FE") : Color.parseColor("#E4E4E4");
-    trackBg.setColor(trackColor);
-    track.setBackground(trackBg);
-
-    FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) thumb.getLayoutParams();
-    lp.gravity = Gravity.CENTER_VERTICAL | (isChecked ? Gravity.RIGHT : Gravity.LEFT);
-    thumb.setLayoutParams(lp);
-}
-
-void setClickAnimation(View view) {
-    if (view == null) return;
-    view.setOnTouchListener(new View.OnTouchListener() {
-        public boolean onTouch(View v, MotionEvent event) {
-            switch (event.getAction()) {
-                case MotionEvent.ACTION_DOWN:
-                    v.animate().scaleX(0.95f).scaleY(0.95f).setDuration(100).setInterpolator(new DecelerateInterpolator()).start();
-                    break;
-                case MotionEvent.ACTION_UP:
-                case MotionEvent.ACTION_CANCEL:
-                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).setInterpolator(new OvershootInterpolator(2.0f)).start();
-                    break;
-            }
-            return false;
+    boolean initVal = getBoolean("qzone_cfg", keyName, false);
+    View sw = createSettingsSwitchView(act, initVal, "qzone_cfg", keyName, labelText, new Runnable() {
+        public void run() {
+            checkAndStartOrStopThread();
         }
     });
+    row.addView(sw);
+    return row;
+}
+
+TextView buildQzoneSectionTitle(Activity act, String text, int color) {
+    TextView tv = new TextView(act);
+    tv.setText(text);
+    tv.setTextSize(14);
+    tv.setTextColor(color);
+    tv.setPadding(0, dp(act, 16), 0, dp(act, 8));
+    return tv;
+}
+
+TextView buildQzoneLabel(Activity act, String text, int color) {
+    TextView tv = new TextView(act);
+    tv.setText(text);
+    tv.setTextSize(12);
+    tv.setTextColor(color);
+    tv.setPadding(0, 0, 0, dp(act, 4));
+    return tv;
 }
 
 private void checkAndStartOrStopThread() {
