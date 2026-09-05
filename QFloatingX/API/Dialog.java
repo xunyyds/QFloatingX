@@ -134,7 +134,8 @@ void 菜单(Object data) {
     });
 }
 
-public void showShutUpDialog(Activity activity, String qun, String uin, String nickName) {
+
+void showShutUpDialog(Activity activity, String qun, String uin, String nickName) {
     activity.runOnUiThread(new Runnable() {
         public void run() {
             try {
@@ -163,20 +164,33 @@ public void showShutUpDialog(Activity activity, String qun, String uin, String n
                 subView.setPadding(0, 0, 0, dp(activity, 16));
                 root.addView(subView);
 
-                EditText input = new EditText(activity);
-                input.setHint("请输入禁言时长(秒)，0=解除");
+                LinearLayout inputRow = new LinearLayout(activity);
+                inputRow.setOrientation(LinearLayout.HORIZONTAL);
+                inputRow.setGravity(Gravity.CENTER_VERTICAL);
+
+                final EditText input = new EditText(activity);
+                input.setHint("秒数 或 点⏱选择");
                 input.setHintTextColor(subTextColor);
                 input.setTextColor(textColor);
                 input.setTextSize(14);
                 input.setPadding(dp(activity, 12), dp(activity, 10), dp(activity, 12), dp(activity, 10));
                 input.setText("0");
-                input.setInputType(InputType.TYPE_CLASS_NUMBER);
+                input.setInputType(InputType.TYPE_CLASS_TEXT);
                 GradientDrawable inputBg = new GradientDrawable();
                 inputBg.setCornerRadius(dp(activity, 8));
                 inputBg.setColor(inputBgColor);
                 inputBg.setStroke(dp(activity, 1), borderColor);
                 input.setBackground(inputBg);
-                root.addView(input);
+                LinearLayout.LayoutParams inputLp = new LinearLayout.LayoutParams(0, -2, 1.0f);
+                inputRow.addView(input, inputLp);
+
+                TextView btnTime = createButton(activity, "\u23F1", textColor, Color.TRANSPARENT, 16f, 6, 0, 0, false, 0, 0, null);
+                btnTime.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) { showTimePicker(activity, input, "输入禁言时长"); }
+                });
+                inputRow.addView(btnTime);
+
+                root.addView(inputRow);
 
                 final AlertDialog[] ref = new AlertDialog[1];
                 LinearLayout btnBox = new LinearLayout(activity);
@@ -194,8 +208,7 @@ public void showShutUpDialog(Activity activity, String qun, String uin, String n
                 TextView confirm = createButton(activity, "确定", isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 confirm.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
-                        int seconds = 0;
-                        try { seconds = Integer.parseInt(input.getText().toString().trim()); } catch (Throwable ignored) {}
+                        int seconds = parseDurationToSeconds(input.getText().toString());
                         if (ref[0] != null) ref[0].dismiss();
                         shutUp(qun, uin, seconds);
                         Toast(seconds == 0 ? "已解除禁言" : "禁言设置成功: " + formatRemainingTime(seconds));
@@ -244,30 +257,30 @@ public void showMuteAllDialog(Activity activity, String qun) {
 
                 LinearLayout inputRow = new LinearLayout(activity);
                 inputRow.setOrientation(LinearLayout.HORIZONTAL);
-                
-                final EditText hInput = new EditText(activity);
-                hInput.setHint("时"); hInput.setInputType(InputType.TYPE_CLASS_NUMBER);
-                final EditText mInput = new EditText(activity);
-                mInput.setHint("分"); mInput.setInputType(InputType.TYPE_CLASS_NUMBER);
-                final EditText sInput = new EditText(activity);
-                sInput.setHint("秒"); sInput.setInputType(InputType.TYPE_CLASS_NUMBER);
-                
-                EditText[] inputs = new EditText[]{hInput, mInput, sInput};
-                for (int i = 0; i < inputs.length; i++) {
-                    EditText in = inputs[i];
-                    in.setTextColor(textColor);
-                    in.setHintTextColor(subTextColor);
-                    in.setGravity(Gravity.CENTER);
-                    GradientDrawable bg = new GradientDrawable();
-                    bg.setCornerRadius(dp(activity, 8)); 
-                    bg.setColor(inputBgColor); 
-                    bg.setStroke(dp(activity, 1), borderColor);
-                    in.setBackground(bg);
-                    LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-                    p.setMargins(dp(activity, 6), 0, dp(activity, 6), 0);
-                    in.setLayoutParams(p);
-                    inputRow.addView(in);
-                }
+                inputRow.setGravity(Gravity.CENTER_VERTICAL);
+
+                final EditText input = new EditText(activity);
+                input.setHint("秒数 或 点⏱选择");
+                input.setHintTextColor(subTextColor);
+                input.setTextColor(textColor);
+                input.setTextSize(14);
+                input.setPadding(dp(activity, 12), dp(activity, 10), dp(activity, 12), dp(activity, 10));
+                input.setText("0");
+                input.setInputType(InputType.TYPE_CLASS_TEXT);
+                GradientDrawable inputBg = new GradientDrawable();
+                inputBg.setCornerRadius(dp(activity, 8));
+                inputBg.setColor(inputBgColor);
+                inputBg.setStroke(dp(activity, 1), borderColor);
+                input.setBackground(inputBg);
+                LinearLayout.LayoutParams inputLp = new LinearLayout.LayoutParams(0, -2, 1.0f);
+                inputRow.addView(input, inputLp);
+
+                TextView btnTime = createButton(activity, "\u23F1", textColor, Color.TRANSPARENT, 16f, 6, 0, 0, false, 0, 0, null);
+                btnTime.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) { showTimePicker(activity, input, "输入禁言时长"); }
+                });
+                inputRow.addView(btnTime);
+
                 root.addView(inputRow);
 
                 final AlertDialog[] ref = new AlertDialog[1];
@@ -294,11 +307,7 @@ public void showMuteAllDialog(Activity activity, String qun) {
                 TextView confirm = createButton(activity, "确定", isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 confirm.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
-                        long h = 0, m = 0, s = 0;
-                        try { h = Long.parseLong(hInput.getText().toString()); } catch(Throwable t){}
-                        try { m = Long.parseLong(mInput.getText().toString()); } catch(Throwable t){}
-                        try { s = Long.parseLong(sInput.getText().toString()); } catch(Throwable t){}
-                        long totalSec = h * 3600L + m * 60L + s;
+                        long totalSec = parseDurationToSeconds(input.getText().toString());
                         
                         if (ref[0] != null) ref[0].dismiss();
                         
@@ -3309,8 +3318,8 @@ public void 长按消息菜单(Activity activity, Object data) {
                                         }
                                     });
  } });
-    addMenuItem(menuItems, "实验功能", "偷流量红包", new Runnable() { public void run() { showTrafficRedPacketDialog(data); } });
-    addMenuItem(menuItems, "实验功能", "图片转QQ秀", new Runnable() { public void run() { showSuperFaceSendDialog(data); } });
+    // addMenuItem(menuItems, "实验功能", "偷流量红包", new Runnable() { public void run() { showTrafficRedPacketDialog(data); } });
+    // addMenuItem(menuItems, "实验功能", "图片转QQ秀", new Runnable() { public void run() { showSuperFaceSendDialog(data); } });
 
     
     final boolean[] isEditMode = new boolean[]{false};
@@ -5312,3 +5321,327 @@ void animateCheckMark(View checkMark, boolean show) {
 
     anim.start();
 }
+
+/**
+ * 解析时长字符串为秒数
+ * 纯数字直接当秒数；含冒号按 日:时:分:秒:毫秒 解析（忽略毫秒）
+ */
+int parseDurationToSeconds(String input) {
+    if (input == null || input.trim().isEmpty()) return 0;
+    String s = input.trim();
+    if (s.matches("\\d+")) {
+        try { return Integer.parseInt(s); } catch (Throwable e) { return 0; }
+    }
+    String[] parts = s.split(":");
+    int len = parts.length;
+    int seconds = 0;
+    try {
+        if (len >= 2) seconds += Integer.parseInt(parts[len-2]);
+        if (len >= 3) seconds += Integer.parseInt(parts[len-3]) * 60;
+        if (len >= 4) seconds += Integer.parseInt(parts[len-4]) * 3600;
+        if (len >= 5) seconds += Integer.parseInt(parts[len-5]) * 86400;
+    } catch (Throwable e) {}
+    return seconds;
+}
+
+/**
+ * 格式化时间显示
+ * @param raw String: 原始时间串
+ * @return String: 格式化后的时间串
+ */
+String formatTimeDisplay(String raw) {
+    if (raw == null || raw.equals("")) return "";
+    String n = raw.replaceAll("[^0-9]", "");
+    if (n.length() < 4) return raw;
+    while (n.length() < 10) n = "0" + n;
+    int d = Integer.parseInt(n.substring(0, 2));
+    int h = Integer.parseInt(n.substring(2, 4));
+    int min = Integer.parseInt(n.substring(4, 6));
+    int s = Integer.parseInt(n.substring(6, 8));
+    int ms = Integer.parseInt(n.substring(8, 10));
+    StringBuilder sb = new StringBuilder();
+    if (d > 0) sb.append(d).append(":");
+    if (h > 0 || sb.length() > 0) sb.append(h).append(":");
+    if (min > 0 || sb.length() > 0) sb.append(min).append(":");
+    sb.append(s).append(":").append(ms);
+    return sb.toString();
+}
+
+/**
+ * 显示时间选择器
+ * 支持键盘输入、钟表选择、快捷换算、单项输入四种模式
+ * @param a Activity
+ * @param target 目标输入框，选择结果写入此输入框
+ */
+void showTimePicker(Activity a, final EditText target, final String title) {
+    a.runOnUiThread(new Runnable() {
+        public void run() {
+            try {
+                final Dialog d = new Dialog(a, android.R.style.Theme_Translucent_NoTitleBar);
+                d.requestWindowFeature(1);
+                d.getWindow().setBackgroundDrawable(new GradientDrawable());
+                Window window = d.getWindow();
+                WindowManager.LayoutParams params = window.getAttributes();
+                params.gravity = Gravity.CENTER;
+                window.setAttributes(params);
+
+                FrameLayout outer = new FrameLayout(a);
+                outer.setPadding(dp(a, 24), dp(a, 40), dp(a, 24), dp(a, 24));
+                LinearLayout card = new LinearLayout(a);
+                card.setOrientation(LinearLayout.VERTICAL);
+                card.setBackground(roundRect(tc(a, "surface"), dp(a, 16)));
+                card.setPadding(dp(a, 20), dp(a, 20), dp(a, 20), dp(a, 20));
+                outer.addView(card);
+
+                traceLog("function_log", "[showTimePicker] start, title=" + title);
+                String finalTitle = (title == null || title.isEmpty()) ? "设置执行时间" : title;
+                TextView titleTv = new TextView(a);
+                titleTv.setText(finalTitle);
+                titleTv.setTextSize(17);
+                titleTv.setTextColor(tc(a, "on_surface"));
+                titleTv.setPadding(0, 0, 0, dp(a, 12));
+                card.addView(titleTv);
+
+                final LinearLayout container = new LinearLayout(a);
+                container.setOrientation(LinearLayout.VERTICAL);
+                card.addView(container);
+
+                final String[] val = {""};
+                String current = target.getText().toString().replaceAll("[^0-9]", "");
+                int totalSec = 0;
+                try { totalSec = Integer.parseInt(current); } catch (Throwable e) {}
+                int initD = totalSec / 86400;
+                int initH = (totalSec % 86400) / 3600;
+                int initM = (totalSec % 3600) / 60;
+                int initS = totalSec % 60;
+                if (initD > 30) initD = 30;
+                val[0] = (initD < 10 ? "0" + initD : "" + initD) + (initH < 10 ? "0" + initH : "" + initH) + (initM < 10 ? "0" + initM : "" + initM) + (initS < 10 ? "0" + initS : "" + initS) + "00";
+                final int[] vs = {initD, initH, initM, initS, 0};
+                final android.widget.NumberPicker[] pickers = new android.widget.NumberPicker[5];
+
+                final int[] mode = {0};
+                final String[] names = {"键盘输入", "钟表选择", "快捷换算", "单项输入"};
+                final Runnable[] build = new Runnable[1];
+                build[0] = new Runnable() {
+                    public void run() {
+                        container.removeAllViews();
+                        if (mode[0] == 0) {
+                            EditText e = makeInput(a, "输入秒数(如3600=1小时)", null);
+                            int initSec = 0;
+                            try {
+                                String n = val[0].replaceAll("[^0-9]", "");
+                                while (n.length() < 10) n = "0" + n;
+                                initSec = Integer.parseInt(n.substring(0,2))*86400 + Integer.parseInt(n.substring(2,4))*3600 + Integer.parseInt(n.substring(4,6))*60 + Integer.parseInt(n.substring(6,8));
+                            } catch (Throwable e1) {}
+                            e.setText(String.valueOf(initSec));
+                            e.addTextChangedListener(new android.text.TextWatcher() {
+                                public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                                public void onTextChanged(CharSequence s, int start, int before, int count) {}
+                                public void afterTextChanged(android.text.Editable s) {
+                                    try {
+                                        int sec = Integer.parseInt(s.toString().replaceAll("[^0-9]", ""));
+                                        int d = sec / 86400;
+                                        int h = (sec % 86400) / 3600;
+                                        int m = (sec % 3600) / 60;
+                                        int sc = sec % 60;
+                                        if (d > 30) d = 30;
+                                        val[0] = (d < 10 ? "0" + d : "" + d) + (h < 10 ? "0" + h : "" + h) + (m < 10 ? "0" + m : "" + m) + (sc < 10 ? "0" + sc : "" + sc) + "00";
+                                    } catch (Throwable e) {}
+                                }
+                            });
+                            container.addView(e);
+                        } else if (mode[0] == 1) {
+                            HorizontalScrollView hs = new HorizontalScrollView(a);
+                            LinearLayout row = new LinearLayout(a);
+                            row.setOrientation(LinearLayout.HORIZONTAL);
+                            hs.addView(row);
+                            container.addView(hs);
+                            String[] lbls = {"日", "时", "分", "秒", "毫秒"};
+                            try {
+                                vs[0] = Integer.parseInt(val[0].substring(0,2));
+                                vs[1] = Integer.parseInt(val[0].substring(2,4));
+                                vs[2] = Integer.parseInt(val[0].substring(4,6));
+                                vs[3] = Integer.parseInt(val[0].substring(6,8));
+                                vs[4] = Integer.parseInt(val[0].substring(8,10));
+                            } catch (Throwable e) {}
+                            for (int i=0; i<5; i++) {
+                                LinearLayout col = new LinearLayout(a);
+                                col.setOrientation(LinearLayout.VERTICAL);
+                                col.setPadding(dp(a,4),0,dp(a,4),0);
+                                TextView l = new TextView(a);
+                                l.setText(lbls[i]);
+                                l.setTextSize(11);
+                                l.setGravity(Gravity.CENTER);
+                                l.setTextColor(tc(a, "on_surface_variant"));
+                                col.addView(l);
+                                NumberPicker p = new NumberPicker(a);
+                                int max = (i==0)?30:(i==1)?23:(i==4)?99:59;
+                                p.setMinValue(0);
+                                p.setMaxValue(max);
+                                p.setValue(vs[i]);
+                                pickers[i] = p;
+                                final int idx = i;
+                                p.setOnValueChangedListener(new NumberPicker.OnValueChangeListener() {
+                                    public void onValueChange(NumberPicker picker, int oldVal, int newVal) {
+                                        vs[idx] = newVal;
+                                        val[0] = (vs[0] < 10 ? "0" + vs[0] : "" + vs[0]) + (vs[1] < 10 ? "0" + vs[1] : "" + vs[1]) + (vs[2] < 10 ? "0" + vs[2] : "" + vs[2]) + (vs[3] < 10 ? "0" + vs[3] : "" + vs[3]) + (vs[4] < 10 ? "0" + vs[4] : "" + vs[4]);
+                                    }
+                                });
+                                col.addView(p);
+                                row.addView(col);
+                            }
+                        } else if (mode[0] == 2) {
+                            EditText e = makeInput(a, "输入秒数(如3600=1小时)", null);
+                            e.setInputType(InputType.TYPE_CLASS_NUMBER);
+                            int initSec2 = 0;
+                            try {
+                                String n2 = val[0].replaceAll("[^0-9]", "");
+                                while (n2.length() < 10) n2 = "0" + n2;
+                                initSec2 = Integer.parseInt(n2.substring(0,2))*86400 + Integer.parseInt(n2.substring(2,4))*3600 + Integer.parseInt(n2.substring(4,6))*60 + Integer.parseInt(n2.substring(6,8));
+                            } catch (Throwable e2) {}
+                            e.setText(String.valueOf(initSec2));
+                            e.addTextChangedListener(new android.text.TextWatcher() {
+                                public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                                public void onTextChanged(CharSequence s, int start, int before, int count) {}
+                                public void afterTextChanged(android.text.Editable s) {
+                                    try {
+                                        int sec = Integer.parseInt(s.toString());
+                                        int h = sec / 3600;
+                                        int m = (sec % 3600) / 60;
+                                        int sc = sec % 60;
+                                        val[0] = "00" + (h < 10 ? "0" + h : "" + h) + (m < 10 ? "0" + m : "" + m) + (sc < 10 ? "0" + sc : "" + sc) + "00";
+                                    } catch (Throwable e) {}
+                                }
+                            });
+                            container.addView(e);
+                        } else {
+                            GridLayout grid = new GridLayout(a);
+                            grid.setColumnCount(2);
+                            container.addView(grid);
+                            String[] lbls = {"日:", "时:", "分:", "秒:", "毫秒:"};
+                            final EditText[] ets = new EditText[5];
+                            final boolean[] isSettingInitial = {true};
+                            for (int i=0; i<5; i++) {
+                                TextView l = new TextView(a);
+                                l.setText(lbls[i]);
+                                l.setTextColor(tc(a, "on_surface"));
+                                grid.addView(l);
+                                final EditText et = new EditText(a);
+                                et.setHint(i==4?"000":"00");
+                                et.setInputType(InputType.TYPE_CLASS_NUMBER);
+                                et.setTextSize(13);
+                                et.setGravity(Gravity.CENTER);
+                                et.setTextColor(tc(a, "on_surface"));
+                                et.setHintTextColor(tc(a, "on_surface_variant"));
+                                final GradientDrawable etBg = new GradientDrawable();
+                                etBg.setColor(tc(a, "surface"));
+                                etBg.setCornerRadius(dp(a, 4));
+                                etBg.setStroke(dp(a, 1), tc(a, "outline"));
+                                et.setBackground(etBg);
+                                final int efi = i;
+                                et.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+                                    public void onFocusChange(View v, boolean hasFocus) {
+                                        etBg.setStroke(dp(a, 1), hasFocus ? tc(a, "primary") : tc(a, "outline"));
+                                    }
+                                });
+                                GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
+                                lp.width = dp(a, 60);
+                                et.setLayoutParams(lp);
+                                grid.addView(et);
+                                ets[efi] = et;
+                                et.addTextChangedListener(new android.text.TextWatcher() {
+                                    public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                                    public void onTextChanged(CharSequence s, int start, int before, int count) {}
+                                    public void afterTextChanged(android.text.Editable s) {
+                                        if (isSettingInitial[0]) return;
+                                        try {
+                                            int d = Integer.parseInt(ets[0].getText().toString().isEmpty() ? "0" : ets[0].getText().toString());
+                                            int h = Integer.parseInt(ets[1].getText().toString().isEmpty() ? "0" : ets[1].getText().toString());
+                                            int m = Integer.parseInt(ets[2].getText().toString().isEmpty() ? "0" : ets[2].getText().toString());
+                                            int sc = Integer.parseInt(ets[3].getText().toString().isEmpty() ? "0" : ets[3].getText().toString());
+                                            int ms = Integer.parseInt(ets[4].getText().toString().isEmpty() ? "0" : ets[4].getText().toString());
+                                            val[0] = (d < 10 ? "0" + d : "" + d) + (h < 10 ? "0" + h : "" + h) + (m < 10 ? "0" + m : "" + m) + (sc < 10 ? "0" + sc : "" + sc) + (ms < 10 ? "0" + ms : "" + ms);
+                                        } catch (Throwable e) {}
+                                    }
+                                });
+                            }
+                            try {
+                                ets[0].setText(val[0].substring(0,2));
+                                ets[1].setText(val[0].substring(2,4));
+                                ets[2].setText(val[0].substring(4,6));
+                                ets[3].setText(val[0].substring(6,8));
+                                ets[4].setText(val[0].substring(8,10));
+                            } catch (Throwable e) {}
+                            isSettingInitial[0] = false;
+                        }
+                    }
+                };
+                build[0].run();
+
+                LinearLayout ctrl = new LinearLayout(a);
+                ctrl.setOrientation(LinearLayout.HORIZONTAL);
+                ctrl.setGravity(Gravity.CENTER_VERTICAL);
+                ctrl.setPadding(0, dp(a, 16), 0, 0);
+                card.addView(ctrl);
+
+                TextView btnMode = createButton(a, " " + names[0], tc(a, "primary"), Color.TRANSPARENT, 12f, 0, 12, 8, false, 0, 0, null);
+                ctrl.addView(btnMode);
+                View sp = new View(a);
+                sp.setLayoutParams(new LinearLayout.LayoutParams(0, 0, 1.0f));
+                ctrl.addView(sp);
+                TextView btnCancel = createButton(a, "取消", tc(a, "on_surface_variant"), Color.TRANSPARENT, 14f, 0, 16, 8, false, 0, 0, null);
+                ctrl.addView(btnCancel);
+                TextView btnOk = createButton(a, "确定", Color.WHITE, tc(a, "primary"), 14f, 6, 16, 8, false, 0, 0, null);
+                ctrl.addView(btnOk);
+
+                btnCancel.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) {
+                        animateDialogOut(d, null);
+                    }
+                });
+                btnMode.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) {
+                        mode[0] = (mode[0] + 1) % 4;
+                        ((TextView)v).setText(" " + names[mode[0]]);
+                        build[0].run();
+                    }
+                });
+                btnOk.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) {
+                        try {
+                            if (mode[0] == 1 && pickers[0] != null) {
+                                for (int i=0; i<5; i++) {
+                                    if (pickers[i] != null) {
+                                        try { vs[i] = pickers[i].getValue(); } catch (Throwable e) { traceLog("function_log", "[showTimePicker] picker[" + i + "] error: " + e); }
+                                    }
+                                }
+                                val[0] = (vs[0] < 10 ? "0" + vs[0] : "" + vs[0]) + (vs[1] < 10 ? "0" + vs[1] : "" + vs[1]) + (vs[2] < 10 ? "0" + vs[2] : "" + vs[2]) + (vs[3] < 10 ? "0" + vs[3] : "" + vs[3]) + (vs[4] < 10 ? "0" + vs[4] : "" + vs[4]);
+                            }
+                            String n = val[0].replaceAll("[^0-9]", "");
+                            while (n.length() < 10) n = "0" + n;
+                            int days = Integer.parseInt(n.substring(0, 2));
+                            int hours = Integer.parseInt(n.substring(2, 4));
+                            int mins = Integer.parseInt(n.substring(4, 6));
+                            int secs = Integer.parseInt(n.substring(6, 8));
+                            int totalSeconds = days * 86400 + hours * 3600 + mins * 60 + secs;
+                            traceLog("function_log", "[showTimePicker] ok click, mode=" + mode[0] + ", val=" + val[0] + ", seconds=" + totalSeconds + ", targetNull=" + (target == null));
+                            target.setText(String.valueOf(totalSeconds));
+                            animateDialogOut(d, null);
+                        } catch (Throwable e) {
+                            traceLog("function_log", "[showTimePicker] ok click error: " + e);
+                            try { d.dismiss(); } catch (Throwable e2) {}
+                        }
+                    }
+                });
+
+                d.setContentView(outer);
+                d.getWindow().setLayout(Math.min(dp(a, 400), a.getResources().getDisplayMetrics().widthPixels - dp(a, 32)), -2);
+                d.show();
+                animateDialogIn(d);
+            } catch (Throwable e) {
+                traceLog("function_log", "[showTimePicker]" + e);
+            }
+        }
+    });
+}
+
