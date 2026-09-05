@@ -614,28 +614,6 @@ boolean getLoop(String f) {
     return getString("HotPlug", "loop_" + f, "0").equals("1");
 }
 
-/**
- * 格式化时间显示
- * @param raw String: 原始时间串
- * @return String: 格式化后的时间串
- */
-String formatTimeDisplay(String raw) {
-    if (raw == null || raw.equals("")) return "";
-    String n = raw.replaceAll("[^0-9]", "");
-    if (n.length() < 4) return raw;
-    while (n.length() < 10) n = "0" + n; 
-    int d = Integer.parseInt(n.substring(0, 2));
-    int h = Integer.parseInt(n.substring(2, 4));
-    int min = Integer.parseInt(n.substring(4, 6));
-    int s = Integer.parseInt(n.substring(6, 8));
-    int ms = Integer.parseInt(n.substring(8, 10));
-    StringBuilder sb = new StringBuilder();
-    if (d > 0) sb.append(d).append(":");
-    if (h > 0 || sb.length() > 0) sb.append(h).append(":");
-    if (min > 0 || sb.length() > 0) sb.append(min).append(":");
-    sb.append(s).append(":").append(ms);
-    return sb.toString();
-}
 
 /**
  * 获取下一次执行时间戳
@@ -1082,17 +1060,13 @@ String[][] getPresetsCategory3() {
  */
 void animateDialogIn(final android.app.Dialog d) {
     try {
-        Window w = d.getWindow();
-        View v = w.getDecorView();
-        v.setAlpha(0f);
-        v.setScaleX(0.95f);
-        v.setScaleY(0.95f);
+        View v = d.getWindow().getDecorView();
         ObjectAnimator alphaAnim = ObjectAnimator.ofFloat(v, "alpha", 0f, 1f);
-        ObjectAnimator scaleXAnim = ObjectAnimator.ofFloat(v, "scaleX", 0.95f, 1f);
-        ObjectAnimator scaleYAnim = ObjectAnimator.ofFloat(v, "scaleY", 0.95f, 1f);
+        ObjectAnimator scaleXAnim = ObjectAnimator.ofFloat(v, "scaleX", 0.92f, 1f);
+        ObjectAnimator scaleYAnim = ObjectAnimator.ofFloat(v, "scaleY", 0.92f, 1f);
         AnimatorSet animatorSet = new AnimatorSet();
         animatorSet.playTogether(alphaAnim, scaleXAnim, scaleYAnim);
-        animatorSet.setDuration(300);
+        animatorSet.setDuration(250);
         animatorSet.setInterpolator(new android.view.animation.DecelerateInterpolator());
         animatorSet.start();
     } catch (Throwable e) {}
@@ -1128,6 +1102,13 @@ void animateDialogOut(final android.app.Dialog d, final Runnable onEnd) {
 /**
  * 构建表单：名称
  */
+EditText addNameInput(Activity a, LinearLayout parent, String name) {
+    EditText et = makeInput(a, "功能名", null);
+    if (name != null) et.setText(name);
+    parent.addView(et);
+    return et;
+}
+
 EditText addNameInput(Activity a, LinearLayout parent, String name, int bgColor) {
     EditText et = makeInput(a, "功能名", bgColor);
     if (name != null) et.setText(name);
@@ -1138,7 +1119,7 @@ EditText addNameInput(Activity a, LinearLayout parent, String name, int bgColor)
 /**
  * 构建表单：代码
  */
-EditText addCodeInput(Activity a, LinearLayout parent, String code, boolean isFile, final boolean[] isFileState, final int bgColor) {
+EditText addCodeInput(Activity a, LinearLayout parent, String code, boolean isFile, final boolean[] isFileState) {
     LinearLayout rowFile = new LinearLayout(a);
     rowFile.setOrientation(LinearLayout.HORIZONTAL);
     rowFile.setGravity(Gravity.CENTER_VERTICAL);
@@ -1155,7 +1136,7 @@ EditText addCodeInput(Activity a, LinearLayout parent, String code, boolean isFi
     tipFile.setPadding(dp(a, 6), 0, 0, 0);
     rowFile.addView(tipFile);
 
-    final EditText et = makeInput(a, isFile ? "文件绝对路径" : "代码内容", bgColor);
+    final EditText et = makeInput(a, isFile ? "文件绝对路径" : "代码内容", null);
     if (code != null) et.setText(code);
     if (!isFile) {
         et.setMinLines(4);
@@ -1556,7 +1537,7 @@ void addPreprocRow(Activity a, LinearLayout parent, FormComponents fc, int preTy
 /**
  * 构建表单：循环设置
  */
-FormComponents addLoopRow(Activity a, LinearLayout parent, boolean isLoop, long interval, int count, final boolean[] cks, final int bgColor) {
+FormComponents addLoopRow(Activity a, LinearLayout parent, boolean isLoop, long interval, int count, final boolean[] cks) {
     final FormComponents fc = new FormComponents();
     
     final LinearLayout loopContainer = new LinearLayout(a);
@@ -1590,7 +1571,7 @@ FormComponents addLoopRow(Activity a, LinearLayout parent, boolean isLoop, long 
     lblInterval.setTextColor(Color.parseColor("#888888"));
     leftCol.addView(lblInterval);
     
-    fc.etInterval = makeInput(a, "5000", bgColor);
+    fc.etInterval = makeInput(a, "5000", null);
     if (interval > 0) fc.etInterval.setText(String.valueOf(interval));
     leftCol.addView(fc.etInterval);
     
@@ -1609,7 +1590,7 @@ FormComponents addLoopRow(Activity a, LinearLayout parent, boolean isLoop, long 
     lblCount.setTextColor(Color.parseColor("#888888"));
     rightCol.addView(lblCount);
     
-    fc.etCount = makeInput(a, "0", bgColor);
+    fc.etCount = makeInput(a, "0", null);
     fc.etCount.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
     if (count > 0) fc.etCount.setText(String.valueOf(count));
     rightCol.addView(fc.etCount);
@@ -1655,7 +1636,7 @@ EditText addTimeRow(Activity a, LinearLayout parent, String timeVal) {
     
     TextView btnTime = createButton(a, "⏱", Color.parseColor("#333333"), Color.parseColor("#E8F0FE"), 16f, 6, 12, 0, false, 0, 0, null);
     btnTime.setOnClickListener(new View.OnClickListener() {
-        public void onClick(View v) { showTimePicker(a, etTime); }
+        public void onClick(View v) { showTimePicker(a, etTime, null); }
     });
     timeRow.addView(btnTime);
     
@@ -1693,184 +1674,6 @@ void addPresetRow(Activity a, LinearLayout parent, final EditText et, String[][]
     }
 }
 
-/**
- * 显示时间选择器
- */
-void showTimePicker(Activity a, final EditText target) {
-    a.runOnUiThread(new Runnable() {
-        public void run() {
-            try {
-                final android.app.Dialog d = new android.app.Dialog(a);
-                d.requestWindowFeature(1);
-                d.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0));
-                Window window = d.getWindow();
-                WindowManager.LayoutParams params = window.getAttributes();
-                params.gravity = Gravity.CENTER;
-                window.setAttributes(params);
-                
-                FrameLayout outer = new FrameLayout(a);
-                outer.setPadding(dp(a, 24), dp(a, 40), dp(a, 24), dp(a, 24));
-                LinearLayout card = new LinearLayout(a);
-                card.setOrientation(LinearLayout.VERTICAL);
-                card.setBackground(roundRect(Color.parseColor("#FFFFFF"), dp(a, 16)));
-                card.setPadding(dp(a, 20), dp(a, 20), dp(a, 20), dp(a, 20));
-                outer.addView(card);
-                TextView title = new TextView(a);
-                title.setText("设置执行时间 (日:时:分:秒)");
-                title.setTextSize(17);
-                card.addView(title);
-                final LinearLayout container = new LinearLayout(a);
-                container.setOrientation(LinearLayout.VERTICAL);
-                card.addView(container);
-                final String[] val = {""};
-                String current = target.getText().toString().replaceAll("[^0-9]", "");
-                while (current.length() < 10) current = "0" + current;
-                val[0] = current;
-                final int[] mode = {0};
-                final String[] names = {"键盘输入", "钟表选择", "快捷换算", "单项输入"};
-                final Runnable[] build = new Runnable[1];
-                build[0] = new Runnable() {
-                    public void run() {
-                        container.removeAllViews();
-                        if (mode[0] == 0) {
-                            EditText e = makeInput(a, "日:时:分:秒:毫秒", Color.parseColor("#F7F8FA"));
-                            e.setText(formatTimeDisplay(val[0]));
-                            e.addTextChangedListener(new android.text.TextWatcher() {
-                                public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-                                public void onTextChanged(CharSequence s, int start, int before, int count) {}
-                                public void afterTextChanged(android.text.Editable s) {
-                                    String n = s.toString().replaceAll("[^0-9]", "");
-                                    while (n.length() < 10) n = "0" + n;
-                                    val[0] = n;
-                                }
-                            });
-                            container.addView(e);
-                        } else if (mode[0] == 1) { 
-                            HorizontalScrollView hs = new HorizontalScrollView(a);
-                            LinearLayout row = new LinearLayout(a);
-                            row.setOrientation(LinearLayout.HORIZONTAL);
-                            hs.addView(row);
-                            container.addView(hs);
-                            String[] lbls = {"日", "时", "分", "秒", "毫秒"};
-                            final int[] vs = {0,0,0,0,0};
-                            try {
-                                vs[0] = Integer.parseInt(val[0].substring(0,2));
-                                vs[1] = Integer.parseInt(val[0].substring(2,4));
-                                vs[2] = Integer.parseInt(val[0].substring(4,6));
-                                vs[3] = Integer.parseInt(val[0].substring(6,8));
-                                vs[4] = Integer.parseInt(val[0].substring(8,10));
-                            } catch (Throwable e) {}
-                            for (int i=0; i<5; i++) {
-                                LinearLayout col = new LinearLayout(a);
-                                col.setOrientation(LinearLayout.VERTICAL);
-                                col.setPadding(dp(a,4),0,dp(a,4),0);
-                                TextView l = new TextView(a);
-                                l.setText(lbls[i]);
-                                l.setTextSize(11);
-                                l.setGravity(Gravity.CENTER);
-                                col.addView(l);
-                                NumberPicker p = new NumberPicker(a);
-                                int max = (i==0)?30:(i==1)?23:(i==4)?999:59;
-                                p.setMinValue(0);
-                                p.setMaxValue(max);
-                                p.setValue(vs[i]);
-                                final int idx = i;
-                                p.setOnValueChangedListener(new NumberPicker.OnValueChangeListener() {
-                                    public void onValueChange(NumberPicker picker, int oldVal, int newVal) {
-                                        vs[idx] = newVal;
-                                        val[0] = String.format("%02d%02d%02d%02d%03d", vs[0], vs[1], vs[2], vs[3], vs[4]);
-                                    }
-                                });
-                                col.addView(p);
-                                row.addView(col);
-                            }
-                        } else if (mode[0] == 2) { 
-                            EditText e = makeInput(a, "输入秒数(如3600=1小时)", Color.parseColor("#F7F8FA"));
-                            e.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-                            e.addTextChangedListener(new android.text.TextWatcher() {
-                                public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-                                public void onTextChanged(CharSequence s, int start, int before, int count) {}
-                                public void afterTextChanged(android.text.Editable s) {
-                                    try {
-                                        int sec = Integer.parseInt(s.toString());
-                                        int h = sec / 3600;
-                                        int m = (sec % 3600) / 60;
-                                        int sc = sec % 60;
-                                        val[0] = String.format("00%02d%02d%02d000", h, m, sc);
-                                    } catch (Throwable e) {}
-                                }
-                            });
-                            container.addView(e);
-                        } else { 
-                            GridLayout grid = new GridLayout(a);
-                            grid.setColumnCount(2);
-                            container.addView(grid);
-                            String[] lbls = {"日:", "时:", "分:", "秒:", "毫秒:"};
-                            final EditText[] ets = new EditText[5];
-                            for (int i=0; i<5; i++) {
-                                TextView l = new TextView(a);
-                                l.setText(lbls[i]);
-                                grid.addView(l);
-                                ets[i] = new EditText(a);
-                                ets[i].setHint(i==4?"000":"00");
-                                ets[i].setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-                                ets[i].setTextSize(13);
-                                ets[i].setGravity(Gravity.CENTER);
-                                ets[i].setBackground(roundRect(Color.parseColor("#F7F8FA"), dp(a,4)));
-                                GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
-                                lp.width = dp(a, 60);
-                                ets[i].setLayoutParams(lp);
-                                grid.addView(ets[i]);
-                            }
-                            try {
-                                ets[0].setText(val[0].substring(0,2));
-                                ets[1].setText(val[0].substring(2,4));
-                                ets[2].setText(val[0].substring(4,6));
-                                ets[3].setText(val[0].substring(6,8));
-                                ets[4].setText(val[0].substring(8,10));
-                            } catch (Throwable e) {}
-                        }
-                    }
-                };
-                build[0].run();
-                LinearLayout ctrl = new LinearLayout(a);
-                ctrl.setOrientation(LinearLayout.HORIZONTAL);
-                ctrl.setPadding(0, dp(a, 16), 0, 0);
-                card.addView(ctrl);
-                TextView btnMode = createButton(a, " " + names[0], Color.parseColor("#3B71FE"), Color.TRANSPARENT, 12f, 0, 12, 8, false, 0, 0, null);
-                ctrl.addView(btnMode);
-                View sp = new View(a);
-                sp.setLayoutParams(new LinearLayout.LayoutParams(0, 0, 1.0f));
-                ctrl.addView(sp);
-                TextView btnOk = createButton(a, "确定", Color.WHITE, Color.parseColor("#3B71FE"), 14f, 6, 16, 8, false, 0, 0, null);
-                ctrl.addView(btnOk);
-                btnMode.setOnClickListener(new View.OnClickListener() {
-                    public void onClick(View v) {
-                        mode[0] = (mode[0] + 1) % 4;
-                        ((TextView)v).setText(" " + names[mode[0]]);
-                        build[0].run();
-                    }
-                });
-                btnOk.setOnClickListener(new View.OnClickListener() {
-                    public void onClick(View v) {
-                        if (val[0].replaceAll("[^0-9]", "").length() < 4) {
-                            toast("请至少设置时和分");
-                            return;
-                        }
-                        target.setText(formatTimeDisplay(val[0]));
-                        animateDialogOut(d, null);
-                    }
-                });
-                d.setContentView(outer);
-                d.getWindow().setLayout((int)(a.getResources().getDisplayMetrics().widthPixels * 0.9), -2);
-                d.show();
-                animateDialogIn(d);
-            } catch (Throwable e) {
-                traceLog("function_log", "[showTimePicker]" + e);
-            }
-        }
-    });
-}
 
 /**
  * 显示日程选择器
@@ -1879,7 +1682,12 @@ void showSchedulePicker(Activity a, final EditText target) {
     a.runOnUiThread(new Runnable() {
         public void run() {
             try {
-                final android.app.Dialog d = new android.app.Dialog(a);
+
+
+
+
+
+                final android.app.Dialog d = new android.app.Dialog(a, android.R.style.Theme_Translucent_NoTitleBar);
                 d.requestWindowFeature(1);
                 d.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0));
                 Window window = d.getWindow();
@@ -1891,7 +1699,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                 outer.setPadding(dp(a, 24), dp(a, 40), dp(a, 24), dp(a, 24));
                 LinearLayout card = new LinearLayout(a);
                 card.setOrientation(LinearLayout.VERTICAL);
-                card.setBackground(roundRect(Color.parseColor("#FFFFFF"), dp(a, 16)));
+                card.setBackground(roundRect(tc(a, "surface"), dp(a, 16)));
                 card.setPadding(dp(a, 20), dp(a, 20), dp(a, 20), dp(a, 20));
                 outer.addView(card);
                 
@@ -1899,13 +1707,11 @@ void showSchedulePicker(Activity a, final EditText target) {
                 title.setText("日程配置");
                 title.setTextSize(18);
                 title.setTypeface(null, Typeface.BOLD);
-                title.setTextColor(Color.BLACK);
                 card.addView(title);
                 
                 TextView subtitle = new TextView(a);
                 subtitle.setText("配置定时任务的执行时间");
                 subtitle.setTextSize(12);
-                subtitle.setTextColor(Color.parseColor("#666666"));
                 subtitle.setPadding(0, dp(a, 4), 0, dp(a, 12));
                 card.addView(subtitle);
                 
@@ -1923,7 +1729,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                 modeRow.setPadding(0, dp(a, 16), 0, 0);
                 card.addView(modeRow);
                 
-                final TextView modeBtn = createButton(a, " 切换模式: " + modeNames[currentMode[0]], Color.parseColor("#3B71FE"), Color.parseColor("#F0F5FF"), 12f, 6, 12, 8, false, 0, 0, null);
+                final TextView modeBtn = createButton(a, " 切换模式: " + modeNames[currentMode[0]], tc(a, "primary"), tc(a, "primary_container"), 12f, 6, 12, 8, false, 0, 0, null);
                 modeRow.addView(modeBtn);
                 
                 String currentValue = target.getText().toString().trim();
@@ -1937,7 +1743,6 @@ void showSchedulePicker(Activity a, final EditText target) {
                             TextView hint = new TextView(a);
                             hint.setText("设置每日执行的时间 (时:分:秒)");
                             hint.setTextSize(12);
-                            hint.setTextColor(Color.parseColor("#666666"));
                             hint.setPadding(0, 0, 0, dp(a, 8));
                             container.addView(hint);
                             
@@ -1945,7 +1750,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                             timeRow.setOrientation(LinearLayout.HORIZONTAL);
                             container.addView(timeRow);
                             
-                            final EditText hourInput = makeInput(a, "时", Color.parseColor("#F7F8FA"));
+                            final EditText hourInput = makeInput(a, "时", null);
                             hourInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
                             hourInput.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
                             timeRow.addView(hourInput);
@@ -1957,7 +1762,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                             colon1.setPadding(dp(a, 4), 0, dp(a, 4), 0);
                             timeRow.addView(colon1);
                             
-                            final EditText minuteInput = makeInput(a, "分", Color.parseColor("#F7F8FA"));
+                            final EditText minuteInput = makeInput(a, "分", null);
                             minuteInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
                             minuteInput.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
                             timeRow.addView(minuteInput);
@@ -1969,7 +1774,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                             colon2.setPadding(dp(a, 4), 0, dp(a, 4), 0);
                             timeRow.addView(colon2);
                             
-                            final EditText secondInput = makeInput(a, "秒", Color.parseColor("#F7F8FA"));
+                            final EditText secondInput = makeInput(a, "秒", null);
                             secondInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
                             secondInput.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
                             timeRow.addView(secondInput);
@@ -1990,7 +1795,6 @@ void showSchedulePicker(Activity a, final EditText target) {
                             TextView hint = new TextView(a);
                             hint.setText("设置每周执行 (星期 时:分:秒)");
                             hint.setTextSize(12);
-                            hint.setTextColor(Color.parseColor("#666666"));
                             hint.setPadding(0, 0, 0, dp(a, 8));
                             container.addView(hint);
                             
@@ -2011,7 +1815,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                             timeRow.setPadding(dp(a, 8), 0, 0, 0);
                             weekRow.addView(timeRow);
                             
-                            final EditText hourInput = makeInput(a, "时", Color.parseColor("#F7F8FA"));
+                            final EditText hourInput = makeInput(a, "时", null);
                             hourInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
                             hourInput.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
                             timeRow.addView(hourInput);
@@ -2023,7 +1827,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                             colon1.setPadding(dp(a, 4), 0, dp(a, 4), 0);
                             timeRow.addView(colon1);
                             
-                            final EditText minuteInput = makeInput(a, "分", Color.parseColor("#F7F8FA"));
+                            final EditText minuteInput = makeInput(a, "分", null);
                             minuteInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
                             minuteInput.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
                             timeRow.addView(minuteInput);
@@ -2035,7 +1839,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                             colon2.setPadding(dp(a, 4), 0, dp(a, 4), 0);
                             timeRow.addView(colon2);
                             
-                            final EditText secondInput = makeInput(a, "秒", Color.parseColor("#F7F8FA"));
+                            final EditText secondInput = makeInput(a, "秒", null);
                             secondInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
                             secondInput.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
                             timeRow.addView(secondInput);
@@ -2061,7 +1865,6 @@ void showSchedulePicker(Activity a, final EditText target) {
                             TextView hint = new TextView(a);
                             hint.setText("设置每月执行 (日期 时:分:秒)");
                             hint.setTextSize(12);
-                            hint.setTextColor(Color.parseColor("#666666"));
                             hint.setPadding(0, 0, 0, dp(a, 8));
                             container.addView(hint);
                             
@@ -2069,7 +1872,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                             monthRow.setOrientation(LinearLayout.HORIZONTAL);
                             container.addView(monthRow);
                             
-                            final EditText dayInput = makeInput(a, "日期(1-31)", Color.parseColor("#F7F8FA"));
+                            final EditText dayInput = makeInput(a, "日期(1-31)", null);
                             dayInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
                             dayInput.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
                             monthRow.addView(dayInput);
@@ -2079,7 +1882,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                             timeRow.setPadding(dp(a, 8), 0, 0, 0);
                             monthRow.addView(timeRow);
                             
-                            final EditText hourInput = makeInput(a, "时", Color.parseColor("#F7F8FA"));
+                            final EditText hourInput = makeInput(a, "时", null);
                             hourInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
                             hourInput.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
                             timeRow.addView(hourInput);
@@ -2091,7 +1894,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                             colon1.setPadding(dp(a, 4), 0, dp(a, 4), 0);
                             timeRow.addView(colon1);
                             
-                            final EditText minuteInput = makeInput(a, "分", Color.parseColor("#F7F8FA"));
+                            final EditText minuteInput = makeInput(a, "分", null);
                             minuteInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
                             minuteInput.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
                             timeRow.addView(minuteInput);
@@ -2103,7 +1906,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                             colon2.setPadding(dp(a, 4), 0, dp(a, 4), 0);
                             timeRow.addView(colon2);
                             
-                            final EditText secondInput = makeInput(a, "秒", Color.parseColor("#F7F8FA"));
+                            final EditText secondInput = makeInput(a, "秒", null);
                             secondInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
                             secondInput.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
                             timeRow.addView(secondInput);
@@ -2126,7 +1929,6 @@ void showSchedulePicker(Activity a, final EditText target) {
                             TextView hint = new TextView(a);
                             hint.setText("设置间隔执行 (时:分:秒)");
                             hint.setTextSize(12);
-                            hint.setTextColor(Color.parseColor("#666666"));
                             hint.setPadding(0, 0, 0, dp(a, 8));
                             container.addView(hint);
                             
@@ -2134,7 +1936,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                             intervalRow.setOrientation(LinearLayout.HORIZONTAL);
                             container.addView(intervalRow);
                             
-                            final EditText hourInput = makeInput(a, "时", Color.parseColor("#F7F8FA"));
+                            final EditText hourInput = makeInput(a, "时", null);
                             hourInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
                             hourInput.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
                             intervalRow.addView(hourInput);
@@ -2146,7 +1948,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                             colon1.setPadding(dp(a, 4), 0, dp(a, 4), 0);
                             intervalRow.addView(colon1);
                             
-                            final EditText minuteInput = makeInput(a, "分", Color.parseColor("#F7F8FA"));
+                            final EditText minuteInput = makeInput(a, "分", null);
                             minuteInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
                             minuteInput.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
                             intervalRow.addView(minuteInput);
@@ -2158,7 +1960,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                             colon2.setPadding(dp(a, 4), 0, dp(a, 4), 0);
                             intervalRow.addView(colon2);
                             
-                            final EditText secondInput = makeInput(a, "秒", Color.parseColor("#F7F8FA"));
+                            final EditText secondInput = makeInput(a, "秒", null);
                             secondInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
                             secondInput.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
                             intervalRow.addView(secondInput);
@@ -2175,6 +1977,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                                 secondInput.setText("00");
                             }
                         }
+                        applyViewTheme(a, container);
                     }
                 };
                 
@@ -2193,7 +1996,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                 btnRow.setPadding(0, dp(a, 20), 0, 0);
                 card.addView(btnRow);
                 
-                TextView cancelBtn = createButton(a, "取消", Color.parseColor("#666666"), Color.parseColor("#F5F5F5"), 14f, 6, 24, 12, false, 0, 0, null);
+                TextView cancelBtn = createButton(a, "取消", tc(a, "on_surface_variant"), tc(a, "surface"), 14f, 6, 24, 12, false, 0, 0, null);
                 cancelBtn.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
                 cancelBtn.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
@@ -2202,7 +2005,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                 });
                 btnRow.addView(cancelBtn);
                 
-                TextView okBtn = createButton(a, "确定", Color.WHITE, Color.parseColor("#3B71FE"), 14f, 6, 24, 12, false, 0, 0, null);
+                TextView okBtn = createButton(a, "确定", Color.WHITE, tc(a, "primary"), 14f, 6, 24, 12, false, 0, 0, null);
                 LinearLayout.LayoutParams okParams = new LinearLayout.LayoutParams(0, -2, 1.0f);
                 okParams.setMargins(dp(a, 12), 0, 0, 0);
                 okBtn.setLayoutParams(okParams);
@@ -2292,8 +2095,9 @@ void showSchedulePicker(Activity a, final EditText target) {
                 });
                 
                 d.setContentView(outer);
-                d.getWindow().setLayout((int)(a.getResources().getDisplayMetrics().widthPixels * 0.9), -2);
+                d.getWindow().setLayout(Math.min(dp(a, 400), a.getResources().getDisplayMetrics().widthPixels - dp(a, 32)), -2);
                 d.show();
+                applyViewTheme(a, outer);
                 animateDialogIn(d);
             } catch (Throwable e) {
                 traceLog("function_log", "[showSchedulePicker]" + e);
@@ -2368,7 +2172,7 @@ void showEdit(Activity a, final String func, final String gid, final String gn) 
             m[8].equals("1"), hasGrp
         };
         
-        final android.app.Dialog d = new android.app.Dialog(a);
+        final android.app.Dialog d = new android.app.Dialog(a, android.R.style.Theme_Translucent_NoTitleBar);
         d.requestWindowFeature(1);
         d.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0));
         
@@ -2376,7 +2180,7 @@ void showEdit(Activity a, final String func, final String gid, final String gn) 
         WindowManager.LayoutParams params = window.getAttributes();
         params.gravity = Gravity.CENTER;
         int screenWidth = a.getResources().getDisplayMetrics().widthPixels;
-        params.width = (int)(screenWidth * 0.92);
+        params.width = Math.min(dp(a, 400), screenWidth - dp(a, 32));
         params.height = WindowManager.LayoutParams.WRAP_CONTENT;
         params.verticalMargin = 0.0f;
         window.setAttributes(params);
@@ -2392,24 +2196,22 @@ void showEdit(Activity a, final String func, final String gid, final String gn) 
         
         LinearLayout card = new LinearLayout(a);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setBackground(roundRect(Color.parseColor("#FFFFFF"), dp(a, 12)));
+        card.setBackground(roundRect(tc(a, "surface"), dp(a, 12)));
         card.setPadding(dp(a, 16), dp(a, 16), dp(a, 16), dp(a, 16));
         sc.addView(card);
         
         TextView t = new TextView(a);
         t.setText("编辑:" + func);
         t.setTextSize(16);
-        t.setTextColor(Color.BLACK);
         card.addView(t);
         
-        final EditText etName = addNameInput(a, card, func, Color.parseColor("#F7F8FA"));
-        final EditText etCode = addCodeInput(a, card, isFile ? m[10] : readCodeFile(func), isFile, isFileState, Color.parseColor("#F7F8FA"));
+        final EditText etName = addNameInput(a, card, func);
+        final EditText etCode = addCodeInput(a, card, isFile ? m[10] : readCodeFile(func), isFile, isFileState);
         addPresetRows(a, card, etCode);
         
         TextView tips = new TextView(a);
         tips.setText("变量:qun群号 uinQQ号 msg消息内容 msgId消息ID type类型(1私聊2群聊) operator操作者 time禁言秒数");
         tips.setTextSize(9);
-        tips.setTextColor(Color.parseColor("#AAAAAA"));
         tips.setPadding(0, dp(a, 4), 0, 0);
         card.addView(tips);
         
@@ -2419,7 +2221,7 @@ void showEdit(Activity a, final String func, final String gid, final String gn) 
         addPreprocRow(a, card, fc, preType, preTail, repeatSend, repeatConcat);
         updatePreprocVisibility(fc, cks[6]);
         
-        FormComponents loopFc = addLoopRow(a, card, isLoop, interval, loopCount, cks, Color.parseColor("#F7F8FA"));
+        FormComponents loopFc = addLoopRow(a, card, isLoop, interval, loopCount, cks);
         fc.etInterval = loopFc.etInterval;
         fc.etCount = loopFc.etCount;
         fc.chipLoop = loopFc.chipLoop;
@@ -2432,17 +2234,17 @@ void showEdit(Activity a, final String func, final String gid, final String gn) 
         btnRow.setPadding(0, dp(a, 12), 0, 0);
         card.addView(btnRow);
         
-        TextView sv = createButton(a, "保存", Color.WHITE, Color.parseColor("#3B71FE"), 14f, 8, 16, 10, false, 0, 0, null);
+        TextView sv = createButton(a, "保存", Color.WHITE, tc(a, "primary"), 14f, 8, 16, 10, false, 0, 0, null);
         sv.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
         btnRow.addView(sv);
 
-        TextView tst = createButton(a, "测试", Color.parseColor("#666666"), Color.parseColor("#F5F5F5"), 14f, 8, 16, 10, false, 0, 0, null);
+        TextView tst = createButton(a, "测试", tc(a, "on_surface_variant"), tc(a, "surface"), 14f, 8, 16, 10, false, 0, 0, null);
         LinearLayout.LayoutParams lpTst = new LinearLayout.LayoutParams(0, -2, 1.0f);
         lpTst.setMargins(dp(a, 6), 0, dp(a, 6), 0);
         tst.setLayoutParams(lpTst);
         btnRow.addView(tst);
 
-        TextView cn = createButton(a, "取消", Color.parseColor("#666666"), Color.parseColor("#F5F5F5"), 14f, 8, 16, 10, false, 0, 0, null);
+        TextView cn = createButton(a, "取消", tc(a, "on_surface_variant"), tc(a, "surface"), 14f, 8, 16, 10, false, 0, 0, null);
         cn.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
         btnRow.addView(cn);
         
@@ -2518,12 +2320,13 @@ void showEdit(Activity a, final String func, final String gid, final String gn) 
         });
         
         d.setContentView(outer);
-        d.getWindow().setLayout((int)(screenWidth * 0.92), -2);
+        d.getWindow().setLayout(Math.min(dp(a, 400), screenWidth - dp(a, 32)), -2);
         WindowManager.LayoutParams finalParams = d.getWindow().getAttributes();
         finalParams.gravity = Gravity.CENTER;
         finalParams.verticalMargin = 0.0f;
         d.getWindow().setAttributes(finalParams);
         d.show();
+        applyViewTheme(a, outer);
         animateDialogIn(d);
         
     } catch (Throwable e) {
@@ -2552,7 +2355,7 @@ public void showHotPlugMain(int ft, String gid, String uname) {
     a.runOnUiThread(new Runnable() {
         public void run() {
             try {
-                final Dialog d = new Dialog(a);
+                final Dialog d = new Dialog(a, android.R.style.Theme_Translucent_NoTitleBar);
                 d.requestWindowFeature(1);
                 d.getWindow().setBackgroundDrawable(new ColorDrawable(0));
 
@@ -2560,7 +2363,7 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                 WindowManager.LayoutParams params = window.getAttributes();
                 params.gravity = Gravity.CENTER;
                 int screenWidth = a.getResources().getDisplayMetrics().widthPixels;
-                params.width = (int) (screenWidth * 0.92);
+                params.width = Math.min(dp(a, 400), screenWidth - dp(a, 32));
                 params.height = WindowManager.LayoutParams.WRAP_CONTENT;
                 params.verticalMargin = 0.0f;
                 window.setAttributes(params);
@@ -2583,7 +2386,7 @@ public void showHotPlugMain(int ft, String gid, String uname) {
 
                 final LinearLayout cd = new LinearLayout(a);
                 cd.setOrientation(LinearLayout.VERTICAL);
-                cd.setBackground(roundRect(Color.parseColor("#FFFFFF"), dp(a, 12)));
+                cd.setBackground(roundRect(tc(a, "surface"), dp(a, 12)));
                 cd.setPadding(dp(a, 16), dp(a, 16), dp(a, 16), dp(a, 16));
                 sc.addView(cd);
 
@@ -2591,20 +2394,18 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                 t.setText("功能管理");
                 t.setTextSize(16);
                 t.setTypeface(null, Typeface.BOLD);
-                t.setTextColor(Color.BLACK);
                 cd.addView(t);
 
                 TextView s = new TextView(a);
                 s.setText(gn + (g.equals("") ? "" : " (" + g + ")"));
                 s.setTextSize(12);
-                s.setTextColor(Color.parseColor("#3B71FE"));
+                s.setTextColor(tc(a, "primary"));
                 s.setPadding(0, 0, 0, dp(a, 6));
                 cd.addView(s);
 
                 TextView tips = new TextView(a);
                 tips.setText("下拉可刷新状态");
                 tips.setTextSize(9);
-                tips.setTextColor(Color.parseColor("#999999"));
                 tips.setPadding(0, 0, 0, dp(a, 8));
                 cd.addView(tips);
 
@@ -2620,21 +2421,20 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                 TextView editTitle = new TextView(a);
                 editTitle.setText("✏️ 新建功能");
                 editTitle.setTextSize(15);
-                editTitle.setTextColor(Color.parseColor("#3B71FE"));
+                editTitle.setTextColor(tc(a, "primary"));
                 editTitle.setPadding(0, 0, 0, dp(a, 8));
                 editorContainer.addView(editTitle);
 
                 final boolean[] isFileState = {false};
                 final boolean[] cks = new boolean[8];
 
-                final EditText etN = addNameInput(a, editorContainer, "", Color.parseColor("#FFFFFF"));
-                final EditText etC = addCodeInput(a, editorContainer, "", false, isFileState, Color.parseColor("#FFFFFF"));
+                final EditText etN = addNameInput(a, editorContainer, "");
+                final EditText etC = addCodeInput(a, editorContainer, "", false, isFileState);
                 addPresetRows(a, editorContainer, etC);
 
                 TextView varTips = new TextView(a);
                 varTips.setText("变量:qun群号 uinQQ msg消息 type类型(1私2群) operator操作者 time秒");
                 varTips.setTextSize(9);
-                varTips.setTextColor(Color.parseColor("#666666"));
                 varTips.setPadding(0, dp(a, 4), 0, 0);
                 editorContainer.addView(varTips);
 
@@ -2644,7 +2444,7 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                 addPreprocRow(a, editorContainer, fc, 0, "", 0, 0);
                 updatePreprocVisibility(fc, false);
 
-                FormComponents loopFc = addLoopRow(a, editorContainer, false, 5000, 0, cks, Color.parseColor("#FFFFFF"));
+                FormComponents loopFc = addLoopRow(a, editorContainer, false, 5000, 0, cks);
                 fc.etInterval = loopFc.etInterval;
                 fc.etCount = loopFc.etCount;
                 fc.chipLoop = loopFc.chipLoop;
@@ -2657,17 +2457,17 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                 editorBtnRow.setPadding(0, dp(a, 12), 0, 0);
                 editorContainer.addView(editorBtnRow);
 
-                TextView btnSave = createButton(a, "保存", Color.WHITE, Color.parseColor("#3B71FE"), 14f, 8, 16, 10, false, 0, 0, null);
+                TextView btnSave = createButton(a, "保存", Color.WHITE, tc(a, "primary"), 14f, 8, 16, 10, false, 0, 0, null);
                 btnSave.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
                 editorBtnRow.addView(btnSave);
 
-                TextView btnTest = createButton(a, "测试", Color.parseColor("#666666"), Color.parseColor("#F5F5F5"), 14f, 8, 16, 10, false, 0, 0, null);
+                TextView btnTest = createButton(a, "测试", tc(a, "on_surface_variant"), tc(a, "surface"), 14f, 8, 16, 10, false, 0, 0, null);
                 LinearLayout.LayoutParams lpTest = new LinearLayout.LayoutParams(0, -2, 1.0f);
                 lpTest.setMargins(dp(a, 6), 0, dp(a, 6), 0);
                 btnTest.setLayoutParams(lpTest);
                 editorBtnRow.addView(btnTest);
 
-                TextView btnCancel = createButton(a, "取消", Color.parseColor("#666666"), Color.parseColor("#F5F5F5"), 14f, 8, 16, 10, false, 0, 0, null);
+                TextView btnCancel = createButton(a, "取消", tc(a, "on_surface_variant"), tc(a, "surface"), 14f, 8, 16, 10, false, 0, 0, null);
                 btnCancel.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
                 editorBtnRow.addView(btnCancel);
 
@@ -2676,7 +2476,7 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                 lst.setPadding(0, dp(a, 6), 0, 0);
                 cd.addView(lst);
 
-                TextView btnAdd = createButton(a, "+ 新建功能", Color.WHITE, Color.parseColor("#3B71FE"), 14f, 8, 16, 10, false, 0, 0, null);
+                TextView btnAdd = createButton(a, "+ 新建功能", Color.WHITE, tc(a, "primary"), 14f, 8, 16, 10, false, 0, 0, null);
                 LinearLayout.LayoutParams btnAddLp = new LinearLayout.LayoutParams(-1, -2);
                 btnAddLp.setMargins(0, dp(a, 6), 0, 0);
                 cd.addView(btnAdd, cd.indexOfChild(lst), btnAddLp);
@@ -2690,7 +2490,6 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                 TextView lt = new TextView(a);
                 lt.setText("功能列表(长按编辑, 左滑删除):");
                 lt.setTextSize(12);
-                lt.setTextColor(Color.parseColor("#666666"));
                 cd.addView(lt, cd.indexOfChild(lst));
 
                 final Runnable refreshCallback = new Runnable() {
@@ -2704,7 +2503,6 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                                     if (fs.length == 0 || (fs.length == 1 && fs[0].equals(""))) {
                                         TextView e = new TextView(a);
                                         e.setText("暂无功能");
-                                        e.setTextColor(Color.parseColor("#BBBBBB"));
                                         lst.addView(e);
                                     } else {
                                         for (String f : fs) {
@@ -2738,7 +2536,7 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                         }, 50);
                     }
                 });
-                swipe.setColorSchemeColors(Color.parseColor("#3B71FE"));
+                swipe.setColorSchemeColors(tc(a, "primary"));
 
                 btnSave.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
@@ -2883,7 +2681,7 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                     }
                 });
 
-                TextView cls = createButton(a, "关闭", Color.parseColor("#666666"), Color.parseColor("#F5F5F5"), 14f, 8, 16, 10, false, 0, 0, null);
+                TextView cls = createButton(a, "关闭", tc(a, "on_surface_variant"), tc(a, "surface"), 14f, 8, 16, 10, false, 0, 0, null);
                 LinearLayout.LayoutParams clsLp = new LinearLayout.LayoutParams(-1, -2);
                 clsLp.setMargins(0, dp(a, 6), 0, 0);
                 cls.setLayoutParams(clsLp);
@@ -2896,8 +2694,9 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                 cd.addView(cls);
 
                 d.setContentView(root);
-                d.getWindow().setLayout((int) (screenWidth * 0.92), WindowManager.LayoutParams.WRAP_CONTENT);
+                d.getWindow().setLayout(Math.min(dp(a, 400), screenWidth - dp(a, 32)), WindowManager.LayoutParams.WRAP_CONTENT);
                 d.show();
+                applyViewTheme(a, root);
                 animateDialogIn(d);
 
             } catch (Throwable e) {
@@ -2952,7 +2751,7 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
         int screenWidth = a.getResources().getDisplayMetrics().widthPixels;
         final int deleteBtnWidth = dp(a, 80);
 
-        int visibleContentWidth = (int)(screenWidth * 0.92f) - dp(a, 72);
+        int visibleContentWidth = Math.min(dp(a, 400), screenWidth - dp(a, 32)) - dp(a, 72);
 
         final LinearLayout content = new LinearLayout(a);
         content.setOrientation(LinearLayout.VERTICAL);
@@ -2967,7 +2766,7 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
         content.setFocusable(true);
         itemContainer.addView(content);
 
-        final TextView deleteBtn = createButton(a, "删除", Color.WHITE, Color.parseColor("#FF4444"), 14f, 8, 16, 10, false, 0, 0, null);
+        final TextView deleteBtn = createButton(a, "删除", Color.WHITE, tc(a, "error"), 14f, 8, 16, 10, false, 0, 0, null);
         deleteBtn.setLayoutParams(new LinearLayout.LayoutParams(deleteBtnWidth, LinearLayout.LayoutParams.MATCH_PARENT));
         itemContainer.addView(deleteBtn);
 
@@ -3013,7 +2812,7 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
         }
 
         final boolean[] mainOn = {hasAnyCallback ? getRun(f) : getLoad(f)};
-        final TextView btnMain = makeSwitch(a, mainOn[0], hasAnyCallback ? Color.parseColor("#00C853") : Color.parseColor("#3B71FE"));
+        final TextView btnMain = makeSwitch(a, mainOn[0], hasAnyCallback ? Color.parseColor("#00C853") : tc(a, "primary"));
         btnMain.setMinWidth(dp(a, 50));
         btnMain.setMinimumWidth(dp(a, 50));
         LinearLayout.LayoutParams btnMainParams = new LinearLayout.LayoutParams(dp(a, 50), LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -3042,7 +2841,7 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
                 TextView tvInfo = new TextView(a);
                 tvInfo.setText(infoText);
                 tvInfo.setTextSize(10);
-                tvInfo.setTextColor(Color.parseColor("#666666"));
+                tvInfo.setTextColor(tc(a, "on_surface_variant"));
                 tvInfo.setPadding(0, dp(a, 4), 0, 0);
                 infoRow.addView(tvInfo);
             }
@@ -3061,7 +2860,7 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
         dlv.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(a, 1)));
         exp.addView(dlv);
 
-        TextView btnTestExp = createButton(a, "▶ 测试执行", Color.parseColor("#3B71FE"), Color.parseColor("#E8EEFF"), 12f, 6, 0, 8, false, 0, 0, null);
+        TextView btnTestExp = createButton(a, "▶ 测试执行", tc(a, "primary"), Color.parseColor("#E8EEFF"), 12f, 6, 0, 8, false, 0, 0, null);
         btnTestExp.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 testCode(f, null, f);
@@ -3074,17 +2873,17 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
 
         if (hasAnyCallback) {
             LinearLayout rRun = new LinearLayout(a); rRun.setOrientation(LinearLayout.HORIZONTAL); rRun.setGravity(Gravity.CENTER_VERTICAL); rRun.setPadding(0, dp(a, 8), 0, 0); exp.addView(rRun);
-            TextView l = new TextView(a); l.setText("运行开关"); l.setTextSize(13); l.setTextColor(Color.parseColor("#666666")); l.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f)); rRun.addView(l);
+            TextView l = new TextView(a); l.setText("运行开关"); l.setTextSize(13); l.setTextColor(tc(a, "on_surface_variant")); l.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f)); rRun.addView(l);
             TextView state = new TextView(a); state.setText("主开关统管"); state.setTextSize(11); state.setTextColor(Color.parseColor("#999999")); rRun.addView(state);
         } else {
              LinearLayout rRun = new LinearLayout(a); rRun.setOrientation(LinearLayout.HORIZONTAL); rRun.setGravity(Gravity.CENTER_VERTICAL); rRun.setPadding(0, dp(a, 8), 0, 0); exp.addView(rRun);
-             TextView l = new TextView(a); l.setText("允许运行"); l.setTextSize(13); l.setTextColor(Color.parseColor("#666666")); l.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f)); rRun.addView(l);
+             TextView l = new TextView(a); l.setText("允许运行"); l.setTextSize(13); l.setTextColor(tc(a, "on_surface_variant")); l.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f)); rRun.addView(l);
              final boolean[] runOn = {getRun(f)}; final TextView btnRun = makeSwitch(a, runOn[0], Color.parseColor("#00C853")); rRun.addView(btnRun);
              btnRun.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { runOn[0] = !runOn[0]; setRun(f, runOn[0]); setSwitch(btnRun, runOn[0], Color.parseColor("#00C853")); }});
              
              if (isLoop) {
                 LinearLayout rLoop = new LinearLayout(a); rLoop.setOrientation(LinearLayout.HORIZONTAL); rLoop.setGravity(Gravity.CENTER_VERTICAL); rLoop.setPadding(0, dp(a, 8), 0, 0); exp.addView(rLoop);
-                TextView l2 = new TextView(a); String countText = loopCount > 0 ? (" (剩" + loopCount + "次)") : ""; l2.setText("循环执行" + countText); l2.setTextSize(13); l2.setTextColor(Color.parseColor("#666666")); l2.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f)); rLoop.addView(l2);
+                TextView l2 = new TextView(a); String countText = loopCount > 0 ? (" (剩" + loopCount + "次)") : ""; l2.setText("循环执行" + countText); l2.setTextSize(13); l2.setTextColor(tc(a, "on_surface_variant")); l2.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f)); rLoop.addView(l2);
                 final boolean[] loopOn = {getLoop(f)}; final TextView btnLoop = makeSwitch(a, loopOn[0], Color.parseColor("#FF9800")); rLoop.addView(btnLoop);
                 btnLoop.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { loopOn[0] = !loopOn[0]; setLoop(f, loopOn[0]); setSwitch(btnLoop, loopOn[0], Color.parseColor("#FF9800")); toast(loopOn[0] ? "循环已开" : "循环已关"); }});
              }
@@ -3092,7 +2891,7 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
         
         if (hasGrp && !gid.equals("")) {
              LinearLayout rGrp = new LinearLayout(a); rGrp.setOrientation(LinearLayout.HORIZONTAL); rGrp.setGravity(Gravity.CENTER_VERTICAL); rGrp.setPadding(0, dp(a, 8), 0, 0); exp.addView(rGrp);
-             TextView l = new TextView(a); l.setText("本群运行"); l.setTextSize(13); l.setTextColor(Color.parseColor("#666666")); l.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f)); rGrp.addView(l);
+             TextView l = new TextView(a); l.setText("本群运行"); l.setTextSize(13); l.setTextColor(tc(a, "on_surface_variant")); l.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f)); rGrp.addView(l);
              final boolean[] grpOn = {getGrp(f, gid)}; final TextView btnGrp = makeSwitch(a, grpOn[0], Color.parseColor("#FF9800")); rGrp.addView(btnGrp);
              btnGrp.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { grpOn[0] = !grpOn[0]; setGrp(f, gid, grpOn[0]); setSwitch(btnGrp, grpOn[0], Color.parseColor("#FF9800")); toast(grpOn[0] ? "本群已开启" : "本群已关闭"); }});
         }
@@ -3212,7 +3011,7 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
                     toast(mainOn[0] ? "运行已开" : "运行已关");
                 } else {
                     setLoad(f, mainOn[0]);
-                    setSwitch(btnMain, mainOn[0], Color.parseColor("#3B71FE"));
+                    setSwitch(btnMain, mainOn[0], tc(a, "primary"));
                     toast(mainOn[0] ? "加载已开" : "加载已关");
                 }
                 if (refresh != null) refresh.run();
@@ -3246,20 +3045,18 @@ void showDeleteConfirm(Activity a, final String f, final View itemView, final Li
     
     LinearLayout layout = new LinearLayout(a);
     layout.setOrientation(LinearLayout.VERTICAL);
-    layout.setBackground(roundRect(Color.WHITE, dp(a, 16)));
+    layout.setBackground(roundRect(tc(a, "surface"), dp(a, 16)));
     layout.setPadding(dp(a, 24), dp(a, 24), dp(a, 24), dp(a, 24));
     
     TextView title = new TextView(a);
     title.setText("确认删除");
     title.setTextSize(18);
     title.setTypeface(null, Typeface.BOLD);
-    title.setTextColor(Color.BLACK);
     layout.addView(title);
     
     TextView message = new TextView(a);
     message.setText("确定要删除功能 \"" + f + "\" 吗？此操作无法撤销");
     message.setTextSize(14);
-    message.setTextColor(Color.parseColor("#666666"));
     message.setPadding(0, dp(a, 12), 0, dp(a, 24));
     layout.addView(message);
     
@@ -3267,7 +3064,7 @@ void showDeleteConfirm(Activity a, final String f, final View itemView, final Li
     buttons.setOrientation(LinearLayout.HORIZONTAL);
     layout.addView(buttons);
     
-    TextView cancel = createButton(a, "取消", Color.parseColor("#666666"), Color.parseColor("#F5F5F5"), 15f, 8, 24, 12, false, 0, 0, null);
+    TextView cancel = createButton(a, "取消", tc(a, "on_surface_variant"), tc(a, "surface"), 15f, 8, 24, 12, false, 0, 0, null);
     cancel.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1f));
     cancel.setOnClickListener(new View.OnClickListener() {
         public void onClick(View v) {
@@ -3276,7 +3073,7 @@ void showDeleteConfirm(Activity a, final String f, final View itemView, final Li
     });
     buttons.addView(cancel);
     
-    TextView confirm = createButton(a, "删除", Color.WHITE, Color.parseColor("#FF4444"), 15f, 8, 24, 12, false, 0, 0, null);
+    TextView confirm = createButton(a, "删除", Color.WHITE, tc(a, "error"), 15f, 8, 24, 12, false, 0, 0, null);
     LinearLayout.LayoutParams confirmParams = new LinearLayout.LayoutParams(0, -2, 1f);
     confirmParams.setMargins(dp(a, 12), 0, 0, 0);
     confirm.setLayoutParams(confirmParams);
@@ -3292,8 +3089,9 @@ void showDeleteConfirm(Activity a, final String f, final View itemView, final Li
     buttons.addView(confirm);
     
     confirmDialog.setContentView(layout);
-    confirmDialog.getWindow().setLayout((int)(a.getResources().getDisplayMetrics().widthPixels * 0.85), -2);
+    confirmDialog.getWindow().setLayout(Math.min(dp(a, 400), a.getResources().getDisplayMetrics().widthPixels - dp(a, 32)), -2);
     confirmDialog.show();
+    applyViewTheme(a, layout);
     animateDialogIn(confirmDialog);
 }
 
@@ -3601,3 +3399,6 @@ String extractSegmentAt(String text, int pos){
 
 addItem("功能热插拔", "showHotPlugMain");
 rebuildRegistry();
+
+
+
