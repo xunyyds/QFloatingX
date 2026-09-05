@@ -1,12 +1,22 @@
 {
-  "version": "2.4.0.2",
-  "versionType": "测试版",
+  "version": "2.4.1",
+  "versionType": "正式版",
   "updateType": "补丁",
-  "updateTime": "2026-08-29 15:37:34",
-  "changelog": "- 修复因换行符错误导致重要变量被注释造成的问题",
+  "updateTime": "2026-09-05 15:44:59",
+  "changelog": "- 修复**调色盘**取消\/确认按钮透明的问题\n- 修复**调色盘**一系列问题\n- 优化修改文字颜色时的**对比度提示**\n- 优化**空间操作弹窗**主题适配",
   "files": [
+    "QFloatingX\/API\/ColorPicker.java",
+    "QFloatingX\/API\/api3.java",
+    "QFloatingX\/API\/uitools.java",
+    "QFloatingX\/API\/Dialog.java",
     "QFloatingX\/API\/api5.java",
-    "QFloatingX\/更新日志.txt",
-    "QFloatingX\/info.prop"
+    "QFloatingX\/API\/api.java",
+    "QFloatingX\/API\/setwindow.java",
+    "QFloatingX\/API\/api9.java",
+    "QFloatingX\/API\/api7.java",
+    "QFloatingX\/API\/api8.java",
+    "QFloatingX\/API\/function.java",
+    "QFloatingX\/info.prop",
+    "QFloatingX\/更新日志.txt"
   ]
 }
