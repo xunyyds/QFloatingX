@@ -390,40 +390,6 @@ void setupEditTextTouch(final EditText et) {
     });
 }
 
-FrameLayout createButton(Context ctx, String text, String bgColorStr, int textColor, final Runnable onClick) {
-    final FrameLayout btn = new FrameLayout(ctx);
-    final GradientDrawable bg = new GradientDrawable();
-    bg.setCornerRadius(dp(ctx, 8));
-    bg.setColor(Color.parseColor(bgColorStr));
-    btn.setBackground(bg);
-    TextView tv = new TextView(ctx);
-    tv.setText(text);
-    tv.setTextColor(textColor);
-    tv.setTextSize(14);
-    tv.setGravity(Gravity.CENTER);
-    tv.setTypeface(null, Typeface.BOLD);
-    btn.addView(tv, new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
-    btn.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { onClick.run(); } });
-    return btn;
-}
-
-FrameLayout createPreviewButton(Context ctx, final Runnable onClick) {
-    final FrameLayout btn = new FrameLayout(ctx);
-    final GradientDrawable bg = new GradientDrawable();
-    bg.setCornerRadius(dp(ctx, 8));
-    bg.setColor(Color.TRANSPARENT);
-    bg.setStroke(dp(ctx, 1), Color.parseColor("#E0E0E0"));
-    btn.setBackground(bg);
-    TextView tv = new TextView(ctx);
-    tv.setText("预览");
-    tv.setTextColor(Color.parseColor("#999999"));
-    tv.setTextSize(12);
-    tv.setGravity(Gravity.CENTER);
-    btn.addView(tv, new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
-    btn.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { onClick.run(); } });
-    return btn;
-}
-
 View createReplyBox(Context ctx, MsgData msgData) {
     MsgElement replyEl = null;
     if (msgData.data.elements != null) {
@@ -767,7 +733,7 @@ void showActionDialog(final Activity activity, final MsgData msgData, final View
 
     View spacer = new View(activity);
     rightBtnContainer.addView(spacer, new LinearLayout.LayoutParams(-1, dp(activity, 4)));
-    FrameLayout previewBtn = createPreviewButton(activity, new Runnable() {
+    TextView previewBtn = createButton(activity, "预览", Color.parseColor("#999999"), Color.TRANSPARENT, 12f, 8, 16, 10, false, 1, Color.parseColor("#E0E0E0"), new Runnable() {
         public void run() { applySpans(editText, true); }
     });
     rightBtnContainer.addView(previewBtn, new LinearLayout.LayoutParams(dp(activity, 68), dp(activity, 28)));
@@ -907,13 +873,13 @@ void showActionDialog(final Activity activity, final MsgData msgData, final View
     uiHandler.post(new Runnable() { public void run() { applySpans(editText, true); } });
     LinearLayout btm = new LinearLayout(activity);
     btm.setPadding(0, dp(activity, 4), 0, 0);
-    FrameLayout menuBtn = createButton(activity, "更多", "#B3007AFF", Color.WHITE, new Runnable() {
+    TextView menuBtn = createButton(activity, "更多", Color.WHITE, pc("#B3007AFF"), 14f, 8, 16, 10, true, 0, 0, new Runnable() {
         public void run() {
             dialog.dismiss();
             菜单(finaldata);
         }
     });
-    FrameLayout origBtn = createButton(activity, "原功能", "#F2F2F7", Color.parseColor("#B3007AFF"), new Runnable() {
+    TextView origBtn = createButton(activity, "原功能", Color.parseColor("#B3007AFF"), pc("#F2F2F7"), 14f, 8, 16, 10, true, 0, 0, new Runnable() {
         public void run() {
             dialog.dismiss();
             
@@ -1008,18 +974,9 @@ void showBigCountConfirm(Activity activity, final MsgData data, final String tex
     btnRow.setGravity(Gravity.RIGHT);
     btnRow.setPadding(0, dp(activity, 16), 0, dp(activity, 4));
 
-    TextView cancelBtn = new TextView(activity);
-    cancelBtn.setText("取消");
-    cancelBtn.setTextSize(14);
-    cancelBtn.setTextColor(subColor);
-    cancelBtn.setPadding(dp(activity, 16), dp(activity, 10), dp(activity, 16), dp(activity, 10));
+    TextView cancelBtn = createButton(activity, "取消", subColor, Color.TRANSPARENT, 14f, 0, 16, 10, false, 0, 0, null);
 
-    TextView confirmBtn = new TextView(activity);
-    confirmBtn.setText("继续发送");
-    confirmBtn.setTextSize(14);
-    confirmBtn.setTextColor(errorColor);
-    confirmBtn.setTypeface(null, Typeface.BOLD);
-    confirmBtn.setPadding(dp(activity, 16), dp(activity, 10), dp(activity, 4), dp(activity, 10));
+    TextView confirmBtn = createButton(activity, "继续发送", errorColor, Color.TRANSPARENT, 14f, 0, 16, 10, true, 0, 0, null);
 
     btnRow.addView(cancelBtn);
     btnRow.addView(confirmBtn);
@@ -1135,18 +1092,9 @@ void showRepeatCountDialog(final Activity activity, final MsgData data, final St
     btnRow.setGravity(Gravity.RIGHT);
     btnRow.setPadding(0, dp(activity, 16), 0, dp(activity, 4));
 
-    TextView cancelBtn = new TextView(activity);
-    cancelBtn.setText("取消");
-    cancelBtn.setTextSize(14);
-    cancelBtn.setTextColor(subColor);
-    cancelBtn.setPadding(dp(activity, 16), dp(activity, 10), dp(activity, 16), dp(activity, 10));
+    TextView cancelBtn = createButton(activity, "取消", subColor, Color.TRANSPARENT, 14f, 0, 16, 10, false, 0, 0, null);
 
-    final TextView confirmBtn = new TextView(activity);
-    confirmBtn.setText("开始发送");
-    confirmBtn.setTextSize(14);
-    confirmBtn.setTextColor(accentColor);
-    confirmBtn.setTypeface(null, Typeface.BOLD);
-    confirmBtn.setPadding(dp(activity, 16), dp(activity, 10), dp(activity, 4), dp(activity, 10));
+    final TextView confirmBtn = createButton(activity, "开始发送", accentColor, Color.TRANSPARENT, 14f, 0, 16, 10, true, 0, 0, null);
 
     btnRow.addView(cancelBtn);
     btnRow.addView(confirmBtn);
