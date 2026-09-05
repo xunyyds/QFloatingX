@@ -1756,20 +1756,12 @@ private void showReOrUnDialog(final Activity activity) {
                 LinearLayout optionsContainer = new LinearLayout(activity);
                 optionsContainer.setOrientation(LinearLayout.VERTICAL);
 
-                Button btn1 = new Button(activity);
-                btn1.setText("取消加载脚本".toUpperCase());
-                btn1.setTextColor(Color.parseColor("#FFFF0000"));
-                btn1.setTextSize(14);
-                btn1.setBackgroundColor(Color.parseColor("#00FFFFFF"));
+                TextView btn1 = createButton(activity, "取消加载脚本".toUpperCase(), Color.parseColor("#FFFF0000"), Color.TRANSPARENT, 14f, 0, 16, 8, false, 0, 0, null);
                 btn1.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
                 btn1.setLayoutParams(new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 48)));
 
-                Button btn2 = new Button(activity);
-                btn2.setText("重新加载脚本".toUpperCase());
-                btn2.setTextColor(Color.parseColor("#FFFF0000"));
-                btn2.setTextSize(14);
-                btn2.setBackgroundColor(Color.parseColor("#00FFFFFF"));
+                TextView btn2 = createButton(activity, "重新加载脚本".toUpperCase(), Color.parseColor("#FFFF0000"), Color.TRANSPARENT, 14f, 0, 16, 8, false, 0, 0, null);
                 btn2.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
                 btn2.setLayoutParams(new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 48)));
@@ -1781,11 +1773,7 @@ private void showReOrUnDialog(final Activity activity) {
                 divParams.topMargin = dp(activity, 8);
                 divParams.bottomMargin = dp(activity, 8);
 
-                Button cancelBtn = new Button(activity);
-                cancelBtn.setText("取消");
-                cancelBtn.setTextColor(isDark ? Color.parseColor("#DEEFEFEF") : Color.parseColor("#DE000000"));
-                cancelBtn.setTextSize(14);
-                cancelBtn.setBackgroundColor(Color.parseColor("#00FFFFFF"));
+                TextView cancelBtn = createButton(activity, "取消", isDark ? Color.parseColor("#DEEFEFEF") : Color.parseColor("#DE000000"), Color.TRANSPARENT, 14f, 0, 16, 8, false, 0, 0, null);
                 cancelBtn.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
                 cancelBtn.setLayoutParams(new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 48)));
