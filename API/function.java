@@ -1647,21 +1647,13 @@ EditText addTimeRow(Activity a, LinearLayout parent, String timeVal) {
     etTime.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
     timeRow.addView(etTime);
     
-    TextView btnSchedule = new TextView(a);
-    btnSchedule.setText("📅");
-    btnSchedule.setTextSize(16);
-    btnSchedule.setPadding(dp(a, 12), 0, dp(a, 8), 0);
-    btnSchedule.setBackground(makeFeedbackBg(Color.parseColor("#E8F0FE"), adjustColor(Color.parseColor("#E8F0FE"), 0.9f), dp(a, 6)));
+    TextView btnSchedule = createButton(a, "📅", Color.parseColor("#333333"), Color.parseColor("#E8F0FE"), 16f, 6, 12, 0, false, 0, 0, null);
     btnSchedule.setOnClickListener(new View.OnClickListener() {
         public void onClick(View v) { showSchedulePicker(a, etTime); }
     });
     timeRow.addView(btnSchedule);
     
-    TextView btnTime = new TextView(a);
-    btnTime.setText("⏱");
-    btnTime.setTextSize(16);
-    btnTime.setPadding(dp(a, 8), 0, dp(a, 12), 0);
-    btnTime.setBackground(makeFeedbackBg(Color.parseColor("#E8F0FE"), adjustColor(Color.parseColor("#E8F0FE"), 0.9f), dp(a, 6)));
+    TextView btnTime = createButton(a, "⏱", Color.parseColor("#333333"), Color.parseColor("#E8F0FE"), 16f, 6, 12, 0, false, 0, 0, null);
     btnTime.setOnClickListener(new View.OnClickListener() {
         public void onClick(View v) { showTimePicker(a, etTime); }
     });
@@ -1845,21 +1837,12 @@ void showTimePicker(Activity a, final EditText target) {
                 ctrl.setOrientation(LinearLayout.HORIZONTAL);
                 ctrl.setPadding(0, dp(a, 16), 0, 0);
                 card.addView(ctrl);
-                TextView btnMode = new TextView(a);
-                btnMode.setText(" " + names[0]);
-                btnMode.setTextSize(12);
-                btnMode.setTextColor(Color.parseColor("#3B71FE"));
-                btnMode.setPadding(dp(a, 12), dp(a, 8), dp(a, 12), dp(a, 8));
+                TextView btnMode = createButton(a, " " + names[0], Color.parseColor("#3B71FE"), Color.TRANSPARENT, 12f, 0, 12, 8, false, 0, 0, null);
                 ctrl.addView(btnMode);
                 View sp = new View(a);
                 sp.setLayoutParams(new LinearLayout.LayoutParams(0, 0, 1.0f));
                 ctrl.addView(sp);
-                TextView btnOk = new TextView(a);
-                btnOk.setText("确定");
-                btnOk.setTextSize(14);
-                btnOk.setTextColor(Color.WHITE);
-                btnOk.setBackground(roundRect(Color.parseColor("#3B71FE"), dp(a, 6)));
-                btnOk.setPadding(dp(a, 16), dp(a, 8), dp(a, 16), dp(a, 8));
+                TextView btnOk = createButton(a, "确定", Color.WHITE, Color.parseColor("#3B71FE"), 14f, 6, 16, 8, false, 0, 0, null);
                 ctrl.addView(btnOk);
                 btnMode.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
@@ -1940,12 +1923,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                 modeRow.setPadding(0, dp(a, 16), 0, 0);
                 card.addView(modeRow);
                 
-                final TextView modeBtn = new TextView(a);
-                modeBtn.setText(" 切换模式: " + modeNames[currentMode[0]]);
-                modeBtn.setTextSize(12);
-                modeBtn.setTextColor(Color.parseColor("#3B71FE"));
-                modeBtn.setPadding(dp(a, 12), dp(a, 8), dp(a, 12), dp(a, 8));
-                modeBtn.setBackground(roundRect(Color.parseColor("#F0F5FF"), dp(a, 6)));
+                final TextView modeBtn = createButton(a, " 切换模式: " + modeNames[currentMode[0]], Color.parseColor("#3B71FE"), Color.parseColor("#F0F5FF"), 12f, 6, 12, 8, false, 0, 0, null);
                 modeRow.addView(modeBtn);
                 
                 String currentValue = target.getText().toString().trim();
@@ -2215,12 +2193,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                 btnRow.setPadding(0, dp(a, 20), 0, 0);
                 card.addView(btnRow);
                 
-                TextView cancelBtn = new TextView(a);
-                cancelBtn.setText("取消");
-                cancelBtn.setTextSize(14);
-                cancelBtn.setTextColor(Color.parseColor("#666666"));
-                cancelBtn.setBackground(roundRect(Color.parseColor("#F5F5F5"), dp(a, 6)));
-                cancelBtn.setPadding(dp(a, 24), dp(a, 12), dp(a, 24), dp(a, 12));
+                TextView cancelBtn = createButton(a, "取消", Color.parseColor("#666666"), Color.parseColor("#F5F5F5"), 14f, 6, 24, 12, false, 0, 0, null);
                 cancelBtn.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
                 cancelBtn.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
@@ -2229,13 +2202,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                 });
                 btnRow.addView(cancelBtn);
                 
-                TextView okBtn = new TextView(a);
-                okBtn.setText("确定");
-                okBtn.setTextColor(Color.WHITE);
-                okBtn.setTextSize(14);
-                okBtn.setGravity(Gravity.CENTER);
-                okBtn.setBackground(roundRect(Color.parseColor("#3B71FE"), dp(a, 6)));
-                okBtn.setPadding(dp(a, 24), dp(a, 12), dp(a, 24), dp(a, 12));
+                TextView okBtn = createButton(a, "确定", Color.WHITE, Color.parseColor("#3B71FE"), 14f, 6, 24, 12, false, 0, 0, null);
                 LinearLayout.LayoutParams okParams = new LinearLayout.LayoutParams(0, -2, 1.0f);
                 okParams.setMargins(dp(a, 12), 0, 0, 0);
                 okBtn.setLayoutParams(okParams);
@@ -2465,17 +2432,17 @@ void showEdit(Activity a, final String func, final String gid, final String gn) 
         btnRow.setPadding(0, dp(a, 12), 0, 0);
         card.addView(btnRow);
         
-        TextView sv = makeBtn(a, "保存", Color.WHITE, Color.parseColor("#3B71FE"));
+        TextView sv = createButton(a, "保存", Color.WHITE, Color.parseColor("#3B71FE"), 14f, 8, 16, 10, false, 0, 0, null);
         sv.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
         btnRow.addView(sv);
-        
-        TextView tst = makeBtn(a, "测试", Color.parseColor("#666666"), Color.parseColor("#F5F5F5"));
+
+        TextView tst = createButton(a, "测试", Color.parseColor("#666666"), Color.parseColor("#F5F5F5"), 14f, 8, 16, 10, false, 0, 0, null);
         LinearLayout.LayoutParams lpTst = new LinearLayout.LayoutParams(0, -2, 1.0f);
         lpTst.setMargins(dp(a, 6), 0, dp(a, 6), 0);
         tst.setLayoutParams(lpTst);
         btnRow.addView(tst);
-        
-        TextView cn = makeBtn(a, "取消", Color.parseColor("#666666"), Color.parseColor("#F5F5F5"));
+
+        TextView cn = createButton(a, "取消", Color.parseColor("#666666"), Color.parseColor("#F5F5F5"), 14f, 8, 16, 10, false, 0, 0, null);
         cn.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
         btnRow.addView(cn);
         
@@ -2690,17 +2657,17 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                 editorBtnRow.setPadding(0, dp(a, 12), 0, 0);
                 editorContainer.addView(editorBtnRow);
 
-                TextView btnSave = makeBtn(a, "保存", Color.WHITE, Color.parseColor("#3B71FE"));
+                TextView btnSave = createButton(a, "保存", Color.WHITE, Color.parseColor("#3B71FE"), 14f, 8, 16, 10, false, 0, 0, null);
                 btnSave.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
                 editorBtnRow.addView(btnSave);
 
-                TextView btnTest = makeBtn(a, "测试", Color.parseColor("#666666"), Color.parseColor("#F5F5F5"));
+                TextView btnTest = createButton(a, "测试", Color.parseColor("#666666"), Color.parseColor("#F5F5F5"), 14f, 8, 16, 10, false, 0, 0, null);
                 LinearLayout.LayoutParams lpTest = new LinearLayout.LayoutParams(0, -2, 1.0f);
                 lpTest.setMargins(dp(a, 6), 0, dp(a, 6), 0);
                 btnTest.setLayoutParams(lpTest);
                 editorBtnRow.addView(btnTest);
 
-                TextView btnCancel = makeBtn(a, "取消", Color.parseColor("#666666"), Color.parseColor("#F5F5F5"));
+                TextView btnCancel = createButton(a, "取消", Color.parseColor("#666666"), Color.parseColor("#F5F5F5"), 14f, 8, 16, 10, false, 0, 0, null);
                 btnCancel.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
                 editorBtnRow.addView(btnCancel);
 
@@ -2709,8 +2676,10 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                 lst.setPadding(0, dp(a, 6), 0, 0);
                 cd.addView(lst);
 
-                TextView btnAdd = makeBtn(a, "+ 新建功能", Color.WHITE, Color.parseColor("#3B71FE"));
-                cd.addView(btnAdd, cd.indexOfChild(lst));
+                TextView btnAdd = createButton(a, "+ 新建功能", Color.WHITE, Color.parseColor("#3B71FE"), 14f, 8, 16, 10, false, 0, 0, null);
+                LinearLayout.LayoutParams btnAddLp = new LinearLayout.LayoutParams(-1, -2);
+                btnAddLp.setMargins(0, dp(a, 6), 0, 0);
+                cd.addView(btnAdd, cd.indexOfChild(lst), btnAddLp);
 
                 View ln = new View(a);
                 ln.setBackgroundColor(Color.parseColor("#EEEEEE"));
@@ -2914,7 +2883,10 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                     }
                 });
 
-                TextView cls = makeBtn(a, "关闭", Color.parseColor("#666666"), Color.parseColor("#F5F5F5"));
+                TextView cls = createButton(a, "关闭", Color.parseColor("#666666"), Color.parseColor("#F5F5F5"), 14f, 8, 16, 10, false, 0, 0, null);
+                LinearLayout.LayoutParams clsLp = new LinearLayout.LayoutParams(-1, -2);
+                clsLp.setMargins(0, dp(a, 6), 0, 0);
+                cls.setLayoutParams(clsLp);
                 cls.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         isAdding = false;
@@ -2995,12 +2967,7 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
         content.setFocusable(true);
         itemContainer.addView(content);
 
-        final TextView deleteBtn = new TextView(a);
-        deleteBtn.setText("删除");
-        deleteBtn.setTextSize(14);
-        deleteBtn.setTextColor(Color.WHITE);
-        deleteBtn.setBackground(roundRect(Color.parseColor("#FF4444"), dp(a, 8)));
-        deleteBtn.setGravity(Gravity.CENTER);
+        final TextView deleteBtn = createButton(a, "删除", Color.WHITE, Color.parseColor("#FF4444"), 14f, 8, 16, 10, false, 0, 0, null);
         deleteBtn.setLayoutParams(new LinearLayout.LayoutParams(deleteBtnWidth, LinearLayout.LayoutParams.MATCH_PARENT));
         itemContainer.addView(deleteBtn);
 
@@ -3094,13 +3061,7 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
         dlv.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(a, 1)));
         exp.addView(dlv);
 
-        TextView btnTestExp = new TextView(a);
-        btnTestExp.setText("▶ 测试执行");
-        btnTestExp.setTextSize(12);
-        btnTestExp.setTextColor(Color.parseColor("#3B71FE"));
-        btnTestExp.setBackground(makeFeedbackBg(Color.parseColor("#E8EEFF"), adjustColor(Color.parseColor("#E8EEFF"), 0.9f), dp(a, 6)));
-        btnTestExp.setPadding(0, dp(a, 8), 0, dp(a, 8));
-        btnTestExp.setGravity(Gravity.CENTER);
+        TextView btnTestExp = createButton(a, "▶ 测试执行", Color.parseColor("#3B71FE"), Color.parseColor("#E8EEFF"), 12f, 6, 0, 8, false, 0, 0, null);
         btnTestExp.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 testCode(f, null, f);
@@ -3306,13 +3267,7 @@ void showDeleteConfirm(Activity a, final String f, final View itemView, final Li
     buttons.setOrientation(LinearLayout.HORIZONTAL);
     layout.addView(buttons);
     
-    TextView cancel = new TextView(a);
-    cancel.setText("取消");
-    cancel.setTextColor(Color.parseColor("#666666"));
-    cancel.setTextSize(15);
-    cancel.setGravity(Gravity.CENTER);
-    cancel.setBackground(roundRect(Color.parseColor("#F5F5F5"), dp(a, 8)));
-    cancel.setPadding(dp(a, 24), dp(a, 12), dp(a, 24), dp(a, 12));
+    TextView cancel = createButton(a, "取消", Color.parseColor("#666666"), Color.parseColor("#F5F5F5"), 15f, 8, 24, 12, false, 0, 0, null);
     cancel.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1f));
     cancel.setOnClickListener(new View.OnClickListener() {
         public void onClick(View v) {
@@ -3321,13 +3276,7 @@ void showDeleteConfirm(Activity a, final String f, final View itemView, final Li
     });
     buttons.addView(cancel);
     
-    TextView confirm = new TextView(a);
-    confirm.setText("删除");
-    confirm.setTextColor(Color.WHITE);
-    confirm.setTextSize(15);
-    confirm.setGravity(Gravity.CENTER);
-    confirm.setBackground(roundRect(Color.parseColor("#FF4444"), dp(a, 8)));
-    confirm.setPadding(dp(a, 24), dp(a, 12), dp(a, 24), dp(a, 12));
+    TextView confirm = createButton(a, "删除", Color.WHITE, Color.parseColor("#FF4444"), 15f, 8, 24, 12, false, 0, 0, null);
     LinearLayout.LayoutParams confirmParams = new LinearLayout.LayoutParams(0, -2, 1f);
     confirmParams.setMargins(dp(a, 12), 0, 0, 0);
     confirm.setLayoutParams(confirmParams);
