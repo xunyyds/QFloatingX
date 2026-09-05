@@ -36,13 +36,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 
-final String TAG_KEEP_ORIGINAL_COLOR = "keep_original_color";
-final String TAG_KEEP_ORIGINAL_BG = "keep_original_bg";
-final String TAG_SKIP_THEME = "skip_theme";
-final String TAG_CUSTOM_TEXT_COLOR = "custom_text_color";
-final String TAG_ANIMATION_DURATION = "animation_duration";
-final String TAG_SKIP_ANIMATION = "skip_animation";
-
 static final long DEFAULT_ANIMATION_DURATION = 300L;
 static final long COLOR_ANIMATION_DURATION = 250L;
 static final long BACKGROUND_ANIMATION_DURATION = 300L;
@@ -133,48 +126,64 @@ GradientDrawable roundRect(int c, int r) {
     return g;
 }
 
-EditText makeInput(Activity a, String h, int bg) {
-    int pressedBg = adjustColor(bg, 0.9f);
+void applyInputStyle(Activity a, EditText e, int bg, int radius) {
+    final GradientDrawable gd = new GradientDrawable();
+    gd.setColor(bg);
+    gd.setCornerRadius(radius);
+    gd.setStroke(dp(a, 1), adjustColor(bg, 0.7f));
+    e.setBackground(gd);
+    final int fb = adjustColor(bg, 0.7f);
+    final int fp = tc(a, "primary");
+    e.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+        public void onFocusChange(View v, boolean hasFocus) {
+            gd.setStroke(dp(a, 1), hasFocus ? fp : fb);
+        }
+    });
+}
+
+EditText makeInput(Activity a, String h, Integer bg) {
     EditText e = new EditText(a);
     e.setHint(h);
     e.setTextSize(13);
-    e.setTextColor(Color.parseColor("#222222"));
-    e.setHintTextColor(Color.parseColor("#BBBBBB"));
-    e.setBackground(makeFeedbackBg(bg, pressedBg, dp(a, 6)));
+    int useBg = (bg == null) ? tc(a, "surface") : bg;
+    if (bg == null) {
+        e.setTextColor(tc(a, "on_surface"));
+        e.setHintTextColor(tc(a, "on_surface_variant"));
+    } else {
+        e.setTextColor(Color.parseColor("#222222"));
+        e.setHintTextColor(Color.parseColor("#BBBBBB"));
+    }
+    applyInputStyle(a, e, useBg, dp(a, 6));
     e.setPadding(dp(a, 10), dp(a, 8), dp(a, 10), dp(a, 8));
     e.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
     return e;
 }
 
 EditText makeSmallInput(Activity a, String h, int bg) {
-    int pressedBg = adjustColor(bg, 0.9f);
     EditText e = new EditText(a);
     e.setHint(h);
     e.setTextSize(12);
     e.setTextColor(Color.parseColor("#222222"));
     e.setHintTextColor(Color.parseColor("#BBBBBB"));
-    e.setBackground(makeFeedbackBg(bg, pressedBg, dp(a, 4)));
+    applyInputStyle(a, e, bg, dp(a, 4));
     e.setPadding(dp(a, 8), dp(a, 6), dp(a, 8), dp(a, 6));
     e.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
     e.setGravity(Gravity.CENTER);
-    LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(dp(a, 60), -2);
-    e.setLayoutParams(p);
+    e.setLayoutParams(new LinearLayout.LayoutParams(dp(a, 60), -2));
     return e;
 }
 
 EditText makeTinyInput(Activity a, String h, int bg) {
-    int pressedBg = adjustColor(bg, 0.9f);
     EditText e = new EditText(a);
     e.setHint(h);
     e.setTextSize(11);
     e.setTextColor(Color.parseColor("#222222"));
     e.setHintTextColor(Color.parseColor("#BBBBBB"));
-    e.setBackground(makeFeedbackBg(bg, pressedBg, dp(a, 4)));
+    applyInputStyle(a, e, bg, dp(a, 4));
     e.setPadding(dp(a, 6), dp(a, 4), dp(a, 6), dp(a, 4));
     e.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
     e.setGravity(Gravity.CENTER);
-    LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(dp(a, 45), dp(a, 32));
-    e.setLayoutParams(p);
+    e.setLayoutParams(new LinearLayout.LayoutParams(dp(a, 45), dp(a, 32)));
     return e;
 }
 
@@ -185,7 +194,7 @@ EditText makeInputCompact(Activity ctx, String val, String hint, int colorBg) {
     et.setTextSize(13);
     et.setTextColor(Color.parseColor("#222222"));
     et.setHintTextColor(Color.parseColor("#BBBBBB"));
-    et.setBackground(roundRect(colorBg, dp(ctx, 6)));
+    applyInputStyle(ctx, et, colorBg, dp(ctx, 6));
     et.setPadding(dp(ctx, 10), dp(ctx, 8), dp(ctx, 10), dp(ctx, 8));
     et.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
     return et;
@@ -279,88 +288,14 @@ void setSwitch(TextView v, boolean o, int c) {
     v.setBackground(makeFeedbackBg(bg, adjustColor(bg, 0.9f), dp(v.getContext(), 20)));
 }
 
-void setKeepOriginalColor(View view) {
-    if (view != null) {
-        view.setTag(TAG_KEEP_ORIGINAL_COLOR, true);
-    }
-}
-
 boolean shouldKeepOriginalColor(View view) {
     if (view == null) return false;
     Object tag = view.getTag(TAG_KEEP_ORIGINAL_COLOR);
     return tag != null && Boolean.TRUE.equals(tag);
 }
 
-void setKeepOriginalBackground(View view) {
-    if (view != null) {
-        view.setTag(TAG_KEEP_ORIGINAL_BG, true);
-    }
-}
-
-boolean shouldKeepOriginalBackground(View view) {
-    if (view == null) return false;
-    Object tag = view.getTag(TAG_KEEP_ORIGINAL_BG);
-    return tag != null && Boolean.TRUE.equals(tag);
-}
-
-void setSkipTheme(View view) {
-    if (view != null) {
-        view.setTag(TAG_SKIP_THEME, true);
-    }
-}
-
-boolean shouldSkipTheme(View view) {
-    if (view == null) return false;
-    Object tag = view.getTag(TAG_SKIP_THEME);
-    return tag != null && Boolean.TRUE.equals(tag);
-}
-
-void setCustomTextColor(View view, int color) {
-    if (view != null) {
-        view.setTag(TAG_CUSTOM_TEXT_COLOR, color);
-    }
-}
-
-int getCustomTextColor(View view, int defaultColor) {
-    if (view == null) return defaultColor;
-    Object tag = view.getTag(TAG_CUSTOM_TEXT_COLOR);
-    if (tag instanceof Integer) {
-        return (Integer) tag;
-    }
-    return defaultColor;
-}
-
-void setSkipAnimation(View view) {
-    if (view != null) {
-        view.setTag(TAG_SKIP_ANIMATION, true);
-    }
-}
-
-boolean shouldSkipAnimation(View view) {
-    if (view == null) return false;
-    Object tag = view.getTag(TAG_SKIP_ANIMATION);
-    return tag != null && Boolean.TRUE.equals(tag);
-}
-
-void setAnimationDuration(View view, long durationMs) {
-    if (view != null) {
-        view.setTag(TAG_ANIMATION_DURATION, durationMs);
-        viewAnimationDurations.put(view, durationMs);
-    }
-}
-
-long getAnimationDuration(View view) {
-    if (view == null) return DEFAULT_ANIMATION_DURATION;
-    Object tag = view.getTag(TAG_ANIMATION_DURATION);
-    if (tag instanceof Long) {
-        return (Long) tag;
-    }
-    Long cached = viewAnimationDurations.get(view);
-    return cached != null ? cached : DEFAULT_ANIMATION_DURATION;
-}
-
 void animateTextColor(final TextView textView, int fromColor, int toColor, long duration) {
-    if (textView == null || shouldSkipAnimation(textView)) {
+    if (textView == null || textView != null && Boolean.TRUE.equals(textView.getTag("skip_animation"))) {
         if (textView != null) {
             textView.setTextColor(toColor);
         }
@@ -395,7 +330,7 @@ void animateTextColor(TextView textView, int fromColor, int toColor) {
 }
 
 void animateBackgroundColor(final View view, int fromColor, int toColor, long duration) {
-    if (view == null || shouldSkipAnimation(view)) {
+    if (view == null || view != null && Boolean.TRUE.equals(view.getTag("skip_animation"))) {
         if (view != null) {
             view.setBackgroundColor(toColor);
         }
@@ -442,7 +377,7 @@ void animateBackgroundDrawable(final View view, final Drawable newDrawable, long
         return;
     }
     
-    if (shouldSkipAnimation(view)) {
+    if (view != null && Boolean.TRUE.equals(view.getTag("skip_animation"))) {
         view.setBackground(newDrawable);
         return;
     }
@@ -478,7 +413,7 @@ void animateFadeIn(final View view, long duration) {
         return;
     }
     
-    if (shouldSkipAnimation(view)) {
+    if (view != null && Boolean.TRUE.equals(view.getTag("skip_animation"))) {
         view.setAlpha(1f);
         return;
     }
@@ -504,7 +439,7 @@ void animateFadeOut(final View view, long duration) {
         return;
     }
     
-    if (shouldSkipAnimation(view)) {
+    if (view != null && Boolean.TRUE.equals(view.getTag("skip_animation"))) {
         view.setAlpha(0f);
         return;
     }
@@ -529,7 +464,7 @@ void animateScaleIn(final View view, long duration) {
         return;
     }
     
-    if (shouldSkipAnimation(view)) {
+    if (view != null && Boolean.TRUE.equals(view.getTag("skip_animation"))) {
         view.setScaleX(1f);
         view.setScaleY(1f);
         return;
@@ -558,7 +493,7 @@ void animateFadeScaleIn(final View view, long duration) {
         return;
     }
     
-    if (shouldSkipAnimation(view)) {
+    if (view != null && Boolean.TRUE.equals(view.getTag("skip_animation"))) {
         view.setAlpha(1f);
         view.setScaleX(1f);
         view.setScaleY(1f);
@@ -1459,7 +1394,7 @@ Typeface getCustomTypeface(String typeName) {
     return Typeface.DEFAULT;
 }
 
-void applyUiTheme(final Activity activity, final AlertDialog dialog) {
+void applyUiTheme(final Activity activity, final android.app.Dialog dialog) {
     if (dialog == null) return;
     
     final Window window = dialog.getWindow();
@@ -1481,7 +1416,7 @@ void applyUiTheme(final Activity activity, final AlertDialog dialog) {
     executeApplyTheme(activity, dialog, dialogW, dialogH);
 }
 
-void executeApplyTheme(final Activity activity, final AlertDialog dialog, final int dialogW, final int dialogH) {
+void executeApplyTheme(final Activity activity, final android.app.Dialog dialog, final int dialogW, final int dialogH) {
     if (dialog == null || dialog.getWindow() == null) {
         return;
     }
@@ -1623,6 +1558,28 @@ void executeApplyTheme(final Activity activity, final AlertDialog dialog, final 
     } catch (Throwable e) {
         try { e.printStackTrace(); } catch (Exception ex) {}
     }
+}
+
+void applyViewTheme(final Activity activity, final View root) {
+    if (activity == null || root == null) return;
+    final boolean isDark = isThemeDark(activity);
+    final String textColorUser = getString("settings", isDark ? "ui_text_color_dark" : "ui_text_color_light", "");
+    final String fontType = getString("settings", "ui_font_type", "default");
+    float fSize = 1.0f;
+    try { fSize = Float.parseFloat(getString("settings", "ui_font_size", "1.0")); } catch(Exception e){}
+    final float fontSizeScale = fSize;
+    final Typeface tf = getCustomTypeface(fontType);
+    int calculatedTextColor;
+    if (isValidHexColor(textColorUser)) {
+        calculatedTextColor = Color.parseColor(textColorUser);
+    } else {
+        calculatedTextColor = isDark ? Color.parseColor("#FFEFEFEF") : Color.parseColor("#FF333333");
+    }
+    new Handler(Looper.getMainLooper()).post(new Runnable() {
+        public void run() {
+            updateViewStylesRecursively(root, calculatedTextColor, tf, fontSizeScale);
+        }
+    });
 }
 
 void applyDrawableWithTransition(final Activity activity, final Window window, final Drawable newDrawable) {
@@ -1888,6 +1845,7 @@ void applyWindowRadius(final Activity activity, final Window window) {
         final float radius = 16 * activity.getResources().getDisplayMetrics().density;
         if (decor != null) {
             if (android.os.Build.VERSION.SDK_INT >= 21) {
+                decor.setElevation(0);
                 decor.setClipToOutline(true);
                 decor.setOutlineProvider(new ViewOutlineProvider() {
                     public void getOutline(View view, Outline outline) {
@@ -2030,7 +1988,7 @@ void updateViewStylesRecursively(View view, int textColor, Typeface tf, float fo
     if (view == null) return;
     
     try {
-        if (shouldSkipTheme(view)) {
+        if (view != null && Boolean.TRUE.equals(view.getTag("skip_theme"))) {
             return;
         }
         
@@ -2038,10 +1996,10 @@ void updateViewStylesRecursively(View view, int textColor, Typeface tf, float fo
             TextView tv = (TextView) view;
             
             String className = tv.getClass().getName();
-            if (className.contains("Search") || className.contains("EditText") || 
-                className.contains("AutoComplete") || className.contains("MultiAutoComplete")) {
+            if (className.contains("Search") || className.contains("AutoComplete") || className.contains("MultiAutoComplete")) {
                 return;
             }
+            boolean isEditText = className.contains("EditText");
             
             if (tv.getId() == android.R.id.title || tv.getId() == android.R.id.alertTitle ||
                 tv.getId() == android.R.id.text1 || tv.getId() == android.R.id.text2) {
@@ -2052,16 +2010,18 @@ void updateViewStylesRecursively(View view, int textColor, Typeface tf, float fo
                 return;
             }
             
-            int customColor = getCustomTextColor(tv, -1);
-            if (customColor != -1) {
-                int currentColor = tv.getCurrentTextColor();
-                if (currentColor != customColor) {
-                    animateTextColor(tv, currentColor, customColor, getAnimationDuration(tv));
-                }
-            } else if (!shouldKeepOriginalColor(tv)) {
-                int currentColor = tv.getCurrentTextColor();
-                if (isDefaultTextColor(currentColor)) {
-                    animateTextColor(tv, currentColor, textColor, getAnimationDuration(tv));
+            if (!isEditText) {
+                int customColor = (tv != null && tv.getTag("custom_text_color") instanceof Integer) ? (Integer)tv.getTag("custom_text_color") : -1;
+                if (customColor != -1) {
+                    int currentColor = tv.getCurrentTextColor();
+                    if (currentColor != customColor) {
+                        animateTextColor(tv, currentColor, customColor, (tv != null && tv.getTag("animation_duration") instanceof Long) ? (Long)tv.getTag("animation_duration") : 300L);
+                    }
+                } else if (!shouldKeepOriginalColor(tv) && tv.getBackground() == null) {
+                    int currentColor = tv.getCurrentTextColor();
+                    if (isDefaultTextColor(currentColor)) {
+                        animateTextColor(tv, currentColor, textColor, (tv != null && tv.getTag("animation_duration") instanceof Long) ? (Long)tv.getTag("animation_duration") : 300L);
+                    }
                 }
             }
             
@@ -2075,7 +2035,7 @@ void updateViewStylesRecursively(View view, int textColor, Typeface tf, float fo
                 tv.setTypeface(tf, style);
             }
             
-            if (!shouldKeepOriginalColor(tv)) {
+            if (!shouldKeepOriginalColor(tv) && tv.getBackground() == null) {
                 int currentColor = tv.getCurrentTextColor();
                 if (isDefaultTextColor(currentColor)) {
                     if (textColor == Color.parseColor("#FFEFEFEF")) {
@@ -2351,6 +2311,10 @@ int pc(String hex) {
         return (int)r;
     } catch (Exception e) { return -16777216; }
 }
+
+int tc(Activity a, String key) { return pc(getSettingsThemeColor(a, key)); }
+
+int tca(Activity a, String key, int alpha) { return (pc(getSettingsThemeColor(a, key)) & 0x00FFFFFF) | (alpha << 24); }
 
 int dpx(Activity activity, float d) {
     try {
