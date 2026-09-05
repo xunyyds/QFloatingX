@@ -342,7 +342,7 @@ void showPBSenderDialog() {
         
         LinearLayout card = new LinearLayout(act);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setBackground(makeRoundRect(Color.parseColor("#FFFFFF"), dp(act, 16)));
+        card.setBackground(roundRect(Color.parseColor("#FFFFFF"), dp(act, 16)));
         card.setPadding(dp(act, 20), dp(act, 20), dp(act, 20), dp(act, 20));
         scroll.addView(card);
         
@@ -374,9 +374,9 @@ void showPBSenderDialog() {
         templateContainer.setPadding(0, 0, 0, dp(act, 12));
         card.addView(templateContainer);
         
-        TextView btnSave = makeActionBtn(act, "保存模板", Color.WHITE, Color.parseColor("#3B71FE"));
-        TextView btnLoad = makeActionBtn(act, "使用模板", Color.parseColor("#3B71FE"), Color.parseColor("#E8EEFF"));
-        TextView btnPreview = makeActionBtn(act, "预览", Color.parseColor("#3B71FE"), Color.parseColor("#E8EEFF"));
+        TextView btnSave = createButton(act, "保存模板", Color.WHITE, Color.parseColor("#3B71FE"), 14f, 8, 16, 10, false, 0, 0, null);
+        TextView btnLoad = createButton(act, "使用模板", Color.parseColor("#3B71FE"), Color.parseColor("#E8EEFF"), 14f, 8, 16, 10, false, 0, 0, null);
+        TextView btnPreview = createButton(act, "预览", Color.parseColor("#3B71FE"), Color.parseColor("#E8EEFF"), 14f, 8, 16, 10, false, 0, 0, null);
         
         LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(0, -2, 1);
         btnParams.setMargins(0, 0, dp(act, 8), 0);
@@ -443,8 +443,8 @@ void showPBSenderDialog() {
         bottomContainer.setPadding(0, dp(act, 20), 0, 0);
         card.addView(bottomContainer);
         
-        TextView btnCancel = makeActionBtn(act, "取消", Color.parseColor("#666666"), Color.parseColor("#F7F8FA"));
-        TextView btnConfirm = makeActionBtn(act, "发送", Color.WHITE, Color.parseColor("#3B71FE"));
+        TextView btnCancel = createButton(act, "取消", Color.parseColor("#666666"), Color.parseColor("#F7F8FA"), 14f, 8, 16, 10, false, 0, 0, null);
+        TextView btnConfirm = createButton(act, "发送", Color.WHITE, Color.parseColor("#3B71FE"), 14f, 8, 16, 10, false, 0, 0, null);
         
         LinearLayout.LayoutParams bottomBtnParams = new LinearLayout.LayoutParams(0, dp(act, 44), 1);
         bottomBtnParams.setMargins(0, 0, dp(act, 12), 0);
@@ -538,7 +538,7 @@ void showTemplateSelectorDialog(Activity act, EditText etService, EditText etPB)
     
     LinearLayout card = new LinearLayout(act);
     card.setOrientation(LinearLayout.VERTICAL);
-    card.setBackground(makeRoundRect(Color.parseColor("#FFFFFF"), dp(act, 16)));
+    card.setBackground(roundRect(Color.parseColor("#FFFFFF"), dp(act, 16)));
     card.setPadding(dp(act, 20), dp(act, 20), dp(act, 20), dp(act, 20));
     scroll.addView(card);
     
@@ -589,9 +589,8 @@ void showTemplateSelectorDialog(Activity act, EditText etService, EditText etPB)
             String name = (String) e.getKey();
             String templateData = (String) e.getValue();
             
-            TextView templateItem = makeActionBtn(act, name, Color.parseColor("#222222"), Color.parseColor("#F7F8FA"));
+            TextView templateItem = createButton(act, name, Color.parseColor("#222222"), Color.parseColor("#F7F8FA"), 14f, 8, 16, 12, false, 0, 0, null);
             templateItem.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
-            templateItem.setPadding(dp(act, 16), dp(act, 12), dp(act, 16), dp(act, 12));
             card.addView(templateItem);
             
             templateItem.setOnClickListener(v -> {
@@ -608,8 +607,7 @@ void showTemplateSelectorDialog(Activity act, EditText etService, EditText etPB)
         }
     }
     
-    TextView btnClose = makeActionBtn(act, "关闭", Color.parseColor("#666666"), Color.parseColor("#F7F8FA"));
-    btnClose.setPadding(0, dp(act, 20), 0, 0);
+    TextView btnClose = createButton(act, "关闭", Color.parseColor("#666666"), Color.parseColor("#F7F8FA"), 14f, 8, 0, 20, false, 0, 0, null);
     card.addView(btnClose);
     btnClose.setOnClickListener(v -> dialog.dismiss());
     
@@ -636,7 +634,7 @@ void showPreviewDialog(Activity act, String service, String pbData) {
     
     LinearLayout card = new LinearLayout(act);
     card.setOrientation(LinearLayout.VERTICAL);
-    card.setBackground(makeRoundRect(Color.parseColor("#FFFFFF"), dp(act, 16)));
+    card.setBackground(roundRect(Color.parseColor("#FFFFFF"), dp(act, 16)));
     card.setPadding(dp(act, 20), dp(act, 20), dp(act, 20), dp(act, 20));
     scroll.addView(card);
     
@@ -654,7 +652,7 @@ void showPreviewDialog(Activity act, String service, String pbData) {
     tvService.setTextSize(13);
     tvService.setTextColor(Color.parseColor("#222222"));
     tvService.setPadding(dp(act, 12), dp(act, 8), dp(act, 12), dp(act, 8));
-    tvService.setBackground(makeRoundRect(Color.parseColor("#F7F8FA"), dp(act, 6)));
+    tvService.setBackground(roundRect(Color.parseColor("#F7F8FA"), dp(act, 6)));
     card.addView(tvService);
     
     card.addView(makeSubTitleCompact(act, "PB数据 (JSON)", Color.parseColor("#666666")));
@@ -663,7 +661,7 @@ void showPreviewDialog(Activity act, String service, String pbData) {
     tvPB.setTextSize(13);
     tvPB.setTextColor(Color.parseColor("#222222"));
     tvPB.setPadding(dp(act, 12), dp(act, 12), dp(act, 12), dp(act, 12));
-    tvPB.setBackground(makeRoundRect(Color.parseColor("#F7F8FA"), dp(act, 6)));
+    tvPB.setBackground(roundRect(Color.parseColor("#F7F8FA"), dp(act, 6)));
     tvPB.setMinLines(6);
     card.addView(tvPB);
     
@@ -681,11 +679,10 @@ void showPreviewDialog(Activity act, String service, String pbData) {
     tvEncoded.setTextSize(11);
     tvEncoded.setTextColor(Color.parseColor("#666666"));
     tvEncoded.setPadding(dp(act, 12), dp(act, 8), dp(act, 12), dp(act, 8));
-    tvEncoded.setBackground(makeRoundRect(Color.parseColor("#F7F8FA"), dp(act, 6)));
+    tvEncoded.setBackground(roundRect(Color.parseColor("#F7F8FA"), dp(act, 6)));
     card.addView(tvEncoded);
     
-    TextView btnClose = makeActionBtn(act, "关闭", Color.parseColor("#666666"), Color.parseColor("#F7F8FA"));
-    btnClose.setPadding(0, dp(act, 20), 0, 0);
+    TextView btnClose = createButton(act, "关闭", Color.parseColor("#666666"), Color.parseColor("#F7F8FA"), 14f, 8, 0, 20, false, 0, 0, null);
     card.addView(btnClose);
     btnClose.setOnClickListener(v -> dialog.dismiss());
     
@@ -897,22 +894,14 @@ void showFaceReplyConfigDialog(Object data) {
                 btnBox.setPadding(0, dp(act, 20), 0, 0);
                 btnBox.setGravity(Gravity.RIGHT);
 
-                TextView cancel = new TextView(act);
-                cancel.setText("取消");
-                cancel.setTextSize(14);
-                cancel.setTextColor(subTextColor);
-                cancel.setPadding(dp(act, 16), dp(act, 10), dp(act, 16), dp(act, 10));
+                TextView cancel = createButton(act, "取消", subTextColor, Color.TRANSPARENT, 14f, 0, 16, 10, false, 0, 0, null);
                 cancel.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         if (ref[0] != null) ref[0].dismiss();
                     }
                 });
 
-                final TextView confirm = new TextView(act);
-                confirm.setText("保存并使用");
-                confirm.setTextSize(14);
-                confirm.setTextColor(accentColor);
-                confirm.setPadding(dp(act, 16), dp(act, 10), dp(act, 16), dp(act, 10));
+                final TextView confirm = createButton(act, "保存并使用", accentColor, Color.TRANSPARENT, 14f, 0, 16, 10, false, 0, 0, null);
                 confirm.setEnabled(true);
                 confirm.setAlpha(1f);
 
@@ -1173,12 +1162,7 @@ void showVoiceSendDialog(Object data) {
                 etVoiceId.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
                 voiceRow.addView(etVoiceId);
 
-                TextView selectBtn = new TextView(act);
-                selectBtn.setText("选择");
-                selectBtn.setTextSize(14);
-                selectBtn.setTextColor(accentColor);
-                selectBtn.setPadding(dp(act, 16), dp(act, 8), dp(act, 16), dp(act, 8));
-                selectBtn.setBackgroundDrawable(null); // 纯文本无背景
+                TextView selectBtn = createButton(act, "选择", accentColor, Color.TRANSPARENT, 14f, 0, 16, 8, false, 0, 0, null);
                 voiceRow.addView(selectBtn);
 
                 root.addView(voiceRow);
@@ -1219,22 +1203,14 @@ void showVoiceSendDialog(Object data) {
                 btnRow.setPadding(0, dp(act, 20), 0, 0);
                 btnRow.setGravity(Gravity.RIGHT);
 
-                TextView cancelBtn = new TextView(act);
-                cancelBtn.setText("取消");
-                cancelBtn.setTextSize(14);
-                cancelBtn.setTextColor(subTextColor);
-                cancelBtn.setPadding(dp(act, 16), dp(act, 10), dp(act, 16), dp(act, 10));
+                TextView cancelBtn = createButton(act, "取消", subTextColor, Color.TRANSPARENT, 14f, 0, 16, 10, false, 0, 0, null);
                 cancelBtn.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         if (ref[0] != null) ref[0].dismiss();
                     }
                 });
 
-                TextView sendBtn = new TextView(act);
-                sendBtn.setText("发送");
-                sendBtn.setTextSize(14);
-                sendBtn.setTextColor(accentColor);
-                sendBtn.setPadding(dp(act, 16), dp(act, 10), dp(act, 16), dp(act, 10));
+                TextView sendBtn = createButton(act, "发送", accentColor, Color.TRANSPARENT, 14f, 0, 16, 10, false, 0, 0, null);
 
                 btnRow.addView(cancelBtn);
                 btnRow.addView(sendBtn);
@@ -1353,12 +1329,7 @@ void showVoiceListDialog(final Activity act, final JSONArray voiceArray,
 
                 root.addView(scroll);
 
-                TextView closeBtn = new TextView(act);
-                closeBtn.setText("关闭");
-                closeBtn.setTextSize(14);
-                closeBtn.setTextColor(subTextColor);
-                closeBtn.setGravity(Gravity.CENTER);
-                closeBtn.setPadding(0, dp(act, 16), 0, 0);
+                TextView closeBtn = createButton(act, "关闭", subTextColor, Color.TRANSPARENT, 14f, 0, 0, 16, false, 0, 0, null);
                 closeBtn.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         if (dialogRef[0] != null) dialogRef[0].dismiss();
@@ -1457,7 +1428,7 @@ void showTrafficRedPacketDialog(Object data) {
             outer.addView(scroll);
             LinearLayout card = new LinearLayout(act);
             card.setOrientation(LinearLayout.VERTICAL);
-            card.setBackground(makeRoundRect(isThemeDark(act) ? Color.parseColor("#FF2D2D2D") : Color.WHITE, dp(act, 16)));
+            card.setBackground(roundRect(isThemeDark(act) ? Color.parseColor("#FF2D2D2D") : Color.WHITE, dp(act, 16)));
             card.setPadding(dp(act, 20), dp(act, 20), dp(act, 20), dp(act, 20));
             scroll.addView(card);
 
@@ -1494,8 +1465,8 @@ void showTrafficRedPacketDialog(Object data) {
             btnLayout.setGravity(Gravity.CENTER);
             btnLayout.setPadding(0, dp(act, 20), 0, 0);
 
-            TextView cancel = makeActionBtn(act, "取消", Color.parseColor("#666666"), dark ? Color.parseColor("#FF3D3D3D") : Color.parseColor("#F7F8FA"));
-            TextView send = makeActionBtn(act, "发送", Color.WHITE, Color.parseColor("#3B71FE"));
+            TextView cancel = createButton(act, "取消", Color.parseColor("#666666"), dark ? Color.parseColor("#FF3D3D3D") : Color.parseColor("#F7F8FA"), 14f, 8, 16, 10, false, 0, 0, null);
+            TextView send = createButton(act, "发送", Color.WHITE, Color.parseColor("#3B71FE"), 14f, 8, 16, 10, false, 0, 0, null);
 
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(act, 44), 1f);
             lp.setMargins(0, 0, dp(act, 12), 0);
@@ -2019,22 +1990,14 @@ void showSuperFaceSendDialog(Object data) {
                 btnBox.setPadding(0, dp(act, 24), 0, 0);
                 btnBox.setGravity(Gravity.RIGHT);
 
-                TextView cancel = new TextView(act);
-                cancel.setText("取消");
-                cancel.setTextSize(14);
-                cancel.setTextColor(subTextColor);
-                cancel.setPadding(dp(act, 16), dp(act, 10), dp(act, 16), dp(act, 10));
+                TextView cancel = createButton(act, "取消", subTextColor, Color.TRANSPARENT, 14f, 0, 16, 10, false, 0, 0, null);
                 cancel.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         if (ref[0] != null) ref[0].dismiss();
                     }
                 });
 
-                final TextView send = new TextView(act);
-                send.setText("发送");
-                send.setTextSize(14);
-                send.setTextColor(accentColor);
-                send.setPadding(dp(act, 16), dp(act, 10), dp(act, 16), dp(act, 10));
+                final TextView send = createButton(act, "发送", accentColor, Color.TRANSPARENT, 14f, 0, 16, 10, false, 0, 0, null);
 
                 btnBox.addView(cancel);
                 btnBox.addView(send);
