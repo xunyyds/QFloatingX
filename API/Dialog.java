@@ -184,22 +184,14 @@ public void showShutUpDialog(Activity activity, String qun, String uin, String n
                 btnBox.setPadding(0, dp(activity, 20), 0, 0);
                 btnBox.setGravity(Gravity.RIGHT);
 
-                TextView cancel = new TextView(activity);
-                cancel.setText("取消");
-                cancel.setTextSize(15);
-                cancel.setTextColor(subTextColor);
-                cancel.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView cancel = createButton(activity, "取消", subTextColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 cancel.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         if (ref[0] != null) ref[0].dismiss();
                     }
                 });
 
-                TextView confirm = new TextView(activity);
-                confirm.setText("确定");
-                confirm.setTextSize(15);
-                confirm.setTextColor(isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT);
-                confirm.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView confirm = createButton(activity, "确定", isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 confirm.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         int seconds = 0;
@@ -284,18 +276,14 @@ public void showMuteAllDialog(Activity activity, String qun) {
                 btnBox.setPadding(0, dp(activity, 20), 0, 0);
                 btnBox.setGravity(Gravity.RIGHT);
 
-                TextView cancel = new TextView(activity);
-                cancel.setText("取消"); cancel.setTextSize(15); cancel.setTextColor(subTextColor);
-                cancel.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView cancel = createButton(activity, "取消", subTextColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 cancel.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         if (ref[0] != null) ref[0].dismiss();
                     }
                 });
 
-                TextView unmute = new TextView(activity);
-                unmute.setText("解禁"); unmute.setTextSize(15); unmute.setTextColor(Color.parseColor("#81C784"));
-                unmute.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView unmute = createButton(activity, "解禁", Color.parseColor("#81C784"), Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 unmute.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         try { shutUpAll(qun, false); Toast("已解除全体禁言"); } catch(Throwable t){}
@@ -303,9 +291,7 @@ public void showMuteAllDialog(Activity activity, String qun) {
                     }
                 });
 
-                TextView confirm = new TextView(activity);
-                confirm.setText("确定"); confirm.setTextSize(15); confirm.setTextColor(isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT);
-                confirm.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView confirm = createButton(activity, "确定", isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 confirm.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         long h = 0, m = 0, s = 0;
@@ -404,22 +390,14 @@ public void showZanDialog(Activity activity, String targetUin) {
                 btnBox.setPadding(0, dp(activity, 20), 0, 0);
                 btnBox.setGravity(Gravity.RIGHT);
 
-                TextView cancel = new TextView(activity);
-                cancel.setText("取消");
-                cancel.setTextSize(15);
-                cancel.setTextColor(subTextColor);
-                cancel.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView cancel = createButton(activity, "取消", subTextColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 cancel.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         if (ref[0] != null) ref[0].dismiss();
                     }
                 });
 
-                TextView confirm = new TextView(activity);
-                confirm.setText("确定");
-                confirm.setTextSize(15);
-                confirm.setTextColor(isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT);
-                confirm.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView confirm = createButton(activity, "确定", isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 confirm.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         int count = 50;
@@ -497,22 +475,14 @@ public void showPaiDialog(Activity activity, String targetUin, String peerUin, i
                 btnBox.setPadding(0, dp(activity, 20), 0, 0);
                 btnBox.setGravity(Gravity.RIGHT);
 
-                TextView cancel = new TextView(activity);
-                cancel.setText("取消");
-                cancel.setTextSize(15);
-                cancel.setTextColor(subTextColor);
-                cancel.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView cancel = createButton(activity, "取消", subTextColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 cancel.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         if (ref[0] != null) ref[0].dismiss();
                     }
                 });
 
-                TextView confirm = new TextView(activity);
-                confirm.setText("确定");
-                confirm.setTextSize(15);
-                confirm.setTextColor(isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT);
-                confirm.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView confirm = createButton(activity, "确定", isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 confirm.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         int count = 1;
@@ -727,38 +697,28 @@ public void showEncryptDecryptDialog(Activity activity, Object data) {
                 };
 
                 for (int i = 0; i < btnNames.length; i++) {
-                    TextView btn = new TextView(activity);
-                    btn.setText(btnNames[i]);
-                    btn.setTextSize(11);
-                    btn.setTextColor(textColor);
-                    btn.setGravity(Gravity.CENTER);
-                    btn.setPadding(dp(activity, 4), dp(activity, 10), dp(activity, 4), dp(activity, 10));
+                    int strokeColor = borderColor;
+                    int btnTextColor = textColor;
+                    if ("clear".equals(btnTags[i])) {
+                        strokeColor = Color.parseColor("#FF5252");
+                        btnTextColor = Color.parseColor("#FF5252");
+                    } else if ("undo".equals(btnTags[i]) || "redo".equals(btnTags[i])) {
+                        strokeColor = Color.parseColor("#FFB74D");
+                        btnTextColor = isDark ? Color.parseColor("#FFB74D") : Color.parseColor("#EF6C00");
+                    } else if ("send".equals(btnTags[i])) {
+                        strokeColor = Color.parseColor("#4CAF50");
+                        btnTextColor = Color.parseColor("#4CAF50");
+                    }
+                    TextView btn = createButton(activity, btnNames[i], btnTextColor, isDark ? Color.parseColor("#33FFFFFF") : Color.parseColor("#F0F0F0"), 11f, 8, 4, 10, false, 1, strokeColor, null);
                     btn.setTag(btnTags[i]);
                     btn.setOnClickListener(clickListener);
-                    GradientDrawable btnBg = new GradientDrawable();
-                    btnBg.setCornerRadius(dp(activity, 8));
-                    btnBg.setColor(isDark ? Color.parseColor("#33FFFFFF") : Color.parseColor("#F0F0F0"));
-                    if ("clear".equals(btnTags[i])) {
-                        btnBg.setStroke(dp(activity, 1), Color.parseColor("#FF5252"));
-                        btn.setTextColor(Color.parseColor("#FF5252"));
-                    } else if ("undo".equals(btnTags[i]) || "redo".equals(btnTags[i])) {
-                        btnBg.setStroke(dp(activity, 1), Color.parseColor("#FFB74D"));
-                        btn.setTextColor(isDark ? Color.parseColor("#FFB74D") : Color.parseColor("#EF6C00"));
-                    } else if ("send".equals(btnTags[i])) {
-                        btnBg.setStroke(dp(activity, 1), Color.parseColor("#4CAF50"));
-                        btn.setTextColor(Color.parseColor("#4CAF50"));
-                    } else {
-                        btnBg.setStroke(dp(activity, 1), borderColor);
-                    }
-                    btn.setBackground(btnBg);
                     GridLayout.LayoutParams p = new GridLayout.LayoutParams();
                     p.width = 0;
                     p.height = GridLayout.LayoutParams.WRAP_CONTENT;
                     p.columnSpec = GridLayout.spec(i % 3, 1f);
                     p.rowSpec = GridLayout.spec(i / 3);
                     p.setMargins(dp(activity, 4), dp(activity, 4), dp(activity, 4), dp(activity, 4));
-                    btn.setLayoutParams(p);
-                    btnGrid.addView(btn);
+                    btnGrid.addView(btn, p);
                 }
                 root.addView(btnGrid);
 
@@ -767,11 +727,7 @@ public void showEncryptDecryptDialog(Activity activity, Object data) {
                 btnBox.setOrientation(LinearLayout.HORIZONTAL);
                 btnBox.setPadding(0, dp(activity, 16), 0, 0);
                 btnBox.setGravity(Gravity.RIGHT);
-                TextView cancel = new TextView(activity);
-                cancel.setText("关闭");
-                cancel.setTextSize(15);
-                cancel.setTextColor(subTextColor);
-                cancel.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView cancel = createButton(activity, "关闭", subTextColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 cancel.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         if (ref[0] != null) ref[0].dismiss();
@@ -874,16 +830,7 @@ public void showCodeConsoleDialog(Activity activity, Object data) {
                 root.addView(input);
 
                 final AlertDialog[] ref = new AlertDialog[1];
-                TextView execBtn = new TextView(activity);
-                execBtn.setText("▶  执行代码");
-                execBtn.setTextSize(14);
-                execBtn.setTextColor(Color.WHITE);
-                execBtn.setGravity(Gravity.CENTER);
-                execBtn.setPadding(dp(activity, 24), dp(activity, 12), dp(activity, 24), dp(activity, 12));
-                GradientDrawable execBg = new GradientDrawable();
-                execBg.setColor(isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT);
-                execBg.setCornerRadius(dp(activity, 8));
-                execBtn.setBackground(execBg);
+                TextView execBtn = createButton(activity, "▶  执行代码", Color.WHITE, isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT, 14f, 8, 24, 12, false, 0, 0, null);
                 LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
                 btnParams.gravity = Gravity.CENTER_HORIZONTAL;
                 btnParams.setMargins(0, 0, 0, dp(activity, 16));
@@ -944,11 +891,7 @@ public void showCodeConsoleDialog(Activity activity, Object data) {
                 LinearLayout btnBox = new LinearLayout(activity);
                 btnBox.setOrientation(LinearLayout.HORIZONTAL);
                 btnBox.setGravity(Gravity.RIGHT);
-                TextView cancel = new TextView(activity);
-                cancel.setText("关闭");
-                cancel.setTextSize(15);
-                cancel.setTextColor(subTextColor);
-                cancel.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView cancel = createButton(activity, "关闭", subTextColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 cancel.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         if (ref[0] != null) ref[0].dismiss();
@@ -1014,11 +957,7 @@ public void showExpandedResultDialog(Activity activity, String content, boolean 
                 btnBox.setOrientation(LinearLayout.HORIZONTAL);
                 btnBox.setGravity(Gravity.RIGHT);
 
-                TextView copyBtn = new TextView(activity);
-                copyBtn.setText("复制全部");
-                copyBtn.setTextSize(15);
-                copyBtn.setTextColor(isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT);
-                copyBtn.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView copyBtn = createButton(activity, "复制全部", isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 copyBtn.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         try {
@@ -1028,11 +967,7 @@ public void showExpandedResultDialog(Activity activity, String content, boolean 
                     }
                 });
 
-                TextView closeBtn = new TextView(activity);
-                closeBtn.setText("关闭");
-                closeBtn.setTextSize(15);
-                closeBtn.setTextColor(subTextColor);
-                closeBtn.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView closeBtn = createButton(activity, "关闭", subTextColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 closeBtn.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         if (ref[0] != null) ref[0].dismiss();
@@ -1095,21 +1030,13 @@ public void showTitleDialog(Activity activity, String qun, String uin, String ni
                 btnBox.setOrientation(LinearLayout.HORIZONTAL);
                 btnBox.setPadding(0, dp(activity, 20), 0, 0);
                 btnBox.setGravity(Gravity.RIGHT);
-                TextView cancel = new TextView(activity);
-                cancel.setText("取消");
-                cancel.setTextSize(15);
-                cancel.setTextColor(subTextColor);
-                cancel.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView cancel = createButton(activity, "取消", subTextColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 cancel.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         if (ref[0] != null) ref[0].dismiss();
                     }
                 });
-                TextView confirm = new TextView(activity);
-                confirm.setText("确定");
-                confirm.setTextSize(15);
-                confirm.setTextColor(isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT);
-                confirm.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView confirm = createButton(activity, "确定", isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 confirm.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         String t = input.getText().toString().trim();
@@ -1168,22 +1095,14 @@ public void showSetAdminDialog(Activity activity, String qun, String uin, String
                 btnBox.setPadding(0, dp(activity, 20), 0, 0);
                 btnBox.setGravity(Gravity.RIGHT);
                 
-                TextView cancel = new TextView(activity);
-                cancel.setText("取消");
-                cancel.setTextSize(15);
-                cancel.setTextColor(subTextColor);
-                cancel.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView cancel = createButton(activity, "取消", subTextColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 cancel.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         if (ref[0] != null) ref[0].dismiss();
                     }
                 });
                 
-                TextView revoke = new TextView(activity);
-                revoke.setText("撤销管理");
-                revoke.setTextSize(15);
-                revoke.setTextColor(Color.parseColor("#FF5252"));
-                revoke.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView revoke = createButton(activity, "撤销管理", Color.parseColor("#FF5252"), Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 revoke.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         try {
@@ -1268,21 +1187,13 @@ public void showChangeCardDialog(Activity activity, String qun, String uin, Stri
                 btnBox.setOrientation(LinearLayout.HORIZONTAL);
                 btnBox.setPadding(0, dp(activity, 20), 0, 0);
                 btnBox.setGravity(Gravity.RIGHT);
-                TextView cancel = new TextView(activity);
-                cancel.setText("取消");
-                cancel.setTextSize(15);
-                cancel.setTextColor(subTextColor);
-                cancel.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView cancel = createButton(activity, "取消", subTextColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 cancel.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         if (ref[0] != null) ref[0].dismiss();
                     }
                 });
-                TextView confirm = new TextView(activity);
-                confirm.setText("确定");
-                confirm.setTextSize(15);
-                confirm.setTextColor(isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT);
-                confirm.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView confirm = createButton(activity, "确定", isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 confirm.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         String card = input.getText().toString().trim();
@@ -1474,11 +1385,7 @@ void showCopyConfirmDialog(Activity act, String title, String text, boolean isDa
                     }
                 });
 
-                TextView cancel = new TextView(act);
-                cancel.setText("关闭");
-                cancel.setTextSize(15);
-                cancel.setTextColor(subTextColor);
-                cancel.setPadding(dp(act, 16), dp(act, 12), dp(act, 16), dp(act, 12));
+                TextView cancel = createButton(act, "关闭", subTextColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 cancel.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         if (ref[0] != null) ref[0].dismiss();
@@ -1536,22 +1443,14 @@ void showKickConfirmDialog(Activity activity, String qun, String uin, String nic
                 btnBox.setPadding(0, dp(activity, 20), 0, 0);
                 btnBox.setGravity(Gravity.RIGHT);
                 
-                TextView cancel = new TextView(activity);
-                cancel.setText("取消");
-                cancel.setTextSize(15);
-                cancel.setTextColor(subTextColor);
-                cancel.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView cancel = createButton(activity, "取消", subTextColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 cancel.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         if (ref[0] != null) ref[0].dismiss();
                     }
                 });
                 
-                TextView permanent = new TextView(activity);
-                permanent.setText("永久踢出");
-                permanent.setTextSize(15);
-                permanent.setTextColor(Color.parseColor("#FF5252"));
-                permanent.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView permanent = createButton(activity, "永久踢出", Color.parseColor("#FF5252"), Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 permanent.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         try { kickGroup(qun, uin, true); qqToast(2, "永久踢出操作已执行"); } catch (Throwable t){}
@@ -1559,11 +1458,7 @@ void showKickConfirmDialog(Activity activity, String qun, String uin, String nic
                     }
                 });
                 
-                TextView confirm = new TextView(activity);
-                confirm.setText("确认踢出");
-                confirm.setTextSize(15);
-                confirm.setTextColor(isDark ? Color.parseColor("#FFB74D") : Color.parseColor("#F57C00"));
-                confirm.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView confirm = createButton(activity, "确认踢出", isDark ? Color.parseColor("#FFB74D") : Color.parseColor("#F57C00"), Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 confirm.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         try { kickGroup(qun, uin, false); qqToast(2, "踢出操作已执行"); } catch (Throwable t){}
@@ -1634,11 +1529,7 @@ void showAtListDialog(Object atListData) {
                 root.addView(scrollView);
 
                 final AlertDialog[] ref = new AlertDialog[1];
-                TextView closeBtn = new TextView(activity);
-                closeBtn.setText("关闭");
-                closeBtn.setTextSize(15);
-                closeBtn.setTextColor(isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT);
-                closeBtn.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView closeBtn = createButton(activity, "关闭", isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 closeBtn.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         if (ref[0] != null) ref[0].dismiss();
@@ -2073,19 +1964,9 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
                 domainEt.setSingleLine(true);
                 domainEt.setMinHeight(dp(activity, 48));
 
-                TextView getCkBtn = new TextView(activity);
-                getCkBtn.setText("获取CK");
-                getCkBtn.setTextSize(15);
-                getCkBtn.setTextColor(accentColor);
-                getCkBtn.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
-                getCkBtn.setGravity(Gravity.CENTER);
+                TextView getCkBtn = createButton(activity, "获取CK", accentColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
 
-                TextView postSwitchBtn = new TextView(activity);
-                postSwitchBtn.setText("POST");
-                postSwitchBtn.setTextSize(15);
-                postSwitchBtn.setTextColor(accentColor);
-                postSwitchBtn.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
-                postSwitchBtn.setGravity(Gravity.CENTER);
+                TextView postSwitchBtn = createButton(activity, "POST", accentColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
 
                 ckModeLayout.addView(domainEt, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
                 ckModeLayout.addView(getCkBtn);
@@ -2116,19 +1997,9 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
                 postUrlEt.setSingleLine(true);
                 postUrlEt.setMinHeight(dp(activity, 48));
 
-                TextView ckSwitchBtn = new TextView(activity);
-                ckSwitchBtn.setText("CK");
-                ckSwitchBtn.setTextSize(15);
-                ckSwitchBtn.setTextColor(accentColor);
-                ckSwitchBtn.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
-                ckSwitchBtn.setGravity(Gravity.CENTER);
+                TextView ckSwitchBtn = createButton(activity, "CK", accentColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
 
-                TextView sendPostBtn = new TextView(activity);
-                sendPostBtn.setText("发送");
-                sendPostBtn.setTextSize(15);
-                sendPostBtn.setTextColor(accentColor);
-                sendPostBtn.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
-                sendPostBtn.setGravity(Gravity.CENTER);
+                TextView sendPostBtn = createButton(activity, "发送", accentColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
 
                 postRow1.addView(postUrlEt, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
                 postRow1.addView(ckSwitchBtn);
@@ -2176,11 +2047,7 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
                 arrowIv.setImageDrawable(arrowD);
                 arrowIv.setLayoutParams(new LinearLayout.LayoutParams(dp(activity, 24), dp(activity, 24)));
 
-                final TextView copyBtn = new TextView(activity);
-                copyBtn.setText("复制");
-                copyBtn.setTextSize(14);
-                copyBtn.setTextColor(accentColor);
-                copyBtn.setPadding(dp(activity, 16), 0, 0, 0);
+                final TextView copyBtn = createButton(activity, "复制", accentColor, Color.TRANSPARENT, 14f, 0, 16, 0, false, 0, 0, null);
 
                 resultHeader.addView(resultTitleTv);
                 resultHeader.addView(arrowIv);
@@ -2242,11 +2109,7 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
                 String[] ckFormats = {"JSON", "Header", "Curl", "Fetch"};
                 for (int i = 0; i < 4; i++) {
                     final int idx = i;
-                    TextView btn = new TextView(activity);
-                    btn.setText(ckFormats[i]);
-                    btn.setTextSize(13);
-                    btn.setTextColor(subTextColor);
-                    btn.setPadding(dp(activity, 12), dp(activity, 8), dp(activity, 12), dp(activity, 8));
+                    TextView btn = createButton(activity, ckFormats[i], subTextColor, Color.TRANSPARENT, 13f, 0, 12, 8, false, 0, 0, null);
                     btn.setOnClickListener(new View.OnClickListener() {
                         public void onClick(View v) {
                             if (ckInfo[0] == null) {
@@ -2279,11 +2142,7 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
                 String[] postTools = {"复制URL", "复制数据"};
                 for (int i = 0; i < postTools.length; i++) {
                     final String name = postTools[i];
-                    TextView btn = new TextView(activity);
-                    btn.setText(name);
-                    btn.setTextSize(13);
-                    btn.setTextColor(subTextColor);
-                    btn.setPadding(dp(activity, 12), dp(activity, 8), dp(activity, 12), dp(activity, 8));
+                    TextView btn = createButton(activity, name, subTextColor, Color.TRANSPARENT, 13f, 0, 12, 8, false, 0, 0, null);
                     btn.setOnClickListener(new View.OnClickListener() {
                         public void onClick(View v) {
                             try {
@@ -2478,28 +2337,6 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
 }
 
 class AudioBtnAdder {
-    void add(Activity activity, LinearLayout btnGrid, String name, int textColor, int inputBgColor, int borderColor, Runnable action) {
-        TextView btn = new TextView(activity);
-        btn.setText(name);
-        btn.setTextColor(textColor);
-        btn.setPadding(dp(activity, 8), dp(activity, 8), dp(activity, 8), dp(activity, 8));
-        btn.setGravity(Gravity.CENTER);
-        GradientDrawable btnBg = new GradientDrawable();
-        btnBg.setCornerRadius(dp(activity, 8));
-        btnBg.setColor(inputBgColor);
-        btnBg.setStroke(dp(activity, 1), borderColor);
-        btn.setBackground(btnBg);
-        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        p.setMargins(dp(activity, 6), 0, dp(activity, 6), 0);
-        btn.setLayoutParams(p);
-        btn.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                try { action.run(); } catch(Throwable t) {}
-            }
-        });
-        btnGrid.addView(btn);
-    }
-
     View createAudioPlayer(Activity activity, final MediaPlayer[] player, int textColor, int inputBgColor, int borderColor,
                            final Handler uiHandler, final Runnable[] updateProgressTaskRef) {
         LinearLayout container = new LinearLayout(activity);
@@ -2539,16 +2376,7 @@ class AudioBtnAdder {
         btnRow.setOrientation(LinearLayout.HORIZONTAL);
         btnRow.setPadding(0, dp(activity, 8), 0, 0);
 
-        TextView playBtn = new TextView(activity);
-        playBtn.setText("播放");
-        playBtn.setTextColor(textColor);
-        playBtn.setPadding(dp(activity, 8), dp(activity, 8), dp(activity, 8), dp(activity, 8));
-        playBtn.setGravity(Gravity.CENTER);
-        GradientDrawable btnBg = new GradientDrawable();
-        btnBg.setCornerRadius(dp(activity, 8));
-        btnBg.setColor(inputBgColor);
-        btnBg.setStroke(dp(activity, 1), borderColor);
-        playBtn.setBackground(btnBg);
+        TextView playBtn = createButton(activity, "播放", textColor, inputBgColor, 14f, 8, 8, 8, false, 1, borderColor, null);
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         p.setMargins(dp(activity, 6), 0, dp(activity, 6), 0);
         playBtn.setLayoutParams(p);
@@ -2753,7 +2581,7 @@ public void showExtractAudioDialog(Activity activity, Object data) {
                             actionRow.setOrientation(LinearLayout.HORIZONTAL);
                             actionRow.setPadding(0, dp(activity, 12), 0, 0);
                             if (!finalUrl.isEmpty()) {
-                                adder.add(activity, actionRow, "发链接", textColor, inputBgColor, borderColor, new Runnable() {
+                                TextView sendLinkBtn = createButton(activity, "发链接", textColor, inputBgColor, 14f, 8, 8, 8, false, 1, borderColor, new Runnable() {
                                     public void run() {
                                         try {
                                             Object contact = data.contact;
@@ -2762,7 +2590,10 @@ public void showExtractAudioDialog(Activity activity, Object data) {
                                         } catch(Throwable t) { Toast("发送失败"); }
                                     }
                                 });
-                                adder.add(activity, actionRow, "发语音", textColor, inputBgColor, borderColor, new Runnable() {
+                                LinearLayout.LayoutParams linkBtnLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+                                linkBtnLp.setMargins(dp(activity, 6), 0, dp(activity, 6), 0);
+                                actionRow.addView(sendLinkBtn, linkBtnLp);
+                                TextView sendVoiceBtn = createButton(activity, "发语音", textColor, inputBgColor, 14f, 8, 8, 8, false, 1, borderColor, new Runnable() {
                                     public void run() {
                                         Toast("正在下载并发送语音...");
                                         ThreadPool.execute(new Runnable() {
@@ -2796,17 +2627,15 @@ public void showExtractAudioDialog(Activity activity, Object data) {
                                         });
                                     }
                                 });
+                                LinearLayout.LayoutParams voiceBtnLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+                                voiceBtnLp.setMargins(dp(activity, 6), 0, dp(activity, 6), 0);
+                                actionRow.addView(sendVoiceBtn, voiceBtnLp);
                             }
                             btnGrid.addView(actionRow);
                             root.addView(btnGrid);
 
                             final AlertDialog[] ref = new AlertDialog[1];
-                            TextView closeBtn = new TextView(activity);
-                            closeBtn.setText("关闭");
-                            closeBtn.setTextSize(15);
-                            closeBtn.setTextColor(subTextColor);
-                            closeBtn.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
-                            closeBtn.setGravity(Gravity.RIGHT);
+                            TextView closeBtn = createButton(activity, "关闭", subTextColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                             closeBtn.setOnClickListener(new View.OnClickListener() {
                                 public void onClick(View v) {
                                     // 停止播放并释放
@@ -3752,15 +3581,7 @@ public void 长按消息菜单(Activity activity, Object data) {
                 actionBtnRow.setGravity(Gravity.CENTER);
                 actionBtnRow.setPadding(0, dp(activity, 8), 0, dp(activity, 8));
                 
-                TextView cancelBtn = new TextView(activity);
-                cancelBtn.setText("取消");
-                cancelBtn.setTextSize(14);
-                cancelBtn.setTextColor(Color.WHITE);
-                cancelBtn.setPadding(dp(activity, 16), dp(activity, 10), dp(activity, 16), dp(activity, 10));
-                GradientDrawable cancelBg = new GradientDrawable();
-                cancelBg.setColor(isDark ? Color.parseColor("#FF5252") : Color.parseColor("#F44336"));
-                cancelBg.setCornerRadius(dp(activity, 20));
-                cancelBtn.setBackground(cancelBg);
+                TextView cancelBtn = createButton(activity, "取消", Color.WHITE, isDark ? Color.parseColor("#FF5252") : Color.parseColor("#F44336"), 14f, 20, 16, 10, false, 0, 0, null);
                 cancelBtn.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         isEditMode[0] = false;
@@ -3770,15 +3591,7 @@ public void 长按消息菜单(Activity activity, Object data) {
                     }
                 });
                 
-                TextView saveBtn = new TextView(activity);
-                saveBtn.setText("保存");
-                saveBtn.setTextSize(14);
-                saveBtn.setTextColor(Color.WHITE);
-                saveBtn.setPadding(dp(activity, 16), dp(activity, 10), dp(activity, 16), dp(activity, 10));
-                GradientDrawable saveBg = new GradientDrawable();
-                saveBg.setColor(isDark ? Color.parseColor("#81C784") : Color.parseColor("#4CAF50"));
-                saveBg.setCornerRadius(dp(activity, 20));
-                saveBtn.setBackground(saveBg);
+                TextView saveBtn = createButton(activity, "保存", Color.WHITE, isDark ? Color.parseColor("#81C784") : Color.parseColor("#4CAF50"), 14f, 20, 16, 10, false, 0, 0, null);
                 saveBtn.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         isEditMode[0] = false;
@@ -3862,11 +3675,7 @@ void showProhibitListDialog(Activity activity, String groupUin, boolean isDark) 
                 root.addView(scrollView);
 
                 final AlertDialog[] ref = new AlertDialog[1];
-                TextView closeBtn = new TextView(activity);
-                closeBtn.setText("关闭");
-                closeBtn.setTextSize(15);
-                closeBtn.setTextColor(isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT);
-                closeBtn.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView closeBtn = createButton(activity, "关闭", isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 closeBtn.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         if (ref[0] != null) ref[0].dismiss();
@@ -4094,11 +3903,7 @@ void showGroupMemberListDialog(Activity activity, String groupUin, boolean isDar
                 root.addView(scroll);
 
                 final AlertDialog[] ref = new AlertDialog[1];
-                TextView closeBtn = new TextView(activity);
-                closeBtn.setText("关闭");
-                closeBtn.setTextSize(15);
-                closeBtn.setTextColor(isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT);
-                closeBtn.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView closeBtn = createButton(activity, "关闭", isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 closeBtn.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         if (ref[0] != null) ref[0].dismiss();
@@ -4326,11 +4131,7 @@ void showGroupListDialog(Activity activity, boolean isDark) {
                 root.addView(scroll);
 
                 final AlertDialog[] ref = new AlertDialog[1];
-                TextView closeBtn = new TextView(activity);
-                closeBtn.setText("关闭");
-                closeBtn.setTextSize(15);
-                closeBtn.setTextColor(isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT);
-                closeBtn.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView closeBtn = createButton(activity, "关闭", isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 closeBtn.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         if (ref[0] != null) ref[0].dismiss();
@@ -4550,11 +4351,7 @@ void showFriendListDialog(Activity activity, boolean isDark) {
                 root.addView(scroll);
 
                 final AlertDialog[] ref = new AlertDialog[1];
-                TextView closeBtn = new TextView(activity);
-                closeBtn.setText("关闭");
-                closeBtn.setTextSize(15);
-                closeBtn.setTextColor(isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT);
-                closeBtn.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+                TextView closeBtn = createButton(activity, "关闭", isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 closeBtn.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         if (ref[0] != null) ref[0].dismiss();
@@ -5000,13 +4797,7 @@ private void createMarkdownDialog(final Activity activity, final String title, f
     titleText.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
     titleText.setTextColor(isDark ? Color.WHITE : Color.BLACK);
     titleText.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
-    TextView orderButton = new TextView(activity);
-    orderButton.setText("⇅");
-    orderButton.setTextSize(20);
-    orderButton.setPadding(dp(activity, 8), 0, 0, 0);
-    orderButton.setClickable(true);
-    orderButton.setFocusable(true);
-    orderButton.setTextColor(isDark ? Color.parseColor("#BBBBBB") : Color.parseColor("#666666"));
+    TextView orderButton = createButton(activity, "⇅", isDark ? Color.parseColor("#BBBBBB") : Color.parseColor("#666666"), Color.TRANSPARENT, 20f, 0, 8, 0, false, 0, 0, null);
     orderButton.setOnClickListener(new View.OnClickListener() {
         public void onClick(View v) {
             isReversed[0] = !isReversed[0];
@@ -5188,25 +4979,10 @@ void showGroupSelector(final Activity act, final int mode, final List initSelect
                 row2.setGravity(Gravity.END);
                 row2.setPadding(0, dp(act, 8), 0, 0);
                 
-                TextView btnCancel = new TextView(act);
-                btnCancel.setText("取消");
-                btnCancel.setTextSize(14);
-                btnCancel.setTextColor(colorAccent);
-                btnCancel.setPadding(dp(act, 16), dp(act, 12), dp(act, 16), dp(act, 12));
-                btnCancel.setClickable(true);
-                btnCancel.setFocusable(true);
-                btnCancel.setBackground(getSelectableBg(act));
+                TextView btnCancel = createButton(act, "取消", colorAccent, Color.TRANSPARENT, 14f, 0, 16, 12, false, 0, 0, null);
                 row2.addView(btnCancel);
-                
-                TextView btnConfirm = new TextView(act);
-                btnConfirm.setText("确定");
-                btnConfirm.setTextSize(14);
-                btnConfirm.setTypeface(null, android.graphics.Typeface.BOLD);
-                btnConfirm.setTextColor(colorAccent);
-                btnConfirm.setPadding(dp(act, 16), dp(act, 12), dp(act, 16), dp(act, 12));
-                btnConfirm.setClickable(true);
-                btnConfirm.setFocusable(true);
-                btnConfirm.setBackground(getSelectableBg(act));
+
+                TextView btnConfirm = createButton(act, "确定", colorAccent, Color.TRANSPARENT, 14f, 0, 16, 12, true, 0, 0, null);
                 row2.addView(btnConfirm);
                 
                 root.addView(row2);
