@@ -78,25 +78,11 @@ boolean isThemeDark(Activity activity) {
     }
 }
 
-private Drawable createBg(Context ctx, int color, int radius) {
-    GradientDrawable gd = new GradientDrawable();
-    gd.setColor(color);
-    gd.setCornerRadius(dp(ctx, radius));
-    return gd;
-}
-
 private Drawable createRippleBg(Context ctx, int bgColor, int radius) {
     GradientDrawable content = new GradientDrawable();
     content.setColor(bgColor);
     content.setCornerRadius(dp(ctx, radius));
     return new RippleDrawable(ColorStateList.valueOf(Color.parseColor("#1A000000")), content, content);
-}
-
-private Drawable createButtonBg(Context ctx, int bgColor, int radius) {
-    GradientDrawable content = new GradientDrawable();
-    content.setColor(bgColor);
-    content.setCornerRadius(dp(ctx, radius));
-    return new RippleDrawable(ColorStateList.valueOf(Color.parseColor("#1AFFFFFF")), content, content);
 }
 
 private StateListDrawable createInputBg(Context ctx, int surfaceVariant, int outline, int primary) {
@@ -113,33 +99,6 @@ private StateListDrawable createInputBg(Context ctx, int surfaceVariant, int out
     sld.addState(new int[]{android.R.attr.state_focused}, focused);
     sld.addState(new int[]{}, normal);
     return sld;
-}
-
-private Button makeSmallBtn(Context ctx, String text, int color) {
-    Button b = new Button(ctx);
-    b.setText(text);
-    b.setTextColor(color);
-    b.setBackground(createRippleBg(ctx, Color.TRANSPARENT, 20));
-    b.setMinHeight(dp(ctx, 40));
-    b.setPadding(dp(ctx, 16), dp(ctx, 8), dp(ctx, 16), dp(ctx, 8));
-    
-    ObjectAnimator scaleX = ObjectAnimator.ofFloat(b, "scaleX", 1f, 0.95f, 1f);
-    ObjectAnimator scaleY = ObjectAnimator.ofFloat(b, "scaleY", 1f, 0.95f, 1f);
-    scaleX.setDuration(150);
-    scaleY.setDuration(150);
-    AnimatorSet scaleDown = new AnimatorSet();
-    scaleDown.playTogether(scaleX, scaleY);
-    
-    b.setOnTouchListener(new View.OnTouchListener() {
-        public boolean onTouch(View v, MotionEvent event) {
-            if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                scaleDown.start();
-            }
-            return false;
-        }
-    });
-    
-    return b;
 }
 
 StateListDrawable makeFeedbackBg(int normalColor, int pressedColor, int r) {
@@ -219,13 +178,6 @@ EditText makeTinyInput(Activity a, String h, int bg) {
     return e;
 }
 
-GradientDrawable makeRoundRect(int color, int radiusPx) {
-    GradientDrawable drawable = new GradientDrawable();
-    drawable.setColor(color);
-    drawable.setCornerRadius(radiusPx);
-    return drawable;
-}
-
 EditText makeInputCompact(Activity ctx, String val, String hint, int colorBg) {
     EditText et = new EditText(ctx);
     et.setText(val);
@@ -233,7 +185,7 @@ EditText makeInputCompact(Activity ctx, String val, String hint, int colorBg) {
     et.setTextSize(13);
     et.setTextColor(Color.parseColor("#222222"));
     et.setHintTextColor(Color.parseColor("#BBBBBB"));
-    et.setBackground(makeRoundRect(colorBg, dp(ctx, 6)));
+    et.setBackground(roundRect(colorBg, dp(ctx, 6)));
     et.setPadding(dp(ctx, 10), dp(ctx, 8), dp(ctx, 10), dp(ctx, 8));
     et.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
     return et;
@@ -245,16 +197,6 @@ TextView makeSubTitleCompact(Activity ctx, String text, int color) {
     tv.setTextSize(12);
     tv.setTextColor(color);
     tv.setPadding(dp(ctx, 4), dp(ctx, 16), 0, dp(ctx, 6));
-    return tv;
-}
-
-TextView makeActionBtn(Activity ctx, String text, int textColor, int bgColor) {
-    TextView tv = new TextView(ctx);
-    tv.setText(text);
-    tv.setTextSize(14);
-    tv.setTextColor(textColor);
-    tv.setGravity(Gravity.CENTER);
-    tv.setBackground(makeRoundRect(bgColor, dp(ctx, 8)));
     return tv;
 }
 
@@ -335,20 +277,6 @@ void setSwitch(TextView v, boolean o, int c) {
     v.setTextColor(o ? Color.WHITE : Color.parseColor("#666666"));
     int bg = o ? c : Color.parseColor("#E0E0E0");
     v.setBackground(makeFeedbackBg(bg, adjustColor(bg, 0.9f), dp(v.getContext(), 20)));
-}
-
-TextView makeBtn(Activity a, String t, int tc, int bg) {
-    TextView v = new TextView(a);
-    v.setText(t);
-    v.setTextSize(14);
-    v.setTextColor(tc);
-    v.setGravity(Gravity.CENTER);
-    v.setBackground(makeFeedbackBg(bg, adjustColor(bg, 0.9f), dp(a, 8)));
-    v.setPadding(0, dp(a, 10), 0, dp(a, 10));
-    LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, -2);
-    p.setMargins(0, dp(a, 6), 0, 0);
-    v.setLayoutParams(p);
-    return v;
 }
 
 void setKeepOriginalColor(View view) {
@@ -898,10 +826,7 @@ void showEditDialog(final Activity activity, final Bitmap origin, final String s
 
         String[] toolNames = {"取消", "撤销", "重做", "旋转", "裁剪", "质量: 原画", "保存"};
         for (int i = 0; i < toolNames.length; i++) {
-            final Button btn = new Button(activity);
-            btn.setText(toolNames[i]); btn.setTextColor(Color.parseColor("#FFFFFFFF")); btn.setAllCaps(false);
-            GradientDrawable gd = new GradientDrawable(); gd.setColor(Color.parseColor("#FF333333")); gd.setCornerRadius(dp(activity, 10));
-            btn.setBackground(gd);
+            final TextView btn = createButton(activity, toolNames[i], Color.parseColor("#FFFFFFFF"), Color.parseColor("#FF333333"), 14f, 10, 0, 0, false, 0, 0, null);
             LinearLayout.LayoutParams bLp = new LinearLayout.LayoutParams(dp(activity, 90), dp(activity, 48));
             bLp.setMargins(dp(activity, 6), 0, dp(activity, 6), 0);
 
@@ -1487,11 +1412,6 @@ public Object[] createSwitchViewWithState(Context ctx, boolean initVal) {
     });
 
     return new Object[]{swContainer, state};
-}
-
-boolean isValidHexColor(String colorCode) {
-    if (colorCode == null || colorCode.trim().isEmpty()) return false;
-    return Pattern.matches("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})$", colorCode.trim());
 }
 
 boolean isValidGradientString(String gradientStr) {
@@ -2180,38 +2100,12 @@ void updateViewStylesRecursively(View view, int textColor, Typeface tf, float fo
     } catch (Exception e) {}
 }
 
-String colorToHex(int color) {
-    try {
-        return String.format("#%08X", color);
-    } catch (Exception e) {
-        return "#FF000000";
-    }
-}
-
 void copyToClipboard(Activity activity, String text) {
     try {
         ClipboardManager clipboard = (ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
         ClipData clip = ClipData.newPlainText("color", text);
         clipboard.setPrimaryClip(clip);
     } catch (Exception e) {}
-}
-
-GradientDrawable createRoundRectDrawable(int color, float radius) {
-    try {
-        GradientDrawable gd = new GradientDrawable();
-        gd.setColor(color);
-        gd.setCornerRadius(radius);
-        return gd;
-    } catch (Exception e) {
-        return new GradientDrawable();
-    }
-}
-
-StateListDrawable createSelectableBackground() {
-    StateListDrawable drawable = new StateListDrawable();
-    drawable.addState(new int[]{android.R.attr.state_pressed}, new ColorDrawable(Color.parseColor("#1A000000")));
-    drawable.addState(new int[]{}, new ColorDrawable(Color.TRANSPARENT));
-    return drawable;
 }
 
 void addSectionHeader(Activity activity, LinearLayout parent, String text, int color) {
@@ -2439,4 +2333,111 @@ private float getMaxRefreshRate(Context context) {
     } catch (Throwable t) {
         return 60f;
     }
+}
+
+int dpx(Context ctx, float d) {
+    try {
+        Object result = android.util.TypedValue.applyDimension(1, d, ctx.getResources().getDisplayMetrics());
+        if (result instanceof float[]) return (int)(((float[])result)[0] + 0.5f);
+        if (result instanceof Float) return (int)(((Float)result).floatValue() + 0.5f);
+        return (int)(Float.parseFloat(result.toString()) + 0.5f);
+    } catch (Exception e) { return (int)(d * 2 + 0.5f); }
+}
+
+int pc(String hex) {
+    try {
+        Object r = Color.parseColor(hex);
+        if (r instanceof int[]) return ((int[])r)[0];
+        return (int)r;
+    } catch (Exception e) { return -16777216; }
+}
+
+int dpx(Activity activity, float d) {
+    try {
+        Object result = android.util.TypedValue.applyDimension(1, d, activity.getResources().getDisplayMetrics());
+        if (result instanceof float[]) return (int)(((float[])result)[0] + 0.5f);
+        if (result instanceof Float) return (int)(((Float)result).floatValue() + 0.5f);
+        return (int)(Float.parseFloat(result.toString()) + 0.5f);
+    } catch (Exception e) { return (int)(d * 2 + 0.5f); }
+}
+
+int dpxc(Context context, float d) {
+    try {
+        Object result = android.util.TypedValue.applyDimension(1, d, context.getResources().getDisplayMetrics());
+        if (result instanceof float[]) return (int)(((float[])result)[0] + 0.5f);
+        if (result instanceof Float) return (int)(((Float)result).floatValue() + 0.5f);
+        return (int)(Float.parseFloat(result.toString()) + 0.5f);
+    } catch (Exception e) { return (int)(d * 2 + 0.5f); }
+}
+
+int hsvColor(float h, float s, float v) {
+    try {
+        Object r = Color.HSVToColor(new float[]{h, s, v});
+        if (r instanceof int[]) return ((int[])r)[0];
+        return (int)r;
+    } catch (Exception e) { return pc("#FF000000"); }
+}
+
+
+// 全脚本唯一的通用按钮工厂：TextView 实现，圆角背景 + 按压水波纹 + 按下缩放动画
+// 透明底/白底自动换灰色波纹；strokeWidthDp>0 时绘制描边；onClick 可为 null
+TextView createButton(Context ctx, String text, int textColor, int bgColor) {
+    return createButton(ctx, text, textColor, bgColor, 14f, 20, 16, 10, false, 0, 0, null);
+}
+
+TextView createButton(Context ctx, String text, int textColor, int bgColor, float textSize, int radiusDp, int paddingHDp, int paddingVDp, boolean bold) {
+    return createButton(ctx, text, textColor, bgColor, textSize, radiusDp, paddingHDp, paddingVDp, bold, 0, 0, null);
+}
+
+TextView createButton(Context ctx, String text, int textColor, int bgColor, float textSize, int radiusDp, int paddingHDp, int paddingVDp, boolean bold, int strokeWidthDp, int strokeColor, Runnable onClick) {
+    TextView btn = new TextView(ctx);
+    btn.setText(text);
+    btn.setTextSize(textSize);
+    btn.setTextColor(textColor);
+    btn.setGravity(Gravity.CENTER);
+    if (bold) btn.setTypeface(null, Typeface.BOLD);
+    int padH = dpx(ctx, paddingHDp);
+    int padV = dpx(ctx, paddingVDp);
+    btn.setPadding(padH, padV, padH, padV);
+    try {
+        GradientDrawable content = new GradientDrawable();
+        content.setColor(bgColor);
+        content.setCornerRadius(dpx(ctx, radiusDp));
+        if (strokeWidthDp > 0) content.setStroke(dpx(ctx, strokeWidthDp), strokeColor);
+        // mask 必须不透明，否则透明底按钮的水波纹不可见
+        GradientDrawable mask = new GradientDrawable();
+        mask.setColor(-1);
+        mask.setCornerRadius(dpx(ctx, radiusDp));
+        int rippleColor = (bgColor == -1 || bgColor == 0) ? pc("#1A000000") : pc("#33FFFFFF");
+        RippleDrawable ripple = new RippleDrawable(ColorStateList.valueOf(rippleColor), content, mask);
+        btn.setBackground(ripple);
+    } catch (Exception e) {
+        try {
+            GradientDrawable gd = new GradientDrawable();
+            gd.setColor(bgColor);
+            gd.setCornerRadius(dpx(ctx, radiusDp));
+            if (strokeWidthDp > 0) gd.setStroke(dpx(ctx, strokeWidthDp), strokeColor);
+            btn.setBackground(gd);
+        } catch (Exception e2) {}
+    }
+    if (onClick != null) {
+        btn.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { onClick.run(); }
+        });
+    }
+    try {
+        final android.animation.ObjectAnimator sx = android.animation.ObjectAnimator.ofFloat(btn, "scaleX", 1f, 0.95f, 1f);
+        final android.animation.ObjectAnimator sy = android.animation.ObjectAnimator.ofFloat(btn, "scaleY", 1f, 0.95f, 1f);
+        sx.setDuration(150);
+        sy.setDuration(150);
+        final android.animation.AnimatorSet anim = new android.animation.AnimatorSet();
+        anim.playTogether(sx, sy);
+        btn.setOnTouchListener(new View.OnTouchListener() {
+            public boolean onTouch(View v, MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_DOWN) anim.start();
+                return false;
+            }
+        });
+    } catch (Exception e) {}
+    return btn;
 }
