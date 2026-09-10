@@ -1,6 +1,4 @@
 // 标记 Intent 防止递归 Hookprivate
- final String KEY_HANDLED = "qfun_script_handled";
-
 // 全局弹窗显示锁，防止多重弹窗
 private volatile boolean isDialogShowing = false;
 
@@ -25,7 +23,7 @@ String getFullPicUrl(String url, int chatType) {
     try {
         rkey = (chatType == 1) ? OnGetRKey.INSTANCE.getFriendRkey() : OnGetRKey.INSTANCE.getGroupRkey();
     } catch (Throwable t) {
-        traceLog("main_log","RKey获取失败: " + t.getMessage());
+        traceLog("api5_log","RKey获取失败: " + t.getMessage());
     }
     return domain + url + rkey;
 }
@@ -62,7 +60,7 @@ void fetchRealMsgRecord(final long msgId, final int chatType, final String peerU
                                 final MsgData msgData = new MsgData(realRecord);
                                 uiHandler.post(new Runnable() { public void run() { if (callback != null) callback.onLoaded(msgData); } });
                             } catch (Throwable t) {
-                                traceLog("main_log","MsgData构造失败");
+                                traceLog("api5_log","MsgData构造失败");
                                 isDialogShowing = false;
                             }
                         } else {
@@ -71,7 +69,7 @@ void fetchRealMsgRecord(final long msgId, final int chatType, final String peerU
                     }
                 });
             } catch (Throwable t) {
-                traceLog("main_log","FetchMsg异常: " + t.getMessage());
+                traceLog("api5_log","FetchMsg异常: " + t.getMessage());
                 isDialogShowing = false;
             }
         }
@@ -100,7 +98,7 @@ void forwardViaServer(Object msgRecordObj, String targetUin) {
                 dstContacts.add(dstContact);
 
                 kernel.forwardMsg(msgIds, srcContact, dstContacts, msgRecord.msgAttrs, null);
-            } catch (Throwable ignored) {}
+            } catch (Throwable ignored) { traceLog("api5_log", "[forwardViaServer] 异常: " + ignored); }
         }
     });
 }
@@ -247,7 +245,7 @@ void doMultiSendWithDelay(final MsgData data, final String newText, final int co
                                 msgService.sendMsg(contact, sendElements, null);
                             }
                         }
-                    } catch (Throwable ignored) {}
+                    } catch (Throwable ignored) { traceLog("api5_log", "[run] 异常: " + ignored); }
                     // 发送完成后，主线程调度下一条                 
                        uiHandler.postDelayed(new Runnable() {
                         public void run() {
@@ -284,7 +282,7 @@ void downloadImage(final String url, final Runnable callback) {
                     picimageCache.put(url, bmp);
                     if (callback != null) uiHandler.post(callback);
                 }
-            } catch (Throwable t) {}
+            } catch (Throwable t) { traceLog("api5_log", "[downloadImage] 异常: " + t); }
         }
     });
 }
@@ -292,7 +290,7 @@ void downloadImage(final String url, final Runnable callback) {
 // 自定义链接 
     class LinkTagSpan extends ForegroundColorSpan {
     public String url;
-    public LinkTagSpan(String url) { super(Color.parseColor("#007AFF"));
+    public LinkTagSpan(String url) { super(pc("#007AFF"));
         this.url = url; }
 }
 
@@ -349,8 +347,8 @@ void applySpans(final EditText et, final boolean forceImage) {
         while (idx >= 0) {
             int end = idx + validText.length();
             int color = 0;
-            if (validText.startsWith("@")) color = Color.parseColor("#007AFF");
-            else if (validText.startsWith("/")) color = Color.parseColor("#A6FFD700");
+            if (validText.startsWith("@")) color = pc("#007AFF");
+            else if (validText.startsWith("/")) color = pc("#A6FFD700");
 
             if (color != 0) {
                 s.setSpan(new ForegroundColorSpan(color), idx, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
@@ -403,11 +401,11 @@ View createReplyBox(Context ctx, MsgData msgData) {
     ReplyElement re = replyEl.replyElement;
     LinearLayout replyBox = new LinearLayout(ctx);
     replyBox.setOrientation(LinearLayout.HORIZONTAL);
-    replyBox.setBackgroundColor(Color.parseColor("#F5F5F5"));
+    replyBox.setBackgroundColor(pc("#F5F5F5"));
     replyBox.setPadding(0, 0, dp(ctx, 8), 0);
     View line = new View(ctx);
     GradientDrawable lineBg = new GradientDrawable();
-    lineBg.setColor(Color.parseColor("#D0D0D0"));
+    lineBg.setColor(pc("#D0D0D0"));
     lineBg.setCornerRadius(dp(ctx, 2));
     line.setBackground(lineBg);
     replyBox.addView(line, new LinearLayout.LayoutParams(dp(ctx, 4), -1));
@@ -421,7 +419,7 @@ View createReplyBox(Context ctx, MsgData msgData) {
         try {
             MsgRecord src = (MsgRecord) msgData.data.records.get(0);
             if (src.sendNickName != null && !src.sendNickName.isEmpty()) nick = src.sendNickName;
-        } catch(Throwable t) {}
+        } catch (Throwable t) { traceLog("api5_log", "[createReplyBox] 异常: " + t); }
     } else if (re.sourceMsgText != null && re.sourceMsgText.contains(":")) {
         nick = re.sourceMsgText.substring(0, re.sourceMsgText.indexOf(":"));
     }
@@ -433,7 +431,7 @@ View createReplyBox(Context ctx, MsgData msgData) {
     replyTextContainer.addView(tvHeader);
     TextView tvBody = new TextView(ctx);
     tvBody.setTextSize(13);
-    tvBody.setTextColor(Color.parseColor("#666666"));
+    tvBody.setTextColor(pc("#666666"));
     tvBody.setMaxLines(3);
     tvBody.setEllipsize(TextUtils.TruncateAt.END);
 
@@ -465,7 +463,7 @@ View createReplyBox(Context ctx, MsgData msgData) {
 
 void 作图(Activity activity, String content) {
     Toast("还是空壳\n" + content);
-    // traceLog("main_log","Call makeImage()");
+    // traceLog("api5_log","调用 makeImage()");
 }
 
 void updateSliderPhysics(float rawDx, boolean isDrag) {
@@ -489,6 +487,7 @@ PopupWindow showStyleWheelSelector(
 ) {
     final PopupWindow popup = new PopupWindow(activity);
     popup.setBackgroundDrawable(null);
+    final boolean wheelDark = isThemeDark(activity);
     popup.setOutsideTouchable(false);
     popup.setFocusable(false);
     popup.setTouchable(true);
@@ -501,7 +500,7 @@ PopupWindow showStyleWheelSelector(
 
     FrameLayout card = new FrameLayout(activity);
     GradientDrawable cardBg = new GradientDrawable();
-    cardBg.setColor(Color.parseColor("#F2F2F7"));
+    cardBg.setColor(wheelDark ? pc("#FF2C2C2C") : pc("#F2F2F7"));
     cardBg.setCornerRadius(dp(activity, 16));
     card.setBackground(cardBg);
     card.setClipChildren(false);
@@ -513,7 +512,7 @@ PopupWindow showStyleWheelSelector(
     final int PADDING = dp(activity, 8);
     final View slider = new View(activity);
     GradientDrawable sliderBg = new GradientDrawable();
-    sliderBg.setColor(Color.WHITE);
+    sliderBg.setColor(wheelDark ? pc("#FF3C3C3C") : Color.WHITE);
     sliderBg.setCornerRadius(dp(activity, 14));
     slider.setBackground(sliderBg);
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -534,7 +533,7 @@ PopupWindow showStyleWheelSelector(
         tv.setText(modeNames[i]);
         tv.setGravity(Gravity.CENTER);
         tv.setTextSize(13);
-        tv.setTextColor(Color.BLACK);
+        tv.setTextColor(wheelDark ? pc("#FFEFEFEF") : Color.BLACK);
         float centerX = PADDING + (ITEM_W / 2f) + i * (ITEM_W + GAP);
         itemCenters[i] = centerX;
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(ITEM_W, ITEM_H);
@@ -612,8 +611,8 @@ PopupWindow showStyleWheelSelector(
 
             for(int i=0; i<centers.length; i++) {
                 float dist = Math.abs(logicCenter - centers[i]);
-                if (dist < baseW * 0.6f) tvs[i].setTextColor(Color.parseColor("#007AFF"));
-                else tvs[i].setTextColor(Color.BLACK);
+                if (dist < baseW * 0.6f) tvs[i].setTextColor(wheelDark ? pc("#FF8AB4F8") : pc("#007AFF"));
+                else tvs[i].setTextColor(wheelDark ? pc("#FFEFEFEF") : Color.BLACK);
             }
         }
     };
@@ -629,8 +628,10 @@ void showActionDialog(final Activity activity, final MsgData msgData, final View
     }
 
     final Object finaldata = msgData;
+    final boolean dark = isThemeDark(activity);
 
     final String[] modeNames = new String[]{"复读", "多次复读", "作图", "加解密"};
+    final boolean[] hasImage = new boolean[]{false};
     final int[] currentModeIndex = new int[]{0};
     final SpannableStringBuilder initSb = new SpannableStringBuilder();
 
@@ -643,6 +644,7 @@ void showActionDialog(final Activity activity, final MsgData msgData, final View
                  initSb.append(el.textElement.content);
                  if (el.textElement.atType != 0) validSpecialTexts.add(el.textElement.content);
              } else if (el.elementType == 2 && el.picElement != null) {
+                 hasImage[0] = true;
                  initSb.append("[pic=" + getFullPicUrl(el.picElement.originImageUrl, msgData.type) + "]");
              } else if (el.elementType == 6 && el.faceElement != null) {
                  initSb.append(el.faceElement.faceText);
@@ -659,11 +661,11 @@ void showActionDialog(final Activity activity, final MsgData msgData, final View
         }
     });
     FrameLayout root = new FrameLayout(activity);
-    root.setBackgroundColor(Color.parseColor("#99000000"));
+    root.setBackgroundColor(pc("#99000000"));
     root.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { dialog.dismiss(); } });
     FrameLayout card = new FrameLayout(activity);
     GradientDrawable bg = new GradientDrawable();
-    bg.setColor(Color.WHITE);
+    bg.setColor(dark ? pc("#FF2D2D2D") : Color.WHITE);
     bg.setCornerRadius(dp(activity, 16));
     card.setBackground(bg);
 
@@ -687,24 +689,24 @@ void showActionDialog(final Activity activity, final MsgData msgData, final View
     interactionRow.setPadding(0, 0, 0, dp(activity, 12));
     final EditText editText = new EditText(activity);
     editText.setText(initSb);
-    editText.setTextColor(Color.BLACK);
+    editText.setTextColor(dark ? pc("#FFEFEFEF") : Color.BLACK);
 
     boolean isSelf = false;
     try {
         Object qObj = null;
         try { qObj = qq;
-        } catch(Throwable t) {}
+        } catch (Throwable t) { traceLog("api5_log", "[showActionDialog] 异常: " + t); }
         if (qObj != null && Long.parseLong(qObj.toString()) == msgData.data.senderUin) isSelf = true;
-    } catch(Throwable t) {}
+    } catch (Throwable t) { traceLog("api5_log", "[showActionDialog] 异常: " + t); }
 
     GradientDrawable etBg = new GradientDrawable();
     etBg.setCornerRadius(dp(activity, 8));
     if (isSelf) {
-        etBg.setColor(Color.parseColor("#E7F0FF"));
-        etBg.setStroke(dp(activity, 1), Color.parseColor("#C8D4E5"));
+        etBg.setColor(dark ? pc("#FF1E3A5F") : pc("#E7F0FF"));
+        etBg.setStroke(dp(activity, 1), dark ? pc("#FF3A5F8A") : pc("#C8D4E5"));
     } else {
-        etBg.setColor(Color.parseColor("#F5F5F5"));
-        etBg.setStroke(dp(activity, 1), Color.parseColor("#E0E0E0"));
+        etBg.setColor(dark ? pc("#FF333333") : pc("#F5F5F5"));
+        etBg.setStroke(dp(activity, 1), dark ? pc("#FF555555") : pc("#E0E0E0"));
     }
     editText.setBackground(etBg);
     editText.setPadding(dp(activity, 10), dp(activity, 10), dp(activity, 10), dp(activity, 10));
@@ -721,7 +723,7 @@ void showActionDialog(final Activity activity, final MsgData msgData, final View
     final FrameLayout actionBtn = new FrameLayout(activity);
     GradientDrawable btnBg = new GradientDrawable();
     btnBg.setCornerRadius(dp(activity, 8));
-    btnBg.setColor(Color.parseColor("#FF007AFF"));
+    btnBg.setColor(pc("#FF007AFF"));
     actionBtn.setBackground(btnBg);
 
     final TextView btnTv = new TextView(activity);
@@ -733,10 +735,12 @@ void showActionDialog(final Activity activity, final MsgData msgData, final View
 
     View spacer = new View(activity);
     rightBtnContainer.addView(spacer, new LinearLayout.LayoutParams(-1, dp(activity, 4)));
-    TextView previewBtn = createButton(activity, "预览", Color.parseColor("#999999"), Color.TRANSPARENT, 12f, 8, 16, 10, false, 1, Color.parseColor("#E0E0E0"), new Runnable() {
+    TextView previewBtn = createButton(activity, "预览", pc("#999999"), Color.TRANSPARENT, 12f, 8, 6, 10, false, 1, pc("#E0E0E0"), new Runnable() {
         public void run() { applySpans(editText, true); }
     });
-    rightBtnContainer.addView(previewBtn, new LinearLayout.LayoutParams(dp(activity, 68), dp(activity, 28)));
+    if (hasImage[0]) {
+        rightBtnContainer.addView(previewBtn, new LinearLayout.LayoutParams(dp(activity, 68), dp(activity, 28)));
+    }
 
     interactionRow.addView(rightBtnContainer);
 
@@ -815,7 +819,7 @@ void showActionDialog(final Activity activity, final MsgData msgData, final View
                                 btnTv.setText(modeNames[finalIdx]);
                                 GradientDrawable bg = (GradientDrawable) actionBtn.getBackground();
                                 String[] colors = {"#007AFF", "#FF9500", "#AF52DE", "#34C759"};
-                                bg.setColor(Color.parseColor(colors[finalIdx % colors.length]));
+                                bg.setColor(pc(colors[finalIdx % colors.length]));
 
                                 String now = editText.getText().toString();
                                 boolean mod = !now.equals(originalTextString);
@@ -879,7 +883,7 @@ void showActionDialog(final Activity activity, final MsgData msgData, final View
             菜单(finaldata);
         }
     });
-    TextView origBtn = createButton(activity, "原功能", Color.parseColor("#B3007AFF"), pc("#F2F2F7"), 14f, 8, 16, 10, true, 0, 0, new Runnable() {
+    TextView origBtn = createButton(activity, "原功能", pc("#B3007AFF"), pc("#F2F2F7"), 14f, 8, 16, 10, true, 0, 0, new Runnable() {
         public void run() {
             dialog.dismiss();
             
@@ -887,11 +891,11 @@ void showActionDialog(final Activity activity, final MsgData msgData, final View
             try {
                 if (originalIntent != null) {
                     try {
-                        originalIntent.putExtra(KEY_HANDLED, true);
+                        originalIntent.putExtra("qfun_script_handled", true);
                         activity.startActivity(originalIntent);
-                        traceLog("dblclick_log", "原功能Intent启动成功");
+                        traceLog("api5_log", "原功能Intent启动成功");
                     } catch (Exception e) {
-                        traceLog("dblclick_log", "原功能Intent启动异常: " + e.getMessage());
+                        traceLog("api5_log", "原功能Intent启动异常: " + e.getMessage());
                     }
                 }
                 if (originalIntent == null && targetView != null) {
@@ -899,14 +903,14 @@ void showActionDialog(final Activity activity, final MsgData msgData, final View
                     
                     try {
                         clicked = targetView.callOnClick();
-                        traceLog("dblclick_log", "原功能 callOnClick: " + clicked);
-                    } catch (Exception e) {}
+                        traceLog("api5_log", "原功能 callOnClick: " + clicked);
+                    } catch (Throwable e) { traceLog("api5_log", "[run] 异常: " + e); }
                     
                     if (!clicked) {
                         try {
                             clicked = targetView.performClick();
-                            traceLog("dblclick_log", "原功能 performClick: " + clicked);
-                        } catch (Exception e) {}
+                            traceLog("api5_log", "原功能 performClick: " + clicked);
+                        } catch (Throwable e) { traceLog("api5_log", "[run] 异常: " + e); }
                     }
                     
                     if (!clicked && targetView instanceof ViewGroup) {
@@ -916,15 +920,15 @@ void showActionDialog(final Activity activity, final MsgData msgData, final View
                             if (child != null && child.isClickable()) {
                                 try {
                                     child.performClick();
-                                    traceLog("dblclick_log", "原功能子视图点击成功");
+                                    traceLog("api5_log", "原功能子视图点击成功");
                                     break;
-                                } catch (Exception e) {}
+                                } catch (Throwable e) { traceLog("api5_log", "[run] 异常: " + e); }
                             }
                         }
                     }
                 }
             } catch (Exception e) {
-                traceLog("dblclick_log", "原功能回放异常: " + e.getMessage());
+                traceLog("api5_log", "原功能回放异常: " + e.getMessage());
             } finally {
                 uiHandler.postDelayed(new Runnable() {
                     public void run() { isReplayingClick = false; }
@@ -945,9 +949,9 @@ void showActionDialog(final Activity activity, final MsgData msgData, final View
 
 void showBigCountConfirm(Activity activity, final MsgData data, final String text, final int count, final int delayMs, final Dialog parent) {
     boolean isDark = isThemeDark(activity);
-    int textColor   = isDark ? UI_COLOR_TEXT_DARK    : UI_COLOR_TEXT_LIGHT;
-    int subColor    = isDark ? UI_COLOR_SUBTEXT_DARK : UI_COLOR_SUBTEXT_LIGHT;
-    int errorColor  = Color.parseColor("#FFE53935");
+    int textColor   = isDark ? pc("#FFEFEFEF")    : pc("#FF000000");
+    int subColor    = isDark ? pc("#99EFEFEF") : pc("#99000000");
+    int errorColor  = pc("#FFE53935");
 
     LinearLayout root = new LinearLayout(activity);
     root.setOrientation(LinearLayout.VERTICAL);
@@ -1009,18 +1013,18 @@ void showBigCountConfirm(Activity activity, final MsgData data, final String tex
     builder.setView(root);
     ref[0] = builder.create();
     ref[0].show();
-    applyUiTheme(activity, ref[0]);
+    applyUiTheme(activity, ref[0], 0);
 }
 
 void showRepeatCountDialog(final Activity activity, final MsgData data, final String currentText) {
     if (activity == null || activity.isFinishing()) return;
 
     boolean isDark = isThemeDark(activity);
-    int textColor    = isDark ? UI_COLOR_TEXT_DARK     : UI_COLOR_TEXT_LIGHT;
-    int subColor     = isDark ? UI_COLOR_SUBTEXT_DARK  : UI_COLOR_SUBTEXT_LIGHT;
-    int accentColor  = isDark ? UI_COLOR_ACCENT_DARK   : UI_COLOR_ACCENT_LIGHT;
-    int inputBgColor = isDark ? UI_COLOR_INPUT_BG_DARK : UI_COLOR_INPUT_BG_LIGHT;
-    int strokeColor  = isDark ? UI_COLOR_STROKE_DARK   : UI_COLOR_STROKE_LIGHT;
+    int textColor    = isDark ? pc("#FFEFEFEF")     : pc("#FF000000");
+    int subColor     = isDark ? pc("#99EFEFEF")  : pc("#99000000");
+    int accentColor  = isDark ? pc("#FF8AB4F8")   : pc("#FF2196F3");
+    int inputBgColor = isDark ? pc("#1AFFFFFF") : pc("#0D000000");
+    int strokeColor  = isDark ? pc("#33FFFFFF")   : pc("#1A000000");
 
     LinearLayout root = new LinearLayout(activity);
     root.setOrientation(LinearLayout.VERTICAL);
@@ -1041,16 +1045,11 @@ void showRepeatCountDialog(final Activity activity, final MsgData data, final St
     countLabel.setPadding(dp(activity, 2), 0, 0, dp(activity, 4));
     root.addView(countLabel);
 
-    final EditText countInput = new EditText(activity);
+    final EditText countInput = makeInput(activity, "例如：5", null);
     countInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-    countInput.setHint("例如：5");
-    countInput.setHintTextColor(subColor);
-    countInput.setTextColor(textColor);
-    countInput.setTextSize(14);
     countInput.setText("5");
     countInput.setSingleLine(true);
-    countInput.setPadding(dp(activity, 12), dp(activity, 10), dp(activity, 12), dp(activity, 10));
-    countInput.setBackground(createInputBg(activity, inputBgColor, strokeColor, accentColor));
+    countInput.setTextSize(14);
     root.addView(countInput, new LinearLayout.LayoutParams(-1, -2));
 
     TextView countTip = new TextView(activity);
@@ -1067,16 +1066,11 @@ void showRepeatCountDialog(final Activity activity, final MsgData data, final St
     delayLabel.setPadding(dp(activity, 2), 0, 0, dp(activity, 4));
     root.addView(delayLabel);
 
-    final EditText delayInput = new EditText(activity);
+    final EditText delayInput = makeInput(activity, "例如：500", null);
     delayInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-    delayInput.setHint("例如：500");
-    delayInput.setHintTextColor(subColor);
-    delayInput.setTextColor(textColor);
-    delayInput.setTextSize(14);
     delayInput.setSingleLine(true);
     delayInput.setText("500");
-    delayInput.setPadding(dp(activity, 12), dp(activity, 10), dp(activity, 12), dp(activity, 10));
-    delayInput.setBackground(createInputBg(activity, inputBgColor, strokeColor, accentColor));
+    delayInput.setTextSize(14);
     root.addView(delayInput, new LinearLayout.LayoutParams(-1, -2));
 
     TextView delayTip = new TextView(activity);
@@ -1163,7 +1157,7 @@ void showRepeatCountDialog(final Activity activity, final MsgData data, final St
     builder.setView(root);
     ref[0] = builder.create();
     ref[0].show();
-    applyUiTheme(activity, ref[0]);
+    applyUiTheme(activity, ref[0], 0);
 }
 
 void initdoublemsg() {
@@ -1174,7 +1168,7 @@ void initdoublemsg() {
     if (execStartActivity == null) execStartActivity = getCachedMethod(Instrumentation.class, "execStartActivity", sig8);
     if (execStartActivity == null) execStartActivity = getCachedMethod(Instrumentation.class, "execStartActivity", sig7);
     if (execStartActivity == null) {
-        traceLog("main_log", "安装失败: execStartActivity方法未找到");
+        traceLog("api5_log", "安装失败: execStartActivity方法未找到");
         Toast("Hook加载失败: execStartActivity方法未找到");
         return;
     }
@@ -1189,7 +1183,7 @@ void initdoublemsg() {
                 for (int j = 0; j < args.length; j++) {
                     if (args[j] instanceof Intent) { intent = (Intent) args[j]; break; }
                 }
-                if (intent == null || intent.getBooleanExtra(KEY_HANDLED, false)) return;
+                if (intent == null || intent.getBooleanExtra("qfun_script_handled", false)) return;
                 String comp = "";
                 if (intent.getComponent() != null) comp = intent.getComponent().getClassName();
                 else if (intent.getAction() != null) comp = intent.getAction();
@@ -1210,10 +1204,10 @@ void initdoublemsg() {
                 if (peerUid == null) peerUid = extras.getString("peerUid", "");
                 if (peerUid == null) peerUid = extras.getString("uin", "");
                 if (msgId == 0 || peerUid == null || peerUid.isEmpty()) {
-                    intent.putExtra(KEY_HANDLED, true);
+                    intent.putExtra("qfun_script_handled", true);
                     return;
                 }
-                traceLog("main_log", "Intent拦截: MsgId=" + msgId);
+                traceLog("api5_log", "Intent拦截: MsgId=" + msgId);
                 param.setResult(null);
                 Activity act = null;
                 for (int j = 0; j < args.length; j++) {
@@ -1231,7 +1225,7 @@ void initdoublemsg() {
             }
         }));
     } catch (Throwable t) {
-        traceLog("main_log", "安装失败: " + t.getMessage());
+        traceLog("api5_log", "安装失败: " + t.getMessage());
         Toast("Hook加载失败: " + t.getMessage());
     }
 }
