@@ -322,7 +322,7 @@ android.graphics.drawable.Drawable createCircleDrawable(String colorStr) {
         if (colorStr == null || colorStr.isEmpty()) {
             colorStr = "#4DFFFFFF";
         }
-        int color = Color.parseColor(colorStr);
+        int color = pc(colorStr);
         android.graphics.drawable.ShapeDrawable drawable = new android.graphics.drawable.ShapeDrawable(
             new android.graphics.drawable.shapes.OvalShape()
         );
@@ -345,7 +345,7 @@ Bitmap 创建关闭区域Fallback图标(Activity activity, int size) {
         Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
         Paint paint = new Paint();
-        paint.setColor(Color.parseColor("#F44336"));
+        paint.setColor(pc("#F44336"));
         paint.setStyle(Paint.Style.FILL);
         paint.setAntiAlias(true);
         canvas.drawCircle(size / 2, size / 2, size / 2, paint);
@@ -424,7 +424,7 @@ Bitmap 创建默认图标(Activity activity) {
         Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
         Paint paint = new Paint();
-        paint.setColor(Color.parseColor("#4CAF50"));
+        paint.setColor(pc("#4CAF50"));
         paint.setStyle(Paint.Style.FILL);
         paint.setAntiAlias(true);
         canvas.drawCircle(size / 2, size / 2, size / 2, paint);
@@ -520,8 +520,7 @@ void 保存悬浮窗位置(Activity activity) {
             editor.putInt("y", params.y);
             editor.apply();
         }
-    } catch (Exception e) {
-    }
+    } catch (Throwable e) { traceLog("api4_log", "[保存悬浮窗位置] 异常: " + e); }
 }
 
 int 加载悬浮窗位置(Activity activity) {
@@ -609,8 +608,7 @@ void 显示关闭区域(final Activity activity) {
                         if (closeRangeView.isAttachedToWindow()) {
                             wm.removeView(closeRangeView);
                         }
-                    } catch (Exception e) {
-                    }
+                    } catch (Throwable e) { traceLog("api4_log", "[显示关闭区域] 异常: " + e); }
                 }
                 DisplayMetrics dm = new DisplayMetrics();
                 wm.getDefaultDisplay().getMetrics(dm);
@@ -628,8 +626,7 @@ void 显示关闭区域(final Activity activity) {
                 wm.addView(closeRangeView, closeParams);
                 closeRangeView.setVisibility(View.VISIBLE);
                 isCloseRangeAttached = true;
-            } catch (Exception e) {
-            }
+            } catch (Throwable e) { traceLog("api4_log", "[显示关闭区域] 异常: " + e); }
         }
     });
 }
@@ -650,8 +647,7 @@ void 隐藏关闭区域(final Activity activity) {
                 xfcHandler.removeCallbacks(continuousVibrationRunnable);
                 isInCloseRange = false;
                 isCloseRangeAttached = false;
-            } catch (Exception e) {
-            }
+            } catch (Throwable e) { traceLog("api4_log", "[隐藏关闭区域] 异常: " + e); }
         }
     });
 }
@@ -688,8 +684,7 @@ void 更新关闭区域状态(Activity activity, int floatX, int floatY) {
         } else if (!isInCloseRange && previouslyInRange) {
             停止持续振动();
         }
-    } catch (Exception e) {
-    }
+    } catch (Throwable e) { traceLog("api4_log", "[更新关闭区域状态] 异常: " + e); }
 }
 
 void 启动持续振动(Activity activity) {
@@ -710,8 +705,7 @@ void 启动持续振动(Activity activity) {
                         vibrate(activity, 12);
                         xfcHandler.postDelayed(this, VIBRATION_INTERVAL_MS);
                     }
-                } catch (Exception e) {
-                }
+                } catch (Throwable e) { traceLog("api4_log", "[启动持续振动] 异常: " + e); }
             }
         };
     }
@@ -827,27 +821,23 @@ void 添加到窗口管理器(Activity activity) {
 void 销毁悬浮窗资源() {
     try {
         xfcHandler.removeCallbacksAndMessages(null);
-    } catch (Throwable e) {
-    }
+    } catch (Throwable e) { traceLog("api4_log", "[销毁悬浮窗资源] 异常: " + e); }
     try {
         if (floatingView != null && floatingView.isAttachedToWindow() && wm != null) {
             wm.removeView(floatingView);
         }
-    } catch (Throwable e) {
-    }
+    } catch (Throwable e) { traceLog("api4_log", "[销毁悬浮窗资源] 异常: " + e); }
     try {
         if (cachedIconBitmap != null) {
             cachedIconBitmap.recycle();
             cachedIconBitmap = null;
         }
-    } catch (Throwable e) {
-    }
+    } catch (Throwable e) { traceLog("api4_log", "[销毁悬浮窗资源] 异常: " + e); }
     try {
         cachedGifMovie = null;
         cachedGifPath = "";
         isGifMode = false;
-    } catch (Throwable e) {
-    }
+    } catch (Throwable e) { traceLog("api4_log", "[销毁悬浮窗资源] 异常: " + e); }
     try {
         floatingView = null;
         iconImageView = null;
@@ -857,8 +847,7 @@ void 销毁悬浮窗资源() {
         isLongClickScheduled = false;
         isDragging = false;
         isInCloseRange = false;
-    } catch (Throwable e) {
-    }
+    } catch (Throwable e) { traceLog("api4_log", "[销毁悬浮窗资源] 异常: " + e); }
 }
 
 void 设置触摸事件(final Activity activity) {
@@ -879,8 +868,7 @@ void 设置触摸事件(final Activity activity) {
                             xfcHandler.postDelayed(this, 30);
                         }
                     }
-                } catch (Exception e) {
-                }
+                } catch (Throwable e) { traceLog("api4_log", "[设置触摸事件] 异常: " + e); }
             }
         };
     }
@@ -904,8 +892,7 @@ void 设置触摸事件(final Activity activity) {
                             });
                         }
                     }
-                } catch (Exception e) {
-                }
+                } catch (Throwable e) { traceLog("api4_log", "[run] 异常: " + e); }
             }
         };
     }
@@ -1043,7 +1030,7 @@ void 处理图标点击(Activity activity) {
                 vibrate(activity, 48);
                 showSettingsMenu(activity, null, null, null);
             } catch (Exception e) {
-                traceLog("icon_click_error", "菜单弹窗异常: " + e.getMessage());
+                traceLog("api4_log", "菜单弹窗异常: " + e.getMessage());
             }
         }
     });
@@ -1067,8 +1054,7 @@ public void 悬浮窗开关(int chatType, String peerUin, String name) {
                 } else {
                     停止悬浮窗(finalActivity);
                 }
-            } catch (Exception e) {
-            }
+            } catch (Throwable e) { traceLog("api4_log", "[悬浮窗开关] 异常: " + e); }
         }
     });
 }
@@ -1132,8 +1118,7 @@ public void 启动悬浮窗(final Activity activity) {
         if (悬浮窗状态 == STATE_VISIBLE) {
             允许触摸 = true;
         }
-    } catch (Exception e) {
-    }
+    } catch (Throwable e) { traceLog("api4_log", "[启动悬浮窗] 异常: " + e); }
 }
 
 public void 启动悬浮窗() {
@@ -1172,8 +1157,7 @@ public void 停止悬浮窗(final Activity activity) {
                     }
                     wm.removeView(floatingView);
                 }
-            } catch (Exception e) {
-            }
+            } catch (Throwable e) { traceLog("api4_log", "[停止悬浮窗] 异常: " + e); }
         }
         悬浮窗状态 = STATE_HIDDEN;
         悬浮窗显示状态 = false;
@@ -1203,8 +1187,7 @@ public void 停止悬浮窗() {
                 }
                 wm.removeView(floatingView);
             }
-        } catch (Exception e) {
-        }
+        } catch (Throwable e) { traceLog("api4_log", "[停止悬浮窗] 异常: " + e); }
         悬浮窗状态 = STATE_HIDDEN;
     }
     悬浮窗显示状态 = false;
@@ -1221,8 +1204,7 @@ public void 卸载悬浮窗() {
                 wm.removeView(closeRangeView);
             }
         }
-    } catch (Exception e) {
-    }
+    } catch (Throwable e) { traceLog("api4_log", "[卸载悬浮窗] 异常: " + e); }
     try {
         if (cachedIconBitmap != null) {
             cachedIconBitmap.recycle();
@@ -1232,8 +1214,7 @@ public void 卸载悬浮窗() {
             cachedCloseIconBitmap.recycle();
             cachedCloseIconBitmap = null;
         }
-    } catch (Exception e) {
-    }
+    } catch (Throwable e) { traceLog("api4_log", "[卸载悬浮窗] 异常: " + e); }
     cachedGifMovie = null;
     cachedGifPath = "";
     isGifMode = false;
@@ -1261,8 +1242,7 @@ public void 卸载悬浮窗() {
     if (vibrator != null) {
         try {
             vibrator.cancel();
-        } catch (Exception e) {
-        }
+        } catch (Throwable e) { traceLog("api4_log", "[卸载悬浮窗] 异常: " + e); }
         vibrator = null;
     }
 }
@@ -1286,7 +1266,7 @@ public void 刷新悬浮窗() {
                         cachedIconBitmap.recycle();
                         cachedIconBitmap = null;
                     }
-                } catch (Throwable ignore) {}
+                } catch (Throwable ignore) { traceLog("api4_log", "[刷新悬浮窗] 异常: " + ignore); }
                 cachedGifMovie = null;
                 cachedGifPath = "";
                 isGifMode = false;
@@ -1303,8 +1283,7 @@ public void 刷新悬浮窗() {
                 设置图标图片(activity, iconImageView);
                 currentAlpha = 255;
                 iconImageView.setImageAlpha(currentAlpha);
-            } catch (Throwable e) {
-            }
+            } catch (Throwable e) { traceLog("api4_log", "[刷新悬浮窗] 异常: " + e); }
         }
     });
 }
@@ -1318,12 +1297,12 @@ private void 重建悬浮窗图标视图(Activity activity) {
             if (iconImageView instanceof GifImageView) {
                 ((GifImageView) iconImageView).stopAnimation();
             }
-        } catch (Throwable ignore) {}
+        } catch (Throwable ignore) { traceLog("api4_log", "[重建悬浮窗图标视图] 异常: " + ignore); }
         try {
             if (iconImageView != null) {
                 floatingView.removeView(iconImageView);
             }
-        } catch (Throwable ignore) {}
+        } catch (Throwable ignore) { traceLog("api4_log", "[重建悬浮窗图标视图] 异常: " + ignore); }
 
         if (isGifMode && cachedGifMovie != null) {
             iconImageView = new GifImageView(activity);
@@ -1341,6 +1320,5 @@ private void 重建悬浮窗图标视图(Activity activity) {
 
         floatingView.addView(iconImageView);
         设置触摸事件(activity);
-    } catch (Throwable e) {
-    }
+    } catch (Throwable e) { traceLog("api4_log", "[重建悬浮窗图标视图] 异常: " + e); }
 }
