@@ -1,4 +1,4 @@
-// =============== 1. 腾讯 QQ/第三方 SDK 核心依赖 ===============
+// 1. 腾讯类
 import com.tencent.common.app.BaseApplicationImpl;
 import com.tencent.mobileqq.activity.QQSettingMe;
 import com.tencent.mobileqq.activity.shortvideo.d;
@@ -25,7 +25,7 @@ import com.tencent.mobileqq.troop.api.ITroopInfoService;
 import com.tencent.mobileqq.utils.DialogUtil;
 import com.tencent.mobileqq.vip.api.IVipColorName;
 
-// =============== 2. 腾讯 QQNT 内核接口 ===============
+// 2. QQNT 接口  
 import com.tencent.qqnt.kernel.nativeinterface.FaceBubbleElement;
 import com.tencent.qqnt.kernel.nativeinterface.FaceElement;
 import com.tencent.qqnt.kernel.nativeinterface.FileElement;
@@ -46,7 +46,7 @@ import com.tencent.qqnt.kernelpublic.nativeinterface.Contact;
 import com.tencent.qqnt.msg.api.IMsgService;
 import com.tencent.qqnt.msg.api.IMsgUtilApi;
 
-// =============== 3. QQ 底层协议与认证 ===============
+// 3. 协议认证
 import com.tencent.qphone.base.util.BaseApplication;
 import mqq.app.AppRuntime.Status;
 import mqq.app.AppService;
@@ -59,7 +59,7 @@ import oicq.wlogin_sdk.request.Ticket;
 import oicq.wlogin_sdk.request.WtTicketPromise;
 import oicq.wlogin_sdk.request.WtloginHelper;
 
-// =============== 4. Android 基础组件 ===============
+// 4. Android 基础 
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.ActivityManager.MemoryInfo;
@@ -96,14 +96,14 @@ import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.os.VibratorManager;
 
-// =============== 5. Android UI 组件 - 布局 ===============
+// 5. UI 布局                   
 import android.widget.FrameLayout;
 import android.widget.GridLayout;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.ScrollView;
 
-// =============== 6. Android UI 组件 - 控件 ===============
+// 6. UI 控件           
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.BaseAdapter;
@@ -129,7 +129,7 @@ import android.widget.TimePicker;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 
-// =============== 7. Android 文本处理 ===============
+// 7. 文本处理
 import android.text.Editable;
 import android.text.Html;
 import android.text.InputType;
@@ -146,7 +146,7 @@ import android.text.style.ImageSpan;
 import android.text.style.StyleSpan;
 import android.text.style.UnderlineSpan;
 
-// =============== 8. Android View 与交互 ===============
+// 8. View 交互        
 import android.util.DisplayMetrics;
 import android.view.GestureDetector;
 import android.view.Gravity;
@@ -165,7 +165,7 @@ import android.view.animation.AnimationSet;
 import android.view.animation.ScaleAnimation;
 import android.view.animation.Transformation;
 
-// =============== 9. Android 图形绘制 ===============
+// 9. 图形绘制
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
@@ -184,13 +184,13 @@ import android.graphics.drawable.ShapeDrawable;
 import android.graphics.drawable.StateListDrawable;
 import android.graphics.drawable.shapes.OvalShape;
 
-// =============== 10. Android RenderScript（高性能图像处理）===============
+// 10. RenderScript
 import android.renderscript.Allocation;
 import android.renderscript.Element;
 import android.renderscript.RenderScript;
 import android.renderscript.ScriptIntrinsicBlur;
 
-// =============== 11. Android 系统服务 ===============
+// 11. 系统服务
 import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationListener;
@@ -210,13 +210,13 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
-// =============== 12. AndroidX 库 ===============
+// 12. AndroidX
 import androidx.annotation.Keep;
 import androidx.dynamicanimation.animation.DynamicAnimation;
 import androidx.dynamicanimation.animation.SpringAnimation;
 import androidx.dynamicanimation.animation.SpringForce;
 
-// =============== 13. Java 基础类 ===============
+// 13. Java 基础          
 import java.lang.Exception;
 import java.lang.Math;
 import java.lang.Runnable;
@@ -226,13 +226,13 @@ import java.lang.StringBuilder;
 import java.lang.System;
 import android.os.PowerManager;
 
-// =============== 14. Java 反射 API ===============
+// 14. Java 反射  
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
-// =============== 15. Java 网络通信 ===============
+// 15. 网络通信
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.ServerSocket;
@@ -243,7 +243,7 @@ import java.net.URLConnection;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 
-// =============== 16. Java IO 流操作 ===============
+// 16. IO 流    
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
@@ -261,21 +261,21 @@ import java.io.OutputStreamWriter;
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
 
-// =============== 17. Java 数据压缩 ===============
+// 17. 数据压缩
 import java.util.zip.Deflater;
 import java.util.zip.Inflater;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
-// =============== 18. Java 加密与安全 ===============
+// 18. 加密安全
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
 
-// =============== 19. Java 集合框架 ===============
+// 19. 集合
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -291,7 +291,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.Vector;
 
-// =============== 20. Java 并发工具 ===============
+// 20. 并发工具
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -301,7 +301,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
-// =============== 21. Java 日期时间 ===============
+// 21. 日期时间
 import java.nio.charset.StandardCharsets;
 import java.text.DateFormat;
 import java.text.DecimalFormat;
@@ -312,17 +312,17 @@ import java.util.Date;
 import java.util.Locale;
 import java.util.TimeZone;
 
-// =============== 22. Java 正则表达式 ===============
+// 22. 正则
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-// =============== 23. JSON 处理 ===============
+// 23. JSON
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-// =============== 24. QFun Hook 框架 ===============
+// 24. QFun Hook 
 import me.yxp.qfun.hook.api.OnGetRKey;
 import me.yxp.qfun.hook.api.OnReceiveMsg;
 import me.yxp.qfun.hook.api.ReceiveMsgListener;
@@ -338,7 +338,7 @@ import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.XC_MethodHook.MethodHookParam;
 
-// =============== 25. 图像处理进阶 ===============
+// 25. 图像处理
 import android.graphics.Bitmap.CompressFormat;
 import android.graphics.Bitmap.Config;
 import android.graphics.BitmapShader;
@@ -365,7 +365,7 @@ import android.graphics.SweepGradient;
 import android.graphics.Xfermode;
 import android.graphics.YuvImage;
 
-// =============== 26. 视频处理 ===============
+// 26. 视频处理
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
@@ -381,7 +381,7 @@ import android.media.ThumbnailUtils;
 import android.view.SurfaceView;
 import android.view.TextureView;
 
-// =============== 27. 音频处理 ===============
+// 27. 音频处理
 import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioManager;
@@ -395,7 +395,7 @@ import android.media.audiofx.EnvironmentalReverb;
 import android.media.audiofx.LoudnessEnhancer;
 import android.media.audiofx.Virtualizer;
 
-// =============== 28. 线程与异步 - 基础 ===============
+// 28. 线程基础
 import java.lang.Thread;
 import java.lang.ThreadLocal;
 import java.util.concurrent.Callable;
@@ -428,7 +428,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.RunnableScheduledFuture;
 import java.lang.CharSequence;
 
-// =============== 29. 线程与异步 - 线程池 ===============
+// 29. 线程池
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -440,7 +440,7 @@ import java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy;
 import java.util.concurrent.ThreadPoolExecutor.DiscardOldestPolicy;
 import java.util.concurrent.ThreadPoolExecutor.DiscardPolicy;
 
-// =============== 30. 线程与异步 - 并发工具进阶 ===============
+// 30. 并发进阶
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -454,13 +454,13 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.ReadWriteLock;
 
-// =============== 31. Android 异步处理 ===============
+// 31. Android 异步         
 import android.os.AsyncTask;
 import android.os.HandlerThread;
 import android.os.Message;
 import android.os.MessageQueue;
 
-// =============== 32. UI 组件进阶 - RecyclerView ===============
+// 32. RecyclerView
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.RecyclerView.Adapter;
 import androidx.recyclerview.widget.RecyclerView.ViewHolder;
@@ -472,25 +472,25 @@ import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.RecyclerView.ItemDecoration;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
-// =============== 33. UI 组件进阶 - ViewPager ===============
+// 33. ViewPager
 import androidx.viewpager.widget.ViewPager;
 import androidx.viewpager.widget.PagerAdapter;
 import androidx.viewpager2.widget.ViewPager2;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
 
-// =============== 34. UI 组件进阶 - ConstraintLayout ===============
+// 34. ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.constraintlayout.widget.ConstraintSet;
 import androidx.constraintlayout.widget.Guideline;
 
-// =============== 35. UI 组件进阶 - CoordinatorLayout ===============
+// 35. CoordinatorLayout
 import androidx.coordinatorlayout.widget.CoordinatorLayout;
 import com.google.android.material.appbar.AppBarLayout;
 import com.google.android.material.appbar.CollapsingToolbarLayout;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
-// =============== 36. UI 组件进阶 - Material Design ===============
+// 36. Material
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.chip.Chip;
@@ -500,7 +500,7 @@ import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputLayout;
 import com.google.android.material.textfield.TextInputEditText;
 
-// =============== 37. UI 动画进阶 ===============
+// 37. 动画
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
@@ -518,7 +518,7 @@ import android.view.animation.OvershootInterpolator;
 import android.view.animation.RotateAnimation;
 import android.view.animation.TranslateAnimation;
 
-// =============== 38. 触摸手势进阶 ===============
+// 38. 手势
 import android.view.GestureDetector.OnDoubleTapListener;
 import android.view.GestureDetector.OnGestureListener;
 import android.view.GestureDetector.SimpleOnGestureListener;
@@ -526,52 +526,52 @@ import android.view.ScaleGestureDetector;
 import android.view.VelocityTracker;
 import android.view.ViewConfiguration;
 
-// =============== 39. 自定义 View ===============
+// 39. 自定义 View
 import android.content.res.TypedArray;
 import android.util.AttributeSet;
 import android.view.ViewTreeObserver;
 import android.view.ViewTreeObserver.OnGlobalLayoutListener;
 import android.view.ViewTreeObserver.OnPreDrawListener;
 
-// =============== 40. Fragment 支持 ===============
+// 40. Fragment
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 
-// =============== 41. 权限处理 ===============
+// 41. 权限
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.Manifest;
 
-// =============== 42. 通知处理 ===============
+// 42. 通知
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import androidx.core.app.NotificationCompat;
 
-// =============== 43. 数据库支持 ===============
+// 43. 数据库
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
-// =============== 44. ContentProvider 支持 ===============
+// 44. ContentProvider
 import android.content.ContentProvider;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 
-// =============== 45. 广播接收器 ===============
+// 45. 广播
 import android.content.BroadcastReceiver;
 import android.content.LocalBroadcastManager;
 
-// =============== 46. 服务组件 ===============
+// 46. 服务
 import android.app.Service;
 import android.app.IntentService;
 import android.content.ServiceConnection;
 
-// =============== 47. 相机相关 ===============
+// 47. 相机
 import android.hardware.Camera;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
@@ -579,19 +579,19 @@ import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
 
-// =============== 48. 传感器相关 ===============
+// 48. 传感器
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 
-// =============== 49. 蓝牙相关 ===============
+// 49. 蓝牙
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothSocket;
 
-// =============== 50. NFC 相关 ===============
+// 50. NFC
 import android.nfc.NfcAdapter;
 import android.nfc.NfcManager;
 import android.nfc.Tag;
