@@ -1,21 +1,20 @@
 {
-  "version": "2.4.1",
+  "version": "2.4.2",
   "versionType": "正式版",
   "updateType": "补丁",
-  "updateTime": "2026-09-05 15:44:59",
-  "changelog": "- 修复**调色盘**取消\/确认按钮透明的问题\n- 修复**调色盘**一系列问题\n- 优化修改文字颜色时的**对比度提示**\n- 优化**空间操作弹窗**主题适配",
+  "updateTime": "2026-09-05 21:23:43",
+  "changelog": "- 修复部分按钮文字颜色可能被主题误改的问题\n- 修复字体大小设置不生效的问题\n- 修复弹窗底部黑色阴影问题\n- 精简代码，减少脚本体积\n- 修复钟表选择器在部分安卓版本无反应的问题\n- 修复时间选择器确定后无反应、不关闭的问题\n- 修复打开时间选择器时已有数值不回填的问题\n- 修复切换输入模式时内容清零的问题\n- 禁言弹窗复用时间选择器\n- 输入框添加聚焦时高亮显示\n- 修复安卓14及以上版本模拟定位可能失效的问题\n- 新增对安卓11+异步定位接口的支持\n- 添加详细定位日志，方便排查问题\n- 调试板块新增日志大小阈值设置，可自定义日志清理大小\n- HTML浏览器弹窗适配主题\n- 修复若干已知bug 增加了若干未知bug",
   "files": [
     "QFloatingX\/API\/ColorPicker.java",
-    "QFloatingX\/API\/api3.java",
     "QFloatingX\/API\/uitools.java",
     "QFloatingX\/API\/Dialog.java",
-    "QFloatingX\/API\/api5.java",
     "QFloatingX\/API\/api.java",
+    "QFloatingX\/API\/api2.java",
     "QFloatingX\/API\/setwindow.java",
-    "QFloatingX\/API\/api9.java",
     "QFloatingX\/API\/api7.java",
     "QFloatingX\/API\/api8.java",
     "QFloatingX\/API\/function.java",
+    "QFloatingX\/main.java",
     "QFloatingX\/info.prop",
     "QFloatingX\/更新日志.txt"
   ]

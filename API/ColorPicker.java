@@ -44,7 +44,7 @@ void applyMd3SeekBar(android.widget.SeekBar sb, int primary, Context ctx) {
         int pad = thumbSize / 2;
         sb.setPadding(pad, trackPad, pad, trackPad);
         sb.setMinimumHeight(thumbSize);
-    } catch (Exception e) { traceLog("ColorPicker", "applyMd3SeekBar error: " + e.getMessage()); }
+    } catch (Exception e) { traceLog("colorpicker_log", "applyMd3SeekBar 错误: " + e.getMessage()); }
 }
 
 String colorToHex(int color) {
@@ -90,7 +90,7 @@ ArrayList loadFavoriteColors(Activity activity) {
                 }
             }
         }
-    } catch (Exception e) { traceLog("ColorPicker", e.getMessage()); }
+    } catch (Exception e) { traceLog("colorpicker_log", e.getMessage()); }
     return list;
 }
 
@@ -103,7 +103,7 @@ void saveFavoriteColors(Activity activity, ArrayList favorites) {
             sb.append(favorites.get(i).toString());
         }
         putString("settings", "color_favorites", sb.toString());
-    } catch (Exception e) { traceLog("ColorPicker", e.getMessage()); }
+    } catch (Exception e) { traceLog("colorpicker_log", e.getMessage()); }
 }
 
 class ColorSeekBar extends LinearLayout {
@@ -137,7 +137,7 @@ class ColorSeekBar extends LinearLayout {
         seekBar.setProgress(initialValue);
         try {
             applyMd3SeekBar(seekBar, color, context);
-        } catch (Exception e) { traceLog("ColorPicker", "ColorSeekBar md3 error: " + e.getMessage()); }
+        } catch (Exception e) { traceLog("colorpicker_log", "ColorSeekBar md3 错误: " + e.getMessage()); }
         
         seekContainer.addView(seekBar);
         addView(seekContainer);
@@ -235,7 +235,7 @@ class MagnifierView extends View {
             canvas.drawLine(0, center, size * 2 * scale, center, crossPaint);
             
             invalidate();
-        } catch (Exception e) { traceLog("ColorPicker", e.getMessage()); }
+        } catch (Exception e) { traceLog("colorpicker_log", e.getMessage()); }
     }
         protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
@@ -257,7 +257,7 @@ class MagnifierView extends View {
                 
                 canvas.drawCircle(w/2, h/2, radius, borderPaint);
             }
-        } catch (Exception e) { traceLog("ColorPicker", e.getMessage()); }
+        } catch (Exception e) { traceLog("colorpicker_log", e.getMessage()); }
     }
 }
 
@@ -312,8 +312,15 @@ Bitmap createHsvBitmap(int width, int height, int hue) {
         int svH = height - 16;
         int hueLeft = svW + gap + 8;
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
-        int[] hueColors = new int[]{ pc("#FFFF0000"), pc("#FFFFFF00"), pc("#FF00FF00"), pc("#FF00FFFF"), pc("#FF0000FF"), pc("#FFFF00FF"), pc("#FFFF0000") };
-        Shader hueShader = new LinearGradient(0, 8, 0, height - 8, hueColors, null, Shader.TileMode.CLAMP);
+        int[] hueColors = new int[7];
+        hueColors[0] = pc("#FFFF0000");
+        hueColors[1] = pc("#FFFFFF00");
+        hueColors[2] = pc("#FF00FF00");
+        hueColors[3] = pc("#FF00FFFF");
+        hueColors[4] = pc("#FF0000FF");
+        hueColors[5] = pc("#FFFF00FF");
+        hueColors[6] = pc("#FFFF0000");
+        Shader hueShader = new LinearGradient(0, 8, 0, height - 8, (int[]) hueColors, null, Shader.TileMode.CLAMP);
         p.setShader(hueShader);
         canvas.drawRect(hueLeft, 8, hueLeft + hueW, height - 8, p);
         int hueColor = hsvColor(hue, 1.0f, 1.0f);
@@ -324,7 +331,7 @@ Bitmap createHsvBitmap(int width, int height, int hue) {
         p.setShader(valShader);
         canvas.drawRect(8, 8, svW + 8, svH + 8, p);
         return bmp;
-    } catch (Exception e) { traceLog("ColorPicker", "createHsvBitmap error: " + e.getMessage()); return null; }
+    } catch (Exception e) { traceLog("colorpicker_log", "createHsvBitmap 错误: " + e.getMessage()); return null; }
 }
 
 View createHsvView(Activity activity, int initialColor, final OnColorChangedListener listener) {
@@ -413,7 +420,7 @@ Bitmap createColorWheelBitmap(int size) {
         p.setShader(radial);
         canvas.drawCircle(cx, cy, r, p);
         return bmp;
-    } catch (Exception e) { traceLog("ColorPicker", "createColorWheelBitmap error: " + e.getMessage()); return null; }
+    } catch (Exception e) { traceLog("colorpicker_log", "createColorWheelBitmap 错误: " + e.getMessage()); return null; }
 }
 
 View createColorWheelView(Activity activity, int initialColor, final OnColorChangedListener listener) {
@@ -476,7 +483,7 @@ Bitmap createColorBarBitmap(int width, int height) {
         p.setShader(shader);
         canvas.drawRect(0, 0, width, height, p);
         return bmp;
-    } catch (Exception e) { traceLog("ColorPicker", "createColorBarBitmap error: " + e.getMessage()); return null; }
+    } catch (Exception e) { traceLog("colorpicker_log", "createColorBarBitmap 错误: " + e.getMessage()); return null; }
 }
 
 View createColorBarView(Activity activity, int initialColor, final OnColorChangedListener listener) {
@@ -591,7 +598,7 @@ void showFavoritesView(Activity activity, FrameLayout container, ArrayList favor
                     try {
                         int color = pc(colorStr);
                         if (listener != null) listener.onColorPicked(color);
-                    } catch (Exception e) { traceLog("ColorPicker", e.getMessage()); }
+                    } catch (Exception e) { traceLog("colorpicker_log", e.getMessage()); }
                 }
             });
             
@@ -633,7 +640,7 @@ void showImagePickerDialog(final Activity activity, final OnColorPickedListener 
             if (pluginPath != null) {
                 imgPath = pluginPath + "/API/background.png";
             }
-        } catch (Exception e) { traceLog("ColorPicker", e.getMessage()); }
+        } catch (Exception e) { traceLog("colorpicker_log", e.getMessage()); }
         
         if (imgPath == null) {
             Toast("图片路径错误");
@@ -751,7 +758,7 @@ void showImagePickerDialog(final Activity activity, final OnColorPickedListener 
                         case MotionEvent.ACTION_UP:
                             return true;
                     }
-                } catch (Exception e) { traceLog("ColorPicker", e.getMessage()); }
+                } catch (Exception e) { traceLog("colorpicker_log", e.getMessage()); }
                 return true;
             }
         });
@@ -770,14 +777,14 @@ void showImagePickerDialog(final Activity activity, final OnColorPickedListener 
                 try {
                     int color = pc(hexText.getText().toString());
                     if (callback != null) callback.onColorPicked(color);
-                } catch (Exception e) { traceLog("ColorPicker", e.getMessage()); }
+                } catch (Exception e) { traceLog("colorpicker_log", e.getMessage()); }
                 dialog.dismiss();
             }
         });
         
         dialog.show();
 
-    } catch (Exception e) { traceLog("ColorPicker", e.getMessage()); }
+    } catch (Exception e) { traceLog("colorpicker_log", e.getMessage()); }
 }
 
 void showColorPickerDialog(final Activity activity, final String initialColor, final OnColorPickedListener callback) {
@@ -871,7 +878,7 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
             public void afterTextChanged(android.text.Editable s) {
                 if (isUpdatingFromInput[0]) return;
                 String input = s.toString().trim();
-                traceLog("ColorPicker", "afterTextChanged input=" + input);
+                traceLog("colorpicker_log", "输入框变化 input=" + input);
                 try {
                     if (input.startsWith("#") && (input.length() == 7 || input.length() == 9)) {
                         int newColor = pc(input);
@@ -890,7 +897,7 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
                             }
                         });
                     }
-                } catch (Throwable e) { traceLog("ColorPicker", "afterTextChanged error: " + e.getMessage()); }
+                } catch (Throwable e) { traceLog("colorpicker_log", "afterTextChanged 错误: " + e.getMessage()); }
             }
         });
         previewRow.addView(hexInput);
@@ -994,7 +1001,7 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
         alphaSeek.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
         try {
             applyMd3SeekBar(alphaSeek, pc(getSettingsThemeColor(activity, "primary")), activity);
-        } catch (Exception e) { traceLog("ColorPicker", "alphaSeek md3 error: " + e.getMessage()); }
+        } catch (Exception e) { traceLog("colorpicker_log", "alphaSeek md3 错误: " + e.getMessage()); }
         alphaRow.addView(alphaSeek);
         
         final TextView alphaValue = new TextView(activity);
@@ -1011,7 +1018,7 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
         alphaSeek.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 if (fromUser) {
-                    traceLog("ColorPicker", "alphaSeek progress=" + progress);
+                    traceLog("colorpicker_log", "alphaSeek 进度=" + progress);
                     currentColor[0] = Color.argb(progress, 
                         Color.red(currentColor[0]), 
                         Color.green(currentColor[0]), 
@@ -1129,26 +1136,26 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
             if (window != null) {
                 window.setBackgroundDrawable(roundRect(pc(getSettingsThemeColor(activity, "surface")), dpx(activity, 16)));
             }
-        } catch (Exception e) { traceLog("ColorPicker", e.getMessage()); }
+        } catch (Exception e) { traceLog("colorpicker_log", e.getMessage()); }
         
-    } catch (Exception e) { traceLog("ColorPicker", e.getMessage()); }
+    } catch (Exception e) { traceLog("colorpicker_log", e.getMessage()); }
 }
 
 void updatePreview(View preview, TextView hexText, int color) {
     try {
-        traceLog("ColorPicker", "updatePreview color=" + colorToHex(color));
+        traceLog("colorpicker_log", "更新预览 color=" + colorToHex(color));
         preview.setBackgroundColor(color);
         String hex = colorToHex(color);
         String current = hexText.getText().toString();
         if (!current.equalsIgnoreCase(hex)) {
-            traceLog("ColorPicker", "updatePreview setText=" + hex);
+            traceLog("colorpicker_log", "更新预览 setText=" + hex);
             hexText.setText(hex);
         }
-    } catch (Exception e) { traceLog("ColorPicker", "updatePreview error: " + e.getMessage()); }
+    } catch (Exception e) { traceLog("colorpicker_log", "updatePreview 错误: " + e.getMessage()); }
 }
 void showModeContent(Activity activity, FrameLayout container, int mode, int initialColor, OnColorChangedListener listener) {
     container.removeAllViews();
-    traceLog("ColorPicker", "showModeContent mode=" + mode + " initialColor=" + colorToHex(initialColor));
+    traceLog("colorpicker_log", "显示模式内容 mode=" + mode + " initialColor=" + colorToHex(initialColor));
     
     View view = null;
     switch (mode) {
@@ -1276,7 +1283,7 @@ void addSettingsColorItem(String categoryName, String itemName, String descripti
                                         if (contrast < 0.2) {
                                             Toast("提示:当前颜色与背景对比度较低,可能影响可读性");
                                         }
-                                    } catch (Throwable e) {}
+                                    } catch (Throwable e) { traceLog("colorpicker_log", "[onColorPicked] 异常: " + e); }
                                 }
                             }
                         }
