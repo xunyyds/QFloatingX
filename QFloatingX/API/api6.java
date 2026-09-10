@@ -82,20 +82,30 @@ public static String getCPUInfo() {
 
 String get在线状态() {
     try {
-        Object statusObj = QQCurrentEnv.INSTANCE.getQQAppInterface().getRuntimeService(IOnlineStatusService.class, "");
-        Object status = statusObj.getOnlineStatus();
-        String sta = status + "";
-        if(sta.equals("null")) return "未知";
-        if(sta.equals("away")) return "离开";
-        if(sta.equals("offline")) return "离线";
-        if(sta.equals("invisiable")) return "隐身";
-        if(sta.equals("busy")) return "忙碌";
-        if(sta.equals("qme")) return "Q我吧";
-        if(sta.equals("dnd")) return "请勿打扰";
-        if(sta.equals("online")) return "在线";
-        if(sta.equals("receiveofflinemsg")) return "失联";
-        return sta;
-    } catch (Exception e) { return "获取失败"; }
+        Object appInterface = QQCurrentEnv.INSTANCE.getQQAppInterface();
+        if (appInterface == null) return "未知";
+        Class[] argTypes = new Class[2];
+        argTypes[0] = Class.class;
+        argTypes[1] = String.class;
+        java.lang.reflect.Method m = appInterface.getClass().getMethod("getRuntimeService", argTypes);
+        Object[] invokeArgs = new Object[2];
+        invokeArgs[0] = IOnlineStatusService.class;
+        invokeArgs[1] = "";
+        Object statusObj = m.invoke(appInterface, invokeArgs);
+        java.lang.reflect.Method ms = statusObj.getClass().getMethod("getOnlineStatus");
+        Object status = ms.invoke(statusObj, new Object[0]);
+        String StatusString = status + "";
+        if(StatusString.equals("null")) return "未知";
+        if(StatusString.equals("away")) return "离开";
+        if(StatusString.equals("offline")) return "离线";
+        if(StatusString.equals("invisiable")) return "隐身";
+        if(StatusString.equals("busy")) return "忙碌";
+        if(StatusString.equals("qme")) return "Q我吧";
+        if(StatusString.equals("dnd")) return "请勿打扰";
+        if(StatusString.equals("online")) return "在线";
+        if(StatusString.equals("receiveofflinemsg")) return "失联";
+        return StatusString;
+    } catch (Throwable e) { traceLog("api6_log", "[get在线状态] 异常: " + e); return "未知"; }
 }
 
 public static List getInstalledApplication(boolean needSysAPP) {
@@ -144,7 +154,7 @@ public String getThreadPoolInfo() {
         sb.append("当前线程: #").append(executor.getPoolSize()).append("#  ");
         sb.append("活跃线程: #").append(executor.getActiveCount()).append("#\n");
         sb.append("队列任务: #").append(executor.getQueue().size()).append("#  ");
-        String sp = getString("settings", "thread_pool_queue_capacity", "50");
+        String sp = getString("settings", "thread_pool_queue_capacity", "");
         sb.append("队列容量: #").append(sp).append("#\n"); 
         sb.append("总任务:    #").append(executor.getTaskCount()).append("#  ");
         sb.append("累计已完成: #").append(executor.getCompletedTaskCount()).append("#");
@@ -163,7 +173,7 @@ TextView createTSStyleTextView(Activity context, String text, boolean isDark) {
     textView.setMaxLines(Integer.MAX_VALUE);
     textView.setEllipsize(null);
     
-    int normalColor = isDark ? Color.parseColor("#CCCCCC") : Color.parseColor("#555555");
+    int normalColor = isDark ? pc("#CCCCCC") : pc("#555555");
     
     try {
         if (text != null && !text.equals("")) {
@@ -172,11 +182,11 @@ TextView createTSStyleTextView(Activity context, String text, boolean isDark) {
             int highlightIndex = 0;
             
             final int[] HIGHLIGHT_COLORS = isDark ? new int[]{
-                Color.parseColor("#FF8A80"), Color.parseColor("#80DEEA"),
-                Color.parseColor("#CE93D8"), Color.parseColor("#FFCC80")
+                pc("#FF8A80"), pc("#80DEEA"),
+                pc("#CE93D8"), pc("#FFCC80")
             } : new int[]{
-                Color.parseColor("#D32F2F"), Color.parseColor("#0097A7"),
-                Color.parseColor("#7B1FA2"), Color.parseColor("#F57C00")
+                pc("#D32F2F"), pc("#0097A7"),
+                pc("#7B1FA2"), pc("#F57C00")
             };
             
             for (int i = 0; i < lines.length; i++) {
@@ -245,7 +255,7 @@ TextView createTSStyleTextView(Activity context, String text, boolean isDark) {
 TextView createTitleView(Activity context, String title, boolean isDark) {
     TextView titleTv = new TextView(context);
     titleTv.setText(title);
-    titleTv.setTextColor(isDark ? Color.parseColor("#EFEFEF") : Color.parseColor("#212121"));
+    titleTv.setTextColor(isDark ? pc("#EFEFEF") : pc("#212121"));
     titleTv.setTextSize(18); 
     titleTv.setTypeface(null, Typeface.BOLD);
     titleTv.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
@@ -260,10 +270,10 @@ LinearLayout createTSCard(Activity context, String title, String content, boolea
     
     GradientDrawable bg = new GradientDrawable();
     if (isDark) {
-        bg.setColor(Color.parseColor("#FF2D2D2D"));
-        bg.setStroke(dp(context, 1), Color.parseColor("#1AFFFFFF")); 
+        bg.setColor(pc("#FF2D2D2D"));
+        bg.setStroke(dp(context, 1), pc("#1AFFFFFF")); 
     } else {
-        bg.setColor(Color.parseColor("#FFFFFF"));
+        bg.setColor(pc("#FFFFFF"));
     }
     bg.setCornerRadius(dp(context, 10));
     card.setBackground(bg);
@@ -279,7 +289,7 @@ LinearLayout createTSCard(Activity context, String title, String content, boolea
     
     TextView titleTv = new TextView(context);
     titleTv.setText(title);
-    titleTv.setTextColor(isDark ? Color.parseColor("#8AB4F8") : Color.parseColor("#FF6B6B"));
+    titleTv.setTextColor(isDark ? pc("#8AB4F8") : pc("#FF6B6B"));
     titleTv.setTextSize(16);
     titleTv.setTypeface(titleTv.getTypeface(), Typeface.BOLD);
     titleTv.setPadding(0, 0, 0, dp(context, 6));
@@ -378,7 +388,6 @@ void add模块信息卡片(Activity context, LinearLayout parent, boolean isDark
     }
 }
 
-
 void add脚本信息卡片(Activity context, LinearLayout parent, boolean isDark) {
     try {
         long time = System.currentTimeMillis();
@@ -408,8 +417,7 @@ void addJVM内存信息卡片(Activity context, LinearLayout parent, boolean isD
         content.append("已用内存: #").append(formatSize(runtime.totalMemory() - runtime.freeMemory())).append("#\n");
         content.append("空闲内存: #").append(formatSize(runtime.freeMemory())).append("#\n");
         content.append("最大内存: #").append(formatSize(runtime.maxMemory())).append("#\n");
-        content.append("内存使用率: #").append(String.format("%.2f%%",
-                (double) (runtime.totalMemory() - runtime.freeMemory()) / runtime.maxMemory() * 100)).append("#");
+        content.append("内存使用率: #").append(format2f((double) (runtime.totalMemory() - runtime.freeMemory()) / runtime.maxMemory() * 100) + "%").append("#");
         parent.addView(createTSCard(context, " JVM内存信息", content.toString(), isDark));
     } catch (Exception e) {
         parent.addView(createTSCard(context, " JVM内存", "错误: " + e.getMessage(), isDark));
@@ -452,7 +460,7 @@ void display状态对话框(final Activity activity) {
         TextView footer = new TextView(activity);
         footer.setText("Powered by QFun Engine");
         footer.setGravity(Gravity.CENTER);
-        footer.setTextColor(Color.parseColor(isDark ? "#555555" : "#AAAAAA"));
+        footer.setTextColor(pc(isDark ? "#555555" : "#AAAAAA"));
         footer.setTextSize(10);
         footer.setPadding(0, dp(activity, 4), 0, dp(activity, 4));
         contentLayout.addView(footer);
@@ -473,7 +481,7 @@ void display状态对话框(final Activity activity) {
         
         AlertDialog dialog = builder.create();
         dialog.show();
-        applyUiTheme(activity, dialog);
+        applyUiTheme(activity, dialog, 0);
         
         WindowManager.LayoutParams params = dialog.getWindow().getAttributes();
         params.width = dp(activity, 300); 
@@ -481,7 +489,7 @@ void display状态对话框(final Activity activity) {
         dialog.getWindow().setAttributes(params);
         
     } catch (Exception e) {
-        traceLog("api6_log.txt","构建对话框失败 [" + errorStage + "]: " + e);
+        traceLog("api6_log","构建对话框失败 [" + errorStage + "]: " + e);
         Toast("展示失败: " + e.getMessage());
     }
 }
