@@ -54,7 +54,7 @@ public class FunProtoData {
                     putValue(fieldNumber, value);
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Throwable ignored) { traceLog("api9_log", "[fromJSON] 异常: " + ignored); }
     }
 
     public void putValue(int fieldNumber, Object value) {
@@ -177,7 +177,7 @@ public class FunProtoData {
     private String bytesToHex(byte[] bytes) {
         StringBuilder sb = new StringBuilder();
         for (byte b : bytes) {
-            sb.append(String.format("%02X", b & 0xFF));
+            sb.append(hexByte(b).toUpperCase());
         }
         return sb.toString();
     }
@@ -292,7 +292,7 @@ public class PacketHelper {
             QQCurrentEnv.INSTANCE.getQQAppInterface().startServlet(intent);
 
         } catch (Exception e) {
-            traceLog("packet_error.log", "发送请求失败: " + e.getMessage());
+            traceLog("api9_log", "发送请求失败: " + e.getMessage());
             receiver.onReceive(null);
         }
     }
@@ -313,10 +313,10 @@ public class PacketHelper {
             logContent.append("解析JSON:\n").append(json.toString(2)).append("\n");
             logContent.append("================================\n");
 
-            traceLog("pb_received.log", logContent.toString());
+            traceLog("api9_log", logContent.toString());
 
         } catch (Exception e) {
-            traceLog("pb_received.log", "解析PB数据失败: " + e.getMessage() +
+            traceLog("api9_log", "解析PB数据失败: " + e.getMessage() +
                 "\n原始HEX: " + bytesToHex(data));
         }
     }
@@ -342,31 +342,31 @@ void showPBSenderDialog() {
         
         LinearLayout card = new LinearLayout(act);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setBackground(roundRect(Color.parseColor("#FFFFFF"), dp(act, 16)));
+        card.setBackground(roundRect(pc("#FFFFFF"), dp(act, 16)));
         card.setPadding(dp(act, 20), dp(act, 20), dp(act, 20), dp(act, 20));
         scroll.addView(card);
         
         TextView title = new TextView(act);
         title.setText("PB发包工具");
         title.setTextSize(17);
-        title.setTextColor(Color.parseColor("#222222"));
+        title.setTextColor(pc("#222222"));
         title.setGravity(Gravity.CENTER);
         title.setPadding(0, 0, 0, dp(act, 20));
         card.addView(title);
         
         // 服务名输入
-        card.addView(makeSubTitleCompact(act, "服务名", Color.parseColor("#666666")));
-        EditText etService = makeInputCompact(act, "", "MessageSvc.PbSendMsg", Color.parseColor("#F7F8FA"));
+        card.addView(makeSubTitleCompact(act, "服务名", pc("#666666")));
+        EditText etService = makeInput(act, "MessageSvc.PbSendMsg", null);
         card.addView(etService);
         
         // PB数据输入
-        card.addView(makeSubTitleCompact(act, "PB数据 (JSON)", Color.parseColor("#666666")));
-        EditText etPB = makeInputCompact(act, "", "{\"1\":123,\"2\":\"示例数据\"}", Color.parseColor("#F7F8FA"));
+        card.addView(makeSubTitleCompact(act, "PB数据 (JSON)", pc("#666666")));
+        EditText etPB = makeInput(act, "{\"1\":123,\"2\":\"示例数据\"}", null);
         etPB.setMinLines(4);
         card.addView(etPB);
         
         // 模板管理区域
-        card.addView(makeSubTitleCompact(act, "模板管理", Color.parseColor("#666666")));
+        card.addView(makeSubTitleCompact(act, "模板管理", pc("#666666")));
         
         LinearLayout templateContainer = new LinearLayout(act);
         templateContainer.setOrientation(LinearLayout.HORIZONTAL);
@@ -374,9 +374,9 @@ void showPBSenderDialog() {
         templateContainer.setPadding(0, 0, 0, dp(act, 12));
         card.addView(templateContainer);
         
-        TextView btnSave = createButton(act, "保存模板", Color.WHITE, Color.parseColor("#3B71FE"), 14f, 8, 16, 10, false, 0, 0, null);
-        TextView btnLoad = createButton(act, "使用模板", Color.parseColor("#3B71FE"), Color.parseColor("#E8EEFF"), 14f, 8, 16, 10, false, 0, 0, null);
-        TextView btnPreview = createButton(act, "预览", Color.parseColor("#3B71FE"), Color.parseColor("#E8EEFF"), 14f, 8, 16, 10, false, 0, 0, null);
+        TextView btnSave = createButton(act, "保存模板", Color.WHITE, pc("#3B71FE"), 14f, 8, 16, 10, false, 0, 0, null);
+        TextView btnLoad = createButton(act, "使用模板", pc("#3B71FE"), pc("#E8EEFF"), 14f, 8, 16, 10, false, 0, 0, null);
+        TextView btnPreview = createButton(act, "预览", pc("#3B71FE"), pc("#E8EEFF"), 14f, 8, 16, 10, false, 0, 0, null);
         
         LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(0, -2, 1);
         btnParams.setMargins(0, 0, dp(act, 8), 0);
@@ -388,7 +388,7 @@ void showPBSenderDialog() {
         templateContainer.addView(btnLoad);
         templateContainer.addView(btnPreview);
         
-        EditText etTemplateName = makeInputCompact(act, "", "模板名称", Color.parseColor("#F7F8FA"));
+        EditText etTemplateName = makeInput(act, "模板名称", null);
         etTemplateName.setVisibility(View.GONE);
         card.addView(etTemplateName);
         
@@ -443,8 +443,8 @@ void showPBSenderDialog() {
         bottomContainer.setPadding(0, dp(act, 20), 0, 0);
         card.addView(bottomContainer);
         
-        TextView btnCancel = createButton(act, "取消", Color.parseColor("#666666"), Color.parseColor("#F7F8FA"), 14f, 8, 16, 10, false, 0, 0, null);
-        TextView btnConfirm = createButton(act, "发送", Color.WHITE, Color.parseColor("#3B71FE"), 14f, 8, 16, 10, false, 0, 0, null);
+        TextView btnCancel = createButton(act, "取消", pc("#666666"), pc("#F7F8FA"), 14f, 8, 16, 10, false, 0, 0, null);
+        TextView btnConfirm = createButton(act, "发送", Color.WHITE, pc("#3B71FE"), 14f, 8, 16, 10, false, 0, 0, null);
         
         LinearLayout.LayoutParams bottomBtnParams = new LinearLayout.LayoutParams(0, dp(act, 44), 1);
         bottomBtnParams.setMargins(0, 0, dp(act, 12), 0);
@@ -493,7 +493,7 @@ void showPBSenderDialog() {
                     logContent.append("JSON:\n").append(pbData).append("\n");
                     logContent.append("HEX: ").append(PacketHelper.bytesToHex(pbBytes)).append("\n");
                     logContent.append("================================\n");
-                    traceLog("pb_sent.log", logContent.toString());
+                    traceLog("api9_log", logContent.toString());
                     
                     // 发送
                     PacketHelper.sendRequest(service, pbBytes, new IReceiver() {
@@ -538,14 +538,14 @@ void showTemplateSelectorDialog(Activity act, EditText etService, EditText etPB)
     
     LinearLayout card = new LinearLayout(act);
     card.setOrientation(LinearLayout.VERTICAL);
-    card.setBackground(roundRect(Color.parseColor("#FFFFFF"), dp(act, 16)));
+    card.setBackground(roundRect(pc("#FFFFFF"), dp(act, 16)));
     card.setPadding(dp(act, 20), dp(act, 20), dp(act, 20), dp(act, 20));
     scroll.addView(card);
     
     TextView title = new TextView(act);
     title.setText("选择模板");
     title.setTextSize(17);
-    title.setTextColor(Color.parseColor("#222222"));
+    title.setTextColor(pc("#222222"));
     title.setGravity(Gravity.CENTER);
     title.setPadding(0, 0, 0, dp(act, 20));
     card.addView(title);
@@ -573,13 +573,13 @@ void showTemplateSelectorDialog(Activity act, EditText etService, EditText etPB)
                 templates.put(displayName, value);
             }
         }
-    } catch (Exception e) {}
+    } catch (Throwable e) { traceLog("api9_log", "[showTemplateSelectorDialog] 异常: " + e); }
     
     if (templates.isEmpty()) {
         TextView empty = new TextView(act);
         empty.setText("暂无保存的模板");
         empty.setTextSize(14);
-        empty.setTextColor(Color.parseColor("#BBBBBB"));
+        empty.setTextColor(pc("#BBBBBB"));
         empty.setGravity(Gravity.CENTER);
         empty.setPadding(0, dp(act, 40), 0, dp(act, 40));
         card.addView(empty);
@@ -589,7 +589,7 @@ void showTemplateSelectorDialog(Activity act, EditText etService, EditText etPB)
             String name = (String) e.getKey();
             String templateData = (String) e.getValue();
             
-            TextView templateItem = createButton(act, name, Color.parseColor("#222222"), Color.parseColor("#F7F8FA"), 14f, 8, 16, 12, false, 0, 0, null);
+            TextView templateItem = createButton(act, name, pc("#222222"), pc("#F7F8FA"), 14f, 8, 16, 12, false, 0, 0, null);
             templateItem.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
             card.addView(templateItem);
             
@@ -607,7 +607,7 @@ void showTemplateSelectorDialog(Activity act, EditText etService, EditText etPB)
         }
     }
     
-    TextView btnClose = createButton(act, "关闭", Color.parseColor("#666666"), Color.parseColor("#F7F8FA"), 14f, 8, 0, 20, false, 0, 0, null);
+    TextView btnClose = createButton(act, "关闭", pc("#666666"), pc("#F7F8FA"), 14f, 8, 0, 20, false, 0, 0, null);
     card.addView(btnClose);
     btnClose.setOnClickListener(v -> dialog.dismiss());
     
@@ -634,39 +634,40 @@ void showPreviewDialog(Activity act, String service, String pbData) {
     
     LinearLayout card = new LinearLayout(act);
     card.setOrientation(LinearLayout.VERTICAL);
-    card.setBackground(roundRect(Color.parseColor("#FFFFFF"), dp(act, 16)));
+    card.setBackground(roundRect(pc("#FFFFFF"), dp(act, 16)));
     card.setPadding(dp(act, 20), dp(act, 20), dp(act, 20), dp(act, 20));
     scroll.addView(card);
     
     TextView title = new TextView(act);
     title.setText("PB数据预览");
     title.setTextSize(17);
-    title.setTextColor(Color.parseColor("#222222"));
+    title.setTextColor(pc("#222222"));
     title.setGravity(Gravity.CENTER);
     title.setPadding(0, 0, 0, dp(act, 20));
     card.addView(title);
     
-    card.addView(makeSubTitleCompact(act, "服务名", Color.parseColor("#666666")));
+    card.addView(makeSubTitleCompact(act, "服务名", pc("#666666")));
     TextView tvService = new TextView(act);
     tvService.setText(service.isEmpty() ? "MessageSvc.PbSendMsg (默认)" : service);
     tvService.setTextSize(13);
-    tvService.setTextColor(Color.parseColor("#222222"));
+    tvService.setTextColor(pc("#222222"));
     tvService.setPadding(dp(act, 12), dp(act, 8), dp(act, 12), dp(act, 8));
-    tvService.setBackground(roundRect(Color.parseColor("#F7F8FA"), dp(act, 6)));
+    tvService.setBackground(roundRect(pc("#F7F8FA"), dp(act, 6)));
     card.addView(tvService);
     
-    card.addView(makeSubTitleCompact(act, "PB数据 (JSON)", Color.parseColor("#666666")));
+    card.addView(makeSubTitleCompact(act, "PB数据 (JSON)", pc("#666666")));
     TextView tvPB = new TextView(act);
     tvPB.setText(pbData);
     tvPB.setTextSize(13);
-    tvPB.setTextColor(Color.parseColor("#222222"));
+    tvPB.setTextColor(pc("#222222"));
     tvPB.setPadding(dp(act, 12), dp(act, 12), dp(act, 12), dp(act, 12));
-    tvPB.setBackground(roundRect(Color.parseColor("#F7F8FA"), dp(act, 6)));
+    tvPB.setBackground(roundRect(pc("#F7F8FA"), dp(act, 6)));
     tvPB.setMinLines(6);
     card.addView(tvPB);
     
-    card.addView(makeSubTitleCompact(act, "编码预览", Color.parseColor("#666666")));
+    card.addView(makeSubTitleCompact(act, "编码预览", pc("#666666")));
     TextView tvEncoded = new TextView(act);
+    tvEncoded.setTextColor(tc(act, "on_surface"));
     try {
         JSONObject json = new JSONObject(pbData);
         FunProtoData proto = new FunProtoData();
@@ -677,12 +678,12 @@ void showPreviewDialog(Activity act, String service, String pbData) {
         tvEncoded.setText("解析失败: " + e.getMessage());
     }
     tvEncoded.setTextSize(11);
-    tvEncoded.setTextColor(Color.parseColor("#666666"));
+    tvEncoded.setTextColor(pc("#666666"));
     tvEncoded.setPadding(dp(act, 12), dp(act, 8), dp(act, 12), dp(act, 8));
-    tvEncoded.setBackground(roundRect(Color.parseColor("#F7F8FA"), dp(act, 6)));
+    tvEncoded.setBackground(roundRect(pc("#F7F8FA"), dp(act, 6)));
     card.addView(tvEncoded);
     
-    TextView btnClose = createButton(act, "关闭", Color.parseColor("#666666"), Color.parseColor("#F7F8FA"), 14f, 8, 0, 20, false, 0, 0, null);
+    TextView btnClose = createButton(act, "关闭", pc("#666666"), pc("#F7F8FA"), 14f, 8, 0, 20, false, 0, 0, null);
     card.addView(btnClose);
     btnClose.setOnClickListener(v -> dialog.dismiss());
     
@@ -773,7 +774,7 @@ private List parseFaceConfig(String cfg) {
             if (!t.isEmpty()) {
                 try {
                     list.add(Integer.parseInt(t));
-                } catch (Exception ignored) {}
+                } catch (Throwable ignored) { traceLog("api9_log", "[parseFaceConfig] 异常: " + ignored); }
             }
         }
     }
@@ -796,12 +797,12 @@ void showFaceReplyConfigDialog(Object data) {
         public void run() {
             try {
                 boolean isDark = isThemeDark(act);
-                int textColor = isDark ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT;
-                int subTextColor = isDark ? UI_COLOR_SUBTEXT_DARK : UI_COLOR_SUBTEXT_LIGHT;
-                int accentColor = isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT;
-                int inputBgColor = isDark ? UI_COLOR_INPUT_BG_DARK : UI_COLOR_INPUT_BG_LIGHT;
+                int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
+                int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
+                int accentColor = isDark ? pc("#FF8AB4F8") : pc("#FF2196F3");
+                int inputBgColor = isDark ? pc("#1AFFFFFF") : pc("#0D000000");
                 int borderColor = adjustAlpha(textColor, 0.3f);
-                int errorColor = Color.parseColor("#FFE53935");
+                int errorColor = pc("#FFE53935");
 
                 LinearLayout root = new LinearLayout(act);
                 root.setOrientation(LinearLayout.VERTICAL);
@@ -835,19 +836,9 @@ void showFaceReplyConfigDialog(Object data) {
                 formatHint.setPadding(dp(act, 4), 0, 0, dp(act, 12));
                 root.addView(formatHint);
 
-                final EditText input = new EditText(act);
-                input.setHint("输入表情范围或列表");
-                input.setHintTextColor(subTextColor);
-                input.setTextColor(textColor);
-                input.setTextSize(13);
-                input.setPadding(dp(act, 12), dp(act, 8), dp(act, 12), dp(act, 8));
+                final EditText input = makeInput(act, "输入表情范围或列表", null);
                 input.setText(savedCfg);
                 input.setMinLines(2);
-                GradientDrawable inputBg = new GradientDrawable();
-                inputBg.setCornerRadius(dp(act, 6));
-                inputBg.setColor(inputBgColor);
-                inputBg.setStroke(dp(act, 1), borderColor);
-                input.setBackground(inputBg);
                 root.addView(input);
 
                 final TextView errorHint = new TextView(act);
@@ -870,21 +861,12 @@ void showFaceReplyConfigDialog(Object data) {
                 delayLabel.setPadding(0, 0, dp(act, 8), 0);
                 delayLayout.addView(delayLabel);
 
-                final EditText delayInput = new EditText(act);
-                delayInput.setHint("200");
-                delayInput.setHintTextColor(subTextColor);
-                delayInput.setTextColor(textColor);
-                delayInput.setTextSize(13);
-                delayInput.setPadding(dp(act, 8), dp(act, 4), dp(act, 8), dp(act, 4));
+                final EditText delayInput = makeInput(act, "200", null);
                 delayInput.setText(savedDelay);
                 delayInput.setSingleLine(true);
                 delayInput.setMinHeight(dp(act, 36));
+                delayInput.setPadding(dp(act, 8), dp(act, 4), dp(act, 8), dp(act, 4));
                 delayInput.setLayoutParams(new LinearLayout.LayoutParams(dp(act, 100), LinearLayout.LayoutParams.WRAP_CONTENT));
-                GradientDrawable delayBg = new GradientDrawable();
-                delayBg.setCornerRadius(dp(act, 4));
-                delayBg.setColor(inputBgColor);
-                delayBg.setStroke(dp(act, 1), borderColor);
-                delayInput.setBackground(delayBg);
                 delayLayout.addView(delayInput);
 
                 root.addView(delayLayout);
@@ -1046,7 +1028,7 @@ void showFaceReplyConfigDialog(Object data) {
                 final AlertDialog[] ref = new AlertDialog[1];
                 ref[0] = builder.create();
                 ref[0].show();
-                applyUiTheme(act, ref[0]);
+                applyUiTheme(act, ref[0], 0);
             } catch (Throwable e) {
                 qqToast(1, "弹窗显示失败");
             }
@@ -1116,10 +1098,10 @@ void showVoiceSendDialog(Object data) {
         public void run() {
             try {
                 boolean isDark = isThemeDark(act);
-                int textColor = isDark ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT;
-                int subTextColor = isDark ? UI_COLOR_SUBTEXT_DARK : UI_COLOR_SUBTEXT_LIGHT;
-                int accentColor = isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT;
-                int inputBgColor = isDark ? UI_COLOR_INPUT_BG_DARK : UI_COLOR_INPUT_BG_LIGHT;
+                int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
+                int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
+                int accentColor = isDark ? pc("#FF8AB4F8") : pc("#FF2196F3");
+                int inputBgColor = isDark ? pc("#1AFFFFFF") : pc("#0D000000");
                 int borderColor = adjustAlpha(textColor, 0.3f);
 
                 LinearLayout root = new LinearLayout(act);
@@ -1147,18 +1129,8 @@ void showVoiceSendDialog(Object data) {
                 voiceLabel.setPadding(0, 0, dp(act, 8), 0);
                 voiceRow.addView(voiceLabel);
 
-                final EditText etVoiceId = new EditText(act);
-                etVoiceId.setHint("可手动输入或点击选择");
-                etVoiceId.setHintTextColor(subTextColor);
-                etVoiceId.setTextColor(textColor);
-                etVoiceId.setTextSize(13);
-                etVoiceId.setPadding(dp(act, 12), dp(act, 8), dp(act, 12), dp(act, 8));
+                final EditText etVoiceId = makeInput(act, "可手动输入或点击选择", null);
                 etVoiceId.setSingleLine(true);
-                GradientDrawable inputBg = new GradientDrawable();
-                inputBg.setCornerRadius(dp(act, 6));
-                inputBg.setColor(inputBgColor);
-                inputBg.setStroke(dp(act, 1), borderColor);
-                etVoiceId.setBackground(inputBg);
                 etVoiceId.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
                 voiceRow.addView(etVoiceId);
 
@@ -1182,19 +1154,9 @@ void showVoiceSendDialog(Object data) {
                 textLabel.setPadding(0, 0, 0, dp(act, 4));
                 root.addView(textLabel);
 
-                final EditText etText = new EditText(act);
-                etText.setHint("请输入要转为语音的文本");
+                final EditText etText = makeInput(act, "请输入要转为语音的文本", null);
                 etText.setText(msg);
-                etText.setHintTextColor(subTextColor);
-                etText.setTextColor(textColor);
-                etText.setTextSize(13);
-                etText.setPadding(dp(act, 12), dp(act, 8), dp(act, 12), dp(act, 8));
                 etText.setMinLines(3);
-                GradientDrawable textBg = new GradientDrawable();
-                textBg.setCornerRadius(dp(act, 6));
-                textBg.setColor(inputBgColor);
-                textBg.setStroke(dp(act, 1), borderColor);
-                etText.setBackground(textBg);
                 root.addView(etText);
 
                 // 按钮行
@@ -1222,7 +1184,7 @@ void showVoiceSendDialog(Object data) {
                 final AlertDialog[] ref = new AlertDialog[1];
                 ref[0] = builder.create();
                 ref[0].show();
-                applyUiTheme(act, ref[0]);
+                applyUiTheme(act, ref[0], 0);
 
                 // 选择按钮点击：弹出音色列表
                 selectBtn.setOnClickListener(new View.OnClickListener() {
@@ -1269,9 +1231,9 @@ void showVoiceListDialog(final Activity act, final JSONArray voiceArray,
         public void run() {
             try {
                 boolean isDark = isThemeDark(act);
-                int textColor = isDark ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT;
-                int subTextColor = isDark ? UI_COLOR_SUBTEXT_DARK : UI_COLOR_SUBTEXT_LIGHT;
-                int accentColor = isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT;
+                int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
+                int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
+                int accentColor = isDark ? pc("#FF8AB4F8") : pc("#FF2196F3");
 
                 LinearLayout root = new LinearLayout(act);
                 root.setOrientation(LinearLayout.VERTICAL);
@@ -1309,7 +1271,7 @@ void showVoiceListDialog(final Activity act, final JSONArray voiceArray,
                         StateListDrawable stateListDrawable = new StateListDrawable();
                         ColorDrawable pressedDrawable = new ColorDrawable(adjustAlpha(Color.BLACK, 0.1f));
                         stateListDrawable.addState(new int[]{android.R.attr.state_pressed}, pressedDrawable);
-                        stateListDrawable.addState(new int[]{}, new ColorDrawable(Color.TRANSPARENT));
+                        stateListDrawable.addState(new int[0], new ColorDrawable(Color.TRANSPARENT));
                         itemView.setBackground(stateListDrawable);
 
                         itemView.setOnClickListener(new View.OnClickListener() {
@@ -1343,7 +1305,7 @@ void showVoiceListDialog(final Activity act, final JSONArray voiceArray,
                 final AlertDialog[] dialogRef = new AlertDialog[1];
                 dialogRef[0] = builder.create();
                 dialogRef[0].show();
-                applyUiTheme(act, dialogRef[0]);
+                applyUiTheme(act, dialogRef[0], 0);
 
             } catch (Exception e) {
                 qqToast(1, "列表弹窗显示失败");
@@ -1428,36 +1390,39 @@ void showTrafficRedPacketDialog(Object data) {
             outer.addView(scroll);
             LinearLayout card = new LinearLayout(act);
             card.setOrientation(LinearLayout.VERTICAL);
-            card.setBackground(roundRect(isThemeDark(act) ? Color.parseColor("#FF2D2D2D") : Color.WHITE, dp(act, 16)));
+            card.setBackground(roundRect(isThemeDark(act) ? pc("#FF2D2D2D") : Color.WHITE, dp(act, 16)));
             card.setPadding(dp(act, 20), dp(act, 20), dp(act, 20), dp(act, 20));
             scroll.addView(card);
 
             TextView tvTitle = new TextView(act);
             tvTitle.setText("正在偷取你们的流量");
             tvTitle.setTextSize(18);
-            tvTitle.setTextColor(isThemeDark(act) ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT);
+            tvTitle.setTextColor(isThemeDark(act) ? pc("#FFEFEFEF") : pc("#FF000000"));
             tvTitle.setGravity(Gravity.CENTER);
             tvTitle.setPadding(0, 0, 0, dp(act, 16));
             card.addView(tvTitle);
 
             boolean dark = isThemeDark(act);
-            int bg = dark ? UI_COLOR_INPUT_BG_DARK : UI_COLOR_INPUT_BG_LIGHT;
-            int subColor = dark ? UI_COLOR_SUBTEXT_DARK : UI_COLOR_SUBTEXT_LIGHT;
+            int subColor = dark ? pc("#99EFEFEF") : pc("#99000000");
 
             card.addView(makeSubTitleCompact(act, "外显链接", subColor));
-            EditText et1 = makeInputCompact(act, "www.10086.cn", "", bg);
+            EditText et1 = makeInput(act, "", null);
+            et1.setText("www.10086.cn");
             card.addView(et1);
 
             card.addView(makeSubTitleCompact(act, "标题", subColor));
-            EditText et2 = makeInputCompact(act, "中国移动", "", bg);
+            EditText et2 = makeInput(act, "", null);
+            et2.setText("中国移动");
             card.addView(et2);
 
             card.addView(makeSubTitleCompact(act, "描述", subColor));
-            EditText et3 = makeInputCompact(act, "正在给你发送流量红包", "", bg);
+            EditText et3 = makeInput(act, "", null);
+            et3.setText("正在给你发送流量红包");
             card.addView(et3);
 
             card.addView(makeSubTitleCompact(act, "预览链接", subColor));
-            EditText et4 = makeInputCompact(act, "https://autopatchcn.yuanshen.com/client_app/update/hk4e_cn/game_5.3.0_5.4.0_hdiff_pMLdaxlPCASusOeB.zip", "", bg);
+            EditText et4 = makeInput(act, "", null);
+            et4.setText("https://autopatchcn.yuanshen.com/client_app/update/hk4e_cn/game_5.3.0_5.4.0_hdiff_pMLdaxlPCASusOeB.zip");
             card.addView(et4);
 
             LinearLayout btnLayout = new LinearLayout(act);
@@ -1465,8 +1430,8 @@ void showTrafficRedPacketDialog(Object data) {
             btnLayout.setGravity(Gravity.CENTER);
             btnLayout.setPadding(0, dp(act, 20), 0, 0);
 
-            TextView cancel = createButton(act, "取消", Color.parseColor("#666666"), dark ? Color.parseColor("#FF3D3D3D") : Color.parseColor("#F7F8FA"), 14f, 8, 16, 10, false, 0, 0, null);
-            TextView send = createButton(act, "发送", Color.WHITE, Color.parseColor("#3B71FE"), 14f, 8, 16, 10, false, 0, 0, null);
+            TextView cancel = createButton(act, "取消", pc("#666666"), dark ? pc("#FF3D3D3D") : pc("#F7F8FA"), 14f, 8, 16, 10, false, 0, 0, null);
+            TextView send = createButton(act, "发送", Color.WHITE, pc("#3B71FE"), 14f, 8, 16, 10, false, 0, 0, null);
 
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(act, 44), 1f);
             lp.setMargins(0, 0, dp(act, 12), 0);
@@ -1544,7 +1509,7 @@ void showTrafficRedPacketDialog(Object data) {
                         FunProtoData proto = new FunProtoData();
                         proto.fromJSON(root);
                         byte[] pb = proto.toBytes();
-                        traceLog(" _log.txt", "" + root);
+                        traceLog("api9_log", "" + root);
 
                         PacketHelper.sendRequest("MessageSvc.PbSendMsg", pb, new IReceiver() {
                             public void onReceive(byte[] resp) {
@@ -1557,7 +1522,7 @@ void showTrafficRedPacketDialog(Object data) {
                         });
                     } catch (Exception e) {
                         qqToast(1, "异常: " + e.getMessage());
-                        traceLog(" _log.txt",""+e);
+                        traceLog("api9_log",""+e);
                     }
                 }
             });
@@ -1567,7 +1532,7 @@ void showTrafficRedPacketDialog(Object data) {
                 dialog.getWindow().setLayout((int)(act.getResources().getDisplayMetrics().widthPixels * 0.88), -2);
             }
             dialog.show();
-            applyUiTheme(act, dialog);
+            applyUiTheme(act, dialog, 0);
         }
     });
 }
@@ -1670,7 +1635,7 @@ void RecallMessage(Object data, long seq) {
                     return;
                 }
 
-                traceLog("recall_error.log", json.toString());
+                traceLog("api9_log", json.toString());
 
                 FunProtoData proto = new FunProtoData();
                 proto.fromJSON(json);
@@ -1936,7 +1901,7 @@ void sendSuperFacePB(Object data, String faceName) {
         FunProtoData proto = new FunProtoData();
         proto.fromJSON(pb);
         PacketHelper.sendRequest("MessageSvc.PbSendMsg", proto.toBytes(), res -> {});
-    } catch (Exception e) {}
+    } catch (Throwable e) { traceLog("api9_log", "[sendSuperFacePB] 异常: " + e); }
 }
 void showSuperFaceSendDialog(Object data) {
     Activity act = getNowActivity();
@@ -1945,10 +1910,10 @@ void showSuperFaceSendDialog(Object data) {
         public void run() {
             try {
                 boolean isDark = isThemeDark(act);
-                int textColor = isDark ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT;
-                int subTextColor = isDark ? UI_COLOR_SUBTEXT_DARK : UI_COLOR_SUBTEXT_LIGHT;
-                int accentColor = isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT;
-                int inputBgColor = isDark ? UI_COLOR_INPUT_BG_DARK : UI_COLOR_INPUT_BG_LIGHT;
+                int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
+                int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
+                int accentColor = isDark ? pc("#FF8AB4F8") : pc("#FF2196F3");
+                int inputBgColor = isDark ? pc("#1AFFFFFF") : pc("#0D000000");
                 int borderColor = adjustAlpha(textColor, 0.3f);
 
                 LinearLayout root = new LinearLayout(act);
@@ -1969,20 +1934,11 @@ void showSuperFaceSendDialog(Object data) {
                 hint.setPadding(0, 0, 0, dp(act, 8));
                 root.addView(hint);
 
-                final EditText input = new EditText(act);
-                input.setHint("例如：嘿壳 若未输入则默认使用嘿壳");
-                input.setHintTextColor(subTextColor);
-                input.setTextColor(textColor);
-                input.setTextSize(14);
-                input.setPadding(dp(act, 12), dp(act, 8), dp(act, 12), dp(act, 8));
+                final EditText input = makeInput(act, "例如：嘿壳 若未输入则默认使用嘿壳", null);
                 input.setText(savedFaceName);
                 input.setSingleLine(false);
                 input.setMinLines(2);
-                GradientDrawable inputBg = new GradientDrawable();
-                inputBg.setCornerRadius(dp(act, 6));
-                inputBg.setColor(inputBgColor);
-                inputBg.setStroke(dp(act, 1), borderColor);
-                input.setBackground(inputBg);
+                input.setTextSize(14);
                 root.addView(input);
 
                 LinearLayout btnBox = new LinearLayout(act);
@@ -2027,7 +1983,7 @@ void showSuperFaceSendDialog(Object data) {
                 final AlertDialog[] ref = new AlertDialog[1];
                 ref[0] = builder?.create();
                 ref[0]?.show();
-                applyUiTheme(act, ref[0]);
+                applyUiTheme(act, ref[0], 0);
             } catch (Throwable e) {
                 qqToast(1, "弹窗显示失败");
             }
