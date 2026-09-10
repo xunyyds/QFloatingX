@@ -1,7 +1,6 @@
 private Handler positionHandler = new Handler(Looper.getMainLooper());
 private Location fakeLocation = new Location(LocationManager.GPS_PROVIDER);
 private List activeListeners = new ArrayList();
-private Activity 最后Activity;
 
 public void 模拟定位开关() {
     Activity activity = getNowActivity();
@@ -21,16 +20,16 @@ public void 模拟定位开关() {
 Double[] getLocation() {
     String lngStr = getString("模拟定位", "lng", "");
     String latStr = getString("模拟定位", "lat", "");
-    traceLog("location_log", "[getLocation] saved lng=" + lngStr + " lat=" + latStr);
+    traceLog("api2_log", "[getLocation] 已保存 lng=" + lngStr + " lat=" + latStr);
     if (lngStr?.length() > 0 && latStr?.length() > 0) {
             double lng = Double.parseDouble(lngStr);
             double lat = Double.parseDouble(latStr);
             if (lng >= -180 && lng <= 180 && lat >= -90 && lat <= 90) {
-                traceLog("location_log", "[getLocation] return custom lng=" + lng + " lat=" + lat);
+                traceLog("api2_log", "[getLocation] 返回自定义 lng=" + lng + " lat=" + lat);
                 return new Double[]{lng, lat};
             }
     }
-    traceLog("location_log", "[getLocation] return default lng=" + 默认经度 + " lat=" + 默认纬度);
+    traceLog("api2_log", "[getLocation] 返回默认 lng=" + 默认经度 + " lat=" + 默认纬度);
     return new Double[]{默认经度, 默认纬度};
 }
 private void initFakeLocation() {
@@ -42,7 +41,7 @@ private void initFakeLocation() {
     fakeLocation.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());
     fakeLocation.setSpeed(0.0f);
     fakeLocation.setBearing(0.0f);
-    traceLog("location_log", "[initFakeLocation] lng=" + loc[0] + " lat=" + loc[1] + " accuracy=100");
+    traceLog("api2_log", "[initFakeLocation] lng=" + loc[0] + " lat=" + loc[1] + " accuracy=100");
 }
 
 private Method findMethodSafe(Class cls, String name, int paramCount) {
@@ -53,7 +52,7 @@ private Method findMethodSafe(Class cls, String name, int paramCount) {
                 return methods[i];
             }
         }
-    } catch (Throwable e) {}
+    } catch (Throwable e) { traceLog("api2_log", "[findMethodSafe] 异常: " + e); }
     return null;
 }
 
@@ -67,18 +66,18 @@ private void hookLocation() {
             getLastKnownLocMethod.setAccessible(true);
             Object unhook1 = XposedBridge.hookMethod(getLastKnownLocMethod, new XC_MethodHook() {
                 protected void beforeHookedMethod(MethodHookParam param) {
-                    traceLog("location_log", "[hook] getLastKnownLocation called, provider=" + param.args[0]);
+                    traceLog("api2_log", "[hook] getLastKnownLocation 被调用, provider=" + param.args[0]);
                     param.setResult(fakeLocation);
                 }
             });
             hookloveList.add(unhook1);
             successCount++;
-            traceLog("location_log", "[hookLocation] getLastKnownLocation hooked");
+            traceLog("api2_log", "[hookLocation] getLastKnownLocation 已挂钩");
         } catch (Throwable e) {
-            traceLog("location_log", "[hookLocation] getLastKnownLocation hook failed: " + e);
+            traceLog("api2_log", "[hookLocation] getLastKnownLocation 挂钩失败: " + e);
         }
     } else {
-        traceLog("location_log", "[hookLocation] getLastKnownLocation not found (Android 14+), skipped");
+        traceLog("api2_log", "[hookLocation] getLastKnownLocation 未找到 (Android 14+), 已跳过");
     }
 
     Method getProviderMethod = findMethodSafe(locationManagerCls, "getProvider", 1);
@@ -87,7 +86,7 @@ private void hookLocation() {
             getProviderMethod.setAccessible(true);
             Object unhook2 = XposedBridge.hookMethod(getProviderMethod, new XC_MethodHook() {
                 protected void afterHookedMethod(MethodHookParam param) {
-                    traceLog("location_log", "[hook] getProvider called, provider=" + param.args[0]);
+                    traceLog("api2_log", "[hook] getProvider 被调用, provider=" + param.args[0]);
                     if (LocationManager.GPS_PROVIDER.equals(param.args[0])) {
                         param.setResult(new LocationProvider("gps", null) {
                             public boolean isEnabled() { return true; }
@@ -105,12 +104,12 @@ private void hookLocation() {
             });
             hookloveList.add(unhook2);
             successCount++;
-            traceLog("location_log", "[hookLocation] getProvider hooked");
+            traceLog("api2_log", "[hookLocation] getProvider 已挂钩");
         } catch (Throwable e) {
-            traceLog("location_log", "[hookLocation] getProvider hook failed: " + e);
+            traceLog("api2_log", "[hookLocation] getProvider 挂钩失败: " + e);
         }
     } else {
-        traceLog("location_log", "[hookLocation] getProvider not found, skipped");
+        traceLog("api2_log", "[hookLocation] getProvider 未找到, 已跳过");
     }
 
     Method getAllProvidersMethod = findMethodSafe(locationManagerCls, "getAllProviders", 0);
@@ -126,12 +125,12 @@ private void hookLocation() {
             });
             hookloveList.add(unhook3);
             successCount++;
-            traceLog("location_log", "[hookLocation] getAllProviders hooked");
+            traceLog("api2_log", "[hookLocation] getAllProviders 已挂钩");
         } catch (Throwable e) {
-            traceLog("location_log", "[hookLocation] getAllProviders hook failed: " + e);
+            traceLog("api2_log", "[hookLocation] getAllProviders 挂钩失败: " + e);
         }
     } else {
-        traceLog("location_log", "[hookLocation] getAllProviders not found, skipped");
+        traceLog("api2_log", "[hookLocation] getAllProviders 未找到, 已跳过");
     }
 
     Method isProviderEnabledMethod = findMethodSafe(locationManagerCls, "isProviderEnabled", 1);
@@ -140,7 +139,7 @@ private void hookLocation() {
             isProviderEnabledMethod.setAccessible(true);
             Object unhook4 = XposedBridge.hookMethod(isProviderEnabledMethod, new XC_MethodHook() {
                 protected void afterHookedMethod(MethodHookParam param) {
-                    traceLog("location_log", "[hook] isProviderEnabled called, provider=" + param.args[0]);
+                    traceLog("api2_log", "[hook] isProviderEnabled 被调用, provider=" + param.args[0]);
                     if (LocationManager.GPS_PROVIDER.equals(param.args[0])) {
                         param.setResult(true);
                     }
@@ -148,12 +147,12 @@ private void hookLocation() {
             });
             hookloveList.add(unhook4);
             successCount++;
-            traceLog("location_log", "[hookLocation] isProviderEnabled hooked");
+            traceLog("api2_log", "[hookLocation] isProviderEnabled 已挂钩");
         } catch (Throwable e) {
-            traceLog("location_log", "[hookLocation] isProviderEnabled hook failed: " + e);
+            traceLog("api2_log", "[hookLocation] isProviderEnabled 挂钩失败: " + e);
         }
     } else {
-        traceLog("location_log", "[hookLocation] isProviderEnabled not found, skipped");
+        traceLog("api2_log", "[hookLocation] isProviderEnabled 未找到, 已跳过");
     }
 
     Method getCurrentLocationMethod = findMethodSafe(locationManagerCls, "getCurrentLocation", 4);
@@ -162,7 +161,7 @@ private void hookLocation() {
             getCurrentLocationMethod.setAccessible(true);
             Object unhook5 = XposedBridge.hookMethod(getCurrentLocationMethod, new XC_MethodHook() {
                 protected void beforeHookedMethod(MethodHookParam param) {
-                    traceLog("location_log", "[hook] getCurrentLocation called, provider=" + param.args[0]);
+                    traceLog("api2_log", "[hook] getCurrentLocation 被调用, provider=" + param.args[0]);
                     Object cancellationSignal = param.args[1];
                     Object executor = param.args[2];
                     final Object consumer = param.args[3];
@@ -170,9 +169,9 @@ private void hookLocation() {
                         try {
                             Method setCancelMethod = cancellationSignal.getClass().getMethod("setOnCancelListener", Class.forName("android.os.CancellationSignal$OnCancelListener"));
                             setCancelMethod.invoke(cancellationSignal, new Object[]{null});
-                            traceLog("location_log", "[hook] getCurrentLocation cancellationSignal cleared");
+                            traceLog("api2_log", "[hook] getCurrentLocation cancellationSignal 已清除");
                         } catch (Throwable e) {
-                            traceLog("location_log", "[hook] getCurrentLocation cancellationSignal clear error: " + e);
+                            traceLog("api2_log", "[hook] getCurrentLocation cancellationSignal clear 错误: " + e);
                         }
                     }
                     if (consumer != null) {
@@ -191,12 +190,12 @@ private void hookLocation() {
                                     if (acceptMethod != null) {
                                         acceptMethod.setAccessible(true);
                                         acceptMethod.invoke(consumer, new Object[]{loc});
-                                        traceLog("location_log", "[hook] getCurrentLocation consumer.accept invoked");
+                                        traceLog("api2_log", "[hook] getCurrentLocation consumer.accept 已调用");
                                     } else {
-                                        traceLog("location_log", "[hook] getCurrentLocation accept method not found");
+                                        traceLog("api2_log", "[hook] getCurrentLocation accept 方法未找到");
                                     }
                                 } catch (Throwable e) {
-                                    traceLog("location_log", "[hook] getCurrentLocation consumer.accept error: " + e);
+                                    traceLog("api2_log", "[hook] getCurrentLocation consumer.accept 错误: " + e);
                                 }
                             }
                         };
@@ -204,14 +203,14 @@ private void hookLocation() {
                             try {
                                 Method executeMethod = executor.getClass().getMethod("execute", Runnable.class);
                                 executeMethod.invoke(executor, callback);
-                                traceLog("location_log", "[hook] getCurrentLocation dispatched via executor");
+                                traceLog("api2_log", "[hook] getCurrentLocation 已通过 executor 分发");
                             } catch (Throwable e) {
-                                traceLog("location_log", "[hook] getCurrentLocation executor error: " + e);
+                                traceLog("api2_log", "[hook] getCurrentLocation executor 错误: " + e);
                                 new Handler(Looper.getMainLooper()).post(callback);
                             }
                         } else {
                             new Handler(Looper.getMainLooper()).post(callback);
-                            traceLog("location_log", "[hook] getCurrentLocation dispatched via main handler");
+                            traceLog("api2_log", "[hook] getCurrentLocation 已通过主 handler 分发");
                         }
                     }
                     param.setResult(null);
@@ -219,12 +218,12 @@ private void hookLocation() {
             });
             hookloveList.add(unhook5);
             successCount++;
-            traceLog("location_log", "[hookLocation] getCurrentLocation hooked");
+            traceLog("api2_log", "[hookLocation] getCurrentLocation 已挂钩");
         } catch (Throwable e) {
-            traceLog("location_log", "[hookLocation] getCurrentLocation hook failed: " + e);
+            traceLog("api2_log", "[hookLocation] getCurrentLocation 挂钩失败: " + e);
         }
     } else {
-        traceLog("location_log", "[hookLocation] getCurrentLocation not found, skipped");
+        traceLog("api2_log", "[hookLocation] getCurrentLocation 未找到, 已跳过");
     }
 
     try {
@@ -237,7 +236,7 @@ private void hookLocation() {
                 method.setAccessible(true);
                 Object unhook = XposedBridge.hookMethod(method, new XC_MethodHook() {
                     protected void beforeHookedMethod(MethodHookParam param) {
-                        traceLog("location_log", "[hook] requestLocationUpdates called, argsCount=" + param.args.length);
+                        traceLog("api2_log", "[hook] requestLocationUpdates 被调用, argsCount=" + param.args.length);
                         LocationListener listener = null;
                         for (int j = 0; j < param.args.length; j++) {
                             Object arg = param.args[j];
@@ -246,7 +245,7 @@ private void hookLocation() {
                                 break;
                             }
                         }
-                        traceLog("location_log", "[hook] requestLocationUpdates listenerFound=" + (listener != null));
+                        traceLog("api2_log", "[hook] requestLocationUpdates listenerFound=" + (listener != null));
                         if (listener != null) {
                             synchronized (activeListeners) {
                                 boolean exists = false;
@@ -258,7 +257,7 @@ private void hookLocation() {
                                 }
                                 if (!exists) {
                                     activeListeners.add(listener);
-                                    traceLog("location_log", "[hook] requestLocationUpdates listener added, total=" + activeListeners.size());
+                                    traceLog("api2_log", "[hook] requestLocationUpdates 监听器已添加, total=" + activeListeners.size());
                                 }
                             }
                             final LocationListener finalListener = listener;
@@ -266,9 +265,9 @@ private void hookLocation() {
                                 public void run() {
                                     try {
                                         finalListener.onLocationChanged(fakeLocation);
-                                        traceLog("location_log", "[hook] requestLocationUpdates immediate callback sent");
+                                        traceLog("api2_log", "[hook] requestLocationUpdates 立即回调已发送");
                                     } catch (Exception e) {
-                                        traceLog("location_log", "[hook] requestLocationUpdates immediate callback error: " + e);
+                                        traceLog("api2_log", "[hook] requestLocationUpdates immediate callback 错误: " + e);
                                     }
                                 }
                             });
@@ -279,16 +278,16 @@ private void hookLocation() {
                 hookloveList.add(unhook);
                 rluCount++;
             } catch (Throwable e) {
-                traceLog("location_log", "[hookLocation] requestLocationUpdates[" + i + "] hook failed: " + e);
+                traceLog("api2_log", "[hookLocation] requestLocationUpdates[" + i + "] hook failed: " + e);
             }
         }
         successCount += rluCount;
-        traceLog("location_log", "[hookLocation] requestLocationUpdates hooked " + rluCount + " overloads");
+        traceLog("api2_log", "[hookLocation] requestLocationUpdates 已挂钩 " + rluCount + " overloads");
     } catch (Throwable e) {
-        traceLog("location_log", "[hookLocation] requestLocationUpdates scan failed: " + e);
+        traceLog("api2_log", "[hookLocation] requestLocationUpdates 扫描失败: " + e);
     }
 
-    traceLog("location_log", "[hookLocation] done, successCount=" + successCount);
+    traceLog("api2_log", "[hookLocation] 完成, successCount=" + successCount);
     verifyHookStatus();
 }
 
@@ -297,11 +296,11 @@ private void verifyHookStatus() {
         LocationManager lm = (LocationManager) ActivityThread.currentActivityThread().getApplication().getSystemService(Context.LOCATION_SERVICE);
         boolean isEnabled = lm.isProviderEnabled(LocationManager.GPS_PROVIDER);
         List providers = lm.getAllProviders();
-    } catch (Exception e) {}
+    } catch (Throwable e) { traceLog("api2_log", "[verifyHookStatus] 异常: " + e); }
 }
 
 void 关模拟定位() {
-    traceLog("location_log", "[关模拟定位] called");
+    traceLog("api2_log", "[关模拟定位] called");
     getNowActivity().runOnUiThread(new Runnable() {
         public void run() {
             positionHandler.removeCallbacksAndMessages(null);
@@ -311,19 +310,19 @@ void 关模拟定位() {
 }
 
 void 开模拟定位() {
-    traceLog("location_log", "[开模拟定位] called, will start in 2s");
+    traceLog("api2_log", "[开模拟定位] called, will start in 2s");
     if (!getBoolean("模拟定位开关", "模拟定位开关", false)) return;
     positionHandler.postDelayed(new Runnable() {
         public void run() {
             if (!getBoolean("模拟定位开关", "模拟定位开关", false)) return;
             try {
-                traceLog("location_log", "[开模拟定位] starting init+hook+updates");
+                traceLog("api2_log", "[开模拟定位] starting init+hook+updates");
                 initFakeLocation();
                 hookLocation();
                 startLocationUpdates();
-                traceLog("location_log", "[开模拟定位] started successfully");
+                traceLog("api2_log", "[开模拟定位] started successfully");
             } catch (Throwable t) {
-                traceLog("location_log", "[开模拟定位] error: " + t);
+                traceLog("api2_log", "[开模拟定位] 错误: " + t);
                 toast("模拟定位启动失败: " + t.getMessage());
             }
         }
@@ -339,25 +338,25 @@ private void startLocationUpdates() {
                     fakeLocation.setTime(System.currentTimeMillis());
                     fakeLocation.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());
                     synchronized (activeListeners) {
-                        traceLog("location_log", "[startLocationUpdates] tick, listeners=" + activeListeners.size() + " lng=" + fakeLocation.getLongitude() + " lat=" + fakeLocation.getLatitude());
+                        traceLog("api2_log", "[startLocationUpdates] 轮询, listeners=" + activeListeners.size() + " lng=" + fakeLocation.getLongitude() + " lat=" + fakeLocation.getLatitude());
                         for (int i = 0; i < activeListeners.size(); i++) {
                             LocationListener listener = (LocationListener) activeListeners.get(i);
                             try {
                                 listener.onLocationChanged(fakeLocation);
                             } catch (Exception e) {
-                                traceLog("location_log", "[startLocationUpdates] listener[" + i + "] error: " + e);
+                                traceLog("api2_log", "[startLocationUpdates] listener[" + i + "] 错误: " + e);
                             }
                         }
                     }
                 } catch (InterruptedException e) {
-                    traceLog("location_log", "[startLocationUpdates] interrupted");
+                    traceLog("api2_log", "[startLocationUpdates] 已中断");
                     break;
                 } catch (Exception e) {
-                    traceLog("location_log", "[startLocationUpdates] error: " + e);
+                    traceLog("api2_log", "[startLocationUpdates] 错误: " + e);
                     break;
                 }
             }
-            traceLog("location_log", "[startLocationUpdates] loop ended");
+            traceLog("api2_log", "[startLocationUpdates] 循环结束");
         }
     });
 }
