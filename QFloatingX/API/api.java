@@ -21,31 +21,6 @@ import com.tencent.mobileqq.data.Card;
 import java.lang.Thread; // Thread.yield()
 Object app = BaseApplicationImpl.getApplication().getRuntime();
 
-// 1. 背景颜色 (使用处: 弹窗背景、根布局背景)
-String UI_COLOR_BG_LIGHT = "#FFFFFF"; // 亮色模式：纯白
-String UI_COLOR_BG_DARK = "#FF1E1E1E"; // 暗色模式：深灰 (Material Dark)
-
-// 2. 主文本颜色 (使用处: 标题、正文、列表项)
-int UI_COLOR_TEXT_LIGHT = Color.parseColor("#FF000000"); // 亮色模式：纯黑
-int UI_COLOR_TEXT_DARK = Color.parseColor("#FFEFEFEF"); // 暗色模式：灰白
-
-// 3. 次要文本颜色 (使用处: Hint提示、取消按钮、说明文字)
-int UI_COLOR_SUBTEXT_LIGHT = Color.parseColor("#99000000"); // 亮色模式：半透黑
-int UI_COLOR_SUBTEXT_DARK = Color.parseColor("#99EFEFEF"); // 暗色模式：半透白
-
-// 4. 输入框/容器背景 (使用处: EditText背景、代码块背景)
-int UI_COLOR_INPUT_BG_LIGHT = Color.parseColor("#0D000000"); // 亮色模式：极淡黑
-int UI_COLOR_INPUT_BG_DARK = Color.parseColor("#1AFFFFFF"); // 暗色模式：极淡白
-
-// 5. 描边/分割线颜色 (使用处: 按钮边框、输入框边框)
-int UI_COLOR_STROKE_LIGHT = Color.parseColor("#1A000000"); // 亮色模式：淡黑线条
-int UI_COLOR_STROKE_DARK = Color.parseColor("#33FFFFFF"); // 暗色模式：淡白线条
-
-// 6. 强调色 (使用处: 确定按钮文字、图标)
-// 亮色模式默认蓝，暗色模式使用更柔和的蓝
-int UI_COLOR_ACCENT_LIGHT = Color.parseColor("#FF2196F3");
-int UI_COLOR_ACCENT_DARK = Color.parseColor("#FF8AB4F8");
-
 public String get(String url) {
 	StringBuffer buffer = new StringBuffer();
 	InputStreamReader isr = null;
@@ -273,14 +248,11 @@ import com.tencent.mobileqq.troop.api.ITroopInfoService;
 
 public boolean CheckSign(String qun, String uin) {
     try {
-        // 1. 实例化处理器
         TroopClockInHandler inHandler;
         try {
-            // 尝试使用 app (QQAppInterface) 实例化
             inHandler = new TroopClockInHandler(app);
         } catch (Throwable e) {
             try {
-                // 尝试空构造函数
                 inHandler = new TroopClockInHandler();
             } catch (Throwable ex) {
                 qqToast(1, "创建处理器失败");
@@ -288,47 +260,39 @@ public boolean CheckSign(String qun, String uin) {
             }
         }
 
-        // 2. 遍历并匹配方法
         Method[] methods = TroopClockInHandler.class.getDeclaredMethods();
         for (Method m : methods) {
             Class[] paramTypes = m.getParameterTypes();
             ArrayList args = new ArrayList();
-            int strCount = 0; // 记录已填充的字符串参数数量
+            int strCount = 0;
             
             boolean match = true;
             for (Class type : paramTypes) {
-                // 字符串参数：依次填入 qun, uin
                 if (type == String.class || type == CharSequence.class) {
                     args.add(strCount == 0 ? qun : uin);
                     strCount++;
                 } 
-                // 整型参数：默认填 0
                 else if (type == int.class || type == Integer.class) {
                     args.add(0);
                 } 
-                // 布尔参数：默认填 true
                 else if (type == boolean.class || type == Boolean.class) {
                     args.add(true);
                 } 
-                // 长整型参数：尝试解析数字，否则默认 0
                 else if (type == long.class || type == Long.class) {
                     args.add(0L);
                 } 
-                // 其他不支持的类型：标记为不匹配，跳过该方法
                 else {
                     match = false;
                     break;
                 }
             }
 
-            // 校验：必须包含至少两个字符串参数才能承载 qun 和 uin
             if (match && strCount >= 2) {
                 try {
                     m.setAccessible(true);
                     m.invoke(inHandler, args.toArray());
                     return true;
                 } catch (Throwable invE) {
-                    // 调用失败继续尝试下一个可能的方法
                 }
             }
         }
@@ -421,16 +385,16 @@ void sendHighPriorityNotification(String title, String content, String channelId
                 public void run() {
                     try {
                         notificationManager.notify(notificationId, notification);
-                    } catch (Exception e) {}
+                    } catch (Throwable e) { traceLog("api_log", "[sendHighPriorityNotification] 异常: " + e); }
                 }
             });
         } else {
             try {
                 notificationManager.notify(notificationId, notification);
-            } catch (Exception e) {}
+            } catch (Throwable e) { traceLog("api_log", "[sendHighPriorityNotification] 异常: " + e); }
         }
         
-    } catch (Throwable e) {}
+    } catch (Throwable e) { traceLog("api_log", "[sendHighPriorityNotification] 异常: " + e); }
 }
 
 void sendNotification(String title, String content) {
@@ -628,7 +592,7 @@ Bitmap getbitmap(String path) {
 			return bmp;
 		}
 	} catch (Throwable e) {
-		traceLog("api_log.txt", "加载失败: " + e.getMessage());
+		traceLog("api_log", "加载失败: " + e.getMessage());
 		Toast("图片加载错误: " + e.getMessage());
 		return Bitmap.createBitmap(800, 800, Bitmap.Config.ARGB_8888);
 	} finally {
@@ -636,7 +600,7 @@ Bitmap getbitmap(String path) {
 			try {
 				stream.close();
 			} catch (Throwable closeE) {
-				traceLog("api_log.txt", "流关闭失败: " + closeE.getMessage());
+				traceLog("api_log", "流关闭失败: " + closeE.getMessage());
 			}
 		}
 	}
@@ -656,7 +620,7 @@ Bitmap getroundbmp(Bitmap bitmap, float roundPx) {
 		canvas.drawBitmap(bitmap, rect, rect, paint);
 		return bmp;
 	} catch (Throwable e) {
-		traceLog("api_log.txt", "圆角处理失败: " + e.getMessage());
+		traceLog("api_log", "圆角处理失败: " + e.getMessage());
 		return bitmap;
 	}
 }
@@ -675,16 +639,16 @@ void bmptofile(Bitmap bmp, String path) {
 		bmp.compress(Bitmap.CompressFormat.PNG, 100, fs);
 		fs.flush();
 
-		traceLog("api_log.txt", "图片已保存: " + path);
+		traceLog("api_log", "图片已保存: " + path);
 	} catch (Throwable e) {
-		traceLog("api_log.txt", "保存失败: " + e.getMessage());
+		traceLog("api_log", "保存失败: " + e.getMessage());
 		Toast("保存失败: " + e.getMessage());
 	} finally {
 		if (fs != null) {
 			try {
 				fs.close();
 			} catch (Throwable closeE) {
-				traceLog("api_log.txt", "文件流关闭失败: " + closeE.getMessage());
+				traceLog("api_log", "文件流关闭失败: " + closeE.getMessage());
 			}
 		}
 	}
@@ -698,7 +662,7 @@ void urltofile(final String url, final String path) {
 		Bitmap bmp = getbitmap(url);
 		bmptofile(bmp, path);
 	} catch (Throwable e) {
-		traceLog("api_log.txt", "下载失败: " + e.getMessage());
+		traceLog("api_log", "下载失败: " + e.getMessage());
 	}
 	// }
 	// });
@@ -719,7 +683,7 @@ void fsdx(final String path1, final String path, final Object a, final Object b)
 				String savePath = ("".equals(path) || path == null) ? path1 : path;
 				bmptofile(bmp, savePath);
 			} catch (Throwable e) {
-				traceLog("api_log.txt", "缩放失败: " + e.getMessage());
+				traceLog("api_log", "缩放失败: " + e.getMessage());
 			}
 		}
 	});
@@ -756,7 +720,7 @@ void pinpic(final String path1, final String path2, final Object sw, final Objec
 				String savePath = ("".equals(path) || path == null) ? path1 : path;
 				bmptofile(bm1, savePath);
 			} catch (Throwable e) {
-				traceLog("api_log.txt", "叠加失败: " + e.getMessage());
+				traceLog("api_log", "叠加失败: " + e.getMessage());
 			}
 		}
 	});
@@ -774,7 +738,7 @@ void writetopic(final String path1, final String text, final String color,
 				pt.setTextSize(((Number) size).floatValue());
 				pt.setTypeface(Typeface.MONOSPACE);
 				if (color != null && !"".equals(color)) {
-					pt.setColor(Color.parseColor(color));
+					pt.setColor(pc(color));
 				}
 
 				float x1 = ((Number) x).floatValue() * bmp.getWidth() - 0.5f* text.length() * ((Number) size).floatValue();
@@ -785,7 +749,7 @@ void writetopic(final String path1, final String text, final String color,
 				String savePath = ("".equals(path) || path == null) ? path1 : path;
 				bmptofile(bmp, savePath);
 			} catch (Throwable e) {
-				traceLog("api_log.txt", "文字写入失败: " + e.getMessage());
+				traceLog("api_log", "文字写入失败: " + e.getMessage());
 			}
 		}
 	});
@@ -858,10 +822,10 @@ public void 删除(String Path) {
 		if (file.exists()) {
 			boolean deleted = file.delete();
 		} else {
-			traceLog("api_log.txt", "文件不存在: " + Path);
+			traceLog("api_log", "文件不存在: " + Path);
 		}
 	} catch (Exception e) {
-		traceLog("api_log.txt", "删除文件时发生错误: " + e);
+		traceLog("api_log", "删除文件时发生错误: " + e);
 	}
 }
 
@@ -880,12 +844,12 @@ private boolean 删除文件夹(File folder) {
 				if (子项.isDirectory()) {
 					if (!删除文件夹(子项)) {
 						所有子项删除成功 = false;
-						traceLog("api_log.txt", "删除子文件夹失败: " + 子项.getAbsolutePath());
+						traceLog("api_log", "删除子文件夹失败: " + 子项.getAbsolutePath());
 					}
 				} else {
 					if (!子项.delete()) {
 						所有子项删除成功 = false;
-						traceLog("api_log.txt", "删除文件失败: " + 子项.getAbsolutePath());
+						traceLog("api_log", "删除文件失败: " + 子项.getAbsolutePath());
 					}
 				}
 			}
@@ -898,11 +862,11 @@ private boolean 删除文件夹(File folder) {
 		}
 	} catch (Exception e) {
 		记录异常 = e;
-		traceLog("api_log.txt", "删除文件夹过程中异常: " + e);
+		traceLog("api_log", "删除文件夹过程中异常: " + e);
 		return false;
 	} finally {
 		if (记录异常 != null) {
-			traceLog("api_log.txt", "删除文件夹: 未完全删除" + 记录异常);
+			traceLog("api_log", "删除文件夹: 未完全删除" + 记录异常);
 		}
 	}
 }
@@ -935,13 +899,13 @@ String formatSize(long bytes) {
 }
 long getFileSize(File file) {
 	if (file == null) {
-		traceLog("api_log.txt", "getFileSize参数为null");
+		traceLog("api_log", "getFileSize参数为null");
 		return 0;
 	}
 	try {
 		return file.length();
 	} catch (Exception e) {
-		traceLog("api_log.txt", "获取文件大小失败: " + file.getName() + "    " + e);
+		traceLog("api_log", "获取文件大小失败: " + file.getName() + "    " + e);
 		return 0;
 	}
 }
@@ -950,7 +914,7 @@ long getFileSize(File file) {
 // 递归文件夹大小计算
 long getFolderSize(File folder) {
 	if (folder == null || !folder.exists()) {
-		traceLog("api_log.txt", "getFolderSize文件夹不存在: " + folder);
+		traceLog("api_log", "getFolderSize文件夹不存在: " + folder);
 		return 0;
 	}
 	long size = 0;
@@ -967,7 +931,7 @@ long getFolderSize(File folder) {
 			}
 		}
 	} catch (Exception e) {
-		traceLog("api_log.txt", "遍历文件夹失败: " + folder.getName() + "    " + e);
+		traceLog("api_log", "遍历文件夹失败: " + folder.getName() + "    " + e);
 	}
 	return size;
 }
@@ -990,15 +954,15 @@ String getFormattedSize(long sizeInBytes) {
 }
 String getFormattedSize(File folder) {
 	if (folder == null) {
-		traceLog("api_log.txt", "getFormattedSize(File)参数为null");
+		traceLog("api_log", "getFormattedSize(File)参数为null");
 		return "文件夹不存在";
 	}
 	if (!folder.exists()) {
-		traceLog("api_log.txt", "文件夹不存在: " + folder.getAbsolutePath());
+		traceLog("api_log", "文件夹不存在: " + folder.getAbsolutePath());
 		return "文件夹不存在";
 	}
 	if (!folder.isDirectory()) {
-		traceLog("api_log.txt", "路径不是文件夹: " + folder.getAbsolutePath());
+		traceLog("api_log", "路径不是文件夹: " + folder.getAbsolutePath());
 		return "不是有效文件夹";
 	}
 
@@ -1009,7 +973,7 @@ String getFormattedSize(File folder) {
 		}
 		return getFormattedSize(sizeInBytes);
 	} catch (Exception e) {
-		traceLog("api_log.txt", "格式化文件夹大小失败: " + folder.getName() + "    " + e);
+		traceLog("api_log", "格式化文件夹大小失败: " + folder.getName() + "    " + e);
 		return "计算失败";
 	}
 }
@@ -1068,7 +1032,7 @@ public String 读(String FilePath) {
 
 String readprop(String file, String name2) {
 	if (file == null || name2 == null) {
-		traceLog("api_log.txt", "readprop接收null参数: file=" + file + ", key=" + name2);
+		traceLog("api_log", "readprop接收null参数: file=" + file + ", key=" + name2);
 		return "";
 	}
 
@@ -1076,11 +1040,11 @@ String readprop(String file, String name2) {
 	try {
 		text = 读(file);
 		if (text == null || text.trim().isEmpty()) {
-			traceLog("api_log.txt", "properties文件内容为空: " + file);
+			traceLog("api_log", "properties文件内容为空: " + file);
 			return "";
 		}
 	} catch (Exception e) {
-		traceLog("api_log.txt", "读取properties文件失败: " + file + "    " + e);
+		traceLog("api_log", "读取properties文件失败: " + file + "    " + e);
 		return "";
 	}
 
@@ -1091,15 +1055,15 @@ String readprop(String file, String name2) {
 		props.load(reader);
 		String value = props.getProperty(name2);
 		if (value == null) {
-			traceLog("api_log.txt", "properties键不存在: " + name2 + " in " + file);
+			traceLog("api_log", "properties键不存在: " + name2 + " in " + file);
 			return "";
 		}
 		return value;
 	} catch (IOException e) {
-		traceLog("api_log.txt", "Properties加载失败: " + file + "    " + e);
+		traceLog("api_log", "Properties加载失败: " + file + "    " + e);
 		return "";
 	} catch (Exception e) {
-		traceLog("api_log.txt", "Properties解析异常: " + file + "    " + e);
+		traceLog("api_log", "Properties解析异常: " + file + "    " + e);
 		return "";
 	} finally {
 		// 资源释放保护
@@ -1115,7 +1079,7 @@ String readprop(String file, String name2) {
 
 private void 写(String Path, String WriteData) {
 	if (Path == null || Path.trim().isEmpty()) {
-		traceLog("api_log.txt", " 【写入失败】路径为空");
+		traceLog("api_log", " 【写入失败】路径为空");
 		return;
 	}
 
@@ -1129,14 +1093,14 @@ private void 写(String Path, String WriteData) {
 		// 确保父目录存在
 		if (parentDir != null && !parentDir.exists()) {
 			if (!parentDir.mkdirs()) {
-				traceLog("api_log.txt", " 【写入失败】创建目录失败: " + parentDir.getAbsolutePath());
+				traceLog("api_log", " 【写入失败】创建目录失败: " + parentDir.getAbsolutePath());
 				return;
 			}
 		}
 
 		// 创建文件（如果不存在）
 		if (!file.exists() && !file.createNewFile()) {
-			traceLog("api_log.txt", " 【写入失败】创建文件失败: " + Path);
+			traceLog("api_log", " 【写入失败】创建文件失败: " + Path);
 			return;
 		}
 
@@ -1148,12 +1112,12 @@ private void 写(String Path, String WriteData) {
 		fos.flush();
 		fos.getFD().sync(); // 确保数据持久化到磁盘
 
-		traceLog("api_log.txt", " 【写入成功】 " + Path + " (" + WriteData.length() + "字节)");
+		traceLog("api_log", " 【写入成功】 " + Path + " (" + WriteData.length() + "字节)");
 
 	} catch (IOException e) {
-		traceLog("api_log.txt", " 【写入异常】 " + Path + " - " + e.getMessage());
+		traceLog("api_log", " 【写入异常】 " + Path + " - " + e.getMessage());
 	} catch (Exception e) {
-		traceLog("api_log.txt", " 【写入异常】 " + Path + " - " + e.getMessage());
+		traceLog("api_log", " 【写入异常】 " + Path + " - " + e.getMessage());
 	} finally {
 		// 在finally中关闭流
 		try {
@@ -1161,7 +1125,7 @@ private void 写(String Path, String WriteData) {
 				osw.close();
 			}
 		} catch (Exception e) {
-			traceLog("api_log.txt", " 【关闭writer失败】 " + e.getMessage());
+			traceLog("api_log", " 【关闭writer失败】 " + e.getMessage());
 		}
 
 		try {
@@ -1169,7 +1133,7 @@ private void 写(String Path, String WriteData) {
 				fos.close();
 			}
 		} catch (Exception e) {
-			traceLog("api_log.txt", " 【关闭stream失败】 " + e.getMessage());
+			traceLog("api_log", " 【关闭stream失败】 " + e.getMessage());
 		}
 	}
 }
@@ -1201,32 +1165,32 @@ public void log大小限制(String Path) {
 	File targetFile = new File(Path);
 	try {
 		if (!targetFile.exists()) {
-			traceLog("api_log.txt", "文件夹不存在: " + Path);
+			traceLog("api_log", "文件夹不存在: " + Path);
 			return;
 		}
 		if (!targetFile.isDirectory()) {
-			traceLog("api_log.txt", "目标路径不是文件夹: " + Path);
+			traceLog("api_log", "目标路径不是文件夹: " + Path);
 			return;
 		}
 
 		long 文件夹总大小 = getFolderSize(targetFile);
 		int 阈值MB = 1;
-		try { 阈值MB = Integer.parseInt(getString("settings", "log_delete_threshold", "1")); } catch (Throwable e) {}
+		try { 阈值MB = Integer.parseInt(getString("settings", "log_delete_threshold", "1")); } catch (Throwable e) { traceLog("api_log", "[log大小限制] 异常: " + e); }
 		long MB = 阈值MB * 1024 * 1024;
 
 		if (文件夹总大小 > MB) {
-			traceLog("api_log.txt", "文件夹总大小超过1MB，准备删除: " + targetFile.getName() +
+			traceLog("api_log", "文件夹总大小超过" + (MB / 1024 / 1024) + "MB，准备删除: " + targetFile.getName() +
 				" (" + 文件夹总大小 + " 字节)");
 
 			boolean 删除成功 = 删除文件夹(targetFile);
 			if (删除成功) {
-				traceLog("api_log.txt", "成功删除文件夹: " + Path);
+				traceLog("api_log", "成功删除文件夹: " + Path);
 			} else {
-				traceLog("api_log.txt", "删除文件夹失败: " + Path);
+				traceLog("api_log", "删除文件夹失败: " + Path);
 			}
 		}
 	} catch (Exception e) {
-		traceLog("api_log.txt", "处理log文件夹时出错: " + e);
+		traceLog("api_log", "处理log文件夹时出错: " + e);
 	}
 }
 
@@ -1240,7 +1204,7 @@ public void setTips(String title, String message) {
 			TextView textView = new TextView(ThisActivity);
 			textView.setText(message);
 			textView.setTextSize(17);
-			textView.setTextColor(isDark ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT);
+			textView.setTextColor(isDark ? pc("#FFEFEFEF") : pc("#FF000000"));
 			textView.setTextIsSelectable(true);
 			textView.setHorizontallyScrolling(false); // 禁用水平滚动，启用自动换行
 
@@ -1273,8 +1237,7 @@ public void setTips(String title, String message) {
 			AlertDialog dialog = builder.create();
 			dialog.show();
             
-            // 应用统一主题
-			applyUiTheme(ThisActivity, dialog);
+			applyUiTheme(ThisActivity, dialog, 0);
 		}
 	});
 }
@@ -1309,7 +1272,9 @@ String encryptUnicode(String text) {
 	try {
 		StringBuilder result = new StringBuilder();
 		for (char c: text.toCharArray()) {
-			result.append("\\u").append(String.format("%04x", (int) c));
+			String uc = Integer.toHexString((int) c);
+			while (uc.length() < 4) uc = "0" + uc;
+			result.append("\\u").append(uc);
 		}
 		return result.toString();
 	} catch (Exception e) {
@@ -1342,26 +1307,13 @@ String decryptUnicode(String text) {
 	}
 }
 
-// 分块安全调用封装 (保持接口一致性)
-String encryptBase64Safe(String text) {
-	return encryptBase64(text);
-}
-String decryptBase64Safe(String text) {
-	return decryptBase64(text);
-}
-String encryptUnicodeSafe(String text) {
-	return encryptUnicode(text);
-}
-String decryptUnicodeSafe(String text) {
-	return decryptUnicode(text);
-}
 
 // 3. Hex (16进制)
 String stringToHex(String str) {
 	try {
 		StringBuilder sb = new StringBuilder();
 		byte[] bytes = str.getBytes("UTF-8");
-		for (byte b: bytes) sb.append(String.format("%02X", b));
+		for (byte b: bytes) sb.append(hexByte(b).toUpperCase());
 		return sb.toString();
 	} catch (Exception e) {
 		return null;
@@ -1586,7 +1538,7 @@ void vibrate(Activity activity, int milliseconds) {
 			vibrator.vibrate(milliseconds);
 		}
 	} catch (Exception e) {
-		traceLog("api_log.txt", "震动异常: " + e);
+		traceLog("api_log", "震动异常: " + e);
 	}
 }
 
@@ -1595,17 +1547,8 @@ double 默认经度 = 116.397128;
 double 默认纬度 = 39.907500;
 private void showLocationDialog(Activity activity) {
     boolean isDark = isThemeDark(activity);
-    int cornerRadius = dp(activity, 8);
-
-    int textColor = isDark ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT;
-    int subTextColor = isDark ? UI_COLOR_SUBTEXT_DARK : UI_COLOR_SUBTEXT_LIGHT;
-    int inputBgColor = isDark ? UI_COLOR_INPUT_BG_DARK : UI_COLOR_INPUT_BG_LIGHT;
-    int borderColor = adjustAlpha(textColor, 0.3f);
-
-    GradientDrawable inputBg = new GradientDrawable();
-    inputBg.setCornerRadius(cornerRadius);
-    inputBg.setColor(inputBgColor);
-    inputBg.setStroke(dp(activity, 1), borderColor);
+    int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
+    int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
 
     LinearLayout layout = new LinearLayout(activity);
     layout.setOrientation(LinearLayout.VERTICAL);
@@ -1617,14 +1560,9 @@ private void showLocationDialog(Activity activity) {
     tvLongitude.setTextSize(14);
     layout.addView(tvLongitude);
 
-    final EditText etLongitude = new EditText(activity);
-    etLongitude.setHint("请输入经度，如 116.397");
+    final EditText etLongitude = makeInput(activity, "请输入经度，如 116.397", null);
     etLongitude.setText(getString("模拟定位", "lng", ""));
     etLongitude.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED);
-    etLongitude.setTextColor(textColor);
-    etLongitude.setHintTextColor(subTextColor);
-    etLongitude.setPadding(dp(activity, 12), dp(activity, 10), dp(activity, 12), dp(activity, 10));
-    etLongitude.setBackground(inputBg);
     LinearLayout.LayoutParams etParams = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 48));
     layout.addView(etLongitude, etParams);
@@ -1638,14 +1576,9 @@ private void showLocationDialog(Activity activity) {
     tvLatitude.setTextSize(14);
     layout.addView(tvLatitude);
 
-    final EditText etLatitude = new EditText(activity);
-    etLatitude.setHint("请输入纬度，如 39.917");
+    final EditText etLatitude = makeInput(activity, "请输入纬度，如 39.917", null);
     etLatitude.setText(getString("模拟定位", "lat", ""));
     etLatitude.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED);
-    etLatitude.setTextColor(textColor);
-    etLatitude.setHintTextColor(subTextColor);
-    etLatitude.setPadding(dp(activity, 12), dp(activity, 10), dp(activity, 12), dp(activity, 10));
-    etLatitude.setBackground(inputBg);
     layout.addView(etLatitude, etParams);
 
     AlertDialog.Builder builder = new AlertDialog.Builder(activity,
@@ -1661,7 +1594,7 @@ private void showLocationDialog(Activity activity) {
     final AlertDialog dialog = builder.create();
     dialog.show();
 
-    applyUiTheme(activity, dialog);
+    applyUiTheme(activity, dialog, 0);
 
     dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(new View.OnClickListener() {
         public void onClick(View v) {
@@ -1751,31 +1684,31 @@ private void showReOrUnDialog(final Activity activity) {
 
                 TextView titleView = new TextView(activity);
                 titleView.setText("你想选哪个呢？");
-                titleView.setTextColor(isDark ? Color.parseColor("#DEEFEFEF") : Color.parseColor("#DE000000"));
+                titleView.setTextColor(isDark ? pc("#DEEFEFEF") : pc("#DE000000"));
                 titleView.setTextSize(18);
                 titleView.setPadding(0, dp(activity, 8), 0, dp(activity, 24));
 
                 LinearLayout optionsContainer = new LinearLayout(activity);
                 optionsContainer.setOrientation(LinearLayout.VERTICAL);
 
-                TextView btn1 = createButton(activity, "取消加载脚本".toUpperCase(), Color.parseColor("#FFFF0000"), Color.TRANSPARENT, 14f, 0, 16, 8, false, 0, 0, null);
+                TextView btn1 = createButton(activity, "取消加载脚本".toUpperCase(), pc("#FFFF0000"), Color.TRANSPARENT, 14f, 0, 16, 8, false, 0, 0, null);
                 btn1.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
                 btn1.setLayoutParams(new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 48)));
 
-                TextView btn2 = createButton(activity, "重新加载脚本".toUpperCase(), Color.parseColor("#FFFF0000"), Color.TRANSPARENT, 14f, 0, 16, 8, false, 0, 0, null);
+                TextView btn2 = createButton(activity, "重新加载脚本".toUpperCase(), pc("#FFFF0000"), Color.TRANSPARENT, 14f, 0, 16, 8, false, 0, 0, null);
                 btn2.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
                 btn2.setLayoutParams(new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 48)));
 
                 View divider = new View(activity);
-                divider.setBackgroundColor(isDark ? Color.parseColor("#1EFFFFFF") : Color.parseColor("#1E000000"));
+                divider.setBackgroundColor(isDark ? pc("#1EFFFFFF") : pc("#1E000000"));
                 LinearLayout.LayoutParams divParams = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 1));
                 divParams.topMargin = dp(activity, 8);
                 divParams.bottomMargin = dp(activity, 8);
 
-                TextView cancelBtn = createButton(activity, "取消", isDark ? Color.parseColor("#DEEFEFEF") : Color.parseColor("#DE000000"), Color.TRANSPARENT, 14f, 0, 16, 8, false, 0, 0, null);
+                TextView cancelBtn = createButton(activity, "取消", isDark ? pc("#DEEFEFEF") : pc("#DE000000"), Color.TRANSPARENT, 14f, 0, 16, 8, false, 0, 0, null);
                 cancelBtn.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
                 cancelBtn.setLayoutParams(new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 48)));
@@ -1793,7 +1726,7 @@ private void showReOrUnDialog(final Activity activity) {
 
                 final AlertDialog dialog = builder.create();
                 dialog.show();
-                applyUiTheme(activity, dialog);
+                applyUiTheme(activity, dialog, 0);
 
                 btn1.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
@@ -1802,7 +1735,7 @@ private void showReOrUnDialog(final Activity activity) {
                             取消加载脚本();
                             dialog.dismiss();
                         } catch (Throwable e) {
-                            traceLog("api_log.txt", "取消加载脚本按钮异常: " + e.getMessage());
+                            traceLog("api_log", "取消加载脚本按钮异常: " + e.getMessage());
                         }
                     }
                 });
@@ -1814,7 +1747,7 @@ private void showReOrUnDialog(final Activity activity) {
                             重新加载脚本();
                             dialog.dismiss();
                         } catch (Throwable e) {
-                            traceLog("api_log.txt", "重新加载脚本按钮异常: " + e.getMessage());
+                            traceLog("api_log", "重新加载脚本按钮异常: " + e.getMessage());
                         }
                     }
                 });
@@ -1825,15 +1758,15 @@ private void showReOrUnDialog(final Activity activity) {
                             vibrate(activity, 50);
                             dialog.dismiss();
                         } catch (Throwable e) {
-                            traceLog("api_log.txt", "取消按钮异常: " + e.getMessage());
+                            traceLog("api_log", "取消按钮异常: " + e.getMessage());
                         }
                     }
                 });
 
-                traceLog("api_log.txt", "重载/取消选择对话框已显示: 你想选哪个呢？");
+                traceLog("api_log", "重载/取消选择对话框已显示: 你想选哪个呢？");
 
             } catch (Throwable e) {
-                traceLog("api_log.txt", "对话框创建失败: " + e.getMessage());
+                traceLog("api_log", "对话框创建失败: " + e.getMessage());
             }
         }
     });
@@ -1854,7 +1787,7 @@ public void Toast(String text) {
 			});
 			return;
 		}
-	} catch (Exception e) {}
+	} catch (Throwable e) { traceLog("api_log", "[Toast] 异常: " + e); }
 
 	try {
 		new Handler(Looper.getMainLooper()).post(new Runnable() {
@@ -1896,7 +1829,7 @@ private void xToast(String text) {
         root.setOnTouchListener((v, event) -> false);
 
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor(Color.parseColor(isDark ? "#D9333333" : "#8CE0E0E0"));
+        bg.setColor(pc(isDark ? "#D9333333" : "#8CE0E0E0"));
         bg.setCornerRadius(dp(16));
         root.setBackground(bg);
 
@@ -1907,23 +1840,23 @@ private void xToast(String text) {
         int[] TOAST_TEXT_COLORS;
         if (isDark) {
             TOAST_TEXT_COLORS = new int[]{
-                Color.parseColor("#FF5252"),
-                Color.parseColor("#4DB6AC"),
-                Color.parseColor("#448AFF"),
-                Color.parseColor("#66BB6A"),
-                Color.parseColor("#AB47BC"),
-                Color.parseColor("#FF9800"),
-                Color.parseColor("#FFEE58")
+                pc("#FF5252"),
+                pc("#4DB6AC"),
+                pc("#448AFF"),
+                pc("#66BB6A"),
+                pc("#AB47BC"),
+                pc("#FF9800"),
+                pc("#FFEE58")
             };
         } else {
             TOAST_TEXT_COLORS = new int[]{
-                Color.parseColor("#C62828"),
-                Color.parseColor("#00695C"),
-                Color.parseColor("#1565C0"),
-                Color.parseColor("#2E7D32"),
-                Color.parseColor("#6A1B9A"),
-                Color.parseColor("#E65100"),
-                Color.parseColor("#F57F17")
+                pc("#C62828"),
+                pc("#00695C"),
+                pc("#1565C0"),
+                pc("#2E7D32"),
+                pc("#6A1B9A"),
+                pc("#E65100"),
+                pc("#F57F17")
             };
         }
 
@@ -1981,7 +1914,7 @@ private void xToast(String text) {
         toast.show();
     } catch (Exception e) {
         toast("" + text);
-        traceLog("api_log.txt", "" + e);
+        traceLog("api_log", "" + e);
     }
 }
 
@@ -2015,14 +1948,14 @@ void 清理Handler(Handler handler) {
 	if (handler == null) return;
 	try {
 		handler.removeCallbacksAndMessages(null);
-	} catch (Throwable e) {}
+	} catch (Throwable e) { traceLog("api_log", "[清理Handler] 异常: " + e); }
 }
 
 void 关闭线程池() {
 	if (ThreadPool == null) return;
 	try {
 		ThreadPool.shutdownNow();
-	} catch (Throwable e) {}
+	} catch (Throwable e) { traceLog("api_log", "[关闭线程池] 异常: " + e); }
 	ThreadPool = null;
 }
 
@@ -2037,7 +1970,7 @@ void performDataCleanup() {
 			if (statsTextViewCache != null) statsTextViewCache.clear();
 			if (weekDatesCache != null) weekDatesCache.clear();
 			if (monthDatesCache != null) monthDatesCache.clear();
-		} catch (Throwable e) {}
+		} catch (Throwable e) { traceLog("api_log", "[performDataCleanup] 异常: " + e); }
 	}
 	todayDateStr = null;
 }
@@ -2049,7 +1982,7 @@ void performUiCleanup() {
 		if (dialog != null) {
 			try {
 				if (dialog.isShowing()) dialog.dismiss();
-			} catch (Throwable e) {}
+			} catch (Throwable e) { traceLog("api_log", "[performUiCleanup] 异常: " + e); }
 			statsDialog = null;
 		}
 		if (handle != null) {
@@ -2057,11 +1990,11 @@ void performUiCleanup() {
 			msgHandle = null;
 		}
 		dialogVisible = false;
-	} catch (Throwable e) {}
+	} catch (Throwable e) { traceLog("api_log", "[performUiCleanup] 异常: " + e); }
 }
 
 void onUnMsgload() {
-	traceLog("api_log.txt", "====== api3卸载开始 ======");
+	traceLog("api_log", "====== api3卸载开始 ======");
 
 	synchronized(this) {
 		if (isUnloading) return;
@@ -2085,13 +2018,13 @@ void onUnMsgload() {
 			});
 			try {
 				信号.await(3, TimeUnit.SECONDS);
-			} catch (Throwable e) {}
+			} catch (Throwable e) { traceLog("api_log", "[onUnMsgload] 异常: " + e); }
 		}
 
 	} catch (Throwable e) {
-		traceLog("api_log.txt", "卸载异常: " + e.toString());
+		traceLog("api_log", "卸载异常: " + e.toString());
 	}
-	traceLog("api_log.txt", "====== api3卸载完成 ======");
+	traceLog("api_log", "====== api3卸载完成 ======");
 }
 
 void a卸载悬浮窗() {
@@ -2104,7 +2037,7 @@ void a卸载悬浮窗() {
 			public void run() {
 				try {
 					卸载悬浮窗();
-				} catch (Throwable e) {}
+				} catch (Throwable e) { traceLog("api_log", "[a卸载悬浮窗] 异常: " + e); }
 				信号.countDown();
 			}
 		});
@@ -2114,12 +2047,12 @@ void a卸载悬浮窗() {
 	} else {
 		try {
 			卸载悬浮窗();
-		} catch (Throwable e) {}
+		} catch (Throwable e) { traceLog("api_log", "[a卸载悬浮窗] 异常: " + e); }
 	}
 }
 
 void 卸载脚本() {
-	traceLog("api_log.txt", "卸载脚本入口 - 线程: " + Thread.currentThread().getName());
+	traceLog("api_log", "卸载脚本入口 - 线程: " + Thread.currentThread().getName());
 
 	initThreadPool();
 
@@ -2134,7 +2067,7 @@ void 卸载脚本() {
 				// toast("测试");
 				try {
 					执行卸载核心逻辑();
-				} catch (Throwable e) {}
+				} catch (Throwable e) { traceLog("api_log", "[卸载脚本] 异常: " + e); }
 				信号.countDown();
 			// }
 		// });
@@ -2150,7 +2083,7 @@ void 卸载脚本() {
 }
 
 void 执行卸载核心逻辑() {
-	traceLog("api_log.txt", "====== 完整卸载开始 ======");
+	traceLog("api_log", "====== 完整卸载开始 ======");
 
 	try {
 		unhookAll();
@@ -2169,7 +2102,7 @@ void 执行卸载核心逻辑() {
 			// }
 		// });
 	} catch (Throwable e) {
-		traceLog("api_log.txt", "卸载失败: " + e.toString());
+		traceLog("api_log", "卸载失败: " + e.toString());
 		Toast("卸载失败：" + e.getMessage());
 	}
 }
@@ -2180,7 +2113,7 @@ void 异步关闭线程池() {
 			try {
 				Thread.sleep(50);
 				关闭线程池();
-			} catch (Throwable e) {}
+			} catch (Throwable e) { traceLog("api_log", "[Thread] 异常: " + e); }
 		}
 	}).start();
 }
@@ -2244,8 +2177,7 @@ void 重新加载操作(Activity activity) {
 		}
 
 		if (target != null) pm.reloadPlugin(target);
-	} catch (Throwable e) {
-	}
+	} catch (Throwable e) { traceLog("api_log", "[重新加载操作] 异常: " + e); }
 }
 
 void 取消加载操作(Activity activity) {
@@ -2275,8 +2207,7 @@ void 取消加载操作(Activity activity) {
 		}
 
 		if (target != null) pm.stopPlugin(target);
-	} catch (Throwable e) {
-	}
+	} catch (Throwable e) { traceLog("api_log", "[取消加载操作] 异常: " + e); }
 }
 
 void unLoadPlugin() {
@@ -2287,7 +2218,7 @@ void unLoadPlugin() {
 			卸载完成信号.countDown();
 			卸载完成信号 = null;
 		}
-	} catch (Throwable e) {}
+	} catch (Throwable e) { traceLog("api_log", "[unLoadPlugin] 异常: " + e); }
 
 	卸载脚本();
 
@@ -2373,10 +2304,10 @@ boolean downloadFile(String url, String savePath, ProgressCallback callback) {
 
     } catch (Throwable e) {
         if (saveFile.exists()) saveFile.delete();
-        traceLog("main_log", "downloadFile 异常: " + e.getMessage());
+        traceLog("api_log", "downloadFile 异常: " + e.getMessage());
     } finally {
-        try { if (out != null) out.close(); } catch (Throwable t) {}
-        try { if (in != null) in.close(); } catch (Throwable t) {}
+        try { if (out != null) out.close(); } catch (Throwable t) { traceLog("api_log", "[downloadFile] 异常: " + t); }
+        try { if (in != null) in.close(); } catch (Throwable t) { traceLog("api_log", "[downloadFile] 异常: " + t); }
     }
     return success;
 }
@@ -2450,7 +2381,7 @@ boolean unzipFile(String zipPath, String destDir, ProgressCallback callback) {
 
     } catch (Throwable e) {
         success = false;
-        traceLog("main_log", "unzipFile 异常: " + e.getMessage());
+        traceLog("api_log", "unzipFile 异常: " + e.getMessage());
     }
     return success;
 }
@@ -2528,7 +2459,7 @@ void showUpdateDialog(final String version, final String versionType, final Stri
                                 String savePath = pluginPath + "/" + relativePath;
                                 if (!downloadFile(fileUrl, savePath, null)) {
                                     allSuccess = false;
-                                    traceLog("main_log", "下载失败: " + fileName);
+                                    traceLog("api_log", "下载失败: " + fileName);
                                     break;
                                 }
                             }
@@ -2559,7 +2490,7 @@ void showUpdateDialog(final String version, final String versionType, final Stri
 
             android.app.AlertDialog dialogObj = builder.create();
             dialogObj.show();
-            applyUiTheme(activity, dialogObj);
+            applyUiTheme(activity, dialogObj, 0);
         }
     });
 }
@@ -2616,7 +2547,7 @@ void runQFXUpdateCheck(final boolean manual) {
                     if (jsonStr2 != null && !jsonStr2.isEmpty()) {
                         count = new JSONObject(jsonStr2).optString("number2", "0");
                     }
-                } catch (Throwable ignored2) {}
+                } catch (Throwable ignored2) { traceLog("api_log", "[runQFXUpdateCheck] 异常: " + ignored2); }
 
                 String remoteVersion = json.optString("version", "0.0.0");
                 String versionType = json.optString("versionType", "正式版");
@@ -2651,7 +2582,7 @@ void runQFXUpdateCheck(final boolean manual) {
 
                 showUpdateDialog(remoteVersion, versionType, updateType, changelog, files, count);
             } catch (Throwable t) {
-                traceLog("main_log", "checkQFXUpdate 异常: " + t.getMessage());
+                traceLog("api_log", "checkQFXUpdate 异常: " + t.getMessage());
                 if (manual) {
                     Activity activity = getNowActivity();
                     if (activity != null) {
@@ -2712,7 +2643,7 @@ boolean checkWithSuffixes(String basePath, String[] suffixes) {
             java.io.File f = new java.io.File(basePath + suffix);
             if (f.exists() && f.length() > 0) return true;
         }
-    } catch (Exception e) {}
+    } catch (Throwable e) { traceLog("api_log", "[checkWithSuffixes] 异常: " + e); }
     return false;
 }
 
@@ -2770,7 +2701,7 @@ boolean performDownloadAndUnzip() {
     try {
         unzipResult = unzipTask.get(30000, java.util.concurrent.TimeUnit.MILLISECONDS).booleanValue();
     } catch (Throwable e) {
-        traceLog("api_log.txt", " 解压超时/异常: " + e.getMessage());
+        traceLog("api_log", " 解压超时/异常: " + e.getMessage());
         unzipResult = false;
     }
     
@@ -2786,13 +2717,10 @@ void cleanupTempFile(String tempPath) {
             boolean deleted = file.delete();
         }
     } catch (Exception e) {
-        traceLog("api_log.txt", "异常: " + e.getMessage());
+        traceLog("api_log", "[cleanupTempFile] 异常: " + e.getMessage());
     }
 }
 
-boolean verifyAfterDownload() {
-    return checkAllIconsExist();
-}
 
 void ensureResourceAvailable() {
 
@@ -2810,22 +2738,22 @@ void ensureResourceAvailable() {
                 boolean success = performDownloadAndUnzip();
                 
                 if (success) {
-                    final boolean verifyResult = verifyAfterDownload();
+                    final boolean verifyResult = checkAllIconsExist();
                     
                             if (verifyResult) {
                                 Toast("下载图标文件成功！");
                             } else {
                                 Toast("下载完成，但文件验证失败");
-                                traceLog("api_log.txt", "资源下载但验证失败");
+                                traceLog("api_log", "资源下载但验证失败");
                             }
                 } else {
                             Toast("图标文件下载失败，请检查网络");
-                            traceLog("api_log.txt", "资源准备失败");
+                            traceLog("api_log", "资源准备失败");
                 }
                 
             } catch (Exception e) {
                 final String errorMsg = e.getMessage();
-                traceLog("api_log.txt", " 致命异常: " + errorMsg);
+                traceLog("api_log", " 致命异常: " + errorMsg);
                 Toast("图标文件准备失败: " + errorMsg);
             }
         }
@@ -2850,8 +2778,132 @@ void 跳转到页面(String className) {
     intent.setComponent(new ComponentName(currentPackageName, className));
     try {
         activity.startActivity(intent);
-        traceLog("api_log.txt","跳转到页面: " + className);
+        traceLog("api_log","跳转到页面: " + className);
     } catch (Exception e) {
-        traceLog("api_log.txt","跳转页面失败: " + e);
+        traceLog("api_log","跳转页面失败: " + e);
     }
 }
+
+boolean isFilePickerHooked = false;
+java.util.HashMap filePickerTasks = new java.util.HashMap();
+
+interface FilePickerCallback {
+    void onFilePicked(Activity activity, Uri uri, String fileName, String filePath);
+}
+
+class FilePickerTask {
+    String savePath;
+    FilePickerCallback callback;
+}
+
+void openFilePicker(Activity activity, int requestCode, String mimeType, String[] extraMimeTypes, String savePath, FilePickerCallback callback) {
+    try {
+        traceLog("api_log", "[openFilePicker] act=" + activity.getClass().getName() + " rc=" + requestCode + " mime=" + mimeType + " save=" + savePath);
+        if (callback != null) {
+            FilePickerTask task = new FilePickerTask();
+            task.savePath = savePath;
+            task.callback = callback;
+            filePickerTasks.put(Integer.valueOf(requestCode), task);
+        }
+        ensureFilePickerHook();
+        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        if (extraMimeTypes != null && extraMimeTypes.length > 0) {
+            intent.setType("*/*");
+            intent.putExtra(Intent.EXTRA_MIME_TYPES, extraMimeTypes);
+        } else if (mimeType != null) {
+            intent.setType(mimeType);
+        } else {
+            intent.setType("*/*");
+        }
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        activity.startActivityForResult(intent, requestCode);
+        traceLog("api_log", "[openFilePicker] 已启动 rc=" + requestCode);
+    } catch (Throwable e) {
+        traceLog("api_log", "[openFilePicker] 失败: " + e);
+        Toast("文件选择启动失败: " + e.getMessage());
+    }
+}
+
+void ensureFilePickerHook() {
+    if (isFilePickerHooked) return;
+    isFilePickerHooked = true;
+    try {
+        Class activityClass = Class.forName("android.app.Activity");
+        traceLog("api_log", "[hook] 注册中 dispatchActivityResult");
+        Class[] paramTypes = new Class[5];
+        paramTypes[0] = String.class;
+        paramTypes[1] = int.class;
+        paramTypes[2] = int.class;
+        paramTypes[3] = Intent.class;
+        paramTypes[4] = String.class;
+        java.lang.reflect.Method target = getCachedMethod(activityClass, "dispatchActivityResult", paramTypes);
+        traceLog("api_log", "[hook] 目标=" + (target != null ? "found" : "NULL"));
+        if (target == null) return;
+        XposedBridge.hookMethod(target, new XC_MethodHook() {
+            protected void afterHookedMethod(XC_MethodHook.MethodHookParam param) {
+                ThreadPool.execute(new Runnable() {
+                    public void run() {
+                        try {
+                            Activity act = (Activity) param.thisObject;
+                            int rc = ((Integer) param.args[1]).intValue();
+                            int resultCode = ((Integer) param.args[2]).intValue();
+                            Intent data = (Intent) param.args[3];
+                            traceLog("api_log", "[dispatch] act=" + act.getClass().getName() + " rc=" + rc + " result=" + resultCode + " data=" + (data != null ? "yes" : "null"));
+                            if (resultCode != Activity.RESULT_OK || data == null) return;
+                            Uri uri = data.getData();
+                            if (uri == null) return;
+                            FilePickerTask task = (FilePickerTask) filePickerTasks.get(Integer.valueOf(rc));
+                            traceLog("api_log", "[dispatch] task=" + (task != null ? "found" : "NULL"));
+                            if (task == null) return;
+                            String fileName = null;
+                            try {
+                                if ("content".equals(uri.getScheme())) {
+                                    android.database.Cursor cursor = act.getContentResolver().query(uri, null, null, null, null);
+                                    if (cursor != null) {
+                                        try {
+                                            if (cursor.moveToFirst()) {
+                                                int index = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
+                                                if (index >= 0) fileName = cursor.getString(index);
+                                            }
+                                        } finally {
+                                            cursor.close();
+                                        }
+                                    }
+                                }
+                            } catch (Throwable e) { traceLog("api_log", "[afterHookedMethod] 异常: " + e); }
+                            if (fileName == null || fileName.length() == 0) {
+                                try {
+                                    String path = uri.getPath();
+                                    if (path != null) {
+                                        int cut = path.lastIndexOf('/');
+                                        if (cut != -1) fileName = path.substring(cut + 1);
+                                    }
+                                } catch (Throwable e) { traceLog("api_log", "[afterHookedMethod] 异常: " + e); }
+                            }
+                            String filePath = null;
+                            if (task.savePath != null) {
+                                String type = act.getContentResolver().getType(uri);
+                                String ext = getExtensionFromMimeType(type);
+                                if (task.savePath.contains("{ext}")) {
+                                    filePath = task.savePath.replace("{ext}", ext);
+                                } else if (task.savePath.lastIndexOf('.') > 0) {
+                                    filePath = task.savePath.substring(0, task.savePath.lastIndexOf('.')) + ext;
+                                } else {
+                                    filePath = task.savePath + ext;
+                                }
+                            }
+                            traceLog("api_log", "[dispatch] name=" + fileName + " path=" + filePath + " uri=" + uri);
+                            task.callback.onFilePicked(act, uri, fileName, filePath);
+                        } catch (Throwable e) {
+                            traceLog("api_log", "[dispatch] 异常: " + e);
+                        }
+                    }
+                });
+            }
+        });
+        traceLog("api_log", "[hook] dispatchActivityResult 已挂钩");
+    } catch (Throwable e) {
+        traceLog("api_log", "[hook] 失败: " + e);
+    }
+}
+
