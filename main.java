@@ -26,13 +26,11 @@
 
 //有bug或者建议可以大胆向我反馈
 
-// 图标路径
 String iconBase        = pluginPath + "/API/icon";
 String iconPath        = new java.io.File(iconBase + ".png").exists() ? iconBase + ".png" :
                         new java.io.File(iconBase + ".gif").exists() ? iconBase + ".gif" :
                         iconBase + ".png";
 String closeIconPath   = pluginPath + "/API/closeIcon.png";
-String settingiconPath = pluginPath + "/API/settingicon.png";
 
 // 不要改！不要改！不要改！
 import java.util.concurrent.ExecutorService;
@@ -76,7 +74,6 @@ String configPath      = pluginPath + "/config/";
 String qq              = myUin;
 final String logPath   = pluginPath + "/Log/";
 long startTime         = System.currentTimeMillis();
-final String QQpackage = "com.tencent.mobileqq";
 ExecutorService ThreadPool = null;
 
 // 核心api（顺序加载）  非核心api（并行加载）
@@ -129,9 +126,6 @@ public static String getTime() {
     }
 }
 
-/**
- * 日志记录方法
- */
 void traceLog(String name, String txt) {
     String 文件名 = name;
     try {
@@ -147,10 +141,9 @@ void traceLog(String name, String txt) {
 void traceLog(String txt) {
     try {
         log("/Log/api_log.txt", getTime() + "    " + txt);
-    } catch (Exception e) {}
+    } catch (Throwable e) { traceLog("main_log", "异常: " + e); }
 }
 
-/** 初始化/重建线程池 */
 void initThreadPool() {
     if (ThreadPool != null) {
         try {
@@ -167,19 +160,19 @@ void initThreadPool() {
     try {
         String sp = getString("settings", "thread_pool_priority", "5");
         if (!sp.isEmpty()) threadPriority = Math.max(1, Math.min(10, Integer.parseInt(sp)));
-    } catch (Exception e) {}
+    } catch (Throwable e) { traceLog("main_log", "异常: " + e); }
 
     int queueCapacity = 50;
     try {
         String sp = getString("settings", "thread_pool_queue_capacity", "50");
         if (!sp.isEmpty()) queueCapacity = Math.max(10, Integer.parseInt(sp));
-    } catch (Exception e) {}
+    } catch (Throwable e) { traceLog("main_log", "异常: " + e); }
 
     long keepAliveTime = 30;
     try {
         String sp = getString("settings", "thread_pool_keep_alive", "30");
         if (!sp.isEmpty()) keepAliveTime = Math.max(5, Long.parseLong(sp));
-    } catch (Exception e) {}
+    } catch (Throwable e) { traceLog("main_log", "异常: " + e); }
 
     String threadNamePrefix = getString("settings", "thread_pool_name_prefix", "ovoWorker");
 
@@ -214,7 +207,7 @@ ThreadPool.execute(new Runnable() {
         try {
             for (int i = 0; i < coreFiles.length; i++) {
                 loadJava(coreFiles[i]);
-                traceLog("main_log", "核心api加载：" + coreFiles[i]);
+                // traceLog("main_log", "核心api加载：" + coreFiles[i]);
             }
 
             final CountDownLatch latch = new CountDownLatch(parallelFiles.length);
@@ -249,9 +242,7 @@ ThreadPool.execute(new Runnable() {
     }
 });
 
-// 全局变量
 String currentPackageName = context.getPackageName();
-String applicationType = "";
 
 // 状态变量
 volatile boolean 悬浮窗显示状态 = false;
@@ -263,23 +254,18 @@ volatile boolean 允许触摸 = true;
 // [精准前后台检测] Activity计数器
 static volatile int resumedActivityCount = 0;
 
-// Handlers
 Handler uiHandler = new Handler(Looper.getMainLooper());
 Handler backgroundHandler = new Handler(Looper.getMainLooper());
 
 Activity 最后Activity = null;
-Context appContext = null;
 boolean dialogVisible = false;
 Activity activity = null;
 volatile boolean Hook已调用 = false;
 
 /**
  * 检查并更新前台状态。
- * <p>
  * 当 {@code resumedActivityCount} 大于 0 时表示有 Activity 可见；
  * 若后台初始化已完成但 UI 尚未初始化，则在主线程补做前台初始化；
- * 并在状态从后台切换到前台时停止保活服务、重启悬浮窗。
- * </p>
  *
  * @param activity 当前可见的 {@link Activity}
  */
@@ -295,7 +281,7 @@ void checkAndUpdateForegroundState(final Activity activity) {
     }
 
     if (!应用前台状态) {
-        // traceLog("state_log", "状态变更 → 前台");
+        // traceLog("main_log", "状态变更 → 前台");
         应用前台状态 = true;
         允许触摸 = true;
         最后Activity = activity;
@@ -310,10 +296,9 @@ void checkAndUpdateForegroundState(final Activity activity) {
 }
 
 /**
- * 检查并更新后台状态，带 400ms 延迟防止 Activity 切换时的误判。
+ * 检查并更新后台状态，带 400ms 延迟防止 Activity 切换时的误判
  * <p>
  * 延迟结束后若 {@code resumedActivityCount} 仍为 0，则确认进入后台：
- * 停止悬浮窗并启动保活服务。
  * </p>
  */
 void checkAndUpdateBackgroundState() {
@@ -323,7 +308,7 @@ void checkAndUpdateBackgroundState() {
         public void run() {
             if (resumedActivityCount > 0) return;
             if (应用前台状态) {
-                // traceLog("state_log", "状态变更 → 后台");
+                // traceLog("main_log", "状态变更 → 后台");
                 应用前台状态 = false;
                 允许触摸 = false;
                 if (悬浮窗显示状态) 停止悬浮窗();
@@ -441,10 +426,6 @@ void 后台初始化() {
     }
 }
 
-/**
- * 前台初始化
- * @param currentActivity 当前 Activity
- */
 void 前台初始化(Activity currentActivity) {
     if (UI初始化完成 || currentActivity == null) {
         return;
@@ -479,7 +460,7 @@ void 前台初始化(Activity currentActivity) {
                         Toast("计数异常");
                     }
                 } catch (Exception e) {
-                    traceLog("api_error", "计数解析异常：" + e.getMessage());
+                    traceLog("main_log", "计数解析异常：" + e.getMessage());
                 }
             }
 
@@ -493,7 +474,7 @@ void 前台初始化(Activity currentActivity) {
                             putBoolean("settings", qqKey, true);
                         }
                     } catch (Exception e) {
-                        traceLog("api_error", "新用户标记异常：" + e.getMessage());
+                        traceLog("main_log", "新用户标记异常：" + e.getMessage());
                     }
                 }
             }
@@ -508,7 +489,6 @@ void 前台初始化(Activity currentActivity) {
             });
         }
     });
-    // chatInterface(1, "666666", "请重新进入当前聊天");
     checkQFXUpdate();
 
     if (getBoolean("settings", "开关", false)) {
