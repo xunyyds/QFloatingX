@@ -36,10 +36,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 
-static final long DEFAULT_ANIMATION_DURATION = 300L;
-static final long COLOR_ANIMATION_DURATION = 250L;
-static final long BACKGROUND_ANIMATION_DURATION = 300L;
-
 static WeakHashMap<View, Long> viewAnimationDurations = new WeakHashMap<>();
 
 import android.content.res.Configuration;
@@ -56,6 +52,11 @@ boolean isThemeDark(Activity activity) {
         // 强制浅色
         if ("light".equals(themeMode)) {
             return false;
+        }
+        
+        // 跟随模块（QQ 自身深色状态）
+        if ("module".equals(themeMode)) {
+            return me.yxp.qfun.utils.ui.ThemeHelper.INSTANCE.isNightMode();
         }
         
         // 跟随系统 或 默认（推荐），都走系统暗黑判断
@@ -75,7 +76,7 @@ private Drawable createRippleBg(Context ctx, int bgColor, int radius) {
     GradientDrawable content = new GradientDrawable();
     content.setColor(bgColor);
     content.setCornerRadius(dp(ctx, radius));
-    return new RippleDrawable(ColorStateList.valueOf(Color.parseColor("#1A000000")), content, content);
+    return new RippleDrawable(ColorStateList.valueOf(pc("#1A000000")), content, content);
 }
 
 private StateListDrawable createInputBg(Context ctx, int surfaceVariant, int outline, int primary) {
@@ -90,7 +91,7 @@ private StateListDrawable createInputBg(Context ctx, int surfaceVariant, int out
     focused.setStroke(dp(ctx, 2), primary);
     StateListDrawable sld = new StateListDrawable();
     sld.addState(new int[]{android.R.attr.state_focused}, focused);
-    sld.addState(new int[]{}, normal);
+    sld.addState(new int[0], normal);
     return sld;
 }
 
@@ -103,7 +104,7 @@ StateListDrawable makeFeedbackBg(int normalColor, int pressedColor, int r) {
     normal.setColor(normalColor);
     normal.setCornerRadius(r);
     sld.addState(new int[]{android.R.attr.state_pressed}, pressed);
-    sld.addState(new int[]{}, normal);
+    sld.addState(new int[0], normal);
     return sld;
 }
 
@@ -150,54 +151,13 @@ EditText makeInput(Activity a, String h, Integer bg) {
         e.setTextColor(tc(a, "on_surface"));
         e.setHintTextColor(tc(a, "on_surface_variant"));
     } else {
-        e.setTextColor(Color.parseColor("#222222"));
-        e.setHintTextColor(Color.parseColor("#BBBBBB"));
+        e.setTextColor(pc("#222222"));
+        e.setHintTextColor(pc("#BBBBBB"));
     }
     applyInputStyle(a, e, useBg, dp(a, 6));
     e.setPadding(dp(a, 10), dp(a, 8), dp(a, 10), dp(a, 8));
     e.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
     return e;
-}
-
-EditText makeSmallInput(Activity a, String h, int bg) {
-    EditText e = new EditText(a);
-    e.setHint(h);
-    e.setTextSize(12);
-    e.setTextColor(Color.parseColor("#222222"));
-    e.setHintTextColor(Color.parseColor("#BBBBBB"));
-    applyInputStyle(a, e, bg, dp(a, 4));
-    e.setPadding(dp(a, 8), dp(a, 6), dp(a, 8), dp(a, 6));
-    e.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-    e.setGravity(Gravity.CENTER);
-    e.setLayoutParams(new LinearLayout.LayoutParams(dp(a, 60), -2));
-    return e;
-}
-
-EditText makeTinyInput(Activity a, String h, int bg) {
-    EditText e = new EditText(a);
-    e.setHint(h);
-    e.setTextSize(11);
-    e.setTextColor(Color.parseColor("#222222"));
-    e.setHintTextColor(Color.parseColor("#BBBBBB"));
-    applyInputStyle(a, e, bg, dp(a, 4));
-    e.setPadding(dp(a, 6), dp(a, 4), dp(a, 6), dp(a, 4));
-    e.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-    e.setGravity(Gravity.CENTER);
-    e.setLayoutParams(new LinearLayout.LayoutParams(dp(a, 45), dp(a, 32)));
-    return e;
-}
-
-EditText makeInputCompact(Activity ctx, String val, String hint, int colorBg) {
-    EditText et = new EditText(ctx);
-    et.setText(val);
-    et.setHint(hint);
-    et.setTextSize(13);
-    et.setTextColor(Color.parseColor("#222222"));
-    et.setHintTextColor(Color.parseColor("#BBBBBB"));
-    applyInputStyle(ctx, et, colorBg, dp(ctx, 6));
-    et.setPadding(dp(ctx, 10), dp(ctx, 8), dp(ctx, 10), dp(ctx, 8));
-    et.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
-    return et;
 }
 
 TextView makeSubTitleCompact(Activity ctx, String text, int color) {
@@ -217,19 +177,19 @@ TextView makeChip(Activity a, String t, boolean s, int type) {
     
     int normalColor, pressedColor;
     if (type == 1) { 
-        normalColor = s ? Color.parseColor("#3B71FE") : Color.parseColor("#E0E0E0");
-        pressedColor = s ? Color.parseColor("#2E5BC7") : Color.parseColor("#B0B0B0");
-        v.setTextColor(s ? Color.WHITE : Color.parseColor("#666666"));
+        normalColor = s ? pc("#3B71FE") : pc("#E0E0E0");
+        pressedColor = s ? pc("#2E5BC7") : pc("#B0B0B0");
+        v.setTextColor(s ? Color.WHITE : pc("#666666"));
         v.setGravity(Gravity.CENTER);
         v.setPadding(dp(a, 12), dp(a, 4), dp(a, 12), dp(a, 4));
     } else if (type == 2) {
-        normalColor = s ? Color.parseColor("#FF9800") : Color.parseColor("#F0F0F0");
-        pressedColor = s ? Color.parseColor("#F57C00") : Color.parseColor("#D6D6D6");
-        v.setTextColor(s ? Color.WHITE : Color.parseColor("#666666"));
+        normalColor = s ? pc("#FF9800") : pc("#F0F0F0");
+        pressedColor = s ? pc("#F57C00") : pc("#D6D6D6");
+        v.setTextColor(s ? Color.WHITE : pc("#666666"));
     } else {
-        normalColor = s ? Color.parseColor("#3B71FE") : Color.parseColor("#F0F0F0");
-        pressedColor = s ? Color.parseColor("#2E5BC7") : Color.parseColor("#D6D6D6");
-        v.setTextColor(s ? Color.WHITE : Color.parseColor("#666666"));
+        normalColor = s ? pc("#3B71FE") : pc("#F0F0F0");
+        pressedColor = s ? pc("#2E5BC7") : pc("#D6D6D6");
+        v.setTextColor(s ? Color.WHITE : pc("#666666"));
     }
     
     v.setBackground(makeFeedbackBg(normalColor, pressedColor, dp(a, 50)));
@@ -237,22 +197,22 @@ TextView makeChip(Activity a, String t, boolean s, int type) {
 }
 
 void setChip(TextView v, boolean s) {
-    int normalColor = s ? Color.parseColor("#3B71FE") : Color.parseColor("#F0F0F0");
-    int pressedColor = s ? Color.parseColor("#2E5BC7") : Color.parseColor("#D6D6D6");
-    v.setTextColor(s ? Color.WHITE : Color.parseColor("#666666"));
+    int normalColor = s ? pc("#3B71FE") : pc("#F0F0F0");
+    int pressedColor = s ? pc("#2E5BC7") : pc("#D6D6D6");
+    v.setTextColor(s ? Color.WHITE : pc("#666666"));
     v.setBackground(makeFeedbackBg(normalColor, pressedColor, dp(v.getContext(), 50)));
 }
 
 void setChipWithType(TextView v, boolean s, int type) {
     int normalColor, pressedColor;
     if (type == 2) {
-        normalColor = s ? Color.parseColor("#FF9800") : Color.parseColor("#F0F0F0");
-        pressedColor = s ? Color.parseColor("#F57C00") : Color.parseColor("#D6D6D6");
+        normalColor = s ? pc("#FF9800") : pc("#F0F0F0");
+        pressedColor = s ? pc("#F57C00") : pc("#D6D6D6");
     } else {
-        normalColor = s ? Color.parseColor("#3B71FE") : Color.parseColor("#F0F0F0");
-        pressedColor = s ? Color.parseColor("#2E5BC7") : Color.parseColor("#D6D6D6");
+        normalColor = s ? pc("#3B71FE") : pc("#F0F0F0");
+        pressedColor = s ? pc("#2E5BC7") : pc("#D6D6D6");
     }
-    v.setTextColor(s ? Color.WHITE : Color.parseColor("#666666"));
+    v.setTextColor(s ? Color.WHITE : pc("#666666"));
     v.setBackground(makeFeedbackBg(normalColor, pressedColor, dp(v.getContext(), 50)));
 }
 
@@ -262,7 +222,7 @@ TextView makePresetChip(Activity a, String t, int textColor) {
     v.setTextSize(10);
     v.setPadding(dp(a, 8), dp(a, 3), dp(a, 8), dp(a, 3));
     v.setTextColor(textColor);
-    int bg = Color.parseColor("#F5F5F5");
+    int bg = pc("#F5F5F5");
     v.setBackground(makeFeedbackBg(bg, adjustColor(bg, 0.9f), dp(a, 50)));
     v.setMinWidth(dp(a, 36));
     v.setGravity(Gravity.CENTER);
@@ -273,18 +233,18 @@ TextView makeSwitch(Activity a, boolean o, int c) {
     TextView v = new TextView(a);
     v.setText(o ? "开" : "关");
     v.setTextSize(12);
-    v.setTextColor(o ? Color.WHITE : Color.parseColor("#666666"));
+    v.setTextColor(o ? Color.WHITE : pc("#666666"));
     v.setGravity(Gravity.CENTER);
     v.setPadding(dp(a, 12), dp(a, 4), dp(a, 12), dp(a, 4));
-    int bg = o ? c : Color.parseColor("#E0E0E0");
+    int bg = o ? c : pc("#E0E0E0");
     v.setBackground(makeFeedbackBg(bg, adjustColor(bg, 0.9f), dp(a, 20)));
     return v;
 }
 
 void setSwitch(TextView v, boolean o, int c) {
     v.setText(o ? "开" : "关");
-    v.setTextColor(o ? Color.WHITE : Color.parseColor("#666666"));
-    int bg = o ? c : Color.parseColor("#E0E0E0");
+    v.setTextColor(o ? Color.WHITE : pc("#666666"));
+    int bg = o ? c : pc("#E0E0E0");
     v.setBackground(makeFeedbackBg(bg, adjustColor(bg, 0.9f), dp(v.getContext(), 20)));
 }
 
@@ -319,14 +279,14 @@ void animateTextColor(final TextView textView, int fromColor, int toColor, long 
         public void onAnimationUpdate(ValueAnimator animator) {
             try {
                 textView.setTextColor((Integer) animator.getAnimatedValue());
-            } catch (Exception e) {}
+            } catch (Throwable e) { traceLog("uitools_log", "[onAnimationUpdate] 异常: " + e); }
         }
     });
     colorAnim.start();
 }
 
 void animateTextColor(TextView textView, int fromColor, int toColor) {
-    animateTextColor(textView, fromColor, toColor, COLOR_ANIMATION_DURATION);
+    animateTextColor(textView, fromColor, toColor, 250L);
 }
 
 void animateBackgroundColor(final View view, int fromColor, int toColor, long duration) {
@@ -354,14 +314,14 @@ void animateBackgroundColor(final View view, int fromColor, int toColor, long du
         public void onAnimationUpdate(ValueAnimator animator) {
             try {
                 view.setBackgroundColor((Integer) animator.getAnimatedValue());
-            } catch (Exception e) {}
+            } catch (Throwable e) { traceLog("uitools_log", "[onAnimationUpdate] 异常: " + e); }
         }
     });
     colorAnim.start();
 }
 
 void animateBackgroundColor(View view, int fromColor, int toColor) {
-    animateBackgroundColor(view, fromColor, toColor, BACKGROUND_ANIMATION_DURATION);
+    animateBackgroundColor(view, fromColor, toColor, 300L);
 }
 
 void animateBackgroundDrawable(final View view, final Drawable newDrawable, long duration) {
@@ -397,7 +357,7 @@ void animateBackgroundDrawable(final View view, final Drawable newDrawable, long
 }
 
 void animateBackgroundDrawable(View view, Drawable newDrawable) {
-    animateBackgroundDrawable(view, newDrawable, BACKGROUND_ANIMATION_DURATION);
+    animateBackgroundDrawable(view, newDrawable, 300L);
 }
 
 void animateFadeIn(final View view, long duration) {
@@ -559,10 +519,10 @@ BitmapDrawable getCheckerboardDrawable(Context context) {
     Bitmap b = Bitmap.createBitmap(size * 2, size * 2, Bitmap.Config.ARGB_8888);
     Canvas c = new Canvas(b);
     Paint p = new Paint();
-    p.setColor(Color.parseColor("#FFCCCCCC"));
+    p.setColor(pc("#FFCCCCCC"));
     c.drawRect(0, 0, size, size, p);
     c.drawRect(size, size, size * 2, size * 2, p);
-    p.setColor(Color.parseColor("#FFEEEEEE"));
+    p.setColor(pc("#FFEEEEEE"));
     c.drawRect(size, 0, size * 2, size, p);
     c.drawRect(0, size, size, size * 2, p);
     BitmapDrawable drawable = new BitmapDrawable(context.getResources(), b);
@@ -622,8 +582,8 @@ class ZoomImageView extends ImageView {
                 if (mode == 1 && Math.abs(x - lastX) < 10 && Math.abs(y - lastY) < 10) {
                     if (!isInside(x, y)) {
                         bgIndex = (bgIndex + 1) % 3;
-                        if (bgIndex == 0) rootLayout.setBackgroundColor(Color.parseColor("#FF000000"));
-                        else if (bgIndex == 1) rootLayout.setBackgroundColor(Color.parseColor("#FFFFFFFF"));
+                        if (bgIndex == 0) rootLayout.setBackgroundColor(pc("#FF000000"));
+                        else if (bgIndex == 1) rootLayout.setBackgroundColor(pc("#FFFFFFFF"));
                         else rootLayout.setBackground(getCheckerboardDrawable(getContext()));
                         vibrate(getContext(), 30);
                     }
@@ -657,9 +617,9 @@ class CropOverlayView extends View {
 
     public CropOverlayView(Context context) {
         super(context);
-        pBorder = new Paint(1); pBorder.setColor(Color.parseColor("#FF00FF00")); pBorder.setStyle(Paint.Style.STROKE); pBorder.setStrokeWidth(4);
-        pCorner = new Paint(1); pCorner.setColor(Color.parseColor("#FF00FF00")); pCorner.setStrokeWidth(16);
-        pMask = new Paint(); pMask.setColor(Color.parseColor("#99000000"));
+        pBorder = new Paint(1); pBorder.setColor(pc("#FF00FF00")); pBorder.setStyle(Paint.Style.STROKE); pBorder.setStrokeWidth(4);
+        pCorner = new Paint(1); pCorner.setColor(pc("#FF00FF00")); pCorner.setStrokeWidth(16);
+        pMask = new Paint(); pMask.setColor(pc("#99000000"));
     }
 
     protected void onSizeChanged(int w, int h, int ow, int oh) {
@@ -727,7 +687,7 @@ void showEditDialog(final Activity activity, final Bitmap origin, final String s
 
         final Dialog dialog = new Dialog(activity, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
         final FrameLayout root = new FrameLayout(activity);
-        root.setBackgroundColor(Color.parseColor("#FF000000"));
+        root.setBackgroundColor(pc("#FF000000"));
 
         final ZoomImageView preview = new ZoomImageView(activity, root);
         preview.setImageBitmap(origin);
@@ -761,7 +721,7 @@ void showEditDialog(final Activity activity, final Bitmap origin, final String s
 
         String[] toolNames = {"取消", "撤销", "重做", "旋转", "裁剪", "质量: 原画", "保存"};
         for (int i = 0; i < toolNames.length; i++) {
-            final TextView btn = createButton(activity, toolNames[i], Color.parseColor("#FFFFFFFF"), Color.parseColor("#FF333333"), 14f, 10, 0, 0, false, 0, 0, null);
+            final TextView btn = createButton(activity, toolNames[i], pc("#FFFFFFFF"), pc("#FF333333"), 14f, 10, 0, 0, false, 0, 0, null);
             LinearLayout.LayoutParams bLp = new LinearLayout.LayoutParams(dp(activity, 90), dp(activity, 48));
             bLp.setMargins(dp(activity, 6), 0, dp(activity, 6), 0);
 
@@ -838,13 +798,17 @@ void performSave(final Activity activity, final Bitmap b, final String p, final 
                 FileOutputStream o = new FileOutputStream(f);
                 b.compress(Bitmap.CompressFormat.JPEG, q, o);
                 o.flush(); o.close();
+                traceLog("uitools_log", "[保存] 成功 p=" + p);
                 activity.runOnUiThread(new Runnable() { public void run() { Toast("保存成功 (" + q + "%)"); 刷新悬浮窗(); } });
-            } catch (Throwable e) {}
+            } catch (Throwable e) {
+                traceLog("uitools_log", "[保存] 失败 p=" + p + " " + e);
+            }
         }
     });
 }
 
 void editAndSaveImage(final Activity activity, final Uri uri, final String p, final int c) {
+    traceLog("uitools_log", "[editAndSave] p=" + p + " gif=" + p.toLowerCase().endsWith(".gif"));
     if (p.toLowerCase().endsWith(".gif")) {
         ThreadPool.execute(new Runnable() {
             public void run() {
@@ -855,8 +819,11 @@ void editAndSaveImage(final Activity activity, final Uri uri, final String p, fi
                     byte[] buf = new byte[8192]; int len;
                     while ((len = is.read(buf)) != -1) os.write(buf, 0, len);
                     os.flush(); os.close(); is.close();
+                    traceLog("uitools_log", "[编辑保存] gif 已保存到 " + p);
                     activity.runOnUiThread(new Runnable() { public void run() { Toast("GIF动图已保存"); 刷新悬浮窗(); } });
-                } catch (Exception e) {}
+                } catch (Exception e) {
+                    traceLog("uitools_log", "[编辑保存] gif 失败: " + e);
+                }
             }
         });
         return;
@@ -865,41 +832,11 @@ void editAndSaveImage(final Activity activity, final Uri uri, final String p, fi
     ThreadPool.execute(new Runnable() {
         public void run() {
             final Bitmap b = loadBitmapFromUri(activity, uri);
+            traceLog("uitools_log", "[editAndSave] bitmap=" + (b != null ? "ok" : "NULL"));
             if (b == null) return;
             activity.runOnUiThread(new Runnable() { public void run() { showEditDialog(activity, b, p, c); } });
         }
     });
-}
-
-static boolean isFilePickerHooked = false;
-
-void hookFilePicker(final Activity activity, final int requestCode, final String savePath) {
-    if (isFilePickerHooked) return;
-    try {
-        isFilePickerHooked = true;
-        XposedBridge.hookMethod(Activity.class.getDeclaredMethod("onActivityResult", int.class, int.class, Intent.class), new XC_MethodHook() {
-            protected void afterHookedMethod(XC_MethodHook.MethodHookParam param) {
-                ThreadPool.execute(new Runnable() {
-                    public void run() {
-                        try {
-                            Activity act = (Activity) param.thisObject;
-                            if (act.equals(activity) && (Integer)param.args[1] == Activity.RESULT_OK && (Integer)param.args[0] == requestCode) {
-                                Intent d = (Intent)param.args[2]; if (d == null) return;
-                                Uri u = d.getData(); if (u == null) return;
-                                String type = act.getContentResolver().getType(u);
-                                String ext = getExtensionFromMimeType(type);
-                                String path = savePath.contains("{ext}") ? savePath.replace("{ext}", ext) : (savePath.lastIndexOf('.') > 0 ? savePath.substring(0, savePath.lastIndexOf('.')) + ext : savePath + ext);
-                                if (requestCode == 1005) {
-                                    putString("settings", "iconPath", path);
-                                }
-                                act.runOnUiThread(new Runnable() { public void run() { editAndSaveImage(act, u, path, requestCode); } });
-                            }
-                        } catch (Throwable e) {}
-                    }
-                });
-            }
-        });
-    } catch (Throwable e) {}
 }
 
 public boolean isColorDark(int color) {
@@ -937,7 +874,7 @@ public Bitmap blurBitmap(Activity activity, Bitmap bitmap, Bitmap outBitmap, flo
         }
     } finally {
         if (rs != null) {
-            try { rs.destroy(); } catch (Exception e) {}
+            try { rs.destroy(); } catch (Throwable e) { traceLog("uitools_log", "[blurBitmap] 异常: " + e); }
         }
     }
 }
@@ -1139,7 +1076,7 @@ Drawable findSimilarCache(String baseKey, int targetW, int targetH) {
                         return entry.drawable;
                     }
                 }
-            } catch (Exception e) {}
+            } catch (Throwable e) { traceLog("uitools_log", "[findSimilarCache] 异常: " + e); }
         }
     }
     return null;
@@ -1195,7 +1132,6 @@ static LinkedHashMap cacheOrder = new LinkedHashMap(10, 0.75f, true);
 static Drawable globalCachedDrawable = null;
 static String globalCachedParams = "";
 private static final Object BG_LOCK = new Object();
-private static final Object CACHE_LOCK = new Object();
 private static volatile boolean isBgLoading = false;
 private static volatile boolean isDialogShowing = false;
 static WeakHashMap scaledViews = new WeakHashMap();
@@ -1204,6 +1140,19 @@ static final int MAX_CACHE_SIZE = 10;
 static int currentTextColor = Color.WHITE;
 static boolean currentIsDark = true;
 
+String hexByte(byte b) {
+    String h = Integer.toHexString(b & 0xFF);
+    return h.length() < 2 ? "0" + h : h;
+}
+
+String format2f(double v) {
+    long r = Math.round(v * 100);
+    String whole = String.valueOf(r / 100);
+    String frac = String.valueOf(r % 100);
+    if (frac.length() < 2) frac = "0" + frac;
+    return whole + "." + frac;
+}
+
 String md5(String input) {
     if (input == null || input.isEmpty()) return "";
     try {
@@ -1211,7 +1160,7 @@ String md5(String input) {
         byte[] bytes = md.digest(input.getBytes());
         StringBuilder sb = new StringBuilder();
         for (byte b : bytes) {
-            sb.append(String.format("%02x", b));
+            sb.append(hexByte(b));
         }
         return sb.toString();
     } catch (Exception e) {
@@ -1268,7 +1217,7 @@ void removeFromCache(String cacheKey) {
                     bitmap.recycle();
                 }
             }
-        } catch (Exception e) {}
+        } catch (Throwable e) { traceLog("uitools_log", "[removeFromCache] 异常: " + e); }
     }
 }
 
@@ -1291,7 +1240,7 @@ public Object[] createSwitchViewWithState(Context ctx, boolean initVal) {
     FrameLayout.LayoutParams containerLp = new FrameLayout.LayoutParams(swW, swH);
     swContainer.setLayoutParams(containerLp);
 
-    ColorStateList rippleColor = ColorStateList.valueOf(Color.parseColor("#33000000"));
+    ColorStateList rippleColor = ColorStateList.valueOf(pc("#33000000"));
     RippleDrawable ripple = new RippleDrawable(rippleColor, null, null);
     swContainer.setBackground(ripple);
 
@@ -1327,7 +1276,7 @@ public Object[] createSwitchViewWithState(Context ctx, boolean initVal) {
     final Runnable updateUI = new Runnable() {
         public void run() {
             boolean isOn = state[0];
-            finalTrackBg.setColor(isOn ? Color.parseColor("#34C759") : Color.parseColor("#E5E5E5"));
+            finalTrackBg.setColor(isOn ? pc("#34C759") : pc("#E5E5E5"));
             FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) finalThumb.getLayoutParams();
             lp.gravity = Gravity.CENTER_VERTICAL | (isOn ? Gravity.RIGHT : Gravity.LEFT);
             finalThumb.setLayoutParams(lp);
@@ -1342,7 +1291,7 @@ public Object[] createSwitchViewWithState(Context ctx, boolean initVal) {
         public void onClick(View v) {
             state[0] = !state[0];
             updateUI.run();
-            traceLog("qzone_log", "自定义开关点击，新状态: " + state[0]);
+            traceLog("uitools_log", "自定义开关点击，新状态: " + state[0]);
         }
     });
 
@@ -1394,13 +1343,13 @@ Typeface getCustomTypeface(String typeName) {
     return Typeface.DEFAULT;
 }
 
-void applyUiTheme(final Activity activity, final android.app.Dialog dialog) {
+void applyUiTheme(final Activity activity, final android.app.Dialog dialog, int skip) {
     if (dialog == null) return;
     
     final Window window = dialog.getWindow();
     if (window == null) return;
     
-    applyDialogSize(activity, window);
+    if ((skip & 1) == 0) { applyDialogSize(activity, window); }
     
     final View decorView = window.getDecorView();
     int dialogW = decorView.getWidth();
@@ -1413,10 +1362,10 @@ void applyUiTheme(final Activity activity, final android.app.Dialog dialog) {
         dialogH = (int) (800 * density);
     }
     
-    executeApplyTheme(activity, dialog, dialogW, dialogH);
+    executeApplyTheme(activity, dialog, dialogW, dialogH, skip);
 }
 
-void executeApplyTheme(final Activity activity, final android.app.Dialog dialog, final int dialogW, final int dialogH) {
+void executeApplyTheme(final Activity activity, final android.app.Dialog dialog, final int dialogW, final int dialogH, final int skip) {
     if (dialog == null || dialog.getWindow() == null) {
         return;
     }
@@ -1436,13 +1385,13 @@ void executeApplyTheme(final Activity activity, final android.app.Dialog dialog,
         final String imgPath = pluginPath + "/API/background.png";
         
         float fSize = 1.0f;
-        try { fSize = Float.parseFloat(getString("settings", "ui_font_size", "1.0")); } catch(Exception e){}
+        try { fSize = Float.parseFloat(getString("settings", "ui_font_size", "1.0")); } catch (Throwable e) { traceLog("uitools_log", "[executeApplyTheme] 异常: " + e); }
         final float fontSizeScale = fSize;
         final Typeface tf = getCustomTypeface(fontType);
         
         int blurR = 0, alpha = 100;
-        try { blurR = Integer.parseInt(getString("settings", "ui_img_blur", "0")); } catch(Exception e){}
-        try { alpha = Integer.parseInt(getString("settings", "ui_img_alpha", isDark ? "180" : "100")); } catch(Exception e){}
+        try { String blurStr = getString("settings", "ui_img_blur", "0"); if (blurStr != null && blurStr.trim().length() > 0) blurR = Integer.parseInt(blurStr.trim()); } catch (Throwable e) { traceLog("uitools_log", "[executeApplyTheme] 异常: " + e); }
+        try { String alphaStr = getString("settings", "ui_img_alpha", isDark ? "180" : "100"); if (alphaStr != null && alphaStr.trim().length() > 0) alpha = Integer.parseInt(alphaStr.trim()); } catch (Throwable e) { traceLog("uitools_log", "[executeApplyTheme] 异常: " + e); }
         final int blurRadius = Math.max(0, Math.min(25, blurR));
         final int overlayAlpha = Math.max(0, Math.min(255, alpha));
         
@@ -1450,6 +1399,7 @@ void executeApplyTheme(final Activity activity, final android.app.Dialog dialog,
             isDark ? "#FF1E1E1E" : "#FFFFFFFF");
         String validFallbackColor = isValidHexColor(rawBgColor) ? rawBgColor : (isDark ? "#FF1E1E1E" : "#FFFFFFFF");
         
+        if ((skip & 2) == 0) {
         if ("gradient".equals(bgType) && isValidGradientString(bgGradient)) {
             applyGradientBackground(activity, window, bgGradient, validFallbackColor, isDark);
         } else {
@@ -1515,7 +1465,7 @@ void executeApplyTheme(final Activity activity, final android.app.Dialog dialog,
                                     origin.recycle();
                                 }
                                 
-                            } catch (Throwable e) {}
+                            } catch (Throwable e) { traceLog("uitools_log", "[run] 异常: " + e); }
                         }
                     });
                 }
@@ -1535,17 +1485,19 @@ void executeApplyTheme(final Activity activity, final android.app.Dialog dialog,
         } else {
             applyFallbackBg(activity, window, validBgColor, isDark);
         }
+        }
         
+        if ((skip & 4) == 0) {
         final int calculatedTextColor;
         boolean isBgDark = isDark;
         if ("color".equals(bgType) && isValidHexColor(bgColor)) {
-            isBgDark = isColorDark(Color.parseColor(bgColor.trim()));
+            isBgDark = isColorDark(pc(bgColor.trim()));
         }
         
         if (isValidHexColor(textColorUser)) {
-            calculatedTextColor = Color.parseColor(textColorUser);
+            calculatedTextColor = pc(textColorUser);
         } else {
-            calculatedTextColor = isBgDark ? Color.parseColor("#FFEFEFEF") : Color.parseColor("#FF333333");
+            calculatedTextColor = isBgDark ? pc("#FFEFEFEF") : pc("#FF333333");
         }
         currentTextColor = calculatedTextColor;
         
@@ -1554,32 +1506,11 @@ void executeApplyTheme(final Activity activity, final android.app.Dialog dialog,
                 updateViewStylesRecursively(window.getDecorView(), calculatedTextColor, tf, fontSizeScale);
             }
         });
+        }
         
     } catch (Throwable e) {
-        try { e.printStackTrace(); } catch (Exception ex) {}
+        try { e.printStackTrace(); } catch (Throwable ex) { traceLog("uitools_log", "[run] 异常: " + ex); }
     }
-}
-
-void applyViewTheme(final Activity activity, final View root) {
-    if (activity == null || root == null) return;
-    final boolean isDark = isThemeDark(activity);
-    final String textColorUser = getString("settings", isDark ? "ui_text_color_dark" : "ui_text_color_light", "");
-    final String fontType = getString("settings", "ui_font_type", "default");
-    float fSize = 1.0f;
-    try { fSize = Float.parseFloat(getString("settings", "ui_font_size", "1.0")); } catch(Exception e){}
-    final float fontSizeScale = fSize;
-    final Typeface tf = getCustomTypeface(fontType);
-    int calculatedTextColor;
-    if (isValidHexColor(textColorUser)) {
-        calculatedTextColor = Color.parseColor(textColorUser);
-    } else {
-        calculatedTextColor = isDark ? Color.parseColor("#FFEFEFEF") : Color.parseColor("#FF333333");
-    }
-    new Handler(Looper.getMainLooper()).post(new Runnable() {
-        public void run() {
-            updateViewStylesRecursively(root, calculatedTextColor, tf, fontSizeScale);
-        }
-    });
 }
 
 void applyDrawableWithTransition(final Activity activity, final Window window, final Drawable newDrawable) {
@@ -1717,7 +1648,7 @@ void loadImageOptimized(final Activity activity, final Window window,
             origin.recycle();
         }
         
-    } catch (Throwable e) {}
+    } catch (Throwable e) { traceLog("uitools_log", "[run] 异常: " + e); }
     finally {
         synchronized (BG_LOCK) {
             isBgLoading = false;
@@ -1759,16 +1690,16 @@ void finalizeTextStyle(final Activity activity, final View decorView, final bool
     activity.runOnUiThread(new Runnable() {
         public void run() {
             try {
-                int textColor = forceDark ? Color.parseColor("#FFEFEFEF") : Color.parseColor("#FF333333");
+                int textColor = forceDark ? pc("#FFEFEFEF") : pc("#FF333333");
                 currentTextColor = textColor;
                 currentIsDark = forceDark;
                 
                 Typeface tf = getCustomTypeface(getString("settings", "ui_font_type", "default"));
                 float fSize = 1.0f;
-                try { fSize = Float.parseFloat(getString("settings", "ui_font_size", "1.0")); } catch(Exception e){}
+                try { fSize = Float.parseFloat(getString("settings", "ui_font_size", "1.0")); } catch (Throwable e) { traceLog("uitools_log", "[finalizeTextStyle] 异常: " + e); }
                 final float fontSizeScale = fSize;
                 updateViewStylesRecursively(decorView, textColor, tf, fontSizeScale);
-            } catch (Exception e) {}
+            } catch (Throwable e) { traceLog("uitools_log", "[finalizeTextStyle] 异常: " + e); }
         }
     });
 }
@@ -1791,7 +1722,7 @@ void clearInnerBackgrounds(View view) {
                 clearInnerBackgrounds(vg.getChildAt(i));
             }
         }
-    } catch (Exception e) {}
+    } catch (Throwable e) { traceLog("uitools_log", "[clearInnerBackgrounds] 异常: " + e); }
 }
 
 void applyDialogSize(final Activity activity, final Window window) {
@@ -1799,8 +1730,8 @@ void applyDialogSize(final Activity activity, final Window window) {
         float scale = 1.0f;
         try {
             String scaleStr = getString("settings", "ui_dialog_scale", "1.0");
-            scale = Float.parseFloat(scaleStr);
-        } catch (Exception e) {}
+            if (scaleStr != null && scaleStr.trim().length() > 0) scale = Float.parseFloat(scaleStr.trim());
+        } catch (Throwable e) { traceLog("uitools_log", "[applyDialogSize] 异常: " + e); }
         
         float density = activity.getResources().getDisplayMetrics().density;
         
@@ -1810,7 +1741,7 @@ void applyDialogSize(final Activity activity, final Window window) {
             if (!widthStr.isEmpty()) {
                 customWidth = (int) (Float.parseFloat(widthStr) * density);
             }
-        } catch (Exception e) {}
+        } catch (Throwable e) { traceLog("uitools_log", "[applyDialogSize] 异常: " + e); }
         
         int dialogWidth;
         if (customWidth > 0) {
@@ -1828,7 +1759,7 @@ void applyDialogSize(final Activity activity, final Window window) {
         params.height = dialogHeight;
         window.setAttributes(params);
         
-    } catch (Exception e) {}
+    } catch (Throwable e) { traceLog("uitools_log", "[applyDialogSize] 异常: " + e); }
 }
 
 boolean isDrawableTransparent(Drawable drawable) {
@@ -1851,12 +1782,12 @@ void applyWindowRadius(final Activity activity, final Window window) {
                     public void getOutline(View view, Outline outline) {
                         try {
                             outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), radius);
-                        } catch (Exception e) {}
+                        } catch (Throwable e) { traceLog("uitools_log", "[getOutline] 异常: " + e); }
                     }
                 });
             }
         }
-    } catch (Exception e) {}
+    } catch (Throwable e) { traceLog("uitools_log", "[getOutline] 异常: " + e); }
 }
 
 void applyGradientBackground(Activity activity, Window window, String gradientStr, String fallbackColor, boolean isDark) {
@@ -1875,7 +1806,7 @@ void applyGradientBackground(Activity activity, Window window, String gradientSt
                         if (!colorStr.startsWith("#")) {
                             colorStr = "#" + colorStr;
                         }
-                        colorsInt[i] = Color.parseColor(colorStr);
+                        colorsInt[i] = pc(colorStr);
                     } catch (Exception e) {
                         valid = false;
                         break;
@@ -1901,15 +1832,15 @@ void applyFallbackBg(Activity activity, Window window, String colorStr, boolean 
     try {
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(dp(activity, 16));
-        bg.setColor(Color.parseColor(colorStr));
+        bg.setColor(pc(colorStr));
         applyDrawableToWindow(window, bg, activity, isDark);
     } catch(Exception e) { 
         try {
             GradientDrawable bg = new GradientDrawable();
             bg.setCornerRadius(dp(activity, 16));
-            bg.setColor(isDark ? Color.parseColor("#FF1E1E1E") : Color.WHITE);
+            bg.setColor(isDark ? pc("#FF1E1E1E") : Color.WHITE);
             applyDrawableToWindow(window, bg, activity, isDark);
-        } catch (Exception ex) {}
+        } catch (Throwable ex) { traceLog("uitools_log", "[applyFallbackBg] 异常: " + ex); }
     }
 }
 
@@ -1919,7 +1850,7 @@ void applyDrawableToWindow(Window window, Drawable drawable, Activity activity, 
         applyWindowRadius(activity, window);
     } catch(Throwable e) {
         try {
-            window.setBackgroundColor(isDark ? Color.parseColor("#FF1E1E1E") : Color.WHITE);
+            window.setBackgroundColor(isDark ? pc("#FF1E1E1E") : Color.WHITE);
         } catch (Exception ex) {
             window.setBackgroundColor(Color.WHITE);
         }
@@ -2038,9 +1969,9 @@ void updateViewStylesRecursively(View view, int textColor, Typeface tf, float fo
             if (!shouldKeepOriginalColor(tv) && tv.getBackground() == null) {
                 int currentColor = tv.getCurrentTextColor();
                 if (isDefaultTextColor(currentColor)) {
-                    if (textColor == Color.parseColor("#FFEFEFEF")) {
+                    if (textColor == pc("#FFEFEFEF")) {
                         tv.setHintTextColor(Color.argb(100, 239, 239, 239));
-                    } else if (textColor == Color.parseColor("#FF333333")) {
+                    } else if (textColor == pc("#FF333333")) {
                         tv.setHintTextColor(Color.argb(100, 51, 51, 51));
                     }
                 }
@@ -2057,7 +1988,7 @@ void updateViewStylesRecursively(View view, int textColor, Typeface tf, float fo
             }
         }
         
-    } catch (Exception e) {}
+    } catch (Throwable e) { traceLog("uitools_log", "[updateViewStylesRecursively] 异常: " + e); }
 }
 
 void copyToClipboard(Activity activity, String text) {
@@ -2065,7 +1996,7 @@ void copyToClipboard(Activity activity, String text) {
         ClipboardManager clipboard = (ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
         ClipData clip = ClipData.newPlainText("color", text);
         clipboard.setPrimaryClip(clip);
-    } catch (Exception e) {}
+    } catch (Throwable e) { traceLog("uitools_log", "[copyToClipboard] 异常: " + e); }
 }
 
 void addSectionHeader(Activity activity, LinearLayout parent, String text, int color) {
@@ -2161,7 +2092,7 @@ void addInputItem(Activity activity, LinearLayout parent, String title, String v
         public void onTextChanged(CharSequence s, int start, int before, int count) {}
         public void afterTextChanged(android.text.Editable s) {
             String val = s.toString().trim();
-            pendingSettingsChanges.put(saveKey, val);
+            putString("settings", saveKey, val);
         }
     });
 
@@ -2203,7 +2134,7 @@ int darkenColor(int color, float factor) {
 }
 
 void addInputItem(Activity activity, LinearLayout parent, String title, String value, String hint, int titleColor, String saveKey, String defaultValue) {
-    int cardColor = Color.parseColor("#FFF5F5F5");
+    int cardColor = pc("#FFF5F5F5");
     addInputItem(activity, parent, title, value, hint, titleColor, cardColor, saveKey, defaultValue);
 }
 
@@ -2214,7 +2145,7 @@ void addInputItem(Activity activity, LinearLayout parent, String title, String v
 public Switch createSwitch(Context activity, String str, boolean state, int size, float weight) {
     Switch switch1 = new Switch(activity);
     switch1.setText(str);
-    switch1.setTextColor(Color.parseColor("#4CA1AF"));
+    switch1.setTextColor(pc("#4CA1AF"));
     switch1.setChecked(state);
     
     switch1.setScaleX(3.2f);
@@ -2265,8 +2196,8 @@ void addDivider(Activity activity, LinearLayout parent, int color) {
 StateListDrawable getSelectableBg(Activity activity) {
     android.graphics.drawable.StateListDrawable res = new android.graphics.drawable.StateListDrawable();
     res.setExitFadeDuration(300);
-    res.addState(new int[]{android.R.attr.state_pressed}, new android.graphics.drawable.ColorDrawable(Color.parseColor("#1A000000")));
-    res.addState(new int[]{}, new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
+    res.addState(new int[]{android.R.attr.state_pressed}, new android.graphics.drawable.ColorDrawable(pc("#1A000000")));
+    res.addState(new int[0], new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
     return res;
 }
 
@@ -2314,7 +2245,10 @@ int pc(String hex) {
 
 int tc(Activity a, String key) { return pc(getSettingsThemeColor(a, key)); }
 
-int tca(Activity a, String key, int alpha) { return (pc(getSettingsThemeColor(a, key)) & 0x00FFFFFF) | (alpha << 24); }
+int tca(Activity a, String key, int alpha) {
+    int c = pc(getSettingsThemeColor(a, key));
+    return Color.argb(alpha, Color.red(c), Color.green(c), Color.blue(c));
+}
 
 int dpx(Activity activity, float d) {
     try {
@@ -2382,7 +2316,7 @@ TextView createButton(Context ctx, String text, int textColor, int bgColor, floa
             gd.setCornerRadius(dpx(ctx, radiusDp));
             if (strokeWidthDp > 0) gd.setStroke(dpx(ctx, strokeWidthDp), strokeColor);
             btn.setBackground(gd);
-        } catch (Exception e2) {}
+        } catch (Throwable e2) { traceLog("uitools_log", "[createButton] 异常: " + e2); }
     }
     if (onClick != null) {
         btn.setOnClickListener(new View.OnClickListener() {
@@ -2390,18 +2324,21 @@ TextView createButton(Context ctx, String text, int textColor, int bgColor, floa
         });
     }
     try {
-        final android.animation.ObjectAnimator sx = android.animation.ObjectAnimator.ofFloat(btn, "scaleX", 1f, 0.95f, 1f);
-        final android.animation.ObjectAnimator sy = android.animation.ObjectAnimator.ofFloat(btn, "scaleY", 1f, 0.95f, 1f);
+        final android.animation.ObjectAnimator sx = android.animation.ObjectAnimator.ofFloat(btn, "scaleX", new float[]{1f, 0.95f, 1f});
+        final android.animation.ObjectAnimator sy = android.animation.ObjectAnimator.ofFloat(btn, "scaleY", new float[]{1f, 0.95f, 1f});
         sx.setDuration(150);
         sy.setDuration(150);
         final android.animation.AnimatorSet anim = new android.animation.AnimatorSet();
-        anim.playTogether(sx, sy);
+        android.animation.Animator[] animArr = new android.animation.Animator[2];
+        animArr[0] = sx;
+        animArr[1] = sy;
+        anim.playTogether(animArr);
         btn.setOnTouchListener(new View.OnTouchListener() {
             public boolean onTouch(View v, MotionEvent event) {
                 if (event.getAction() == MotionEvent.ACTION_DOWN) anim.start();
                 return false;
             }
         });
-    } catch (Exception e) {}
+    } catch (Throwable e) { traceLog("uitools_log", "[onTouch] 异常: " + e); }
     return btn;
 }
