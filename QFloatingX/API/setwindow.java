@@ -86,10 +86,10 @@ String getSettingsThemeColor(Activity activity, String colorName) {
     String autoTextColor = isDarkTheme ? "#FFEFEFEF" : "#FF1A1A1A";
     if (!hasCustomText && hasCustomBg) {
         try {
-            int bgColor = Color.parseColor(customBg);
+            int bgColor = pc(customBg);
             double luminance = (0.299 * Color.red(bgColor) + 0.587 * Color.green(bgColor) + 0.114 * Color.blue(bgColor)) / 255.0;
             autoTextColor = luminance > 0.5 ? "#FF1A1A1A" : "#FFEFEFEF";
-        } catch (Throwable e) {}
+        } catch (Throwable e) { traceLog("setwindow_log", "[getSettingsThemeColor] 异常: " + e); }
     }
     switch (colorName) {
         case "surface": return hasCustomBg ? customBg : (isDarkTheme ? "#FF1A1A1A" : "#FFF5F5F5");
@@ -116,7 +116,7 @@ int getStatusBarHeightValue(Context context) {
             resultHeight = context.getResources().getDimensionPixelSize(resourceId);
         }
     } catch (Throwable exception) {
-        traceLog("setwindow", "getStatusBarHeightValue: " + exception.getMessage());
+        traceLog("setwindow_log", "获取状态栏高度: " + exception.getMessage());
     }
     return resultHeight;
 }
@@ -139,7 +139,7 @@ void setSettingsImmersiveStatusBar(Activity activity, Window window, boolean isL
             window.setStatusBarColor(Color.TRANSPARENT);
         }
     } catch (Throwable exception) {
-        traceLog("setwindow", "setSettingsImmersiveStatusBar: " + exception.getMessage());
+        traceLog("setwindow_log", "设置沉浸式状态栏: " + exception.getMessage());
     }
 }
 
@@ -154,7 +154,7 @@ void openSettingsExternalBrowser(Context context, String urlValue) {
             context.startActivity(intent);
         }
     } catch (Throwable exception) {
-        traceLog("setwindow", "openSettingsExternalBrowser: " + exception.getMessage());
+        traceLog("setwindow_log", "打开设置外部浏览器: " + exception.getMessage());
         Toast("打开失败: " + exception.getMessage());
     }
 }
@@ -199,9 +199,9 @@ View createSettingsSwitchView(Context context, boolean initialValue, final Strin
             boolean isOn = currentState[0];
             Activity act = getSettingsCurrentActivity();
             if (act != null) {
-                trackBackground.setColor(isOn ? Color.parseColor(getSettingsThemeColor(act, "switch_on")) : Color.parseColor(getSettingsThemeColor(act, "switch_off")));
+                trackBackground.setColor(isOn ? pc(getSettingsThemeColor(act, "switch_on")) : pc(getSettingsThemeColor(act, "switch_off")));
             } else {
-                trackBackground.setColor(isOn ? Color.parseColor("#FF34C759") : Color.parseColor("#FFE5E5E5"));
+                trackBackground.setColor(isOn ? pc("#FF34C759") : pc("#FFE5E5E5"));
             }
             FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) thumbView.getLayoutParams();
             params.gravity = Gravity.CENTER_VERTICAL | (isOn ? Gravity.RIGHT : Gravity.LEFT);
@@ -322,7 +322,7 @@ void doSearch(String queryValue, LinearLayout historyContainer, LinearLayout res
         TextView noResult = new TextView(ctx);
         noResult.setText("未找到相关设置");
         noResult.setTextSize(14);
-        noResult.setTextColor(Color.parseColor(isDark ? "#99FFFFFF" : "#99000000"));
+        noResult.setTextColor(pc(isDark ? "#99FFFFFF" : "#99000000"));
         noResult.setGravity(Gravity.CENTER);
         noResult.setPadding(dp(ctx, 4), dp(ctx, 24), dp(ctx, 4), dp(ctx, 24));
         resultsContainer.addView(noResult);
@@ -359,7 +359,7 @@ String getPinyinFirstLetter(char character) {
             }
         }
     } catch (Throwable exception) {
-        traceLog("setwindow", "getPinyinFirstLetter: " + exception.getMessage());
+        traceLog("setwindow_log", "获取拼音首字母: " + exception.getMessage());
     }
     return String.valueOf(character);
 }
@@ -395,7 +395,7 @@ void cleanupAllDialogs() {
     if (SettingsState.settingsSearchDialog != null && SettingsState.settingsSearchDialog.isShowing()) {
         try {
             SettingsState.settingsSearchDialog.dismiss();
-        } catch (Throwable exception) {}
+        } catch (Throwable exception) { traceLog("setwindow_log", "[cleanupAllDialogs] 异常: " + exception); }
     }
     SettingsState.settingsSearchDialog = null;
 
@@ -406,7 +406,7 @@ void cleanupAllDialogs() {
                 try {
                     dialog.dismiss();
                 } catch (Throwable exception) {
-                    traceLog("setwindow", "cleanup dialog: " + exception.getMessage());
+                    traceLog("setwindow_log", "清理弹窗: " + exception.getMessage());
                 }
             }
         }
@@ -426,29 +426,26 @@ void highlightSettingsItem(final View targetView) {
 
     SettingsState.settingsHighlightView = targetView;
     final GradientDrawable highlightBg = new GradientDrawable();
-    highlightBg.setColor(Color.parseColor(isDark ? "#338AB4F8" : "#332196F3"));
+    highlightBg.setColor(pc(isDark ? "#338AB4F8" : "#332196F3"));
     highlightBg.setCornerRadius(dp(activity, 16));
 
     // 第一次高亮
     targetView.setBackground(highlightBg);
 
     uiHandler.postDelayed(() -> {
-        // 第一次恢复
         Activity act = getSettingsCurrentActivity();
         if (act != null) {
-            targetView.setBackground(makeFeedbackBg(Color.parseColor(getSettingsThemeColor(act, "surface")), Color.parseColor(getSettingsThemeColor(act, "ripple")), 0));
+            targetView.setBackground(makeFeedbackBg(pc(getSettingsThemeColor(act, "surface")), pc(getSettingsThemeColor(act, "ripple")), 0));
         }
 
         uiHandler.postDelayed(() -> {
-            // 第二次高亮
             if (SettingsState.settingsHighlightView == targetView) targetView.setBackground(highlightBg);
 
             uiHandler.postDelayed(() -> {
-                // 最终恢复
                 if (SettingsState.settingsHighlightView == targetView) {
                     Activity act2 = getSettingsCurrentActivity();
                     if (act2 != null) {
-                        targetView.setBackground(makeFeedbackBg(Color.parseColor(getSettingsThemeColor(act2, "surface")), Color.parseColor(getSettingsThemeColor(act2, "ripple")), 0));
+                        targetView.setBackground(makeFeedbackBg(pc(getSettingsThemeColor(act2, "surface")), pc(getSettingsThemeColor(act2, "ripple")), 0));
                     }
                     SettingsState.settingsHighlightView = null;
                 }
@@ -458,45 +455,66 @@ void highlightSettingsItem(final View targetView) {
 }
 
 void scrollToAndHighlight(String itemKey) {
-    if (SettingsState.settingsItemViews == null || !SettingsState.settingsItemViews.containsKey(itemKey)) {
-        traceLog("setwindow", "scrollToAndHighlight: itemKey not found: " + itemKey);
-        return;
-    }
-
-    final View targetView = (View) SettingsState.settingsItemViews.get(itemKey);
-    if (targetView == null) {
-        traceLog("setwindow", "scrollToAndHighlight: targetView is null");
-        return;
-    }
-
-    if (SettingsState.settingsScrollView == null) {
-        traceLog("setwindow", "scrollToAndHighlight: scrollView is null");
-        return;
-    }
-
     Activity activity = getSettingsCurrentActivity();
     if (activity == null) {
-        traceLog("setwindow", "scrollToAndHighlight: activity is null");
+        traceLog("setwindow_log", "滚动高亮: activity 为空");
         return;
     }
+
+    final String finalKey = itemKey;
+    final int[] retryCount = new int[]{0};
 
     uiHandler.post(new Runnable() {
         public void run() {
             try {
+                if (SettingsState.settingsItemViews == null || !SettingsState.settingsItemViews.containsKey(finalKey)) {
+                    retryCount[0]++;
+                    if (retryCount[0] < 20) {
+                        uiHandler.postDelayed(this, 100);
+                    } else {
+                        traceLog("setwindow_log", "滚动高亮: itemKey 未找到: " + finalKey);
+                    }
+                    return;
+                }
+
+                View targetView = (View) SettingsState.settingsItemViews.get(finalKey);
+                if (targetView == null) {
+                    traceLog("setwindow_log", "滚动高亮: targetView 为空");
+                    return;
+                }
+
+                if (SettingsState.settingsScrollView == null) {
+                    traceLog("setwindow_log", "滚动高亮: scrollView 为空");
+                    return;
+                }
+
+                Activity act = getSettingsCurrentActivity();
+                if (act == null) {
+                    traceLog("setwindow_log", "滚动高亮: activity 为空");
+                    return;
+                }
+
                 final int[] location = new int[2];
                 targetView.getLocationOnScreen(location);
-                Activity act = getSettingsCurrentActivity();
-                if (act == null) return;
+                if (targetView.getHeight() <= 0 || (location[0] == 0 && location[1] == 0)) {
+                    retryCount[0]++;
+                    if (retryCount[0] < 20) {
+                        uiHandler.postDelayed(this, 100);
+                    }
+                    return;
+                }
+
+                final View fTarget = targetView;
                 final int scrollY = location[1] - dp(act, 150);
                 SettingsState.settingsScrollView.smoothScrollTo(0, Math.max(0, scrollY));
 
                 uiHandler.postDelayed(new Runnable() {
                     public void run() {
-                        highlightSettingsItem(targetView);
+                        highlightSettingsItem(fTarget);
                     }
                 }, 400);
             } catch (Throwable exception) {
-                traceLog("setwindow", "scrollToAndHighlight error: " + exception.getMessage());
+                traceLog("setwindow_log", "滚动高亮 错误: " + exception.getMessage());
             }
         }
     });
@@ -619,7 +637,7 @@ void showSettingsMenu(final Activity activity, final String level1Title, final S
 
                 LinearLayout rootLayout = new LinearLayout(activity);
                 rootLayout.setOrientation(LinearLayout.VERTICAL);
-                rootLayout.setBackgroundColor(Color.parseColor(getSettingsThemeColor(activity, "background")));
+                rootLayout.setBackgroundColor(pc(getSettingsThemeColor(activity, "background")));
 
                 View statusBarPlaceholder = new View(activity);
                 int statusBarHeight = getStatusBarHeightValue(activity);
@@ -636,7 +654,7 @@ void showSettingsMenu(final Activity activity, final String level1Title, final S
                 FrameLayout.LayoutParams backContainerParams = new FrameLayout.LayoutParams(dp(activity, 40), dp(activity, 40));
                 backBtnContainer.setLayoutParams(backContainerParams);
 
-                TextView backBtn = createButton(activity, "‹", Color.parseColor(getSettingsThemeColor(activity, "on_surface")), Color.TRANSPARENT, 28f, 0, 0, 0, false, 0, 0, null);
+                TextView backBtn = createButton(activity, "‹", pc(getSettingsThemeColor(activity, "on_surface")), Color.TRANSPARENT, 28f, 0, 0, 0, false, 0, 0, null);
                 FrameLayout.LayoutParams backBtnParams = new FrameLayout.LayoutParams(-2, -2);
                 backBtnParams.gravity = Gravity.CENTER;
                 backBtn.setLayoutParams(backBtnParams);
@@ -683,7 +701,7 @@ void showSettingsMenu(final Activity activity, final String level1Title, final S
                 titleView.setText(titleText);
                 titleView.setTextSize(20);
                 titleView.setTypeface(null, Typeface.BOLD);
-                titleView.setTextColor(Color.parseColor(getSettingsThemeColor(activity, "on_surface")));
+                titleView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
                 titleView.setGravity(Gravity.CENTER_VERTICAL);
                 LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, dp(activity, 40), 1.0f);
                 titleView.setLayoutParams(titleParams);
@@ -694,7 +712,7 @@ void showSettingsMenu(final Activity activity, final String level1Title, final S
                     FrameLayout.LayoutParams searchContainerParams = new FrameLayout.LayoutParams(dp(activity, 40), dp(activity, 40));
                     searchBtnContainer.setLayoutParams(searchContainerParams);
 
-                    TextView searchBtn = createButton(activity, "🔍", Color.parseColor(getSettingsThemeColor(activity, "on_surface")), Color.TRANSPARENT, 20f, 0, 0, 0, false, 0, 0, null);
+                    TextView searchBtn = createButton(activity, "🔍", pc(getSettingsThemeColor(activity, "on_surface")), Color.TRANSPARENT, 20f, 0, 0, 0, false, 0, 0, null);
                     FrameLayout.LayoutParams searchBtnParams = new FrameLayout.LayoutParams(-2, -2);
                     searchBtnParams.gravity = Gravity.CENTER;
                     searchBtn.setLayoutParams(searchBtnParams);
@@ -754,7 +772,6 @@ void showSettingsMenu(final Activity activity, final String level1Title, final S
                 SettingsState.settingsDialogStack.add(currentDialog);
                 currentDialog.show();
 
-                // 处理待高亮的项
                 if (SettingsState.settingsPendingHighlightKey != null && !SettingsState.settingsPendingHighlightKey.isEmpty()) {
                     final String keyToHighlight = SettingsState.settingsPendingHighlightKey;
                     SettingsState.settingsPendingHighlightKey = null;
@@ -766,7 +783,7 @@ void showSettingsMenu(final Activity activity, final String level1Title, final S
                 }
 
             } catch (Throwable exception) {
-                traceLog("setwindow", "showSettingsMenu: " + exception.getMessage());
+                traceLog("setwindow_log", "显示设置菜单: " + exception.getMessage());
                 Toast("菜单打开失败: " + exception.getMessage());
                 cleanupAllDialogs();
             }
@@ -787,7 +804,7 @@ void showSettingsSearchPage(final Activity activity) {
 
                 LinearLayout rootLayout = new LinearLayout(activity);
                 rootLayout.setOrientation(LinearLayout.VERTICAL);
-                rootLayout.setBackgroundColor(Color.parseColor(getSettingsThemeColor(activity, "background")));
+                rootLayout.setBackgroundColor(pc(getSettingsThemeColor(activity, "background")));
 
                 View statusBarPlaceholder = new View(activity);
                 int statusBarHeight = getStatusBarHeightValue(activity);
@@ -804,7 +821,7 @@ void showSettingsSearchPage(final Activity activity) {
                 FrameLayout.LayoutParams backContainerParams = new FrameLayout.LayoutParams(dp(activity, 40), dp(activity, 40));
                 backBtnContainer.setLayoutParams(backContainerParams);
 
-                TextView backBtn = createButton(activity, "‹", Color.parseColor(isDark ? "#FFEFEFEF" : "#FF1A1A1A"), Color.TRANSPARENT, 28f, 0, 0, 0, false, 0, 0, null);
+                TextView backBtn = createButton(activity, "‹", pc(isDark ? "#FFEFEFEF" : "#FF1A1A1A"), Color.TRANSPARENT, 28f, 0, 0, 0, false, 0, 0, null);
                 FrameLayout.LayoutParams backBtnParams = new FrameLayout.LayoutParams(-2, -2);
                 backBtnParams.gravity = Gravity.CENTER;
                 backBtn.setLayoutParams(backBtnParams);
@@ -820,13 +837,8 @@ void showSettingsSearchPage(final Activity activity) {
                 backBtnContainer.addView(backBtn);
                 searchBarLayout.addView(backBtnContainer);
 
-                final EditText searchInput = new EditText(activity);
-                searchInput.setHint("搜索设置项...");
+                final EditText searchInput = makeInput(activity, "搜索设置项...", null);
                 searchInput.setTextSize(14);
-                searchInput.setTextColor(Color.parseColor(getSettingsThemeColor(activity, "on_surface")));
-                searchInput.setHintTextColor(Color.parseColor(getSettingsThemeColor(activity, "on_surface_variant")));
-                searchInput.setBackgroundColor(Color.parseColor(getSettingsThemeColor(activity, "surface")));
-                searchInput.setPadding(dp(activity, 12), dp(activity, 8), dp(activity, 12), dp(activity, 8));
                 searchInput.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
                 searchInput.setSingleLine(true);
                 searchInput.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
@@ -862,7 +874,7 @@ void showSettingsSearchPage(final Activity activity) {
                 TextView historyTitle = new TextView(activity);
                 historyTitle.setText("历史搜索");
                 historyTitle.setTextSize(14);
-                historyTitle.setTextColor(Color.parseColor(isDark ? "#99FFFFFF" : "#99000000"));
+                historyTitle.setTextColor(pc(isDark ? "#99FFFFFF" : "#99000000"));
                 historyTitle.setPadding(dp(activity, 4), dp(activity, 8), dp(activity, 4), dp(activity, 8));
                 historyContainer.addView(historyTitle);
 
@@ -871,12 +883,13 @@ void showSettingsSearchPage(final Activity activity) {
                     TextView historyItemView = new TextView(activity);
                     historyItemView.setText(historyItem);
                     historyItemView.setTextSize(16);
-                    historyItemView.setTextColor(Color.parseColor(isDark ? "#FFEFEFEF" : "#FF1A1A1A"));
+                    historyItemView.setTextColor(pc(isDark ? "#FFEFEFEF" : "#FF1A1A1A"));
                     historyItemView.setPadding(dp(activity, 4), dp(activity, 12), dp(activity, 4), dp(activity, 12));
                     historyItemView.setOnClickListener(new View.OnClickListener() {
                         public void onClick(View view) {
                             searchInput.setText(historyItem);
                             searchInput.setSelection(historyItem.length());
+                            doSearch(historyItem, historyContainer, resultsContainer, activity, isDark);
                         }
                     });
                     historyContainer.addView(historyItemView);
@@ -886,7 +899,7 @@ void showSettingsSearchPage(final Activity activity) {
                     TextView emptyHint = new TextView(activity);
                     emptyHint.setText("暂无历史搜索");
                     emptyHint.setTextSize(14);
-                    emptyHint.setTextColor(Color.parseColor(isDark ? "#99FFFFFF" : "#99000000"));
+                    emptyHint.setTextColor(pc(isDark ? "#99FFFFFF" : "#99000000"));
                     emptyHint.setPadding(dp(activity, 4), dp(activity, 12), dp(activity, 4), dp(activity, 12));
                     historyContainer.addView(emptyHint);
                 }
@@ -946,7 +959,7 @@ void showSettingsSearchPage(final Activity activity) {
                 searchInput.requestFocus();
 
             } catch (Throwable exception) {
-                traceLog("setwindow", "showSettingsSearchPage: " + exception.getMessage());
+                traceLog("setwindow_log", "显示设置搜索页: " + exception.getMessage());
                 Toast("搜索页面打开失败: " + exception.getMessage());
             }
         }
@@ -959,11 +972,11 @@ void addSearchResultItem(Activity activity, LinearLayout container, String itemT
     SpannableString spannable = new SpannableString(itemText);
     int start = itemText.toLowerCase().indexOf(queryValue.toLowerCase());
     if (start >= 0) {
-        spannable.setSpan(new ForegroundColorSpan(Color.parseColor(isDark ? "#FF8AB4F8" : "#FF2196F3")), start, start + queryValue.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        spannable.setSpan(new ForegroundColorSpan(pc(isDark ? "#FF8AB4F8" : "#FF2196F3")), start, start + queryValue.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
     }
     resultItem.setText(spannable);
     resultItem.setTextSize(16);
-    resultItem.setTextColor(Color.parseColor(isDark ? "#FFEFEFEF" : "#FF1A1A1A"));
+    resultItem.setTextColor(pc(isDark ? "#FFEFEFEF" : "#FF1A1A1A"));
     resultItem.setPadding(dp(activity, 4), dp(activity, 12), dp(activity, 4), dp(activity, 12));
     resultItem.setClickable(true);
     resultItem.setOnClickListener(new View.OnClickListener() {
@@ -1005,7 +1018,7 @@ void buildSettingsBottomArea(Activity activity) {
             }
         }
     } catch (Throwable exception) {
-        traceLog("setwindow", "load project btn: " + exception.getMessage());
+        traceLog("setwindow_log", "加载项目按钮: " + exception.getMessage());
     }
     LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(dp(activity, 40), dp(activity, 40));
     projectBtn.setLayoutParams(btnParams);
@@ -1024,7 +1037,7 @@ void buildSettingsBottomArea(Activity activity) {
     TextView text1 = new TextView(activity);
     text1.setText("GitHub");
     text1.setTextSize(12);
-    text1.setTextColor(Color.parseColor(getSettingsThemeColor(currentActivity, "on_surface_variant")));
+    text1.setTextColor(pc(getSettingsThemeColor(currentActivity, "on_surface_variant")));
     text1.setGravity(Gravity.CENTER);
     text1.setPadding(0, dp(activity, 4), 0, 0);
     icon1Container.addView(text1);
@@ -1049,7 +1062,7 @@ void buildSettingsBottomArea(Activity activity) {
             }
         }
     } catch (Throwable exception) {
-        traceLog("setwindow", "load qq btn: " + exception.getMessage());
+        traceLog("setwindow_log", "加载QQ按钮: " + exception.getMessage());
     }
     LinearLayout.LayoutParams qqBtnParams = new LinearLayout.LayoutParams(dp(activity, 40), dp(activity, 40));
     qqBtn.setLayoutParams(qqBtnParams);
@@ -1068,7 +1081,7 @@ void buildSettingsBottomArea(Activity activity) {
     TextView text2 = new TextView(activity);
     text2.setText("加入我们");
     text2.setTextSize(12);
-    text2.setTextColor(Color.parseColor(getSettingsThemeColor(currentActivity, "on_surface_variant")));
+    text2.setTextColor(pc(getSettingsThemeColor(currentActivity, "on_surface_variant")));
     text2.setGravity(Gravity.CENTER);
     text2.setPadding(0, dp(activity, 4), 0, 0);
     icon2Container.addView(text2);
@@ -1080,7 +1093,7 @@ void buildSettingsBottomArea(Activity activity) {
     TextView footer = new TextView(activity);
     footer.setText("Generated by QFloatingX");
     footer.setGravity(Gravity.CENTER);
-    footer.setTextColor(Color.parseColor(isDark ? "#555555" : "#AAAAAA"));
+    footer.setTextColor(pc(isDark ? "#555555" : "#AAAAAA"));
     footer.setTextSize(10);
     footer.setPadding(0, dp(activity, 4), 0, dp(activity, 4));
     bottomArea.addView(footer);
@@ -1106,7 +1119,7 @@ void showSettingsConfirmDialog(Activity activity, String titleText, String messa
     });
     builder.setNegativeButton("取消", null);
     AlertDialog alertDialog = builder.show();
-    applyUiTheme(activity, alertDialog);
+    applyUiTheme(activity, alertDialog, 0);
 }
 
 void addIndexItem(String key, String name, String description, String level1, String level2, String category, String type) {
@@ -1193,7 +1206,7 @@ void buildFullSettingsIndex(Activity activity) {
     addIndexItem("gifDelay", "动画速度 (每帧延迟ms)", "越小越快", "设置", "悬浮窗设置", "悬浮窗设置", "input");
 
     addIndexItem("调试_预览设置", "预览设置", "预览当前设置效果", "设置", "调试", "调试", "click");
-    addIndexItem("调试_重置设置", "重置设置", "恢复默认设置", "设置", "调试", "调试", "click");
+    addIndexItem("其他_重置所有设置", "重置所有设置", "恢复默认设置", "设置", "其他", "其他", "click");
     addIndexItem("log_delete_threshold", "日志大小阈值", "日志文件夹超过此MB数自动清理", "设置", "调试", "调试", "input");
 }
 
@@ -1352,10 +1365,16 @@ void buildLevel2MenuContent(Activity activity, String level1Title) {
                 showSettingsMenu(act, "设置", "悬浮窗设置", null);
             }
         }});
-        addSettingsItemClickWithKey("其他", "调试", "预览、重置、log删除阈值", "item_debug", new Runnable() { public void run() {
+        addSettingsItemClickWithKey("其他", "调试", "预览、log删除阈值", "item_debug", new Runnable() { public void run() {
             Activity act = getSettingsCurrentActivity();
             if (act != null) {
                 showSettingsMenu(act, "设置", "调试", null);
+            }
+        }});
+        addSettingsItemClickWithKey("其他", "重置所有设置", "恢复默认设置", "item_reset_all", new Runnable() { public void run() {
+            Activity act = getSettingsCurrentActivity();
+            if (act != null) {
+                showResetAllSettingsConfirmDialog(act);
             }
         }});
     }
@@ -1420,15 +1439,13 @@ void buildLevel3MenuContent(Activity activity, String level1Title, String level2
                 addSettingsItemClick("背景样式", "选择背景图片", "点击选择本地图片", new Runnable() { public void run() {
                     Activity act = getSettingsCurrentActivity();
                     if (act == null) return;
-                    try {
-                        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-                        intent.setType("image/*");
-                        intent.addCategory(Intent.CATEGORY_OPENABLE);
-                        act.startActivityForResult(intent, 1007);
-                        Toast("选择后自动居中裁剪应用");
-                    } catch(Throwable exception) {
-                        Toast("失败: " + exception);
-                    }
+                    openFilePicker(act, 1007, "image/*", null, null, new FilePickerCallback() {
+                        public void onFilePicked(Activity a, Uri uri, String fileName, String filePath) {
+                            traceLog("setwindow_log", "[1007] name=" + fileName + " path=" + filePath + " uri=" + uri);
+                            editAndSaveImage(a, uri, pluginPath + "/API/background.png", 1007);
+                        }
+                    });
+                    Toast("选择后自动居中裁剪应用");
                 }});
                 addSettingsInputItem("背景样式", "图片模糊 (0-25)", "0为不模糊", "ui_img_blur", "0-25", "0", null);
                 addSettingsInputItem("背景样式", "遮罩浓度 (0-255)", "越大越暗", "ui_img_alpha", "0-255", isDark ? "180" : "100", null);
@@ -1487,15 +1504,14 @@ void buildLevel3MenuContent(Activity activity, String level1Title, String level2
             addSettingsItemClick("悬浮窗设置", "更换图标", getIconTypeDisplayText(), new Runnable() { public void run() {
                 Activity act = getSettingsCurrentActivity();
                 if (act == null) return;
-                try {
-                    Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-                    intent.setType("image/*");
-                    intent.addCategory(Intent.CATEGORY_OPENABLE);
-                    act.startActivityForResult(intent, 1005);
-                    Toast("选择后请重新打开设置刷新");
-                } catch(Throwable exception) {
-                    Toast("文件选择启动失败: " + exception);
-                }
+                openFilePicker(act, 1005, "image/*", null, pluginPath + "/API/icon{ext}", new FilePickerCallback() {
+                    public void onFilePicked(Activity a, Uri uri, String fileName, String filePath) {
+                        traceLog("setwindow_log", "[1005] name=" + fileName + " path=" + filePath + " uri=" + uri);
+                        putString("settings", "iconPath", filePath);
+                        editAndSaveImage(a, uri, filePath, 1005);
+                    }
+                });
+                Toast("选择后请重新打开设置刷新");
             }});
             addSettingsInputItem("悬浮窗设置", "悬浮窗大小", "默认48", "悬浮窗大小", "dp", "48", null);
             addSettingsInputItem("悬浮窗设置", "关闭图标大小", "默认24", "关闭区域图标大小", "dp", "24", null);
@@ -1525,12 +1541,6 @@ void buildLevel3MenuContent(Activity activity, String level1Title, String level2
                     showSettingsPreviewPopup(act);
                 }
             }});
-            addSettingsItemClick("调试", "重置设置", "恢复默认设置", new Runnable() { public void run() {
-                Activity act = getSettingsCurrentActivity();
-                if (act != null) {
-                    showResetAllSettingsConfirmDialog(act);
-                }
-            }});
             String logThreshold = getString("settings", "log_delete_threshold", "1");
             addSettingsInputItem("调试", "日志大小阈值(MB)", "日志文件夹超过此大小自动清理", "log_delete_threshold", "如: 1", logThreshold, null);
         }
@@ -1549,14 +1559,14 @@ void showResetAllSettingsConfirmDialog(Activity activity) {
     title.setText("重置所有设置");
     title.setTextSize(18);
     title.setTypeface(null, Typeface.BOLD);
-    title.setTextColor(Color.parseColor(getSettingsThemeColor(activity, "on_surface")));
+    title.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
     title.setGravity(Gravity.CENTER);
     content.addView(title);
 
     TextView msg = new TextView(activity);
     msg.setText("确定要重置所有设置为默认值吗？\n此操作不可撤销");
     msg.setTextSize(14);
-    msg.setTextColor(Color.parseColor(getSettingsThemeColor(activity, "on_surface_variant")));
+    msg.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
     msg.setGravity(Gravity.CENTER);
     msg.setPadding(0, dp(activity, 12), 0, dp(activity, 16));
     content.addView(msg);
@@ -1576,7 +1586,7 @@ void showResetAllSettingsConfirmDialog(Activity activity) {
     });
 
     AlertDialog dialog = builder.show();
-    applyUiTheme(activity, dialog);
+    applyUiTheme(activity, dialog, 0);
 }
 
 int resetAllSettingsToDefault() {
@@ -1594,10 +1604,6 @@ int resetAllSettingsToDefault() {
     for (String key : settingKeys) {
         putString("settings", key, "");
         count++;
-    }
-
-    if (pendingSettingsChanges != null) {
-        pendingSettingsChanges.clear();
     }
 
     return count;
@@ -1618,7 +1624,7 @@ void addSettingsCategory(String titleText, String descriptionText) {
     categoryTitle.setText(titleText);
     categoryTitle.setTextSize(14);
     categoryTitle.setTypeface(null, Typeface.BOLD);
-    categoryTitle.setTextColor(Color.parseColor(getSettingsThemeColor(activity, "primary")));
+    categoryTitle.setTextColor(pc(getSettingsThemeColor(activity, "primary")));
     categoryTitle.setPadding(dp(activity, 28), dp(activity, 20), dp(activity, 16), dp(activity, 8));
 
     LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, -2);
@@ -1628,7 +1634,7 @@ void addSettingsCategory(String titleText, String descriptionText) {
         TextView categoryDesc = new TextView(activity);
         categoryDesc.setText(descriptionText);
         categoryDesc.setTextSize(12);
-        categoryDesc.setTextColor(Color.parseColor(getSettingsThemeColor(activity, "on_surface_variant")));
+        categoryDesc.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
         categoryDesc.setPadding(dp(activity, 28), 0, dp(activity, 16), dp(activity, 8));
 
         LinearLayout.LayoutParams descParams = new LinearLayout.LayoutParams(-1, -2);
@@ -1637,7 +1643,14 @@ void addSettingsCategory(String titleText, String descriptionText) {
 
     LinearLayout categoryContainer = new LinearLayout(activity);
     categoryContainer.setOrientation(LinearLayout.VERTICAL);
-    categoryContainer.setBackground(roundRect(Color.parseColor(getSettingsThemeColor(activity, "surface")), dp(activity, 16)));
+    String bgTypeSetting = getString("settings", "ui_bg_type", "color");
+    String customBgColor = getString("settings", isDark ? "ui_bg_color_dark" : "ui_bg_color_light", "");
+    boolean hasCustomBg = !"color".equals(bgTypeSetting) || (customBgColor != null && !customBgColor.isEmpty());
+    int cardBgColor = pc(getSettingsThemeColor(activity, "surface"));
+    if (hasCustomBg) {
+        cardBgColor = Color.argb(204, Color.red(cardBgColor), Color.green(cardBgColor), Color.blue(cardBgColor));
+    }
+    categoryContainer.setBackground(roundRect(cardBgColor, dp(activity, 16)));
     categoryContainer.setClipToOutline(true);
 
     LinearLayout.LayoutParams containerParams = new LinearLayout.LayoutParams(-1, -2);
@@ -1681,14 +1694,14 @@ void addSettingsItemClickWithKey(String categoryName, String itemName, String de
     TextView nameView = new TextView(activity);
     nameView.setText(itemName);
     nameView.setTextSize(16);
-    nameView.setTextColor(Color.parseColor(getSettingsThemeColor(activity, "on_surface")));
+    nameView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
     textArea.addView(nameView);
 
     if (descriptionText != null && !descriptionText.isEmpty()) {
         TextView descView = new TextView(activity);
         descView.setText(descriptionText);
         descView.setTextSize(12);
-        descView.setTextColor(Color.parseColor(getSettingsThemeColor(activity, "on_surface_variant")));
+        descView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
         descView.setPadding(0, dp(activity, 2), 0, 0);
         textArea.addView(descView);
     }
@@ -1698,12 +1711,12 @@ void addSettingsItemClickWithKey(String categoryName, String itemName, String de
     TextView arrowView = new TextView(activity);
     arrowView.setText("›");
     arrowView.setTextSize(20);
-    arrowView.setTextColor(Color.parseColor(getSettingsThemeColor(activity, "on_surface_variant")));
+    arrowView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
     itemLayout.addView(arrowView);
 
     itemWrapper.addView(itemLayout);
 
-    itemWrapper.setBackground(makeFeedbackBg(Color.parseColor(getSettingsThemeColor(activity, "surface")), Color.parseColor(getSettingsThemeColor(activity, "ripple")), 0));
+    itemWrapper.setBackground(makeFeedbackBg(pc(getSettingsThemeColor(activity, "surface")), pc(getSettingsThemeColor(activity, "ripple")), 0));
     itemWrapper.setClickable(true);
     itemWrapper.setOnClickListener(new View.OnClickListener() {
         public void onClick(View view) {
@@ -1761,14 +1774,14 @@ void addSettingsItemChoiceWithKey(String categoryName, String itemName, String i
     TextView nameView = new TextView(activity);
     nameView.setText(itemName);
     nameView.setTextSize(16);
-    nameView.setTextColor(Color.parseColor(getSettingsThemeColor(activity, "on_surface")));
+    nameView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
     nameView.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
     titleRow.addView(nameView);
 
     TextView arrowView = new TextView(activity);
     arrowView.setText("›");
     arrowView.setTextSize(20);
-    arrowView.setTextColor(Color.parseColor(getSettingsThemeColor(activity, "on_surface_variant")));
+    arrowView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
     titleRow.addView(arrowView);
 
     itemLayout.addView(titleRow);
@@ -1776,7 +1789,7 @@ void addSettingsItemChoiceWithKey(String categoryName, String itemName, String i
     final TextView valueView = new TextView(activity);
     valueView.setText(valueText);
     valueView.setTextSize(12);
-    valueView.setTextColor(Color.parseColor(getSettingsThemeColor(activity, "on_surface_variant")));
+    valueView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
     valueView.setPadding(0, dp(activity, 2), 0, 0);
     itemLayout.addView(valueView);
 
@@ -1785,7 +1798,7 @@ void addSettingsItemChoiceWithKey(String categoryName, String itemName, String i
 
     itemWrapper.addView(itemLayout);
 
-    itemWrapper.setBackground(makeFeedbackBg(Color.parseColor(getSettingsThemeColor(activity, "surface")), Color.parseColor(getSettingsThemeColor(activity, "ripple")), 0));
+    itemWrapper.setBackground(makeFeedbackBg(pc(getSettingsThemeColor(activity, "surface")), pc(getSettingsThemeColor(activity, "ripple")), 0));
     itemWrapper.setClickable(true);
     itemWrapper.setOnClickListener(new View.OnClickListener() {
         public void onClick(View view) {
@@ -1849,7 +1862,7 @@ void addSettingsItemSwitchWithKey(String categoryName, String itemName, String i
     TextView nameView = new TextView(activity);
     nameView.setText(itemName);
     nameView.setTextSize(16);
-    nameView.setTextColor(Color.parseColor(getSettingsThemeColor(activity, "on_surface")));
+    nameView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
     nameView.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
     itemLayout.addView(nameView);
 
@@ -1860,7 +1873,7 @@ void addSettingsItemSwitchWithKey(String categoryName, String itemName, String i
 
     itemWrapper.addView(itemLayout);
 
-    itemWrapper.setBackground(makeFeedbackBg(Color.parseColor(getSettingsThemeColor(activity, "surface")), Color.parseColor(getSettingsThemeColor(activity, "ripple")), 0));
+    itemWrapper.setBackground(makeFeedbackBg(pc(getSettingsThemeColor(activity, "surface")), pc(getSettingsThemeColor(activity, "ripple")), 0));
     itemWrapper.setClickable(false);
 
     if (itemKey != null && !itemKey.isEmpty() && SettingsState.settingsItemViews != null) {
@@ -1903,14 +1916,14 @@ void addSettingsSwitchItem(String categoryName, String itemName, String descript
     TextView nameView = new TextView(activity);
     nameView.setText(itemName);
     nameView.setTextSize(16);
-    nameView.setTextColor(Color.parseColor(getSettingsThemeColor(activity, "on_surface")));
+    nameView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
     textArea.addView(nameView);
 
     if (descriptionText != null && !descriptionText.isEmpty()) {
         TextView descView = new TextView(activity);
         descView.setText(descriptionText);
         descView.setTextSize(12);
-        descView.setTextColor(Color.parseColor(getSettingsThemeColor(activity, "on_surface_variant")));
+        descView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
         descView.setPadding(0, dp(activity, 2), 0, 0);
         textArea.addView(descView);
     }
@@ -1924,7 +1937,7 @@ void addSettingsSwitchItem(String categoryName, String itemName, String descript
 
     itemWrapper.addView(itemLayout);
 
-    itemWrapper.setBackground(makeFeedbackBg(Color.parseColor(getSettingsThemeColor(activity, "surface")), Color.parseColor(getSettingsThemeColor(activity, "ripple")), 0));
+    itemWrapper.setBackground(makeFeedbackBg(pc(getSettingsThemeColor(activity, "surface")), pc(getSettingsThemeColor(activity, "ripple")), 0));
     itemWrapper.setClickable(true);
     itemWrapper.setOnClickListener(new View.OnClickListener() {
         public void onClick(View view) {
@@ -1965,26 +1978,21 @@ void addSettingsInputItem(String categoryName, String itemName, String descripti
     TextView nameView = new TextView(activity);
     nameView.setText(itemName);
     nameView.setTextSize(16);
-    nameView.setTextColor(Color.parseColor(getSettingsThemeColor(activity, "on_surface")));
+    nameView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
     itemLayout.addView(nameView);
 
     if (descriptionText != null && !descriptionText.isEmpty()) {
         TextView descView = new TextView(activity);
         descView.setText(descriptionText);
         descView.setTextSize(12);
-        descView.setTextColor(Color.parseColor(getSettingsThemeColor(activity, "on_surface_variant")));
+        descView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
         descView.setPadding(0, dp(activity, 2), 0, dp(activity, 8));
         itemLayout.addView(descView);
     }
 
-    final EditText inputEdit = new EditText(activity);
+    final EditText inputEdit = makeInput(activity, hintText != null ? hintText : "", null);
     inputEdit.setText(currentValue);
-    inputEdit.setHint(hintText != null ? hintText : "");
     inputEdit.setTextSize(14);
-    inputEdit.setTextColor(Color.parseColor(getSettingsThemeColor(activity, "on_surface")));
-    inputEdit.setHintTextColor(Color.parseColor(getSettingsThemeColor(activity, "on_surface_variant")));
-    inputEdit.setBackgroundColor(Color.parseColor(getSettingsThemeColor(activity, "surface")));
-    inputEdit.setPadding(dp(activity, 12), dp(activity, 8), dp(activity, 12), dp(activity, 8));
     inputEdit.setSingleLine(true);
     itemLayout.addView(inputEdit);
 
@@ -2001,7 +2009,7 @@ void addSettingsInputItem(String categoryName, String itemName, String descripti
         }
     });
 
-    itemLayout.setBackground(makeFeedbackBg(Color.parseColor(getSettingsThemeColor(activity, "surface")), Color.parseColor(getSettingsThemeColor(activity, "ripple")), 0));
+    itemLayout.setBackground(makeFeedbackBg(pc(getSettingsThemeColor(activity, "surface")), pc(getSettingsThemeColor(activity, "ripple")), 0));
     itemLayout.setClickable(true);
 
     if (keyName != null && !keyName.isEmpty() && SettingsState.settingsItemViews != null) {
@@ -2114,7 +2122,7 @@ void showUpdateChannelChoiceDialog(final Activity activity) {
     });
     builder.setNegativeButton("取消", null);
     AlertDialog alertDialog = builder.show();
-    applyUiTheme(activity, alertDialog);
+    applyUiTheme(activity, alertDialog, 0);
 }
 
 String getIconTypeDisplayText() {
@@ -2137,8 +2145,8 @@ String getFpsDisplayText() {
 
 void showThemeModeChoiceDialog(final Activity activity) {
     if (activity == null) return;
-    final String[] modes = {"默认（推荐）", "跟随系统", "强制浅色", "强制深色"};
-    final String[] modeValues = {"default", "system", "light", "dark"};
+    final String[] modes = {"默认（推荐）", "跟随系统", "跟随模块", "强制浅色", "强制深色"};
+    final String[] modeValues = {"default", "system", "module", "light", "dark"};
 
     String currentMode = getString("settings", "ui_theme_mode", "default");
     int checkedItem = 0;
@@ -2167,7 +2175,7 @@ void showThemeModeChoiceDialog(final Activity activity) {
     });
     builder.setNegativeButton("取消", null);
     AlertDialog alertDialog = builder.show();
-    applyUiTheme(activity, alertDialog);
+    applyUiTheme(activity, alertDialog, 0);
 }
 
 void showBgTypeChoiceDialog(final Activity activity) {
@@ -2202,7 +2210,7 @@ void showBgTypeChoiceDialog(final Activity activity) {
     });
     builder.setNegativeButton("取消", null);
     AlertDialog alertDialog = builder.show();
-    applyUiTheme(activity, alertDialog);
+    applyUiTheme(activity, alertDialog, 0);
 }
 
 void showPresetColorDialog(final Activity activity) {
@@ -2235,7 +2243,7 @@ void showPresetColorDialog(final Activity activity) {
     });
     builder.setNegativeButton("取消", null);
     AlertDialog alertDialog = builder.show();
-    applyUiTheme(activity, alertDialog);
+    applyUiTheme(activity, alertDialog, 0);
 }
 
 void showPresetGradientDialog(final Activity activity) {
@@ -2266,7 +2274,7 @@ void showPresetGradientDialog(final Activity activity) {
     });
     builder.setNegativeButton("取消", null);
     AlertDialog alertDialog = builder.show();
-    applyUiTheme(activity, alertDialog);
+    applyUiTheme(activity, alertDialog, 0);
 }
 
 void showFontTypeChoiceDialog(final Activity activity) {
@@ -2295,7 +2303,7 @@ void showFontTypeChoiceDialog(final Activity activity) {
     });
     builder.setNegativeButton("取消", null);
     AlertDialog alertDialog = builder.show();
-    applyUiTheme(activity, alertDialog);
+    applyUiTheme(activity, alertDialog, 0);
 }
 
 void showFontSizeChoiceDialog(final Activity activity) {
@@ -2324,7 +2332,7 @@ void showFontSizeChoiceDialog(final Activity activity) {
     });
     builder.setNegativeButton("取消", null);
     AlertDialog alertDialog = builder.show();
-    applyUiTheme(activity, alertDialog);
+    applyUiTheme(activity, alertDialog, 0);
 }
 
 void showThreadPriorityChoiceDialog(final Activity activity) {
@@ -2353,7 +2361,7 @@ void showThreadPriorityChoiceDialog(final Activity activity) {
     });
     builder.setNegativeButton("取消", null);
     AlertDialog alertDialog = builder.show();
-    applyUiTheme(activity, alertDialog);
+    applyUiTheme(activity, alertDialog, 0);
 }
 
 void showRejectPolicyChoiceDialog(final Activity activity) {
@@ -2382,7 +2390,7 @@ void showRejectPolicyChoiceDialog(final Activity activity) {
     });
     builder.setNegativeButton("取消", null);
     AlertDialog alertDialog = builder.show();
-    applyUiTheme(activity, alertDialog);
+    applyUiTheme(activity, alertDialog, 0);
 }
 
 void showFpsChoiceDialog(final Activity activity) {
@@ -2392,7 +2400,7 @@ void showFpsChoiceDialog(final Activity activity) {
         Display display = activity.getWindowManager().getDefaultDisplay();
         refreshRate = display.getRefreshRate();
     } catch (Throwable exception) {
-        traceLog("setwindow", "get refresh rate: " + exception.getMessage());
+        traceLog("setwindow_log", "获取刷新率: " + exception.getMessage());
     }
 
     final List fpsList = new ArrayList();
@@ -2442,7 +2450,7 @@ void showFpsChoiceDialog(final Activity activity) {
     });
     builder.setNegativeButton("取消", null);
     AlertDialog alertDialog = builder.show();
-    applyUiTheme(activity, alertDialog);
+    applyUiTheme(activity, alertDialog, 0);
 }
 
 void showScaleSliderDialog(final Activity activity) {
@@ -2452,7 +2460,7 @@ void showScaleSliderDialog(final Activity activity) {
     try {
         currentScale = Float.parseFloat(currentScaleString);
     } catch (Throwable exception) {
-        traceLog("setwindow", "parse scale: " + exception.getMessage());
+        traceLog("setwindow_log", "解析比例: " + exception.getMessage());
     }
 
     LinearLayout rootLayout = new LinearLayout(activity);
@@ -2460,10 +2468,10 @@ void showScaleSliderDialog(final Activity activity) {
     rootLayout.setPadding(dp(activity, 24), dp(activity, 20), dp(activity, 24), dp(activity, 20));
 
     final TextView valueText = new TextView(activity);
-    valueText.setText(String.format("%.2f", currentScale) + "x");
+    valueText.setText(format2f(currentScale) + "x");
     valueText.setTextSize(28);
     valueText.setTypeface(null, Typeface.BOLD);
-    valueText.setTextColor(Color.parseColor(getSettingsThemeColor(activity, "on_surface")));
+    valueText.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
     valueText.setGravity(Gravity.CENTER);
     LinearLayout.LayoutParams valueParams = new LinearLayout.LayoutParams(-1, -2);
     valueParams.bottomMargin = dp(activity, 20);
@@ -2478,7 +2486,7 @@ void showScaleSliderDialog(final Activity activity) {
     final float SCALE_STEP = 0.01f;
     final int MAX_PROGRESS = (int) ((MAX_SCALE - MIN_SCALE) / SCALE_STEP);
 
-    TextView btnMinus = createButton(activity, "−", Color.parseColor(getSettingsThemeColor(activity, "primary")), Color.TRANSPARENT, 24f, 0, 12, 0, false, 0, 0, null);
+    TextView btnMinus = createButton(activity, "−", pc(getSettingsThemeColor(activity, "primary")), Color.TRANSPARENT, 24f, 0, 12, 0, false, 0, 0, null);
     sliderRow.addView(btnMinus);
 
     final SeekBar seekBar = new SeekBar(activity);
@@ -2487,7 +2495,7 @@ void showScaleSliderDialog(final Activity activity) {
     seekBar.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
     sliderRow.addView(seekBar);
 
-    TextView btnPlus = createButton(activity, "+", Color.parseColor(getSettingsThemeColor(activity, "primary")), Color.TRANSPARENT, 24f, 0, 12, 0, false, 0, 0, null);
+    TextView btnPlus = createButton(activity, "+", pc(getSettingsThemeColor(activity, "primary")), Color.TRANSPARENT, 24f, 0, 12, 0, false, 0, 0, null);
     sliderRow.addView(btnPlus);
 
     rootLayout.addView(sliderRow);
@@ -2495,9 +2503,9 @@ void showScaleSliderDialog(final Activity activity) {
     final Runnable updateValue = new Runnable() {
         public void run() {
             float scale = MIN_SCALE + seekBar.getProgress() * SCALE_STEP;
-            String scaleText = String.format("%.2f", scale) + "x";
+            String scaleText = format2f(scale) + "x";
             valueText.setText(scaleText);
-            putString("settings", "ui_dialog_scale", String.format("%.2f", scale));
+            putString("settings", "ui_dialog_scale", format2f(scale));
             updateSettingsItemText("ui_dialog_scale", scaleText);
         }
     };
@@ -2530,7 +2538,7 @@ void showScaleSliderDialog(final Activity activity) {
     builder.setPositiveButton("确定", null);
     builder.setNegativeButton("取消", null);
     AlertDialog alertDialog = builder.show();
-    applyUiTheme(activity, alertDialog);
+    applyUiTheme(activity, alertDialog, 0);
 }
 
 void showSettingsPreviewPopup(Activity activity) {
@@ -2546,14 +2554,14 @@ void showSettingsPreviewPopup(Activity activity) {
     previewTitle.setText("预览标题");
     previewTitle.setTextSize(18);
     previewTitle.setTypeface(null, Typeface.BOLD);
-    previewTitle.setTextColor(Color.parseColor(getSettingsThemeColor(activity, "on_surface")));
+    previewTitle.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
     previewTitle.setGravity(Gravity.CENTER);
     previewContent.addView(previewTitle);
 
     TextView previewText = new TextView(activity);
     previewText.setText("这是一段测试文本，用于预览设置效果。");
     previewText.setTextSize(14);
-    previewText.setTextColor(Color.parseColor(getSettingsThemeColor(activity, "on_surface_variant")));
+    previewText.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
     previewText.setGravity(Gravity.CENTER);
     previewText.setPadding(0, dp(activity, 12), 0, dp(activity, 16));
     previewContent.addView(previewText);
@@ -2562,7 +2570,7 @@ void showSettingsPreviewPopup(Activity activity) {
     buttonRow.setOrientation(LinearLayout.HORIZONTAL);
     buttonRow.setGravity(Gravity.CENTER);
 
-    TextView toastButton = createButton(activity, "测试Toast", Color.parseColor(getSettingsThemeColor(activity, "primary")), Color.parseColor(getSettingsThemeColor(activity, "surface")), 14f, 20, 24, 12, false, 0, 0, null);
+    TextView toastButton = createButton(activity, "测试Toast", pc(getSettingsThemeColor(activity, "primary")), pc(getSettingsThemeColor(activity, "surface")), 14f, 20, 24, 12, false, 0, 0, null);
     toastButton.setOnClickListener(new View.OnClickListener() {
         public void onClick(View view) {
             qqToast(2, "这是一个测试Toast");
@@ -2578,5 +2586,5 @@ void showSettingsPreviewPopup(Activity activity) {
     previewBuilder.setPositiveButton("关闭", null);
 
     AlertDialog previewDialog = previewBuilder.show();
-    applyUiTheme(activity, previewDialog);
+    applyUiTheme(activity, previewDialog, 0);
 }
