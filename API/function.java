@@ -68,9 +68,7 @@ boolean isProcessingQueue = false;
 // ExecutorService ThreadPool = Executors.newCachedThreadPool();
 
 /** 当前发送目标信息 // String: 当前聊天对象的QQ号或群号 */
-String currentTargetUin = "";
 /** 当前目标类型 // int: 1=私聊, 2=群聊 */
-int currentTargetType = 0;
 
 /** 全局状态存储 - 当前聊天对象 // String: 记录最后一次活跃的聊天对象Uin */
 String currentPeerUin = "";
@@ -82,7 +80,6 @@ String splitBuffer = "";
 /** 当前分割位置 // int: 逐字发送的游标 */
 int splitPos = 0;
 /** 逐字发送锁 // boolean: 防止并发分割 */
-boolean isSplitting = false;
 
 /** UI状态 - 是否正在添加/编辑中 // boolean: 控制弹窗状态 */
 boolean isAdding = false;
@@ -158,7 +155,7 @@ class HotPlugClassLoader {
             java.security.MessageDigest md = java.security.MessageDigest.getInstance("MD5");
             byte[] bytes = md.digest(code.getBytes());
             StringBuilder sb = new StringBuilder();
-            for (byte b : bytes) sb.append(String.format("%02x", b));
+            for (byte b : bytes) sb.append(hexByte(b));
             return sb.toString();
         } catch (Throwable e) {
             return "";
@@ -295,7 +292,7 @@ String getDir() {
     try {
         File f = new File(d);
         if (!f.exists()) f.mkdirs();
-    } catch (Throwable e) {}
+    } catch (Throwable e) { traceLog("function_log", "[getDir] 异常: " + e); }
     return d;
 }
 
@@ -369,7 +366,7 @@ void saveFunc(String n, String content, boolean isFile, boolean[] cb, boolean ha
         w.write(code);
         w.close();
     } catch (Throwable e) {
-        traceLog("save_err", "[saveFunc]" + e);
+        traceLog("function_log", "[saveFunc]" + e);
         return;
     }
     
@@ -393,7 +390,7 @@ void saveFunc(String n, String content, boolean isFile, boolean[] cb, boolean ha
         
         putString("HotPlug", "meta_" + n, jo.toString());
     } catch (Throwable e) {
-        traceLog("json_err", "[saveFunc] " + e);
+        traceLog("function_log", "[saveFunc] " + e);
     }
     
     String list = getString("HotPlug", "list", "");
@@ -418,7 +415,7 @@ void saveFunc(String n, String content, boolean isFile, boolean[] cb, boolean ha
             startIndepThread(n, interval, loopCount); 
         }
     }
-    traceLog("save", "[saveFunc]" + n);
+    traceLog("function_log", "[saveFunc]" + n);
 }
 
 /**
@@ -544,7 +541,7 @@ void delFunc(String n) {
     stopThread(n); 
     try {
         new java.io.File(getDir() + "/" + n + ".java").delete();
-    } catch (Throwable e) {}
+    } catch (Throwable e) { traceLog("function_log", "[delFunc] 异常: " + e); }
     putString("HotPlug", "meta_" + n, ""); 
     String list = getString("HotPlug", "list", "");
     list = list.replace(n + ",", ""); 
@@ -573,8 +570,8 @@ void setLoad(String f, boolean on) {
         if (on) {
             long interval = 0;
             int count = 0;
-            try { interval = Long.parseLong(m[12]); } catch (Throwable e) {} // res[12] is interval
-            try { count = Integer.parseInt(m[14]); } catch (Throwable e) {} // res[14] is count
+            try { interval = Long.parseLong(m[12]); } catch (Throwable e) { traceLog("function_log", "[setLoad] 异常: " + e); } // res[12] is interval
+            try { count = Integer.parseInt(m[14]); } catch (Throwable e) { traceLog("function_log", "[setLoad] 异常: " + e); } // res[14] is count
             startIndepThread(f, interval, count);
         } else {
             stopThread(f);
@@ -648,7 +645,10 @@ long getNextScheduleTime(String cfg) {
                 target.set(Calendar.MILLISECOND, 0);
                 
                 Calendar now = Calendar.getInstance();
-                if (target.before(now) || target.equals(now)) {
+                now.add(Calendar.SECOND, -5);
+                now.set(Calendar.SECOND, 0);
+                now.set(Calendar.MILLISECOND, 0);
+                if (target.before(now)) {
                     target.add(Calendar.DAY_OF_YEAR, 1);
                 }
                 return target.getTimeInMillis();
@@ -657,6 +657,9 @@ long getNextScheduleTime(String cfg) {
 
         String[] parts = raw.split("\\s+");
         Calendar now = Calendar.getInstance();
+        now.add(Calendar.SECOND, -5);
+        now.set(Calendar.SECOND, 0);
+        now.set(Calendar.MILLISECOND, 0);
         Calendar target = Calendar.getInstance();
         target.set(Calendar.SECOND, 0);
         target.set(Calendar.MILLISECOND, 0);
@@ -671,7 +674,7 @@ long getNextScheduleTime(String cfg) {
             target.set(Calendar.MILLISECOND, 0);
             
             if (parts.length == 3) {
-                if (target.before(now) || target.equals(now)) {
+                if (target.before(now)) {
                     target.add(Calendar.DAY_OF_YEAR, 1);
                 }
             } else if (parts.length == 4) {
@@ -679,13 +682,13 @@ long getNextScheduleTime(String cfg) {
                 if (flag.startsWith("w")) {
                     int dayOfWeek = Integer.parseInt(flag.substring(1));
                     target.set(Calendar.DAY_OF_WEEK, dayOfWeek);
-                    if (target.before(now) || target.equals(now)) {
+                    if (target.before(now)) {
                         target.add(Calendar.WEEK_OF_YEAR, 1);
                     }
                 } else {
                     int dayOfMonth = Integer.parseInt(flag);
                     target.set(Calendar.DAY_OF_MONTH, dayOfMonth);
-                    if (target.before(now) || target.equals(now)) {
+                    if (target.before(now)) {
                         target.add(Calendar.MONTH, 1);
                     }
                 }
@@ -770,7 +773,7 @@ String formatSchedule(String cfg) {
                 return "每月" + flag + "日 " + time;
             }
         }
-    } catch (Throwable e) {}
+    } catch (Throwable e) { traceLog("function_log", "[formatSchedule] 异常: " + e); }
     return cfg;
 }
 
@@ -785,7 +788,7 @@ void startIndepThread(final String func, final long interval, final int maxCount
     Thread existing = (Thread)runningThreads.get(func);
     if (existing != null && existing.isAlive()) {
         existing.interrupt();
-        try { existing.join(1000); } catch (Throwable e) {}
+        try { existing.join(1000); } catch (Throwable e) { traceLog("function_log", "[startIndepThread] 异常: " + e); }
     }
     
     loopFlags.put(func, new Boolean(getLoop(func)));
@@ -803,7 +806,7 @@ void startIndepThread(final String func, final long interval, final int maxCount
             while (!Thread.interrupted()) {
                 try {
                     if (!getLoad(func)) {
-                        traceLog("function_log", "[Stop] " + func + " 总开关关闭");
+                        traceLog("function_log", "[停止] " + func + " 总开关关闭");
                         break;
                     }
                     if (!getRun(func) && !runOnce) {
@@ -813,7 +816,7 @@ void startIndepThread(final String func, final long interval, final int maxCount
                     if (!isScheduled && !isLooping && !runOnce) break;
                     
                     if (!isScheduled && maxCount > 0 && executedCount >= maxCount) {
-                        traceLog("function_log", "[Complete] " + func + " 次数达标");
+                        traceLog("function_log", "[完成] " + func + " 次数达标");
                         break;
                     }
                     
@@ -821,22 +824,26 @@ void startIndepThread(final String func, final long interval, final int maxCount
                         long now = System.currentTimeMillis();
                         long nextTime = getNextScheduleTime(meta[11]);
                         
-                        if (nextTime <= now) {
-                            Thread.sleep(60000);
-                            continue;
+                        if (nextTime <= 0) {
+                            traceLog("function_log", "[计划] " + func + " 定时配置无效，立即执行一次");
+                            runOnce = true;
+                        } else {
+                            long waitTime = nextTime - now;
+                            if (waitTime > 1000) {
+                                traceLog("function_log", "[计划] " + func + " 等待: " + (waitTime/1000) + "秒");
+                                
+                                long blocks = waitTime / 2000;
+                                long remain = waitTime % 2000;
+                                
+                                for(long i=0; i<blocks; i++) {
+                                    if (Thread.interrupted() || !getLoad(func)) throw new InterruptedException();
+                                    Thread.sleep(2000);
+                                }
+                                if(remain > 0) Thread.sleep(remain);
+                            } else {
+                                traceLog("function_log", "[计划] " + func + " 已到点，立即执行");
+                            }
                         }
-                        
-                        long waitTime = nextTime - now;
-                        traceLog("function_log", "[Schedule] " + func + " 等待: " + (waitTime/1000) + "秒");
-                        
-                        long blocks = waitTime / 2000;
-                        long remain = waitTime % 2000;
-                        
-                        for(long i=0; i<blocks; i++) {
-                            if (Thread.interrupted() || !getLoad(func)) throw new InterruptedException();
-                            Thread.sleep(2000);
-                        }
-                        if(remain > 0) Thread.sleep(remain);
                         
                     } else if (isLooping) {
                         long sleepTime = interval > 0 ? interval : 5000;
@@ -858,7 +865,7 @@ void startIndepThread(final String func, final long interval, final int maxCount
                         executedCount++; 
                         lastExecTime.put(func, System.currentTimeMillis());
                         
-                        traceLog("function_log", "[Execute] " + func + " 第" + executedCount + "次");
+                        traceLog("function_log", "[执行] " + func + " 第" + executedCount + "次");
                     }
                     
                     if (runOnce) break; 
@@ -870,11 +877,11 @@ void startIndepThread(final String func, final long interval, final int maxCount
                 } catch (InterruptedException e) {
                     break;
                 } catch (Throwable e) {
-                    traceLog("function_log", "[Error] " + func + ": " + e);
+                    traceLog("function_log", "[错误] " + func + ": " + e);
                     try { Thread.sleep(5000); } catch (InterruptedException ie) { break; }
                 }
             }
-            traceLog("function_log", "[Finish] " + func);
+            traceLog("function_log", "[结束] " + func);
             runningThreads.remove(func);
         }
     };
@@ -890,7 +897,7 @@ void stopThread(String func) {
     Thread t = (Thread)runningThreads.get(func);
     if (t != null) { 
         t.interrupt(); 
-        try { t.join(1000); } catch (Throwable e) {}
+        try { t.join(1000); } catch (Throwable e) { traceLog("function_log", "[stopThread] 异常: " + e); }
         runningThreads.remove(func); 
     }
 }
@@ -902,7 +909,7 @@ void stopAllThreads() {
         Thread t = (Thread)runningThreads.get((String)it.next());
         if (t != null) {
             t.interrupt();
-            try { t.join(1000); } catch (Throwable e) {}
+            try { t.join(1000); } catch (Throwable e) { traceLog("function_log", "[stopAllThreads] 异常: " + e); }
         }
     runningThreads.clear();
     }
@@ -927,13 +934,13 @@ void execFunc(String func, Object data, int type) {
         if (m[9].equals("1")) { // m[9] is GrpLimit
             String gid = "";
             if (type == 1 && data != null) {
-                try { gid = data.peerUin; } catch (Throwable e) {}
+                try { gid = data.peerUin; } catch (Throwable e) { traceLog("function_log", "[execFunc] 异常: " + e); }
             } else if (type >= 2 && type <= 6) {
                 try {
                     if (data instanceof String) gid = (String)data;
                     else if (data instanceof Object[]) gid = (String)((Object[])data)[0];
                     else if (data instanceof String[]) gid = ((String[])data)[0];
-                } catch (Throwable e) {}
+                } catch (Throwable e) { traceLog("function_log", "[execFunc] 异常: " + e); }
             }
             if (gid.equals("") || !getGrp(func, gid)) return;
             currentGroupId = gid;
@@ -1012,47 +1019,74 @@ void dispatchEvent(Object data, int type) {
 
 /** 预设：消息 */
 String[][] getPresetsCategory1() {
-    return new String[][]{
-        {"发文本", "sendMsg(qun, \"[atUin=\"+uin+\"]内容\", type);"},
-        {"发图片", "sendPic(qun, pluginPath+\"/test.jpg\", 2);"},
-        {"发语音", "sendPtt(qun, pluginPath+\"/test.amr\", 2);"},
-        {"发卡片", "sendCard(qun, \"{\\\"app\\\":\\\"miniapp\\\"}\", 2);"},
-        {"发文件", "sendFile(qun, pluginPath+\"/file.txt\", 2);"},
-        {"发视频", "sendVideo(qun, pluginPath+\"/video.mp4\", 2);"},
-        {"引用回复", "sendReplyMsg(qun, msgId, \"回复\", type);"},
-        {"撤回消息", "recallMsg(type, qun, msgId);"},
-        {"拍一拍", "sendPai(uin, qun, type);"}
-    };
+    String[][] arr = new String[9][2];
+            arr[0][0] = "发文本";
+            arr[0][1] = "sendMsg(qun, \"[atUin=\"+uin+\"]内容\", type);";
+            arr[1][0] = "发图片";
+            arr[1][1] = "sendPic(qun, pluginPath+\"/test.jpg\", 2);";
+            arr[2][0] = "发语音";
+            arr[2][1] = "sendPtt(qun, pluginPath+\"/test.amr\", 2);";
+            arr[3][0] = "发卡片";
+            arr[3][1] = "sendCard(qun, \"{\\\"app\\\":\\\"miniapp\\\"}\", 2);";
+            arr[4][0] = "发文件";
+            arr[4][1] = "sendFile(qun, pluginPath+\"/file.txt\", 2);";
+            arr[5][0] = "发视频";
+            arr[5][1] = "sendVideo(qun, pluginPath+\"/video.mp4\", 2);";
+            arr[6][0] = "引用回复";
+            arr[6][1] = "sendReplyMsg(qun, msgId, \"回复\", type);";
+            arr[7][0] = "撤回消息";
+            arr[7][1] = "recallMsg(type, qun, msgId);";
+            arr[8][0] = "拍一拍";
+            arr[8][1] = "sendPai(uin, qun, type);";
+    return arr;
 }
 
 /** 预设：好友 */
 String[][] getPresetsCategory2() {
-    return new String[][]{
-        {"获取好友", "List list = getAllFriend();"},
-        {"是否好友", "boolean flag = isFriend(uin);"},
-        {"点赞", "sendZan(uin, 10);"},
-        {"Uin转Uid", "String uid = getUidFromUin(uin);"},
-        {"Uid转Uin", "String uin2 = getUinFromUid(uid);"}
-    };
+    String[][] arr = new String[5][2];
+            arr[0][0] = "获取好友";
+            arr[0][1] = "List list = getAllFriend();";
+            arr[1][0] = "是否好友";
+            arr[1][1] = "boolean flag = isFriend(uin);";
+            arr[2][0] = "点赞";
+            arr[2][1] = "sendZan(uin, 10);";
+            arr[3][0] = "Uin转Uid";
+            arr[3][1] = "String uid = getUidFromUin(uin);";
+            arr[4][0] = "Uid转Uin";
+            arr[4][1] = "String uin2 = getUinFromUid(uid);";
+    return arr;
 }
 
 /** 预设：群管 */
 String[][] getPresetsCategory3() {
-    return new String[][]{
-        {"群列表", "List groups = getGroupList();"},
-        {"成员列表", "List members = getGroupMemberList(qun);"},
-        {"禁言列表", "List forbids = getProhibitList(qun);"},
-        {"群信息", "TroopInfo info = getGroupInfo(qun);"},
-        {"成员信息", "MemberInfo minfo = getMemberInfo(qun, uin);"},
-        {"禁言", "shutUp(qun, uin, 600);"},
-        {"全员禁言", "shutUpAll(qun, true);"},
-        {"踢人", "kickGroup(qun, uin, false);"},
-        {"设管理", "setGroupAdmin(qun, uin, true);"},
-        {"改头衔", "setGroupMemberTitle(qun, uin, \"头衔\");"},
-        {"改名片", "changeMemberName(qun, uin, \"名片\");"},
-        {"查是否禁言", "boolean shut = isShutUp(qun);"},
-        {"群打卡", "clockIn(qun);"}
-    };
+    String[][] arr = new String[13][2];
+            arr[0][0] = "群列表";
+            arr[0][1] = "List groups = getGroupList();";
+            arr[1][0] = "成员列表";
+            arr[1][1] = "List members = getGroupMemberList(qun);";
+            arr[2][0] = "禁言列表";
+            arr[2][1] = "List forbids = getProhibitList(qun);";
+            arr[3][0] = "群信息";
+            arr[3][1] = "TroopInfo info = getGroupInfo(qun);";
+            arr[4][0] = "成员信息";
+            arr[4][1] = "MemberInfo minfo = getMemberInfo(qun, uin);";
+            arr[5][0] = "禁言";
+            arr[5][1] = "shutUp(qun, uin, 600);";
+            arr[6][0] = "全员禁言";
+            arr[6][1] = "shutUpAll(qun, true);";
+            arr[7][0] = "踢人";
+            arr[7][1] = "kickGroup(qun, uin, false);";
+            arr[8][0] = "设管理";
+            arr[8][1] = "setGroupAdmin(qun, uin, true);";
+            arr[9][0] = "改头衔";
+            arr[9][1] = "setGroupMemberTitle(qun, uin, \"头衔\");";
+            arr[10][0] = "改名片";
+            arr[10][1] = "changeMemberName(qun, uin, \"名片\");";
+            arr[11][0] = "查是否禁言";
+            arr[11][1] = "boolean shut = isShutUp(qun);";
+            arr[12][0] = "群打卡";
+            arr[12][1] = "clockIn(qun);";
+    return arr;
 }
 
 /**
@@ -1061,15 +1095,19 @@ String[][] getPresetsCategory3() {
 void animateDialogIn(final android.app.Dialog d) {
     try {
         View v = d.getWindow().getDecorView();
-        ObjectAnimator alphaAnim = ObjectAnimator.ofFloat(v, "alpha", 0f, 1f);
-        ObjectAnimator scaleXAnim = ObjectAnimator.ofFloat(v, "scaleX", 0.92f, 1f);
-        ObjectAnimator scaleYAnim = ObjectAnimator.ofFloat(v, "scaleY", 0.92f, 1f);
+        ObjectAnimator alphaAnim = ObjectAnimator.ofFloat(v, "alpha", new float[]{0f, 1f});
+        ObjectAnimator scaleXAnim = ObjectAnimator.ofFloat(v, "scaleX", new float[]{0.92f, 1f});
+        ObjectAnimator scaleYAnim = ObjectAnimator.ofFloat(v, "scaleY", new float[]{0.92f, 1f});
         AnimatorSet animatorSet = new AnimatorSet();
-        animatorSet.playTogether(alphaAnim, scaleXAnim, scaleYAnim);
+        android.animation.Animator[] animArr = new android.animation.Animator[3];
+        animArr[0] = alphaAnim;
+        animArr[1] = scaleXAnim;
+        animArr[2] = scaleYAnim;
+        animatorSet.playTogether(animArr);
         animatorSet.setDuration(250);
         animatorSet.setInterpolator(new android.view.animation.DecelerateInterpolator());
         animatorSet.start();
-    } catch (Throwable e) {}
+    } catch (Throwable e) { traceLog("function_log", "[animateDialogIn] 异常: " + e); }
 }
 
 /**
@@ -1079,11 +1117,15 @@ void animateDialogOut(final android.app.Dialog d, final Runnable onEnd) {
     try {
         Window w = d.getWindow();
         View v = w.getDecorView();
-        ObjectAnimator alphaAnim = ObjectAnimator.ofFloat(v, "alpha", 1f, 0f);
-        ObjectAnimator scaleXAnim = ObjectAnimator.ofFloat(v, "scaleX", 1f, 0.95f);
-        ObjectAnimator scaleYAnim = ObjectAnimator.ofFloat(v, "scaleY", 1f, 0.95f);
+        ObjectAnimator alphaAnim = ObjectAnimator.ofFloat(v, "alpha", new float[]{1f, 0f});
+        ObjectAnimator scaleXAnim = ObjectAnimator.ofFloat(v, "scaleX", new float[]{1f, 0.95f});
+        ObjectAnimator scaleYAnim = ObjectAnimator.ofFloat(v, "scaleY", new float[]{1f, 0.95f});
         AnimatorSet animatorSet = new AnimatorSet();
-        animatorSet.playTogether(alphaAnim, scaleXAnim, scaleYAnim);
+        android.animation.Animator[] animArr = new android.animation.Animator[3];
+        animArr[0] = alphaAnim;
+        animArr[1] = scaleXAnim;
+        animArr[2] = scaleYAnim;
+        animatorSet.playTogether(animArr);
         animatorSet.setDuration(200);
         animatorSet.setInterpolator(new android.view.animation.AccelerateInterpolator());
         animatorSet.addListener(new android.animation.AnimatorListenerAdapter() {
@@ -1109,13 +1151,6 @@ EditText addNameInput(Activity a, LinearLayout parent, String name) {
     return et;
 }
 
-EditText addNameInput(Activity a, LinearLayout parent, String name, int bgColor) {
-    EditText et = makeInput(a, "功能名", bgColor);
-    if (name != null) et.setText(name);
-    parent.addView(et);
-    return et;
-}
-
 /**
  * 构建表单：代码
  */
@@ -1132,7 +1167,7 @@ EditText addCodeInput(Activity a, LinearLayout parent, String code, boolean isFi
     TextView tipFile = new TextView(a);
     tipFile.setText("/q/f/x.java   勾选后在输入框中输入文件路径,要确保路径正确");
     tipFile.setTextSize(9);
-    tipFile.setTextColor(Color.parseColor("#999999"));
+    tipFile.setTextColor(pc("#999999"));
     tipFile.setPadding(dp(a, 6), 0, 0, 0);
     rowFile.addView(tipFile);
 
@@ -1165,13 +1200,13 @@ void addPresetRows(Activity a, LinearLayout parent, final EditText et) {
     TextView pt = new TextView(a);
     pt.setText("快捷填入:");
     pt.setTextSize(10);
-    pt.setTextColor(Color.parseColor("#888888"));
+    pt.setTextColor(pc("#888888"));
     pt.setPadding(0, dp(a, 4), 0, 0);
     parent.addView(pt);
     
-    addPresetRow(a, parent, et, getPresetsCategory1(), Color.parseColor("#3B71FE"));
-    addPresetRow(a, parent, et, getPresetsCategory2(), Color.parseColor("#00C853"));
-    addPresetRow(a, parent, et, getPresetsCategory3(), Color.parseColor("#FF9800"));
+    addPresetRow(a, parent, et, getPresetsCategory1(), pc("#3B71FE"));
+    addPresetRow(a, parent, et, getPresetsCategory2(), pc("#00C853"));
+    addPresetRow(a, parent, et, getPresetsCategory3(), pc("#FF9800"));
 }
 
 /**
@@ -1222,15 +1257,15 @@ TextView[] addChipRows(Activity a, LinearLayout parent, final boolean[] cks, fin
     TextView tipsHeader = new TextView(a);
     tipsHeader.setText("回调详情:");
     tipsHeader.setTextSize(11);
-    tipsHeader.setTextColor(Color.parseColor("#666666"));
+    tipsHeader.setTextColor(pc("#666666"));
     tipsHeader.setPadding(0, dp(a, 10), 0, dp(a, 6));
     parent.addView(tipsHeader);
     
     fc.dynamicTips = new TextView(a);
     fc.dynamicTips.setTextSize(10);
-    fc.dynamicTips.setTextColor(Color.parseColor("#3B71FE"));
+    fc.dynamicTips.setTextColor(pc("#3B71FE"));
     fc.dynamicTips.setPadding(dp(a, 8), dp(a, 8), dp(a, 8), dp(a, 8));
-    fc.dynamicTips.setBackground(roundRect(Color.parseColor("#F0F5FF"), dp(a, 6)));
+    fc.dynamicTips.setBackground(roundRect(pc("#F0F5FF"), dp(a, 6)));
     fc.dynamicTips.setLineSpacing(dp(a, 2), 1.0f);
     parent.addView(fc.dynamicTips);
     
@@ -1239,7 +1274,7 @@ TextView[] addChipRows(Activity a, LinearLayout parent, final boolean[] cks, fin
     TextView sub = new TextView(a);
     sub.setText("挂载回调(多选):");
     sub.setTextSize(11);
-    sub.setTextColor(Color.parseColor("#666666"));
+    sub.setTextColor(pc("#666666"));
     sub.setPadding(0, dp(a, 10), 0, dp(a, 6));
     parent.addView(sub);
     
@@ -1386,7 +1421,7 @@ void addPreprocRow(Activity a, LinearLayout parent, FormComponents fc, int preTy
     TextView styleTitle = new TextView(a);
     styleTitle.setText("选择样式效果:");
     styleTitle.setTextSize(11);
-    styleTitle.setTextColor(Color.parseColor("#666666"));
+    styleTitle.setTextColor(pc("#666666"));
     styleTitle.setPadding(0, 0, 0, dp(a, 6));
     container.addView(styleTitle);
     
@@ -1445,12 +1480,13 @@ void addPreprocRow(Activity a, LinearLayout parent, FormComponents fc, int preTy
     
     fc.chipPreType = new TextView(a);
     fc.chipPreType.setTag(currentType[0]);
+    fc.chipPreType.setTextColor(tc(a, "on_surface"));
     
     fc.prePreview = new TextView(a);
     fc.prePreview.setTextSize(10);
-    fc.prePreview.setTextColor(Color.parseColor("#3B71FE"));
+    fc.prePreview.setTextColor(pc("#3B71FE"));
     fc.prePreview.setPadding(dp(a, 8), dp(a, 8), dp(a, 8), dp(a, 8));
-    fc.prePreview.setBackground(roundRect(Color.parseColor("#F0F5FF"), dp(a, 6)));
+    fc.prePreview.setBackground(roundRect(pc("#F0F5FF"), dp(a, 6)));
     fc.prePreview.setLineSpacing(dp(a, 2), 1.0f);
     fc.prePreview.setVisibility(currentType[0] == 0 ? View.GONE : View.VISIBLE);
     if (currentType[0] > 0) {
@@ -1463,7 +1499,7 @@ void addPreprocRow(Activity a, LinearLayout parent, FormComponents fc, int preTy
     TextView detailedTips = new TextView(a);
     detailedTips.setText("提示：选中样式后，每个字符后会自动添加对应装饰");
     detailedTips.setTextSize(9);
-    detailedTips.setTextColor(Color.parseColor("#888888"));
+    detailedTips.setTextColor(pc("#888888"));
     detailedTips.setPadding(dp(a, 4), dp(a, 4), dp(a, 4), dp(a, 8));
     detailedTips.setLineSpacing(dp(a, 2), 1.0f);
     container.addView(detailedTips);
@@ -1476,14 +1512,14 @@ void addPreprocRow(Activity a, LinearLayout parent, FormComponents fc, int preTy
     TextView tailTitle = new TextView(a);
     tailTitle.setText("小尾巴(前缀 msg 后缀)");
     tailTitle.setTextSize(11);
-    tailTitle.setTextColor(Color.parseColor("#666666"));
+    tailTitle.setTextColor(pc("#666666"));
     tailTitle.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 2.0f));
     titleRow.addView(tailTitle);
     
     TextView sendTitle = new TextView(a);
     sendTitle.setText("连发");
     sendTitle.setTextSize(11);
-    sendTitle.setTextColor(Color.parseColor("#666666"));
+    sendTitle.setTextColor(pc("#666666"));
     sendTitle.setGravity(Gravity.CENTER);
     sendTitle.setLayoutParams(new LinearLayout.LayoutParams(dp(a, 50), -2));
     titleRow.addView(sendTitle);
@@ -1495,7 +1531,7 @@ void addPreprocRow(Activity a, LinearLayout parent, FormComponents fc, int preTy
     TextView concatTitle = new TextView(a);
     concatTitle.setText("拼接");
     concatTitle.setTextSize(11);
-    concatTitle.setTextColor(Color.parseColor("#666666"));
+    concatTitle.setTextColor(pc("#666666"));
     concatTitle.setGravity(Gravity.CENTER);
     concatTitle.setLayoutParams(new LinearLayout.LayoutParams(dp(a, 50), -2));
     titleRow.addView(concatTitle);
@@ -1506,19 +1542,27 @@ void addPreprocRow(Activity a, LinearLayout parent, FormComponents fc, int preTy
     inputRow.setPadding(0, dp(a, 4), 0, 0);
     container.addView(inputRow);
     
-    fc.etPreTail = makeInput(a, "例如: 前缀 msg 后缀", Color.parseColor("#F7F8FA"));
+    fc.etPreTail = makeInput(a, "例如: 前缀 msg 后缀", null);
     if (preTail != null) fc.etPreTail.setText(preTail);
     fc.etPreTail.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 2.0f));
     inputRow.addView(fc.etPreTail);
     
-    fc.etRepeatSend = makeTinyInput(a, "次", Color.parseColor("#F7F8FA"));
+    fc.etRepeatSend = makeInput(a, "次", null);
+    fc.etRepeatSend.setTextSize(11);
+    fc.etRepeatSend.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+    fc.etRepeatSend.setGravity(Gravity.CENTER);
+    fc.etRepeatSend.setLayoutParams(new LinearLayout.LayoutParams(dp(a, 45), dp(a, 32)));
     if (repeatSend > 0) fc.etRepeatSend.setText(String.valueOf(repeatSend));
     LinearLayout.LayoutParams lpRs = new LinearLayout.LayoutParams(dp(a, 50), dp(a, 32));
     lpRs.setMargins(dp(a, 8), 0, 0, 0);
     fc.etRepeatSend.setLayoutParams(lpRs);
     inputRow.addView(fc.etRepeatSend);
     
-    fc.etRepeatConcat = makeTinyInput(a, "次", Color.parseColor("#F7F8FA"));
+    fc.etRepeatConcat = makeInput(a, "次", null);
+    fc.etRepeatConcat.setTextSize(11);
+    fc.etRepeatConcat.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+    fc.etRepeatConcat.setGravity(Gravity.CENTER);
+    fc.etRepeatConcat.setLayoutParams(new LinearLayout.LayoutParams(dp(a, 45), dp(a, 32)));
     if (repeatConcat > 0) fc.etRepeatConcat.setText(String.valueOf(repeatConcat));
     LinearLayout.LayoutParams lpRc = new LinearLayout.LayoutParams(dp(a, 50), dp(a, 32));
     lpRc.setMargins(dp(a, 8), 0, 0, 0);
@@ -1528,7 +1572,7 @@ void addPreprocRow(Activity a, LinearLayout parent, FormComponents fc, int preTy
     TextView inputTips = new TextView(a);
     inputTips.setText("提示: msg会被替换为实际消息内容\n连发: 重复发送N次  拼接: 内容重复N次后再发");
     inputTips.setTextSize(9);
-    inputTips.setTextColor(Color.parseColor("#AAAAAA"));
+    inputTips.setTextColor(pc("#AAAAAA"));
     inputTips.setPadding(0, dp(a, 4), 0, 0);
     inputTips.setLineSpacing(dp(a, 2), 1.0f);
     container.addView(inputTips);
@@ -1568,7 +1612,7 @@ FormComponents addLoopRow(Activity a, LinearLayout parent, boolean isLoop, long 
     TextView lblInterval = new TextView(a);
     lblInterval.setText("间隔(毫秒)");
     lblInterval.setTextSize(10);
-    lblInterval.setTextColor(Color.parseColor("#888888"));
+    lblInterval.setTextColor(pc("#888888"));
     leftCol.addView(lblInterval);
     
     fc.etInterval = makeInput(a, "5000", null);
@@ -1587,7 +1631,7 @@ FormComponents addLoopRow(Activity a, LinearLayout parent, boolean isLoop, long 
     TextView lblCount = new TextView(a);
     lblCount.setText("次数(0=无限)");
     lblCount.setTextSize(10);
-    lblCount.setTextColor(Color.parseColor("#888888"));
+    lblCount.setTextColor(pc("#888888"));
     rightCol.addView(lblCount);
     
     fc.etCount = makeInput(a, "0", null);
@@ -1615,7 +1659,7 @@ EditText addTimeRow(Activity a, LinearLayout parent, String timeVal) {
     TextView lblTime = new TextView(a);
     lblTime.setText("定时(可选):");
     lblTime.setTextSize(11);
-    lblTime.setTextColor(Color.parseColor("#666666"));
+    lblTime.setTextColor(pc("#666666"));
     lblTime.setPadding(0, dp(a, 10), 0, dp(a, 4));
     parent.addView(lblTime);
     
@@ -1623,18 +1667,18 @@ EditText addTimeRow(Activity a, LinearLayout parent, String timeVal) {
     timeRow.setOrientation(LinearLayout.HORIZONTAL);
     parent.addView(timeRow);
     
-    final EditText etTime = makeInput(a, "时 分 秒 或 w1 时 分 秒 或 1 时 分 秒", Color.parseColor("#F7F8FA"));
+    final EditText etTime = makeInput(a, "时 分 秒 或 w1 时 分 秒 或 1 时 分 秒", null);
     if (timeVal != null) etTime.setText(timeVal);
     etTime.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
     timeRow.addView(etTime);
     
-    TextView btnSchedule = createButton(a, "📅", Color.parseColor("#333333"), Color.parseColor("#E8F0FE"), 16f, 6, 12, 0, false, 0, 0, null);
+    TextView btnSchedule = createButton(a, "📅", pc("#333333"), pc("#E8F0FE"), 16f, 6, 12, 0, false, 0, 0, null);
     btnSchedule.setOnClickListener(new View.OnClickListener() {
         public void onClick(View v) { showSchedulePicker(a, etTime); }
     });
     timeRow.addView(btnSchedule);
     
-    TextView btnTime = createButton(a, "⏱", Color.parseColor("#333333"), Color.parseColor("#E8F0FE"), 16f, 6, 12, 0, false, 0, 0, null);
+    TextView btnTime = createButton(a, "⏱", pc("#333333"), pc("#E8F0FE"), 16f, 6, 12, 0, false, 0, 0, null);
     btnTime.setOnClickListener(new View.OnClickListener() {
         public void onClick(View v) { showTimePicker(a, etTime, null); }
     });
@@ -1707,11 +1751,13 @@ void showSchedulePicker(Activity a, final EditText target) {
                 title.setText("日程配置");
                 title.setTextSize(18);
                 title.setTypeface(null, Typeface.BOLD);
+                title.setTextColor(tc(a, "on_surface"));
                 card.addView(title);
                 
                 TextView subtitle = new TextView(a);
                 subtitle.setText("配置定时任务的执行时间");
                 subtitle.setTextSize(12);
+                subtitle.setTextColor(tc(a, "on_surface_variant"));
                 subtitle.setPadding(0, dp(a, 4), 0, dp(a, 12));
                 card.addView(subtitle);
                 
@@ -1742,6 +1788,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                         if (currentMode[0] == 0) { 
                             TextView hint = new TextView(a);
                             hint.setText("设置每日执行的时间 (时:分:秒)");
+                            hint.setTextColor(tc(a, "on_surface_variant"));
                             hint.setTextSize(12);
                             hint.setPadding(0, 0, 0, dp(a, 8));
                             container.addView(hint);
@@ -1759,6 +1806,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                             colon1.setText(":");
                             colon1.setTextSize(14);
                             colon1.setGravity(Gravity.CENTER);
+                            colon1.setTextColor(tc(a, "on_surface_variant"));
                             colon1.setPadding(dp(a, 4), 0, dp(a, 4), 0);
                             timeRow.addView(colon1);
                             
@@ -1771,6 +1819,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                             colon2.setText(":");
                             colon2.setTextSize(14);
                             colon2.setGravity(Gravity.CENTER);
+                            colon2.setTextColor(tc(a, "on_surface_variant"));
                             colon2.setPadding(dp(a, 4), 0, dp(a, 4), 0);
                             timeRow.addView(colon2);
                             
@@ -1784,7 +1833,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                                     hourInput.setText(currentParts[0]);
                                     minuteInput.setText(currentParts[1]);
                                     secondInput.setText(currentParts[2]);
-                                } catch (Exception e) {}
+                                } catch (Throwable e) { traceLog("function_log", "[run] 异常: " + e); }
                             } else {
                                 hourInput.setText("12");
                                 minuteInput.setText("00");
@@ -1794,6 +1843,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                         } else if (currentMode[0] == 1) { 
                             TextView hint = new TextView(a);
                             hint.setText("设置每周执行 (星期 时:分:秒)");
+                            hint.setTextColor(tc(a, "on_surface_variant"));
                             hint.setTextSize(12);
                             hint.setPadding(0, 0, 0, dp(a, 8));
                             container.addView(hint);
@@ -1824,6 +1874,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                             colon1.setText(":");
                             colon1.setTextSize(14);
                             colon1.setGravity(Gravity.CENTER);
+                            colon1.setTextColor(tc(a, "on_surface_variant"));
                             colon1.setPadding(dp(a, 4), 0, dp(a, 4), 0);
                             timeRow.addView(colon1);
                             
@@ -1836,6 +1887,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                             colon2.setText(":");
                             colon2.setTextSize(14);
                             colon2.setGravity(Gravity.CENTER);
+                            colon2.setTextColor(tc(a, "on_surface_variant"));
                             colon2.setPadding(dp(a, 4), 0, dp(a, 4), 0);
                             timeRow.addView(colon2);
                             
@@ -1853,7 +1905,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                                     hourInput.setText(currentParts[1]);
                                     minuteInput.setText(currentParts[2]);
                                     secondInput.setText(currentParts[3]);
-                                } catch (Exception e) {}
+                                } catch (Throwable e) { traceLog("function_log", "[run] 异常: " + e); }
                             } else {
                                 daySpinner.setSelection(0);
                                 hourInput.setText("12");
@@ -1864,6 +1916,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                         } else if (currentMode[0] == 2) { 
                             TextView hint = new TextView(a);
                             hint.setText("设置每月执行 (日期 时:分:秒)");
+                            hint.setTextColor(tc(a, "on_surface_variant"));
                             hint.setTextSize(12);
                             hint.setPadding(0, 0, 0, dp(a, 8));
                             container.addView(hint);
@@ -1891,6 +1944,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                             colon1.setText(":");
                             colon1.setTextSize(14);
                             colon1.setGravity(Gravity.CENTER);
+                            colon1.setTextColor(tc(a, "on_surface_variant"));
                             colon1.setPadding(dp(a, 4), 0, dp(a, 4), 0);
                             timeRow.addView(colon1);
                             
@@ -1903,6 +1957,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                             colon2.setText(":");
                             colon2.setTextSize(14);
                             colon2.setGravity(Gravity.CENTER);
+                            colon2.setTextColor(tc(a, "on_surface_variant"));
                             colon2.setPadding(dp(a, 4), 0, dp(a, 4), 0);
                             timeRow.addView(colon2);
                             
@@ -1917,7 +1972,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                                     hourInput.setText(currentParts[1]);
                                     minuteInput.setText(currentParts[2]);
                                     secondInput.setText(currentParts[3]);
-                                } catch (Exception e) {}
+                                } catch (Throwable e) { traceLog("function_log", "[run] 异常: " + e); }
                             } else {
                                 dayInput.setText("1");
                                 hourInput.setText("00");
@@ -1928,6 +1983,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                         } else if (currentMode[0] == 3) { 
                             TextView hint = new TextView(a);
                             hint.setText("设置间隔执行 (时:分:秒)");
+                            hint.setTextColor(tc(a, "on_surface_variant"));
                             hint.setTextSize(12);
                             hint.setPadding(0, 0, 0, dp(a, 8));
                             container.addView(hint);
@@ -1945,6 +2001,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                             colon1.setText(":");
                             colon1.setTextSize(14);
                             colon1.setGravity(Gravity.CENTER);
+                            colon1.setTextColor(tc(a, "on_surface_variant"));
                             colon1.setPadding(dp(a, 4), 0, dp(a, 4), 0);
                             intervalRow.addView(colon1);
                             
@@ -1957,6 +2014,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                             colon2.setText(":");
                             colon2.setTextSize(14);
                             colon2.setGravity(Gravity.CENTER);
+                            colon2.setTextColor(tc(a, "on_surface_variant"));
                             colon2.setPadding(dp(a, 4), 0, dp(a, 4), 0);
                             intervalRow.addView(colon2);
                             
@@ -1970,14 +2028,14 @@ void showSchedulePicker(Activity a, final EditText target) {
                                     hourInput.setText(currentParts[0]);
                                     minuteInput.setText(currentParts[1]);
                                     secondInput.setText(currentParts[2]);
-                                } catch (Exception e) {}
+                                } catch (Throwable e) { traceLog("function_log", "[run] 异常: " + e); }
                             } else {
                                 hourInput.setText("01");
                                 minuteInput.setText("00");
                                 secondInput.setText("00");
                             }
                         }
-                        applyViewTheme(a, container);
+                        applyUiTheme(a, d, 1);
                     }
                 };
                 
@@ -2097,7 +2155,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                 d.setContentView(outer);
                 d.getWindow().setLayout(Math.min(dp(a, 400), a.getResources().getDisplayMetrics().widthPixels - dp(a, 32)), -2);
                 d.show();
-                applyViewTheme(a, outer);
+                applyUiTheme(a, d, 1);
                 animateDialogIn(d);
             } catch (Throwable e) {
                 traceLog("function_log", "[showSchedulePicker]" + e);
@@ -2155,16 +2213,16 @@ void showEdit(Activity a, final String func, final String gid, final String gn) 
         String preTail = "";
         int repeatSend = 0;
         int repeatConcat = 0;
-        try { interval = Long.parseLong(m[12]); } catch (Throwable e) {}
-        try { loopCount = Integer.parseInt(m[14]); } catch (Throwable e) {}
-        try { repeatSend = Integer.parseInt(m[17]); } catch (Throwable e) {}
-        try { repeatConcat = Integer.parseInt(m[18]); } catch (Throwable e) {}
+        try { interval = Long.parseLong(m[12]); } catch (Throwable e) { traceLog("function_log", "[showEdit] 异常: " + e); }
+        try { loopCount = Integer.parseInt(m[14]); } catch (Throwable e) { traceLog("function_log", "[showEdit] 异常: " + e); }
+        try { repeatSend = Integer.parseInt(m[17]); } catch (Throwable e) { traceLog("function_log", "[showEdit] 异常: " + e); }
+        try { repeatConcat = Integer.parseInt(m[18]); } catch (Throwable e) { traceLog("function_log", "[showEdit] 异常: " + e); }
         
         try {
             JSONObject jo = new JSONObject(getString("HotPlug", "meta_" + func, ""));
             preType = jo.optInt("pt");
             preTail = jo.optString("tail");
-        } catch (Throwable e) {}
+        } catch (Throwable e) { traceLog("function_log", "[showEdit] 异常: " + e); }
         
         final boolean[] cks = {
             m[2].equals("1"), m[3].equals("1"), m[4].equals("1"), 
@@ -2203,6 +2261,7 @@ void showEdit(Activity a, final String func, final String gid, final String gn) 
         TextView t = new TextView(a);
         t.setText("编辑:" + func);
         t.setTextSize(16);
+        t.setTextColor(tc(a, "on_surface"));
         card.addView(t);
         
         final EditText etName = addNameInput(a, card, func);
@@ -2212,6 +2271,7 @@ void showEdit(Activity a, final String func, final String gid, final String gn) 
         TextView tips = new TextView(a);
         tips.setText("变量:qun群号 uinQQ号 msg消息内容 msgId消息ID type类型(1私聊2群聊) operator操作者 time禁言秒数");
         tips.setTextSize(9);
+        tips.setTextColor(tc(a, "on_surface_variant"));
         tips.setPadding(0, dp(a, 4), 0, 0);
         card.addView(tips);
         
@@ -2285,8 +2345,8 @@ void showEdit(Activity a, final String func, final String gid, final String gn) 
                         }
                     }
                     preTailVal = fc.etPreTail.getText().toString();
-                    try { repeatSendVal = Integer.parseInt(fc.etRepeatSend.getText().toString()); } catch (Throwable e) {}
-                    try { repeatConcatVal = Integer.parseInt(fc.etRepeatConcat.getText().toString()); } catch (Throwable e) {}
+                    try { repeatSendVal = Integer.parseInt(fc.etRepeatSend.getText().toString()); } catch (Throwable e) { traceLog("function_log", "[showEdit] 异常: " + e); }
+                    try { repeatConcatVal = Integer.parseInt(fc.etRepeatConcat.getText().toString()); } catch (Throwable e) { traceLog("function_log", "[showEdit] 异常: " + e); }
                 }
                 
                 String rawTime = etTime.getText().toString().trim();
@@ -2326,7 +2386,7 @@ void showEdit(Activity a, final String func, final String gid, final String gn) 
         finalParams.verticalMargin = 0.0f;
         d.getWindow().setAttributes(finalParams);
         d.show();
-        applyViewTheme(a, outer);
+        applyUiTheme(a, d, 1);
         animateDialogIn(d);
         
     } catch (Throwable e) {
@@ -2375,18 +2435,17 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                 });
 
                 FrameLayout root = new FrameLayout(a);
-                root.setPadding(dp(a, 20), dp(a, 60), dp(a, 20), dp(a, 20));
+                root.setPadding(dp(a, 20), dp(a, 16), dp(a, 20), dp(a, 20));
 
                 final SwipeRefreshLayout swipe = new SwipeRefreshLayout(a);
-                root.addView(swipe);
+                root.addView(swipe, new FrameLayout.LayoutParams(-1, -2));
                 swipe.setPadding(0, 0, 0, 0);
 
                 final ScrollView sc = new ScrollView(a);
-                swipe.addView(sc);
+                swipe.addView(sc, new FrameLayout.LayoutParams(-1, -2));
 
                 final LinearLayout cd = new LinearLayout(a);
                 cd.setOrientation(LinearLayout.VERTICAL);
-                cd.setBackground(roundRect(tc(a, "surface"), dp(a, 12)));
                 cd.setPadding(dp(a, 16), dp(a, 16), dp(a, 16), dp(a, 16));
                 sc.addView(cd);
 
@@ -2394,10 +2453,12 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                 t.setText("功能管理");
                 t.setTextSize(16);
                 t.setTypeface(null, Typeface.BOLD);
+                t.setTextColor(tc(a, "on_surface"));
                 cd.addView(t);
 
                 TextView s = new TextView(a);
-                s.setText(gn + (g.equals("") ? "" : " (" + g + ")"));
+                String gn2 = (gn == null || gn.trim().length() == 0) ? "未知" : gn;
+                s.setText(gn2 + (g.equals("") ? "" : " (" + g + ")"));
                 s.setTextSize(12);
                 s.setTextColor(tc(a, "primary"));
                 s.setPadding(0, 0, 0, dp(a, 6));
@@ -2406,12 +2467,13 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                 TextView tips = new TextView(a);
                 tips.setText("下拉可刷新状态");
                 tips.setTextSize(9);
+                tips.setTextColor(tc(a, "on_surface_variant"));
                 tips.setPadding(0, 0, 0, dp(a, 8));
                 cd.addView(tips);
 
                 final LinearLayout editorContainer = new LinearLayout(a);
                 editorContainer.setOrientation(LinearLayout.VERTICAL);
-                editorContainer.setBackground(roundRect(Color.parseColor("#F0F7FF"), dp(a, 8)));
+                editorContainer.setBackground(roundRect(pc("#F0F7FF"), dp(a, 8)));
                 editorContainer.setPadding(dp(a, 12), dp(a, 12), dp(a, 12), dp(a, 12));
                 editorContainer.setVisibility(View.GONE);
                 editorContainer.setAlpha(0f);
@@ -2435,6 +2497,7 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                 TextView varTips = new TextView(a);
                 varTips.setText("变量:qun群号 uinQQ msg消息 type类型(1私2群) operator操作者 time秒");
                 varTips.setTextSize(9);
+                varTips.setTextColor(tc(a, "on_surface_variant"));
                 varTips.setPadding(0, dp(a, 4), 0, 0);
                 editorContainer.addView(varTips);
 
@@ -2482,7 +2545,7 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                 cd.addView(btnAdd, cd.indexOfChild(lst), btnAddLp);
 
                 View ln = new View(a);
-                ln.setBackgroundColor(Color.parseColor("#EEEEEE"));
+                ln.setBackgroundColor(pc("#EEEEEE"));
                 ln.setLayoutParams(new LinearLayout.LayoutParams(-1, dp(a, 1)));
                 ((LinearLayout.LayoutParams) ln.getLayoutParams()).setMargins(0, dp(a, 10), 0, dp(a, 10));
                 cd.addView(ln, cd.indexOfChild(lst));
@@ -2490,6 +2553,7 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                 TextView lt = new TextView(a);
                 lt.setText("功能列表(长按编辑, 左滑删除):");
                 lt.setTextSize(12);
+                lt.setTextColor(tc(a, "on_surface_variant"));
                 cd.addView(lt, cd.indexOfChild(lst));
 
                 final Runnable refreshCallback = new Runnable() {
@@ -2503,6 +2567,7 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                                     if (fs.length == 0 || (fs.length == 1 && fs[0].equals(""))) {
                                         TextView e = new TextView(a);
                                         e.setText("暂无功能");
+                                        e.setTextColor(tc(a, "on_surface_variant"));
                                         lst.addView(e);
                                     } else {
                                         for (String f : fs) {
@@ -2580,10 +2645,10 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                             preTailVal = fc.etPreTail.getText().toString();
                             try {
                                 repeatSendVal = Integer.parseInt(fc.etRepeatSend.getText().toString());
-                            } catch (Throwable e) {}
+                            } catch (Throwable e) { traceLog("function_log", "[run] 异常: " + e); }
                             try {
                                 repeatConcatVal = Integer.parseInt(fc.etRepeatConcat.getText().toString());
-                            } catch (Throwable e) {}
+                            } catch (Throwable e) { traceLog("function_log", "[run] 异常: " + e); }
                         }
 
                         String rawTime = etTime.getText().toString().trim();
@@ -2666,10 +2731,14 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                             editorContainer.setTranslationY(-dp(a, 20));
 
                             AnimatorSet set = new AnimatorSet();
-                            ObjectAnimator scale = ObjectAnimator.ofFloat(editorContainer, "scaleY", 0.8f, 1f);
-                            ObjectAnimator alpha = ObjectAnimator.ofFloat(editorContainer, "alpha", 0f, 1f);
-                            ObjectAnimator trans = ObjectAnimator.ofFloat(editorContainer, "translationY", -dp(a, 20), 0f);
-                            set.playTogether(scale, alpha, trans);
+                            ObjectAnimator scale = ObjectAnimator.ofFloat(editorContainer, "scaleY", new float[]{0.8f, 1f});
+                            ObjectAnimator alpha = ObjectAnimator.ofFloat(editorContainer, "alpha", new float[]{0f, 1f});
+                            ObjectAnimator trans = ObjectAnimator.ofFloat(editorContainer, "translationY", new float[]{-dp(a, 20), 0f});
+                            android.animation.Animator[] animArr = new android.animation.Animator[3];
+                            animArr[0] = scale;
+                            animArr[1] = alpha;
+                            animArr[2] = trans;
+                            set.playTogether(animArr);
                             set.setDuration(400);
                             set.setInterpolator(new OvershootInterpolator(1.2f));
                             set.start();
@@ -2696,7 +2765,7 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                 d.setContentView(root);
                 d.getWindow().setLayout(Math.min(dp(a, 400), screenWidth - dp(a, 32)), WindowManager.LayoutParams.WRAP_CONTENT);
                 d.show();
-                applyViewTheme(a, root);
+                applyUiTheme(a, d, 1);
                 animateDialogIn(d);
 
             } catch (Throwable e) {
@@ -2729,10 +2798,10 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
         int loopCount = 0;
         try {
             interval = Long.parseLong(m[12]); // Interval is 12
-        } catch (Throwable e) {}
+        } catch (Throwable e) { traceLog("function_log", "[createItem] 异常: " + e); }
         try {
             loopCount = Integer.parseInt(m[14]); // Count is 14
-        } catch (Throwable e) {}
+        } catch (Throwable e) { traceLog("function_log", "[createItem] 异常: " + e); }
         boolean isLoop = m[13].equals("1"); // Loop is 13
         String timeCfg = m[11]; // Time is 11
         boolean isScheduled = (timeCfg != null && !timeCfg.equals(""));
@@ -2755,7 +2824,7 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
 
         final LinearLayout content = new LinearLayout(a);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setBackground(makeFeedbackBg(Color.parseColor("#F8F9FA"), adjustColor(Color.parseColor("#F8F9FA"), 0.85f), dp(a, 8)));
+        content.setBackground(makeFeedbackBg(pc("#F8F9FA"), adjustColor(pc("#F8F9FA"), 0.85f), dp(a, 8)));
         
         LinearLayout.LayoutParams contentParams = new LinearLayout.LayoutParams(visibleContentWidth, LinearLayout.LayoutParams.WRAP_CONTENT);
         contentParams.setMargins(0, 0, dp(a, 1), 0); 
@@ -2787,7 +2856,7 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
         final TextView tv = new TextView(a);
         tv.setText("📦 " + f);
         tv.setTextSize(14);
-        tv.setTextColor(Color.parseColor("#222222"));
+        tv.setTextColor(pc("#222222"));
         tv.setSingleLine(true);
         tv.setClickable(false);
         titleScroll.addView(tv);
@@ -2803,7 +2872,7 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
             TextView loopInfo = new TextView(a);
             loopInfo.setText(interval + "ms×" + loopCount);
             loopInfo.setTextSize(10);
-            loopInfo.setTextColor(Color.parseColor("#FF9800"));
+            loopInfo.setTextColor(pc("#FF9800"));
             loopInfo.setPadding(0, 0, dp(a, 4), 0);
             loopInfo.setMaxWidth(dp(a, 70));
             loopInfo.setSingleLine(true);
@@ -2812,7 +2881,7 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
         }
 
         final boolean[] mainOn = {hasAnyCallback ? getRun(f) : getLoad(f)};
-        final TextView btnMain = makeSwitch(a, mainOn[0], hasAnyCallback ? Color.parseColor("#00C853") : tc(a, "primary"));
+        final TextView btnMain = makeSwitch(a, mainOn[0], hasAnyCallback ? pc("#00C853") : tc(a, "primary"));
         btnMain.setMinWidth(dp(a, 50));
         btnMain.setMinimumWidth(dp(a, 50));
         LinearLayout.LayoutParams btnMainParams = new LinearLayout.LayoutParams(dp(a, 50), LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -2856,11 +2925,11 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
         content.addView(exp);
 
         View dlv = new View(a);
-        dlv.setBackgroundColor(Color.parseColor("#E0E0E0"));
+        dlv.setBackgroundColor(pc("#E0E0E0"));
         dlv.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(a, 1)));
         exp.addView(dlv);
 
-        TextView btnTestExp = createButton(a, "▶ 测试执行", tc(a, "primary"), Color.parseColor("#E8EEFF"), 12f, 6, 0, 8, false, 0, 0, null);
+        TextView btnTestExp = createButton(a, "▶ 测试执行", tc(a, "primary"), pc("#E8EEFF"), 12f, 6, 0, 8, false, 0, 0, null);
         btnTestExp.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 testCode(f, null, f);
@@ -2874,33 +2943,33 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
         if (hasAnyCallback) {
             LinearLayout rRun = new LinearLayout(a); rRun.setOrientation(LinearLayout.HORIZONTAL); rRun.setGravity(Gravity.CENTER_VERTICAL); rRun.setPadding(0, dp(a, 8), 0, 0); exp.addView(rRun);
             TextView l = new TextView(a); l.setText("运行开关"); l.setTextSize(13); l.setTextColor(tc(a, "on_surface_variant")); l.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f)); rRun.addView(l);
-            TextView state = new TextView(a); state.setText("主开关统管"); state.setTextSize(11); state.setTextColor(Color.parseColor("#999999")); rRun.addView(state);
+            TextView state = new TextView(a); state.setText("主开关统管"); state.setTextSize(11); state.setTextColor(pc("#999999")); rRun.addView(state);
         } else {
              LinearLayout rRun = new LinearLayout(a); rRun.setOrientation(LinearLayout.HORIZONTAL); rRun.setGravity(Gravity.CENTER_VERTICAL); rRun.setPadding(0, dp(a, 8), 0, 0); exp.addView(rRun);
              TextView l = new TextView(a); l.setText("允许运行"); l.setTextSize(13); l.setTextColor(tc(a, "on_surface_variant")); l.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f)); rRun.addView(l);
-             final boolean[] runOn = {getRun(f)}; final TextView btnRun = makeSwitch(a, runOn[0], Color.parseColor("#00C853")); rRun.addView(btnRun);
-             btnRun.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { runOn[0] = !runOn[0]; setRun(f, runOn[0]); setSwitch(btnRun, runOn[0], Color.parseColor("#00C853")); }});
+             final boolean[] runOn = {getRun(f)}; final TextView btnRun = makeSwitch(a, runOn[0], pc("#00C853")); rRun.addView(btnRun);
+             btnRun.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { runOn[0] = !runOn[0]; setRun(f, runOn[0]); setSwitch(btnRun, runOn[0], pc("#00C853")); }});
              
              if (isLoop) {
                 LinearLayout rLoop = new LinearLayout(a); rLoop.setOrientation(LinearLayout.HORIZONTAL); rLoop.setGravity(Gravity.CENTER_VERTICAL); rLoop.setPadding(0, dp(a, 8), 0, 0); exp.addView(rLoop);
                 TextView l2 = new TextView(a); String countText = loopCount > 0 ? (" (剩" + loopCount + "次)") : ""; l2.setText("循环执行" + countText); l2.setTextSize(13); l2.setTextColor(tc(a, "on_surface_variant")); l2.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f)); rLoop.addView(l2);
-                final boolean[] loopOn = {getLoop(f)}; final TextView btnLoop = makeSwitch(a, loopOn[0], Color.parseColor("#FF9800")); rLoop.addView(btnLoop);
-                btnLoop.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { loopOn[0] = !loopOn[0]; setLoop(f, loopOn[0]); setSwitch(btnLoop, loopOn[0], Color.parseColor("#FF9800")); toast(loopOn[0] ? "循环已开" : "循环已关"); }});
+                final boolean[] loopOn = {getLoop(f)}; final TextView btnLoop = makeSwitch(a, loopOn[0], pc("#FF9800")); rLoop.addView(btnLoop);
+                btnLoop.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { loopOn[0] = !loopOn[0]; setLoop(f, loopOn[0]); setSwitch(btnLoop, loopOn[0], pc("#FF9800")); toast(loopOn[0] ? "循环已开" : "循环已关"); }});
              }
         }
         
         if (hasGrp && !gid.equals("")) {
              LinearLayout rGrp = new LinearLayout(a); rGrp.setOrientation(LinearLayout.HORIZONTAL); rGrp.setGravity(Gravity.CENTER_VERTICAL); rGrp.setPadding(0, dp(a, 8), 0, 0); exp.addView(rGrp);
              TextView l = new TextView(a); l.setText("本群运行"); l.setTextSize(13); l.setTextColor(tc(a, "on_surface_variant")); l.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f)); rGrp.addView(l);
-             final boolean[] grpOn = {getGrp(f, gid)}; final TextView btnGrp = makeSwitch(a, grpOn[0], Color.parseColor("#FF9800")); rGrp.addView(btnGrp);
-             btnGrp.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { grpOn[0] = !grpOn[0]; setGrp(f, gid, grpOn[0]); setSwitch(btnGrp, grpOn[0], Color.parseColor("#FF9800")); toast(grpOn[0] ? "本群已开启" : "本群已关闭"); }});
+             final boolean[] grpOn = {getGrp(f, gid)}; final TextView btnGrp = makeSwitch(a, grpOn[0], pc("#FF9800")); rGrp.addView(btnGrp);
+             btnGrp.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { grpOn[0] = !grpOn[0]; setGrp(f, gid, grpOn[0]); setSwitch(btnGrp, grpOn[0], pc("#FF9800")); toast(grpOn[0] ? "本群已开启" : "本群已关闭"); }});
         }
 
         final LinearLayout itemWrapper = new LinearLayout(a);
         itemWrapper.setOrientation(LinearLayout.VERTICAL);
         itemWrapper.addView(slideView);
         View itemDivider = new View(a);
-        itemDivider.setBackgroundColor(Color.parseColor("#EEEEEE"));
+        itemDivider.setBackgroundColor(pc("#EEEEEE"));
         LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(-1, 1);
         dividerParams.bottomMargin = dp(a, 4);
         itemWrapper.addView(itemDivider, dividerParams);
@@ -3007,7 +3076,7 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
                 mainOn[0] = !mainOn[0];
                 if (hasAnyCallback) {
                     setRun(f, mainOn[0]);
-                    setSwitch(btnMain, mainOn[0], Color.parseColor("#00C853"));
+                    setSwitch(btnMain, mainOn[0], pc("#00C853"));
                     toast(mainOn[0] ? "运行已开" : "运行已关");
                 } else {
                     setLoad(f, mainOn[0]);
@@ -3052,11 +3121,13 @@ void showDeleteConfirm(Activity a, final String f, final View itemView, final Li
     title.setText("确认删除");
     title.setTextSize(18);
     title.setTypeface(null, Typeface.BOLD);
+    title.setTextColor(tc(a, "on_surface"));
     layout.addView(title);
     
     TextView message = new TextView(a);
     message.setText("确定要删除功能 \"" + f + "\" 吗？此操作无法撤销");
     message.setTextSize(14);
+    message.setTextColor(tc(a, "on_surface_variant"));
     message.setPadding(0, dp(a, 12), 0, dp(a, 24));
     layout.addView(message);
     
@@ -3091,28 +3162,28 @@ void showDeleteConfirm(Activity a, final String f, final View itemView, final Li
     confirmDialog.setContentView(layout);
     confirmDialog.getWindow().setLayout(Math.min(dp(a, 400), a.getResources().getDisplayMetrics().widthPixels - dp(a, 32)), -2);
     confirmDialog.show();
-    applyViewTheme(a, layout);
+    applyUiTheme(a, confirmDialog, 1);
     animateDialogIn(confirmDialog);
 }
 
 /** 接口实现：入群事件 */
 void joinGroup(String g, String m) { 
-    try { dispatchEvent(new String[]{g, m}, 2); } catch (Throwable e) {} 
+    try { dispatchEvent(new String[]{g, m}, 2); } catch (Throwable e) { traceLog("function_log", "[joinGroup] 异常: " + e); } 
 }
 
 /** 接口实现：退群事件 */
 void quitGroup(String g, String m) { 
-    try { dispatchEvent(new String[]{g, m}, 3); } catch (Throwable e) {} 
+    try { dispatchEvent(new String[]{g, m}, 3); } catch (Throwable e) { traceLog("function_log", "[quitGroup] 异常: " + e); } 
 }
 
 /** 接口实现：禁言事件 */
 void shutUpGroup(String g, String m, long t, String o) { 
-    try { dispatchEvent(new Object[]{g, m, t, o}, 4); } catch (Throwable e) {} 
+    try { dispatchEvent(new Object[]{g, m, t, o}, 4); } catch (Throwable e) { traceLog("function_log", "[shutUpGroup] 异常: " + e); } 
 }
 
 /** 接口实现：拍一拍事件 */
 void onPaiYiPai(String p, int t, String o) {
-    try { dispatchEvent(new Object[]{p, t, o}, 6); } catch (Throwable e) {} 
+    try { dispatchEvent(new Object[]{p, t, o}, 6); } catch (Throwable e) { traceLog("function_log", "[onPaiYiPai] 异常: " + e); } 
 }
 
 /**
@@ -3292,8 +3363,8 @@ String getMsg(String m){
                         String tail = (String)cfg.get("tail");
                         int repeatSend = 0;
                         int repeatConcat = 0;
-                        try { repeatSend = (Integer)cfg.get("rs"); } catch(Throwable e) {}
-                        try { repeatConcat = (Integer)cfg.get("rc"); } catch(Throwable e) {}
+                        try { repeatSend = (Integer)cfg.get("rs"); } catch (Throwable e) { traceLog("function_log", "[getMsg] 异常: " + e); }
+                        try { repeatConcat = (Integer)cfg.get("rc"); } catch (Throwable e) { traceLog("function_log", "[getMsg] 异常: " + e); }
                         
                         String result = m;
                         
