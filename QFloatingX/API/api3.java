@@ -1,11 +1,3 @@
-private static final String SP_NAME = "msg_stats_config";
-private static final String SP_TIME_RANGE_KEY = "selected_time_range";
-private static final String SP_CUSTOM_DATE_KEY = "custom_selected_date";
-private static final String DAILY_TARGET_KEY = "daily_msg_target";
-private static final int DEFAULT_DAILY_TARGET = 100;
-private static final String TEMP_FILE_SUFFIX = ".tmp";
-private static final long MIN_UI_UPDATE_INTERVAL = 150;
-private static final int BATCH_SIZE_THRESHOLD = 10;
 
 volatile boolean dialogVisible = false;
 AlertDialog statsDialog = null;
@@ -41,10 +33,10 @@ private static final Hashtable cardExpandStatus = new Hashtable();
 volatile long TOTAL_MSG_SEQ_MAX = 0L;
 
 private int[] COLORS = {
-    Color.parseColor("#FF6B6B"), Color.parseColor("#4ECDC4"), Color.parseColor("#45B7D1"),
-    Color.parseColor("#96CEB4"), Color.parseColor("#FFEAA7"), Color.parseColor("#DDA0DD"),
-    Color.parseColor("#FFA07A"), Color.parseColor("#87CEEB"), Color.parseColor("#F0E68C"),
-    Color.parseColor("#CD853F"), Color.parseColor("#98FB98")
+    pc("#FF6B6B"), pc("#4ECDC4"), pc("#45B7D1"),
+    pc("#96CEB4"), pc("#FFEAA7"), pc("#DDA0DD"),
+    pc("#FFA07A"), pc("#87CEEB"), pc("#F0E68C"),
+    pc("#CD853F"), pc("#98FB98")
 };
 
 String configName = pluginPath + "/config/msg_stats.json";
@@ -103,7 +95,7 @@ private synchronized void addChangedKey(String key) {
 private String formatStatValue(long value) {
     if (value >= 10000) {
         double w = (double) value / 10000.0;
-        return String.format(Locale.CHINA, "%.1f w", w);
+        return String.valueOf(Math.round(w * 10) / 10.0) + " w";
     }
     return String.valueOf(value);
 }
@@ -115,7 +107,7 @@ private void startWriteThread() {
     
     ThreadPool.execute(new Runnable() {
         public void run() {
-            traceLog("api3_log.txt", "后台写入任务启动（懒调用模式）");
+            traceLog("api3_log", "后台写入任务启动（懒调用模式）");
             while (writeThreadRunning) {
                 try {
                     synchronized(writeLock) {
@@ -129,20 +121,20 @@ private void startWriteThread() {
                     writeStats();
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    traceLog("api3_log.txt", "任务被中断，退出");
+                    traceLog("api3_log", "任务被中断，退出");
                     break;
                 } catch (Exception e) {
-                    traceLog("api3_log.txt", "运行时错误: " + e.getMessage());
+                    traceLog("api3_log", "运行时错误: " + e.getMessage());
                 }
             }
-            traceLog("api3_log.txt", "后台写入任务已停止");
+            traceLog("api3_log", "后台写入任务已停止");
         }
     });
-    traceLog("api3_log.txt","写入任务提交完成");
+    traceLog("api3_log","写入任务提交完成");
 }
 
 private void stopWriteThread() {
-    traceLog("api3_log.txt", "停止写入任务");
+    traceLog("api3_log", "停止写入任务");
     writeThreadRunning = false;
     synchronized(writeLock) {
         writeLock.notifyAll();
@@ -228,11 +220,11 @@ private void checkTodayReset() {
     String currentDate = getTodayDateStr();
     if (todayDateStr == null || todayDateStr.isEmpty()) {
         todayDateStr = currentDate;
-        traceLog("api3_log.txt", "初始化todayDateStr=" + todayDateStr);
+        traceLog("api3_log", "初始化todayDateStr=" + todayDateStr);
         return;
     }
     if (!currentDate.equals(todayDateStr)) {
-        traceLog("api3_log.txt", "日期变更，旧:" + todayDateStr + " 新:" + currentDate);
+        traceLog("api3_log", "日期变更，旧:" + todayDateStr + " 新:" + currentDate);
         todayDateStr = currentDate;
         
         synchronized(writeLock) {
@@ -250,20 +242,20 @@ private void checkTodayReset() {
 private int getDailyTargetFromPrefs() {
     Activity activity = getNowActivity();
     if (activity != null) {
-        SharedPreferences sp = activity.getSharedPreferences(SP_NAME, Activity.MODE_PRIVATE);
-        int target = sp.getInt(DAILY_TARGET_KEY, DEFAULT_DAILY_TARGET);
-        traceLog("api3_log.txt","读取目标: " + target);
+        SharedPreferences sp = activity.getSharedPreferences("msg_stats_config", Activity.MODE_PRIVATE);
+        int target = sp.getInt("daily_msg_target", 100);
+        traceLog("api3_log","读取目标: " + target);
         return target;
     }
-    traceLog("api3_log.txt","activity为null，返回默认值: " + DEFAULT_DAILY_TARGET);
-    return DEFAULT_DAILY_TARGET;
+    traceLog("api3_log","activity为null，返回默认值: " + 100);
+    return 100;
 }
 
 private int getColorForStat(int index) {
     if (index >= 0 && index < COLORS.length) {
         return COLORS[index];
     }
-    return Color.parseColor("#333333");
+    return pc("#333333");
 }
 
 private View createSpaceView(Activity activity, int heightDp) {
@@ -276,7 +268,7 @@ private View createSpaceView(Activity activity, int heightDp) {
 private View createDivider(Activity activity) {
     boolean isDark = isThemeDark(activity);
     View divider = new View(activity);
-    divider.setBackgroundColor(isDark ? Color.parseColor("#33FFFFFF") : Color.parseColor("#F0F0F0"));
+    divider.setBackgroundColor(isDark ? pc("#33FFFFFF") : pc("#F0F0F0"));
     LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(
         LinearLayout.LayoutParams.MATCH_PARENT, 1);
     dividerParams.setMargins(0, dp(activity, 6), 0, dp(activity, 6));
@@ -287,11 +279,11 @@ private View createDivider(Activity activity) {
 private void initTimeRange(Activity activity) {
     if (activity == null) {
         currentTimeRange = TimeRange.TODAY;
-        traceLog("api3_log.txt","activity为null，默认TODAY");
+        traceLog("api3_log","activity为null，默认TODAY");
         return;
     }
-    SharedPreferences sp = activity.getSharedPreferences(SP_NAME, Activity.MODE_PRIVATE);
-    int savedOrdinal = sp.getInt(SP_TIME_RANGE_KEY, 0);
+    SharedPreferences sp = activity.getSharedPreferences("msg_stats_config", Activity.MODE_PRIVATE);
+    int savedOrdinal = sp.getInt("selected_time_range", 0);
     switch (savedOrdinal) {
         case 1: currentTimeRange = TimeRange.YESTERDAY; break;
         case 2: currentTimeRange = TimeRange.THIS_WEEK; break;
@@ -299,36 +291,36 @@ private void initTimeRange(Activity activity) {
         case 4: currentTimeRange = TimeRange.CUSTOM_DATE; break;
         default: currentTimeRange = TimeRange.TODAY; break;
     }
-    customDateStr = sp.getString(SP_CUSTOM_DATE_KEY, null);
+    customDateStr = sp.getString("custom_selected_date", null);
     if (customDateStr == null) {
         customDateStr = getTodayDateStr();
     }
-    traceLog("api3_log.txt","加载范围: " + TimeRange.toString(currentTimeRange) + " 自定义日期: " + customDateStr);
+    traceLog("api3_log","加载范围: " + TimeRange.toString(currentTimeRange) + " 自定义日期: " + customDateStr);
 }
 
 private synchronized void readFullStats() {
     if (configName == null || configName.isEmpty()) {
-        traceLog("api3_log.txt", "configName无效");
+        traceLog("api3_log", "configName无效");
         return;
     }
 
     File mainFile = new File(configName);
-    traceLog("api3_log.txt", "尝试读取主文件: " + mainFile.getAbsolutePath());
+    traceLog("api3_log", "尝试读取主文件: " + mainFile.getAbsolutePath());
     if (mainFile.exists() && parseStatsFile(mainFile)) {
-        traceLog("api3_log.txt", "从主文件加载数据");
+        traceLog("api3_log", "从主文件加载数据");
         return;
     }
 
     File backupFile = new File(configName + ".bak");
     if (backupFile.exists() && parseStatsFile(backupFile)) {
-        traceLog("api3_log.txt", "从备份文件恢复数据");
+        traceLog("api3_log", "从备份文件恢复数据");
         Toast("已从备份文件恢复数据");
         return;
     }
 
     msgHandle.post(new Runnable() {
         public void run() {
-            traceLog("api3_log.txt", "无历史数据，初始化空统计");
+            traceLog("api3_log", "无历史数据，初始化空统计");
             initEmptyStats();
             Toast("无历史数据，初始化新统计");
         }
@@ -353,38 +345,38 @@ private boolean parseStatsFile(File file) {
             OP_STATS.put(key, new Long(value));
         }
         TOTAL_MSG_SEQ_MAX = atomicGet("totalReceive");
-        traceLog("api3_log.txt", "解析完成，加载键数量: " + OP_STATS.size());
+        traceLog("api3_log", "解析完成，加载键数量: " + OP_STATS.size());
         return true;
     } catch (Exception e) {
-        traceLog("api3_log.txt", "文件: " + file.getName() + " - " + e.getMessage());
+        traceLog("api3_log", "文件: " + file.getName() + " - " + e.getMessage());
         return false;
     } finally {
-        try { if (bf != null) bf.close(); } catch (Exception e) {}
+        try { if (bf != null) bf.close(); } catch (Throwable e) { traceLog("api3_log", "[parseStatsFile] 异常: " + e); }
     }
 }
 
 private void initEmptyStats() {
     synchronized(writeLock) {
-        traceLog("api3_log.txt", "初始化空统计数据");
+        traceLog("api3_log", "初始化空统计数据");
         OP_STATS.clear();
         CHANGED_KEYS.clear();
         for (int i = 0; i < STAT_TYPES.length; i++) {
             String type = STAT_TYPES[i];
             OP_STATS.put("total" + type, new Long(0L));
-            traceLog("api3_log.txt", "初始化total" + type);
+            traceLog("api3_log", "初始化total" + type);
         }
         TOTAL_MSG_SEQ_MAX = 0L;
-        traceLog("api3_log.txt", "初始化结束");
+        traceLog("api3_log", "初始化结束");
     }
 }
 
 public void initStats() {
-    traceLog("api3_log.txt", "api3初始化开始");
+    traceLog("api3_log", "api3初始化开始");
     Activity activity = getNowActivity();
     initTimeRange(activity);
     readFullStats();
     startWriteThread();
-    traceLog("api3_log.txt", "api3初始化完成");
+    traceLog("api3_log", "api3初始化完成");
 }
 
 private void processBatch() {
@@ -392,14 +384,14 @@ private void processBatch() {
     
     List batch = new ArrayList();
     synchronized(writeLock) {
-        while (!messageBatchQueue.isEmpty() && batch.size() < BATCH_SIZE_THRESHOLD) {
+        while (!messageBatchQueue.isEmpty() && batch.size() < 10) {
             batch.add(messageBatchQueue.remove(0));
         }
     }
     
     if (batch.isEmpty()) return;
     
-    traceLog("api3_log.txt", "批量处理 " + batch.size() + " 条消息");
+    traceLog("api3_log", "批量处理 " + batch.size() + " 条消息");
     
     SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd", Locale.CHINA);
     
@@ -463,7 +455,7 @@ private void processBatch() {
                 atomicIncrement(dateKeyPrefix + "SendCall");
                 atomicIncrement("totalSendCall");
             } else {
-                traceLog("api3_log.txt", "消息类型未知，归类为Unknown");
+                traceLog("api3_log", "消息类型未知，归类为Unknown");
                 atomicIncrement(dateKeyPrefix + "SendUnknown");
                 atomicIncrement("totalSendUnknown");
             }
@@ -503,7 +495,7 @@ private void processBatch() {
                 atomicIncrement(dateKeyPrefix + "ReceiveGrayTip");
                 atomicIncrement("totalReceiveGrayTip");
             } else {
-                traceLog("api3_log.txt", "消息类型未知，归类为Unknown");
+                traceLog("api3_log", "消息类型未知，归类为Unknown");
                 atomicIncrement(dateKeyPrefix + "ReceiveUnknown");
                 atomicIncrement("totalReceiveUnknown");
             }
@@ -518,7 +510,7 @@ public void onMsg(Object data) {
     
     try { dispatchEvent(data, 1); 
         log大小限制(logPath);
-        } catch (Throwable e) { traceLog("function_log", "[onMsg]" + e); }
+        } catch (Throwable e) { traceLog("api3_log", "[onMsg]" + e); }
 
     if (!getBoolean("settings", "消息统计开关", true)) return;
 
@@ -529,7 +521,7 @@ public void onMsg(Object data) {
     
     int queueSize = messageBatchQueue.size();
     if (queueSize > 50) {
-        traceLog("api3_log.txt", "队列积压: " + queueSize + " 条");
+        traceLog("api3_log", "队列积压: " + queueSize + " 条");
     }
 }
 
@@ -548,13 +540,13 @@ private void writeStats() {
         
         synchronized(writeLock) {
             CHANGED_KEYS.removeAll(keysToWrite);
-            traceLog("api3_log.txt", "成功写入" + keysToWrite.size() + "个键，剩余" + CHANGED_KEYS.size() + "个键待写入");
+            traceLog("api3_log", "成功写入" + keysToWrite.size() + "个键，剩余" + CHANGED_KEYS.size() + "个键待写入");
         }
     }
 }
 
 private void writeFullStats() {
-    traceLog("api3_log.txt", "用户触发强制全量持久化");
+    traceLog("api3_log", "用户触发强制全量持久化");
     synchronized(writeLock) {
         writeFullStatsInternal(new Vector());
     }
@@ -571,11 +563,11 @@ private void writeFullStatsInternal(Vector triggeredKeys) {
     String jsonStr = statsJson.toString(2);
 
     File mainFile = new File(configName);
-    File tempFile = new File(configName + TEMP_FILE_SUFFIX);
+    File tempFile = new File(configName + ".tmp");
     
     File parentDir = mainFile.getParentFile();
     if (!parentDir.exists() && !parentDir.mkdirs()) {
-        traceLog("api3_log.txt", "创建目录失败: " + parentDir.getAbsolutePath());
+        traceLog("api3_log", "创建目录失败: " + parentDir.getAbsolutePath());
         return;
     }
 
@@ -590,42 +582,42 @@ private void writeFullStatsInternal(Vector triggeredKeys) {
         osw.close();
 
         if (mainFile.exists() && !mainFile.delete()) {
-            traceLog("api3_log.txt", "删除原文件失败: " + mainFile.getName());
+            traceLog("api3_log", "删除原文件失败: " + mainFile.getName());
             tempFile.delete();
             return;
         }
         if (!tempFile.renameTo(mainFile)) {
-            traceLog("api3_log.txt", "重命名失败: " + tempFile.getName());
+            traceLog("api3_log", "重命名失败: " + tempFile.getName());
             tempFile.delete();
             return;
         }
 
         if (mainFile.exists() && mainFile.length() > 0) {
-            traceLog("api3_log.txt", "文件写入完成: " + mainFile.getName() + " 大小=" + mainFile.length() + "字节");
+            traceLog("api3_log", "文件写入完成: " + mainFile.getName() + " 大小=" + mainFile.length() + "字节");
             
             String verifyContent = 读(mainFile.getAbsolutePath());
             if (verifyContent != null && verifyContent.contains("totalSend") && verifyContent.contains("totalReceive")) {
-                traceLog("api3_log.txt", "文件完整性验证通过");
+                traceLog("api3_log", "文件完整性验证通过");
             } else {
-                traceLog("api3_log.txt", "文件完整性验证失败！");
+                traceLog("api3_log", "文件完整性验证失败！");
             }
         } else {
-            traceLog("api3_log.txt", "文件不存在或大小为0！");
+            traceLog("api3_log", "文件不存在或大小为0！");
         }
         
         createSingleBackup();
         
     } catch (Exception e) {
-        traceLog("api3_log.txt", "写入失败: " + e.getMessage());
+        traceLog("api3_log", "写入失败: " + e.getMessage());
         if (tempFile != null) tempFile.delete();
     } finally {
-        if (osw != null) try { osw.close(); } catch (Exception e) {}
-        if (fos != null) try { fos.close(); } catch (Exception e) {}
+        if (osw != null) try { osw.close(); } catch (Throwable e) { traceLog("api3_log", "[writeFullStatsInternal] 异常: " + e); }
+        if (fos != null) try { fos.close(); } catch (Throwable e) { traceLog("api3_log", "[writeFullStatsInternal] 异常: " + e); }
     }
 }
 
 private void recalculateTotalStats() {
-    traceLog("api3_log.txt", "重新计算所有total统计");
+    traceLog("api3_log", "重新计算所有total统计");
     for (int i = 0; i < STAT_TYPES.length; i++) {
         String type = STAT_TYPES[i];
         long total = 0L;
@@ -643,9 +635,9 @@ private void recalculateTotalStats() {
         
         OP_STATS.put("total" + type, new Long(total));
         addChangedKey("total" + type);
-        traceLog("api3_log.txt", "type=" + type + " total=" + total);
+        traceLog("api3_log", "type=" + type + " total=" + total);
     }
-    traceLog("api3_log.txt", "重新计算结束");
+    traceLog("api3_log", "重新计算结束");
 }
 
 private void createSingleBackup() {
@@ -657,9 +649,9 @@ private void createSingleBackup() {
     
     try {
         java.nio.file.Files.copy(mainFile.toPath(), backupFile.toPath());
-        traceLog("api3_log.txt", "备份文件已创建");
+        traceLog("api3_log", "备份文件已创建");
     } catch (Exception e) {
-        traceLog("api3_log.txt", "备份失败: " + e.getMessage());
+        traceLog("api3_log", "备份失败: " + e.getMessage());
     }
 }
 
@@ -673,32 +665,32 @@ private void triggerUIUpdate() {
             return;
         }
     } catch (Exception e) {
-        traceLog("api3_log.txt", "对话框状态检查失败: " + e.getMessage());
+        traceLog("api3_log", "对话框状态检查失败: " + e.getMessage());
         return;
     }
     
     long currentTime = System.currentTimeMillis();
-    if (currentTime - lastUIUpdateTime < MIN_UI_UPDATE_INTERVAL) {
+    if (currentTime - lastUIUpdateTime < 150) {
         msgHandle.removeCallbacksAndMessages(null);
         msgHandle.postDelayed(new Runnable() {
             public void run() {
-                traceLog("api3_log.txt", "防抖延迟刷新");
+                traceLog("api3_log", "防抖延迟刷新");
                 updateUIImmediately();
             }
-        }, MIN_UI_UPDATE_INTERVAL);
+        }, 150);
         return;
     }
     lastUIUpdateTime = currentTime;
     
-    traceLog("api3_log.txt", "触发UI刷新");
+    traceLog("api3_log", "触发UI刷新");
     msgHandle.post(new Runnable() {
         public void run() {
             try {
                 updateUIImmediately();
-                traceLog("api3_log.txt", "UI刷新成功");
+                traceLog("api3_log", "UI刷新成功");
             } catch (Throwable e) {
-                traceLog("api3_log.txt", "UI更新失败: " + e.getMessage());
-                traceLog("api3_log.txt","" + e);
+                traceLog("api3_log", "UI更新失败: " + e.getMessage());
+                traceLog("api3_log","" + e);
             }
         }
     });
@@ -706,7 +698,7 @@ private void triggerUIUpdate() {
 
 private void updateUIImmediately() {
     if (statsDialog == null || !statsDialog.isShowing()) {
-        traceLog("api3_log.txt", "对话框无效");
+        traceLog("api3_log", "对话框无效");
         return;
     }
     
@@ -762,29 +754,29 @@ private void updateCachedTextView(String tag, String text) {
             if (tv != null) {
                 statsTextViewCache.add(tv);
             } else {
-                traceLog("api3_log.txt", "未找到Tag=" + tag + "的TextView");
+                traceLog("api3_log", "未找到Tag=" + tag + "的TextView");
                 return;
             }
         } else {
-            traceLog("api3_log.txt", "rootView为null");
+            traceLog("api3_log", "rootView为null");
             return;
         }
     }
     if (!text.equals(tv.getText().toString())) {
         tv.setText(text);
-        traceLog("api3_log.txt", "更新Tag=" + tag + " 文本=" + text);
+        traceLog("api3_log", "更新Tag=" + tag + " 文本=" + text);
     }
 }
 
 private void updateTodayProgress(long todaySend, int dailyTarget) {
     if (todayCoreCardCache == null) {
-        traceLog("api3_log.txt", "todayCoreCardCache为null");
+        traceLog("api3_log", "todayCoreCardCache为null");
         return;
     }
     
     int progress = (int) Math.min(todaySend * 100 / Math.max(dailyTarget, 1), 100);
     int remaining = Math.max(dailyTarget - (int) todaySend, 0);
-    traceLog("api3_log.txt", "todaySend=" + todaySend + " dailyTarget=" + dailyTarget + " progress=" + progress);
+    traceLog("api3_log", "今日发送=" + todaySend + " dailyTarget=" + dailyTarget + " progress=" + progress);
 
     if (sendTargetLabelCache != null) {
         sendTargetLabelCache.setText("今天已经逼逼了" + todaySend + "句，还差" + remaining + " 句，目标：" + dailyTarget + "(" + progress + "%)");
@@ -794,12 +786,12 @@ private void updateTodayProgress(long todaySend, int dailyTarget) {
         LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) progressBarCache.getLayoutParams();
         params.width = (int) (todayCoreCardCache.getWidth() * progress / 100.0f);
         progressBarCache.setLayoutParams(params);
-        traceLog("api3_log.txt", "进度条宽度更新: " + params.width);
+        traceLog("api3_log", "进度条宽度更新: " + params.width);
     }
 
     if (achievementTextCache != null) {
         achievementTextCache.setVisibility(progress >= 100 ? View.VISIBLE : View.GONE);
-        traceLog("api3_log.txt", "成就显示: " + (progress >= 100 ? "显示" : "隐藏"));
+        traceLog("api3_log", "成就显示: " + (progress >= 100 ? "显示" : "隐藏"));
     }
 }
 
@@ -873,14 +865,14 @@ private View createRangeSpinner(Activity activity) {
     final Activity finalActivity = activity;
     final boolean isDark = isThemeDark(activity);
     
-    final int textColor = isDark ? Color.parseColor("#EFEFEF") : Color.parseColor("#333333");
-    final int accentColor = isDark ? Color.parseColor("#8AB4F8") : Color.parseColor("#2196F3");
-    final int cardBgColor = isDark ? Color.parseColor("#FF2D2D2D") : Color.WHITE;
+    final int textColor = isDark ? pc("#EFEFEF") : pc("#333333");
+    final int accentColor = isDark ? pc("#8AB4F8") : pc("#2196F3");
+    final int cardBgColor = isDark ? pc("#FF2D2D2D") : Color.WHITE;
     
-    final int capsuleBgNormal = isDark ? Color.parseColor("#1AFFFFFF") : Color.parseColor("#F2F2F7");
-    final int capsuleBgPressed = isDark ? Color.parseColor("#33FFFFFF") : Color.parseColor("#E5E5EA");
+    final int capsuleBgNormal = isDark ? pc("#1AFFFFFF") : pc("#F2F2F7");
+    final int capsuleBgPressed = isDark ? pc("#33FFFFFF") : pc("#E5E5EA");
     
-    final int dropdownBgColor = isDark ? Color.parseColor("#FF383838") : Color.WHITE;
+    final int dropdownBgColor = isDark ? pc("#FF383838") : Color.WHITE;
 
     LinearLayout layout = new LinearLayout(finalActivity);
     layout.setGravity(Gravity.CENTER_VERTICAL);
@@ -915,7 +907,7 @@ private View createRangeSpinner(Activity activity) {
     GradientDrawable normalBg = new GradientDrawable();
     normalBg.setColor(capsuleBgNormal);
     normalBg.setCornerRadius(dp(finalActivity, 20)); 
-    capsuleDrawable.addState(new int[]{}, normalBg);
+    capsuleDrawable.addState(new int[0], normalBg);
 
     LinearLayout.LayoutParams spinnerParams = new LinearLayout.LayoutParams(dp(finalActivity, 120), dp(finalActivity, 36));
     
@@ -930,7 +922,7 @@ private View createRangeSpinner(Activity activity) {
         popupBg.setColor(dropdownBgColor);
         popupBg.setCornerRadius(dp(finalActivity, 12));
         spinner.setPopupBackgroundDrawable(popupBg);
-    } catch(Throwable e) {}
+    } catch (Throwable e) { traceLog("api3_log", "[createRangeSpinner] 异常: " + e); }
 
     try {
         ArrayAdapter adapter = new ArrayAdapter(finalActivity, android.R.layout.simple_spinner_item, rangeNames) {
@@ -1011,8 +1003,8 @@ private View createRangeSpinner(Activity activity) {
 
             if (currentTimeRange != selected || needShowDatePicker) {
                 currentTimeRange = selected;
-                SharedPreferences sp = finalActivity.getSharedPreferences(SP_NAME, Activity.MODE_PRIVATE);
-                sp.edit().putInt(SP_TIME_RANGE_KEY, position).apply();
+                SharedPreferences sp = finalActivity.getSharedPreferences("msg_stats_config", Activity.MODE_PRIVATE);
+                sp.edit().putInt("selected_time_range", position).apply();
                 
                 if (selected == TimeRange.THIS_WEEK) {
                     weekDatesCache.clear();
@@ -1045,7 +1037,7 @@ private void showDatePickerDialog(final Activity activity) {
         try {
             SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd", Locale.CHINA);
             calendar.setTime(sdf.parse(customDateStr));
-        } catch (Exception e) {}
+        } catch (Throwable e) { traceLog("api3_log", "[showDatePickerDialog] 异常: " + e); }
     }
 
     DatePicker datePicker = new DatePicker(activity);
@@ -1064,12 +1056,15 @@ private void showDatePickerDialog(final Activity activity) {
                 int year = datePicker.getYear();
                 int month = datePicker.getMonth() + 1;
                 int day = datePicker.getDayOfMonth();
-                customDateStr = String.format(Locale.CHINA, "%04d%02d%02d", year, month, day);
+                String sy = "0000" + year;
+                String sm = "00" + month;
+                String sd = "00" + day;
+                customDateStr = sy.substring(sy.length() - 4) + sm.substring(sm.length() - 2) + sd.substring(sd.length() - 2);
                 
-                SharedPreferences sp = activity.getSharedPreferences(SP_NAME, Activity.MODE_PRIVATE);
-                sp.edit().putString(SP_CUSTOM_DATE_KEY, customDateStr).apply();
+                SharedPreferences sp = activity.getSharedPreferences("msg_stats_config", Activity.MODE_PRIVATE);
+                sp.edit().putString("custom_selected_date", customDateStr).apply();
                 
-                traceLog("api3_log.txt", "用户选择日期: " + customDateStr);
+                traceLog("api3_log", "用户选择日期: " + customDateStr);
                 Toast("已选择日期: " + formatDateForDisplay(customDateStr));
                 triggerUIUpdate();
             }
@@ -1077,8 +1072,8 @@ private void showDatePickerDialog(final Activity activity) {
         .setNegativeButton("取消", new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int which) {
                 currentTimeRange = TimeRange.TODAY;
-                SharedPreferences sp = activity.getSharedPreferences(SP_NAME, Activity.MODE_PRIVATE);
-                sp.edit().putInt(SP_TIME_RANGE_KEY, 0).apply();
+                SharedPreferences sp = activity.getSharedPreferences("msg_stats_config", Activity.MODE_PRIVATE);
+                sp.edit().putInt("selected_time_range", 0).apply();
                 triggerUIUpdate();
             }
         })
@@ -1089,21 +1084,16 @@ private void showTargetSettingDialog(Activity activity) {
     if (activity == null || activity.isFinishing()) return;
     boolean isDark = isThemeDark(activity);
 
-    SharedPreferences sp = activity.getSharedPreferences(SP_NAME, Activity.MODE_PRIVATE);
-    int currentTarget = sp.getInt(DAILY_TARGET_KEY, DEFAULT_DAILY_TARGET);
+    SharedPreferences sp = activity.getSharedPreferences("msg_stats_config", Activity.MODE_PRIVATE);
+    int currentTarget = sp.getInt("daily_msg_target", 100);
 
     LinearLayout dialogLayout = new LinearLayout(activity);
     dialogLayout.setOrientation(LinearLayout.VERTICAL);
     dialogLayout.setPadding(dp(activity, 24), dp(activity, 16), dp(activity, 24), dp(activity, 16));
 
-    EditText editText = new EditText(activity);
-    editText.setHint("输入每日消息目标（默认100）");
+    EditText editText = makeInput(activity, "输入每日消息目标（默认100）", null);
     editText.setText(String.valueOf(currentTarget));
     editText.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-    editText.setPadding(dp(activity, 12), dp(activity, 10), dp(activity, 12), dp(activity, 10));
-    editText.setBackground(roundRect(isDark ? Color.parseColor("#33FFFFFF") : Color.parseColor("#F5F5F5"), dp(activity, 8)));
-    editText.setTextColor(isDark ? Color.parseColor("#EFEFEF") : Color.BLACK);
-    editText.setHintTextColor(isDark ? Color.parseColor("#AAAAAA") : Color.GRAY);
     editText.setTextSize(14);
     dialogLayout.addView(editText);
 
@@ -1117,8 +1107,8 @@ private void showTargetSettingDialog(Activity activity) {
                     try {
                         int target = Integer.parseInt(input);
                         if (target > 0) {
-                            sp.edit().putInt(DAILY_TARGET_KEY, target).apply();
-                            traceLog("api3_log.txt", "用户设置目标: " + target);
+                            sp.edit().putInt("daily_msg_target", target).apply();
+                            traceLog("api3_log", "用户设置目标: " + target);
                             Toast("目标设置成功：" + target + "条/天");
                             triggerUIUpdate();
                         } else {
@@ -1140,7 +1130,7 @@ private LinearLayout createStatsCardBase(Activity activity, String title, String
     boolean isDark = isThemeDark(activity);
     LinearLayout card = new LinearLayout(activity);
     card.setOrientation(LinearLayout.VERTICAL);
-    card.setBackground(roundRect(isDark ? Color.parseColor("#FF2D2D2D") : Color.WHITE, dp(activity, 12)));
+    card.setBackground(roundRect(isDark ? pc("#FF2D2D2D") : Color.WHITE, dp(activity, 12)));
     card.setTag(cardType);
     int padding = dp(activity, 16);
     card.setPadding(padding, padding, padding, padding);
@@ -1159,7 +1149,7 @@ private LinearLayout createStatsCardBase(Activity activity, String title, String
 
     TextView cardTitle = new TextView(activity);
     cardTitle.setText(title);
-    cardTitle.setTextColor(isDark ? Color.parseColor("#EFEFEF") : Color.parseColor("#333333"));
+    cardTitle.setTextColor(isDark ? pc("#EFEFEF") : pc("#333333"));
     cardTitle.setTextSize(17);
     cardTitle.setTypeface(cardTitle.getTypeface(), android.graphics.Typeface.BOLD);
     LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
@@ -1169,7 +1159,7 @@ private LinearLayout createStatsCardBase(Activity activity, String title, String
     TextView arrowTv = new TextView(activity);
     arrowTv.setText("▶");
     arrowTv.setTextSize(14);
-    arrowTv.setTextColor(isDark ? Color.parseColor("#AAAAAA") : Color.parseColor("#666666"));
+    arrowTv.setTextColor(isDark ? pc("#AAAAAA") : pc("#666666"));
     arrowTv.setTag(cardType + "_arrow");
     titleBar.addView(arrowTv);
 
@@ -1207,7 +1197,7 @@ private void updateCardExpandStatus(LinearLayout card, boolean isExpanded) {
             container.startAnimation(collapseAnim);
         }
         cardExpandStatus.put(cardType, isExpanded);
-        traceLog("api3_log.txt", cardType + " 展开状态: " + isExpanded);
+        traceLog("api3_log", cardType + " 展开状态: " + isExpanded);
     }
 }
 
@@ -1262,11 +1252,12 @@ private LinearLayout createTypeStatsItemLayout(Activity activity, String label, 
     TextView iconTv = new TextView(activity);
     iconTv.setText(label.substring(0, 2));
     iconTv.setTextSize(16);
+    iconTv.setTextColor(tc(activity, "on_surface_variant"));
     iconTv.setLayoutParams(new LinearLayout.LayoutParams(dp(activity, 30), dp(activity, 30)));
 
     TextView labelTv = new TextView(activity);
     labelTv.setText(label.substring(3));
-    labelTv.setTextColor(isDark ? Color.parseColor("#AAAAAA") : Color.parseColor("#666666"));
+    labelTv.setTextColor(isDark ? pc("#AAAAAA") : pc("#666666"));
     labelTv.setTextSize(14);
     labelTv.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
 
@@ -1294,11 +1285,12 @@ private LinearLayout createStatsItemLayout(Activity activity, String label, Stri
     TextView iconTv = new TextView(activity);
     iconTv.setText(label.substring(0, 2));
     iconTv.setTextSize(16);
+    iconTv.setTextColor(tc(activity, "on_surface_variant"));
     iconTv.setLayoutParams(new LinearLayout.LayoutParams(dp(activity, 30), dp(activity, 30)));
 
     TextView labelTv = new TextView(activity);
     labelTv.setText(label.substring(3));
-    labelTv.setTextColor(isDark ? Color.parseColor("#AAAAAA") : Color.parseColor("#666666"));
+    labelTv.setTextColor(isDark ? pc("#AAAAAA") : pc("#666666"));
     labelTv.setTextSize(14);
     labelTv.setLayoutParams(new LinearLayout.LayoutParams(
         0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
@@ -1330,7 +1322,7 @@ private LinearLayout createTodayCoreStatsCard(Activity activity, String title) {
     boolean isDark = isThemeDark(activity);
     LinearLayout card = new LinearLayout(activity);
     card.setOrientation(LinearLayout.VERTICAL);
-    card.setBackground(roundRect(isDark ? Color.parseColor("#FF2D2D2D") : Color.WHITE, dp(activity, 12)));
+    card.setBackground(roundRect(isDark ? pc("#FF2D2D2D") : Color.WHITE, dp(activity, 12)));
     card.setTag("todayCoreCard");
     int padding = dp(activity, 16);
     card.setPadding(padding, padding, padding, padding);
@@ -1338,7 +1330,7 @@ private LinearLayout createTodayCoreStatsCard(Activity activity, String title) {
     TextView cardTitle = new TextView(activity);
     cardTitle.setText(title);
     cardTitle.setTag("core_card_title");
-    cardTitle.setTextColor(isDark ? Color.parseColor("#EFEFEF") : Color.parseColor("#333333"));
+    cardTitle.setTextColor(isDark ? pc("#EFEFEF") : pc("#333333"));
     cardTitle.setTextSize(17);
     cardTitle.setTypeface(cardTitle.getTypeface(), android.graphics.Typeface.BOLD);
     card.addView(cardTitle);
@@ -1367,21 +1359,21 @@ private LinearLayout createTodayCoreStatsCard(Activity activity, String title) {
     long todaySend = atomicGet("date_" + todayDateStr + "_Send");
     Activity act = getNowActivity();
     if (act != null) {
-        SharedPreferences sp = act.getSharedPreferences(SP_NAME, Activity.MODE_PRIVATE);
-        int dailyTarget = sp.getInt(DAILY_TARGET_KEY, DEFAULT_DAILY_TARGET);
+        SharedPreferences sp = act.getSharedPreferences("msg_stats_config", Activity.MODE_PRIVATE);
+        int dailyTarget = sp.getInt("daily_msg_target", 100);
         int progress = (int) Math.min(todaySend * 100 / Math.max(dailyTarget, 1), 100);
         sendTargetLabel.setText("今天已经逼逼了" + todaySend + "句，还差" + (dailyTarget - todaySend) + " 句，目标：" + dailyTarget + "(" + progress + "%)");
     } else {
         sendTargetLabel.setText("正在加载目标数据...");
     }
 
-    sendTargetLabel.setTextColor(isDark ? Color.parseColor("#EFEFEF") : Color.parseColor("#333333"));
+    sendTargetLabel.setTextColor(isDark ? pc("#EFEFEF") : pc("#333333"));
     sendTargetLabel.setTextSize(14);
     sendTargetLayout.addView(sendTargetLabel);
 
     View progressBg = new View(activity);
     progressBg.setTag("send_progress_bg");
-    progressBg.setBackgroundColor(isDark ? Color.parseColor("#33FFFFFF") : Color.parseColor("#E0E0E0"));
+    progressBg.setBackgroundColor(isDark ? pc("#33FFFFFF") : pc("#E0E0E0"));
     LinearLayout.LayoutParams bgParams = new LinearLayout.LayoutParams(
         LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 8));
     bgParams.setMargins(0, dp(activity, 8), 0, 0);
@@ -1390,7 +1382,7 @@ private LinearLayout createTodayCoreStatsCard(Activity activity, String title) {
 
     View progressBar = new View(activity);
     progressBar.setTag("send_progress");
-    progressBar.setBackgroundColor(Color.parseColor("#81C784"));
+    progressBar.setBackgroundColor(pc("#81C784"));
     LinearLayout.LayoutParams progressParams = new LinearLayout.LayoutParams(0, dp(activity, 8));
     progressParams.setMargins(0, -dp(activity, 8), 0, 0);
     progressBar.setLayoutParams(progressParams);
@@ -1399,7 +1391,7 @@ private LinearLayout createTodayCoreStatsCard(Activity activity, String title) {
     TextView achievementText = new TextView(activity);
     achievementText.setTag("achievement_text");
     achievementText.setText("🎉 今日达成成就：屁话王");
-    achievementText.setTextColor(Color.parseColor("#FF6B6B"));
+    achievementText.setTextColor(pc("#FF6B6B"));
     achievementText.setTextSize(14);
     achievementText.setTypeface(achievementText.getTypeface(), android.graphics.Typeface.BOLD);
     LinearLayout.LayoutParams achievementParams = new LinearLayout.LayoutParams(
@@ -1417,13 +1409,13 @@ private LinearLayout createTotalStatsCard(Activity activity, String title) {
     boolean isDark = isThemeDark(activity);
     LinearLayout card = new LinearLayout(activity);
     card.setOrientation(LinearLayout.VERTICAL);
-    card.setBackground(roundRect(isDark ? Color.parseColor("#FF2D2D2D") : Color.WHITE, dp(activity, 12)));
+    card.setBackground(roundRect(isDark ? pc("#FF2D2D2D") : Color.WHITE, dp(activity, 12)));
     int padding = dp(activity, 16);
     card.setPadding(padding, padding, padding, padding);
 
     TextView cardTitle = new TextView(activity);
     cardTitle.setText(title);
-    cardTitle.setTextColor(isDark ? Color.parseColor("#EFEFEF") : Color.parseColor("#333333"));
+    cardTitle.setTextColor(isDark ? pc("#EFEFEF") : pc("#333333"));
     cardTitle.setTextSize(17);
     cardTitle.setTypeface(cardTitle.getTypeface(), android.graphics.Typeface.BOLD);
     card.addView(cardTitle);
@@ -1500,7 +1492,7 @@ private LinearLayout createSendStatsCard(Activity activity, String title, String
 }
 
 private void resetTodayStats(final Activity activity) {
-    traceLog("api3_log.txt", "用户请求重置今日数据");
+    traceLog("api3_log", "用户请求重置今日数据");
     boolean isDark = isThemeDark(activity);
     new AlertDialog.Builder(activity, isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT)
         .setTitle("重置确认")
@@ -1510,7 +1502,7 @@ private void resetTodayStats(final Activity activity) {
                 vibrate(activity, 48);
                 String todayPrefix = "date_" + todayDateStr + "_";
                 synchronized(writeLock) {
-                    traceLog("api3_log.txt", "删除今日数据，前缀: " + todayPrefix);
+                    traceLog("api3_log", "删除今日数据，前缀: " + todayPrefix);
                     List entriesToRemove = new ArrayList();
                     Iterator iterator = OP_STATS.entrySet().iterator();
                     int deletedCount = 0;
@@ -1530,7 +1522,7 @@ private void resetTodayStats(final Activity activity) {
                         }
                     }
                     recalculateTotalStats();
-                    traceLog("api3_log.txt", "删除键数量: " + deletedCount);
+                    traceLog("api3_log", "删除键数量: " + deletedCount);
                     writeStats();
                 }
                 
@@ -1548,7 +1540,7 @@ private void resetTodayStats(final Activity activity) {
 }
 
 private void resetTotalStats(final Activity activity) {
-    traceLog("api3_log.txt", "用户请求重置累计数据");
+    traceLog("api3_log", "用户请求重置累计数据");
     boolean isDark = isThemeDark(activity);
     new AlertDialog.Builder(activity, isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT)
         .setTitle("重置确认")
@@ -1557,16 +1549,16 @@ private void resetTotalStats(final Activity activity) {
             public void onClick(DialogInterface dialog, int which) {
                 vibrate(activity, 48);
                 synchronized(writeLock) {
-                    traceLog("api3_log.txt", "清空所有数据");
+                    traceLog("api3_log", "清空所有数据");
                     OP_STATS.clear();
                     for (int i = 0; i < STAT_TYPES.length; i++) {
                         String type = STAT_TYPES[i];
                         OP_STATS.put("total" + type, new Long(0L));
                         addChangedKey("total" + type);
-                        traceLog("api3_log.txt", "初始化total" + type);
+                        traceLog("api3_log", "初始化total" + type);
                     }
                     TOTAL_MSG_SEQ_MAX = 0L;
-                    traceLog("api3_log.txt", "数据清空并初始化");
+                    traceLog("api3_log", "数据清空并初始化");
                     writeStats();
                 }
                 
@@ -1584,7 +1576,7 @@ private void resetTotalStats(final Activity activity) {
 }
 
 private void repairStatsData(final Activity activity) {
-    traceLog("api3_log.txt", "用户请求修复数据");
+    traceLog("api3_log", "用户请求修复数据");
     vibrate(activity, 48);
     
     synchronized(writeLock) {
@@ -1599,13 +1591,13 @@ private void repairStatsData(final Activity activity) {
 
 public void showStatsDialog(Activity activity) {
     if (activity == null || activity.isFinishing()) {
-        traceLog("api3_log.txt", "activity无效");
+        traceLog("api3_log", "activity无效");
         Toast("无法显示消息统计: Activity无效");
         return;
     }
 
     if (statsDialog != null && statsDialog.isShowing()) {
-        traceLog("api3_log.txt", "对话框已存在，执行关闭");
+        traceLog("api3_log", "对话框已存在，执行关闭");
         statsDialog.dismiss();
         statsDialog = null;
         dialogVisible = false;
@@ -1647,7 +1639,7 @@ public void showStatsDialog(Activity activity) {
     buttonLayout1.setGravity(Gravity.CENTER_HORIZONTAL);
     buttonLayout1.setPadding(0, 0, 0, dp(activity, 10));
 
-    TextView resetTodayBtn = createButton(activity, "重置今日数据", Color.parseColor("#333333"), Color.parseColor("#FFCDD2"), 13f, 8, 16, 8, false, 0, 0, null);
+    TextView resetTodayBtn = createButton(activity, "重置今日数据", pc("#333333"), pc("#FFCDD2"), 13f, 8, 16, 8, false, 0, 0, null);
     LinearLayout.LayoutParams resetTodayParams = new LinearLayout.LayoutParams(dp(activity, 120), dp(activity, 40));
     resetTodayParams.setMargins(dp(activity, 6), 0, dp(activity, 6), 0);
     resetTodayBtn.setLayoutParams(resetTodayParams);
@@ -1658,7 +1650,7 @@ public void showStatsDialog(Activity activity) {
         }
     });
 
-    TextView resetTotalBtn = createButton(activity, "重置累计数据", Color.parseColor("#333333"), Color.parseColor("#BBDEFB"), 13f, 8, 16, 8, false, 0, 0, null);
+    TextView resetTotalBtn = createButton(activity, "重置累计数据", pc("#333333"), pc("#BBDEFB"), 13f, 8, 16, 8, false, 0, 0, null);
     LinearLayout.LayoutParams resetTotalParams = new LinearLayout.LayoutParams(dp(activity, 120), dp(activity, 40));
     resetTotalParams.setMargins(dp(activity, 6), 0, dp(activity, 6), 0);
     resetTotalBtn.setLayoutParams(resetTotalParams);
@@ -1677,7 +1669,7 @@ public void showStatsDialog(Activity activity) {
     buttonLayout2.setGravity(Gravity.CENTER_HORIZONTAL);
     buttonLayout2.setPadding(0, 0, 0, dp(activity, 10));
 
-    TextView repairBtn = createButton(activity, "修复数据", Color.parseColor("#333333"), Color.parseColor("#C8E6C9"), 13f, 8, 16, 8, false, 0, 0, null);
+    TextView repairBtn = createButton(activity, "修复数据", pc("#333333"), pc("#C8E6C9"), 13f, 8, 16, 8, false, 0, 0, null);
     LinearLayout.LayoutParams repairParams = new LinearLayout.LayoutParams(dp(activity, 120), dp(activity, 40));
     repairParams.setMargins(dp(activity, 6), 0, dp(activity, 6), 0);
     repairBtn.setLayoutParams(repairParams);
@@ -1687,7 +1679,7 @@ public void showStatsDialog(Activity activity) {
         }
     });
 
-    TextView targetBtn = createButton(activity, "设置每日目标", Color.parseColor("#333333"), Color.parseColor("#F8BBD0"), 13f, 8, 16, 8, false, 0, 0, null);
+    TextView targetBtn = createButton(activity, "设置每日目标", pc("#333333"), pc("#F8BBD0"), 13f, 8, 16, 8, false, 0, 0, null);
     LinearLayout.LayoutParams targetParams = new LinearLayout.LayoutParams(dp(activity, 120), dp(activity, 40));
     targetParams.setMargins(dp(activity, 6), 0, dp(activity, 6), 0);
     targetBtn.setLayoutParams(targetParams);
@@ -1726,7 +1718,7 @@ public void showStatsDialog(Activity activity) {
 
     startDialogShowAnimation(contentLayout);
 
-    applyUiTheme(activity, statsDialog);
+    applyUiTheme(activity, statsDialog, 0);
 
     Window window = statsDialog.getWindow();
     if (window != null) {
@@ -1736,14 +1728,14 @@ public void showStatsDialog(Activity activity) {
     }
 
     dialogVisible = true;
-    traceLog("api3_log.txt", "对话框显示完成");
+    traceLog("api3_log", "对话框显示完成");
 
     msgHandle.postDelayed(new Runnable() {
         public void run() {
             if (dialogVisible && statsDialog != null && statsDialog.isShowing()) {
                 View rootView = statsDialog.getWindow().getDecorView();
                 if (rootView == null) {
-                    traceLog("api3_log.txt", "rootView为null");
+                    traceLog("api3_log", "rootView为null");
                     return;
                 }
 
@@ -1770,7 +1762,7 @@ public void showStatsDialog(Activity activity) {
                     progressBarCache = todayCoreCardCache.findViewWithTag("send_progress");
                     achievementTextCache = (TextView) todayCoreCardCache.findViewWithTag("achievement_text");
                 }
-                traceLog("api3_log.txt", "控件缓存完成");
+                traceLog("api3_log", "控件缓存完成");
 
                 triggerUIUpdate();
             }
@@ -1814,7 +1806,7 @@ Map getAllVariablesMap(Object scriptScope) {
     map.put("time", getTime());
     try {
         map.put("qq", String.valueOf(myUin));
-    } catch (Exception e) {}
+    } catch (Throwable e) { traceLog("api3_log", "[getAllVariablesMap] 异常: " + e); }
 
     String rawTime = getTodayDateStr();
     String todayStr = "";
@@ -1956,16 +1948,14 @@ String 替换变量占位符(String template, Object scriptScope) {
                     if (linkValue == null || linkValue.trim().isEmpty() || "null".equals(linkValue)) {
                         linkValue = null;
                     }
-                } catch (Exception e) {
-                }
+                } catch (Throwable e) { traceLog("api3_log", "[替换变量占位符] 异常: " + e); }
                 linkSb.append(linkValue != null ? linkValue : "访问链接失败了哦～");
             }
             lastIdx = linkMatcher.end();
         }
         linkSb.append(result, lastIdx, result.length());
         result = linkSb.toString();
-    } catch (Exception e) {
-    }
+    } catch (Throwable e) { traceLog("api3_log", "[替换变量占位符] 异常: " + e); }
 
     try {
         Pattern varPattern = Pattern.compile("#(.*?)#");
@@ -1986,8 +1976,7 @@ String 替换变量占位符(String template, Object scriptScope) {
         }
         varSb.append(result, lastIdx, result.length());
         result = varSb.toString();
-    } catch (Exception e) {
-    }
+    } catch (Throwable e) { traceLog("api3_log", "[替换变量占位符] 异常: " + e); }
 
     return result;
 }
@@ -2001,9 +1990,9 @@ void showInputDialog(final Activity activity) {
         public void run() {
             try {
                 boolean isDark = isThemeDark(activity);
-                int textColor = isDark ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT;
-                int subTextColor = isDark ? UI_COLOR_SUBTEXT_DARK : UI_COLOR_SUBTEXT_LIGHT;
-                int accentColor = isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT;
+                int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
+                int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
+                int accentColor = isDark ? pc("#FF8AB4F8") : pc("#FF2196F3");
 
                 LinearLayout root = new LinearLayout(activity);
                 root.setOrientation(LinearLayout.VERTICAL);
@@ -2017,21 +2006,11 @@ void showInputDialog(final Activity activity) {
                 titleView.setPadding(0, 0, 0, dp(activity, 16));
                 root.addView(titleView);
 
-                final EditText input = new EditText(activity);
+                final EditText input = makeInput(activity, "输入内容，支持 #变量# 或 ##链接##", null);
                 String contentStr = getString("输入框", "提示词", "");
                 if (contentStr == null) contentStr = "";
                 input.setText(contentStr);
-                input.setHint("输入内容，支持 #变量# 或 ##链接##");
-                input.setHintTextColor(subTextColor);
-                input.setTextColor(textColor);
                 input.setTextSize(15);
-                input.setPadding(dp(activity, 12), dp(activity, 10), dp(activity, 12), dp(activity, 10));
-
-                GradientDrawable inputBg = new GradientDrawable();
-                inputBg.setCornerRadius(dp(activity, 8));
-                inputBg.setColor(isDark ? UI_COLOR_INPUT_BG_DARK : UI_COLOR_INPUT_BG_LIGHT);
-                inputBg.setStroke(dp(activity, 1), isDark ? UI_COLOR_STROKE_DARK : UI_COLOR_STROKE_LIGHT);
-                input.setBackground(inputBg);
                 root.addView(input);
 
                 TextView previewLabel = new TextView(activity);
@@ -2044,7 +2023,7 @@ void showInputDialog(final Activity activity) {
                 final TextView previewText = new TextView(activity);
                 previewText.setText(替换变量占位符(contentStr, scriptScope));
                 previewText.setTextSize(13);
-                previewText.setTextColor(isDark ? Color.parseColor("#81C784") : Color.parseColor("#4CAF50"));
+                previewText.setTextColor(isDark ? pc("#81C784") : pc("#4CAF50"));
                 previewText.setPadding(dp(activity, 4), dp(activity, 2), dp(activity, 4), dp(activity, 8));
                 root.addView(previewText);
 
@@ -2114,7 +2093,7 @@ void showInputDialog(final Activity activity) {
                             Toast("提示词已保存并立即生效");
                             try {
                                 chatInterface(0, "", "");
-                            } catch (Exception e) {}
+                            } catch (Throwable e) { traceLog("api3_log", "[onClick] 异常: " + e); }
                         }
                         if (dialogRef[0] != null) dialogRef[0].dismiss();
                     }
@@ -2147,9 +2126,9 @@ void showInputDialog(final Activity activity) {
                     window.setAttributes(params);
                 }
                 
-                applyUiTheme(activity, dialog);
+                applyUiTheme(activity, dialog, 0);
 
-            } catch (Exception e) {}
+            } catch (Throwable e) { traceLog("api3_log", "[onClick] 异常: " + e); }
         }
     });
 }
@@ -2158,10 +2137,10 @@ void showAllVariablesDialog(final Activity activity, final Object scriptScope) {
     if (activity == null || activity.isFinishing()) return;
     
     boolean isDark = isThemeDark(activity);
-    int textColor = isDark ? UI_COLOR_TEXT_DARK : UI_COLOR_TEXT_LIGHT;
-    int subTextColor = isDark ? UI_COLOR_SUBTEXT_DARK : UI_COLOR_SUBTEXT_LIGHT;
-    int itemBgColor = isDark ? Color.parseColor("#33FFFFFF") : Color.parseColor("#F5F5F5");
-    int accentColor = isDark ? UI_COLOR_ACCENT_DARK : UI_COLOR_ACCENT_LIGHT;
+    int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
+    int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
+    int itemBgColor = isDark ? pc("#33FFFFFF") : pc("#F5F5F5");
+    int accentColor = isDark ? pc("#FF8AB4F8") : pc("#FF2196F3");
 
     LinearLayout root = new LinearLayout(activity);
     root.setOrientation(LinearLayout.VERTICAL);
@@ -2207,7 +2186,7 @@ void showAllVariablesDialog(final Activity activity, final Object scriptScope) {
         item.setOnTouchListener(new View.OnTouchListener() {
             public boolean onTouch(View v, MotionEvent event) {
                 if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                    v.setBackgroundColor(Color.parseColor(isDark ? "#44FFFFFF" : "#E0E0E0"));
+                    v.setBackgroundColor(pc(isDark ? "#44FFFFFF" : "#E0E0E0"));
                 } else if (event.getAction() == MotionEvent.ACTION_UP ||
                     event.getAction() == MotionEvent.ACTION_CANCEL) {
                     v.setBackground(finalItemBg);
@@ -2305,7 +2284,7 @@ void showAllVariablesDialog(final Activity activity, final Object scriptScope) {
         window.setAttributes(params);
     }
     
-    applyUiTheme(activity, varDialog);
+    applyUiTheme(activity, varDialog, 0);
 }
 
 import me.yxp.qfun.utils.qq.HostInfo;
@@ -2322,7 +2301,7 @@ void chatInterface(int chatType, String peerUin, String peerName) {
         currentPeerUin = peerUin;
         currentChatType = chatType;
         dispatchEvent(peerUin, 5); 
-    } catch (Throwable e) {}
+    } catch (Throwable e) { traceLog("api3_log", "[chatInterface] 异常: " + e); }
 
     boolean 输入框开关 = getBoolean("输入框", "输入框开关", false);
     
@@ -2344,8 +2323,7 @@ void chatInterface(int chatType, String peerUin, String peerName) {
                     }
                 }
 
-            } catch (Throwable e) {
-            }
+            } catch (Throwable e) { traceLog("api3_log", "[chatInterface] 异常: " + e); }
         }
     });
 }
