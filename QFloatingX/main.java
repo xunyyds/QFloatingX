@@ -141,17 +141,17 @@ void traceLog(String name, String txt) {
 void traceLog(String txt) {
     try {
         log("/Log/api_log.txt", getTime() + "    " + txt);
-    } catch (Throwable e) { traceLog("main_log", "异常: " + e); }
+    } catch (Throwable e) {}
 }
 
 void initThreadPool() {
     if (ThreadPool != null) {
         try {
             ThreadPool.submit(new Runnable() { public void run() {} }).get(100, TimeUnit.MILLISECONDS);
-            traceLog("main_log", "线程池存活，直接使用");
+            traceLog("main_log", "[initThreadPool] 线程池存活，直接使用");
             return;
         } catch (Exception e) {
-            traceLog("main_log", "线程池重建: " + e.getMessage());
+            traceLog("main_log", "[initThreadPool] 线程池重建: " + e.getMessage());
             ThreadPool = null;
         }
     }
@@ -160,19 +160,19 @@ void initThreadPool() {
     try {
         String sp = getString("settings", "thread_pool_priority", "5");
         if (!sp.isEmpty()) threadPriority = Math.max(1, Math.min(10, Integer.parseInt(sp)));
-    } catch (Throwable e) { traceLog("main_log", "异常: " + e); }
+    } catch (Throwable e) { traceLog("main_log", "[initThreadPool] 异常: " + e); }
 
     int queueCapacity = 50;
     try {
         String sp = getString("settings", "thread_pool_queue_capacity", "50");
         if (!sp.isEmpty()) queueCapacity = Math.max(10, Integer.parseInt(sp));
-    } catch (Throwable e) { traceLog("main_log", "异常: " + e); }
+    } catch (Throwable e) { traceLog("main_log", "[initThreadPool] 异常: " + e); }
 
     long keepAliveTime = 30;
     try {
         String sp = getString("settings", "thread_pool_keep_alive", "30");
         if (!sp.isEmpty()) keepAliveTime = Math.max(5, Long.parseLong(sp));
-    } catch (Throwable e) { traceLog("main_log", "异常: " + e); }
+    } catch (Throwable e) { traceLog("main_log", "[initThreadPool] 异常: " + e); }
 
     String threadNamePrefix = getString("settings", "thread_pool_name_prefix", "ovoWorker");
 
@@ -180,7 +180,7 @@ void initThreadPool() {
     int corePoolSize = Math.max(2, Math.min(cpuCores, 8));
     int maxPoolSize = Math.min(corePoolSize * 2, 16);
 
-    traceLog("main_log", "初始化线程池: 核心=" + corePoolSize);
+    traceLog("main_log", "[initThreadPool] 初始化线程池: 核心=" + corePoolSize);
 
     ThreadFactory threadFactory = new ThreadFactory() {
         int threadCount = 1;
@@ -207,7 +207,7 @@ ThreadPool.execute(new Runnable() {
         try {
             for (int i = 0; i < coreFiles.length; i++) {
                 loadJava(coreFiles[i]);
-                // traceLog("main_log", "核心api加载：" + coreFiles[i]);
+                // traceLog("main_log", "[apiLoad] 核心api加载：" + coreFiles[i]);
             }
 
             final CountDownLatch latch = new CountDownLatch(parallelFiles.length);
@@ -218,7 +218,7 @@ ThreadPool.execute(new Runnable() {
                         try {
                             loadJava(currentFile);
                         } catch (Exception e) {
-                            traceLog("main_log", "非核心API加载失败：" + currentFile + " " + e.getMessage());
+                            traceLog("main_log", "[apiLoad] 非核心API加载失败：" + currentFile + " " + e.getMessage());
                         } finally {
                             latch.countDown();
                         }
@@ -228,7 +228,7 @@ ThreadPool.execute(new Runnable() {
 
             latch.await(10000, TimeUnit.MILLISECONDS);
             apiLoadCostTime = System.currentTimeMillis() - startTime;
-            traceLog("main_log", "所有API加载完成，耗时：" + apiLoadCostTime + "ms");
+            traceLog("main_log", "[apiLoad] 所有API加载完成，耗时：" + apiLoadCostTime + "ms");
 
             uiHandler.post(new Runnable() {
                 public void run() {
@@ -237,7 +237,7 @@ ThreadPool.execute(new Runnable() {
             });
 
         } catch (Exception e) {
-            traceLog("main_log", "API加载异常：" + e.getMessage());
+            traceLog("main_log", "[apiLoad] API加载异常：" + e.getMessage());
         }
     }
 });
@@ -281,7 +281,7 @@ void checkAndUpdateForegroundState(final Activity activity) {
     }
 
     if (!应用前台状态) {
-        // traceLog("main_log", "状态变更 → 前台");
+        // traceLog("main_log", "[checkAndUpdateForegroundState] 状态变更 → 前台");
         应用前台状态 = true;
         允许触摸 = true;
         最后Activity = activity;
@@ -308,7 +308,7 @@ void checkAndUpdateBackgroundState() {
         public void run() {
             if (resumedActivityCount > 0) return;
             if (应用前台状态) {
-                // traceLog("main_log", "状态变更 → 后台");
+                // traceLog("main_log", "[checkAndUpdateBackgroundState] 状态变更 → 后台");
                 应用前台状态 = false;
                 允许触摸 = false;
                 if (悬浮窗显示状态) 停止悬浮窗();
@@ -322,6 +322,7 @@ void checkAndUpdateBackgroundState() {
 
 static final ConcurrentHashMap METHOD_CACHE = new ConcurrentHashMap();
 List hookloveList = new ArrayList();
+Map hookTagMap = new ConcurrentHashMap();
 
 Method getCachedMethod(Class clazz, String methodName, Class[] paramTypes) {
     if (clazz == null) return null;
@@ -342,7 +343,7 @@ Method getCachedMethod(Class clazz, String methodName, Class[] paramTypes) {
         METHOD_CACHE.put(key, method);
         return method;
     } catch (Exception e) {
-        traceLog("main_log", "反射失败: " + e);
+        traceLog("main_log", "[getCachedMethod] 反射失败: " + e);
         return null;
     }
 }
@@ -350,11 +351,45 @@ Method getCachedMethod(Class clazz, String methodName, Class[] paramTypes) {
 void hook(Class clazz, String methodName, Class[] paramTypes, XC_MethodHook callback) {
     Method method = getCachedMethod(clazz, methodName, paramTypes);
     if (method == null) return;
+    hook(null, method, callback);
+}
+
+void hook(String tag, Method method, XC_MethodHook callback) {
+    if (method == null) return;
     try {
-        hookloveList.add(XposedBridge.hookMethod(method, callback));
+        Object unhook = XposedBridge.hookMethod(method, callback);
+        hookloveList.add(unhook);
+        if (tag != null) {
+            List list = (List) hookTagMap.get(tag);
+            if (list == null) {
+                list = new ArrayList();
+                hookTagMap.put(tag, list);
+            }
+            list.add(unhook);
+        }
     } catch (Exception e) {
-        traceLog("main_log", "Hook注册失败: " + e);
+        traceLog("main_log", "[hook] Hook注册失败: " + e);
     }
+}
+
+void unhook(String tag) {
+    if (tag == null) {
+        unhookAll();
+        return;
+    }
+    List list = (List) hookTagMap.get(tag);
+    if (list == null || list.isEmpty()) return;
+    for (int i = 0; i < list.size(); i++) {
+        try {
+            Object u = list.get(i);
+            u?.unhook();
+            hookloveList.remove(u);
+        } catch (Exception e) {
+            traceLog("main_log", "[unhook] " + tag + " 失败: " + e);
+        }
+    }
+    list.clear();
+    hookTagMap.remove(tag);
 }
 
 void unhookAll() {
@@ -362,10 +397,11 @@ void unhookAll() {
         try {
             unhook?.unhook();
         } catch (Exception e) {
-            traceLog("main_log", "卸载失败: " + e);
+            traceLog("main_log", "[unhookAll] 卸载失败: " + e);
         }
     }
     hookloveList.clear();
+    hookTagMap.clear();
 }
 
 void Hook生命周期() {
@@ -402,7 +438,7 @@ void Hook生命周期() {
         Hook已调用 = true;
 
     } catch (Exception e) {
-        traceLog("main_log", "Hook生命周期异常: " + e);
+        traceLog("main_log", "[Hook生命周期] Hook生命周期异常: " + e);
     }
 }
 
@@ -414,7 +450,7 @@ void 后台初始化() {
         addItem("开/关悬浮窗", "悬浮窗开关");
         addItem("Java脚本", "openPlugin");
         addItem("设置页面", "openSetting");
-        traceLog("main_log", "add项添加完成");
+        traceLog("main_log", "[后台初始化] add项添加完成");
         开模拟定位();
         // if (getBoolean("settings", "后台保活", false)) {
         // KeepAlive.start();
@@ -422,7 +458,7 @@ void 后台初始化() {
         非UI初始化完成 = true;
 
     } catch (Exception e) {
-        traceLog("main_log", "后台初始化异常: " + e.getMessage());
+        traceLog("main_log", "[后台初始化] 后台初始化异常: " + e.getMessage());
     }
 }
 
@@ -460,7 +496,7 @@ void 前台初始化(Activity currentActivity) {
                         Toast("计数异常");
                     }
                 } catch (Exception e) {
-                    traceLog("main_log", "计数解析异常：" + e.getMessage());
+                    traceLog("main_log", "[前台初始化] 计数解析异常：" + e.getMessage());
                 }
             }
 
@@ -474,7 +510,7 @@ void 前台初始化(Activity currentActivity) {
                             putBoolean("settings", qqKey, true);
                         }
                     } catch (Exception e) {
-                        traceLog("main_log", "新用户标记异常：" + e.getMessage());
+                        traceLog("main_log", "[前台初始化] 新用户标记异常：" + e.getMessage());
                     }
                 }
             }
@@ -500,24 +536,24 @@ void 前台初始化(Activity currentActivity) {
 }
 
 void 原神启动() {
-    traceLog("main_log", "原神启动 被调用");
+    traceLog("main_log", "[原神启动] 被调用");
 
     if (apiLoadCostTime == -1) {
-        traceLog("main_log", "错误：apiLoadCostTime未初始化");
+        traceLog("main_log", "[原神启动] 错误：apiLoadCostTime未初始化");
         return;
     }
 
-    traceLog("main_log", "脚本开始初始化，耗时：" + apiLoadCostTime + "ms");
+    traceLog("main_log", "[原神启动] 脚本开始初始化，耗时：" + apiLoadCostTime + "ms");
 
     ThreadPool.execute(new Runnable() {
         public void run() {
             try {
                 后台初始化();
-                traceLog("main_log", "后台初始化完成");
+                traceLog("main_log", "[原神启动] 后台初始化完成");
 
                 Activity currentAct = getNowActivity();
                 if (currentAct != null) {
-                    traceLog("main_log", "有可见Activity，执行前台初始化");
+                    traceLog("main_log", "[原神启动] 有可见Activity，执行前台初始化");
                     最后Activity = currentAct;
                     uiHandler.post(new Runnable() {
                         public void run() {
@@ -525,7 +561,7 @@ void 原神启动() {
                         }
                     });
                 } else {
-                    traceLog("main_log", "无可见Activity，发送通知");
+                    traceLog("main_log", "[原神启动] 无可见Activity，发送通知");
                     String appType = "com.tencent.mobileqq".equals(currentPackageName) ? "QQ" : "TIM";
                     String notifyContent = "脚本已后台加载完成\n" +
                                            "加载耗时：" + apiLoadCostTime + "ms\n" +
@@ -537,14 +573,14 @@ void 原神启动() {
                 }
 
             } catch (Exception e) {
-                traceLog("main_log", "初始化异常: " + e.getMessage());
+                traceLog("main_log", "[原神启动] 初始化异常: " + e.getMessage());
             }
         }
     });
         if (!Hook已调用) {
         Hook生命周期();
         Hook已调用 = true;
-        traceLog("main_log", "Hook生命周期已调用");
+        traceLog("main_log", "[原神启动] Hook生命周期已调用");
     }
 
 }
