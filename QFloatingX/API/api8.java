@@ -12,7 +12,7 @@ private void loadDoneTasks() {
             String item = items[i].trim();
             if (!item.equals("")) doneTasks.add(item);
         }
-        traceLog("api8_log", "加载已处理任务数量: " + doneTasks.size());
+        traceLog("api8_log", "[loadDoneTasks] 加载已处理任务数量: " + doneTasks.size());
     }
 }
 
@@ -114,7 +114,6 @@ public void showQzoneConfig() {
                 outer.addView(scroll);
                 LinearLayout card = new LinearLayout(finalAct);
                 card.setOrientation(LinearLayout.VERTICAL);
-                card.setBackground(roundRect(tc(finalAct, "surface"), dp(finalAct, 16)));
                 card.setPadding(dp(finalAct, 20), dp(finalAct, 20), dp(finalAct, 20), dp(finalAct, 20));
                 scroll.addView(card);
 
@@ -269,6 +268,16 @@ public void showQzoneConfig() {
                 d.getWindow().setLayout(Math.min(dp(finalAct, 400), finalAct.getResources().getDisplayMetrics().widthPixels - dp(finalAct, 32)), -2);
                 d.show();
                 applyUiTheme(finalAct, d, 1);
+                try {
+                    Window w = d.getWindow();
+                    if (w != null) {
+                        w.getDecorView().setElevation(0f);
+                        if (android.os.Build.VERSION.SDK_INT >= 28) {
+                            w.getDecorView().setOutlineSpotShadowColor(Color.TRANSPARENT);
+                            w.getDecorView().setOutlineAmbientShadowColor(Color.TRANSPARENT);
+                        }
+                    }
+                } catch (Throwable ignore) {}
             } catch (Throwable e) {
                 Toast("弹窗创建失败: " + e.getMessage());
             }
@@ -423,9 +432,9 @@ private void sendQzoneZan(String orglikekey, String curlikekey) {
     try {
         String resp = httppost1(url, cookie, data);
         if (jsonGetInt(resp, "ret") == 0) {
-            traceLog("api8_log", "点赞成功: " + curlikekey);
+            traceLog("api8_log", "[sendQzoneZan] 点赞成功: " + curlikekey);
         } else {
-            traceLog("api8_log", "点赞失败: " + curlikekey);
+            traceLog("api8_log", "[sendQzoneZan] 点赞失败: " + curlikekey);
         }
     } catch (Throwable e) { traceLog("api8_log", "[sendQzoneZan] 异常: " + e); }
 }
@@ -454,18 +463,18 @@ private void sendQzoneComment(String orglikekey, String curlikekey, String userU
             + "\",\"content\":\"" + content.replace("\"", "\\\"")
             + "\",\"isPrivateComment\":0,\"busi_param\":{},\"bypass_param\":{}}";
 
-    traceLog("api8_log", "准备评论 → 用户:" + userUin + " srcId:" + srcId + " 内容:" + content);
+    traceLog("api8_log", "[sendQzoneComment] 准备评论 → 用户:" + userUin + " srcId:" + srcId + " 内容:" + content);
 
     try {
         String resp = httppost1(url, cookie, body);
         int ret = jsonGetInt(resp, "ret");
         if (ret == 0) {
-            traceLog("api8_log", "评论成功: " + userUin);
+            traceLog("api8_log", "[sendQzoneComment] 评论成功: " + userUin);
         } else {
-            traceLog("api8_log", "评论失败: " + userUin + " ret=" + ret + " resp=" + resp);
+            traceLog("api8_log", "[sendQzoneComment] 评论失败: " + userUin + " ret=" + ret + " resp=" + resp);
         }
     } catch (Throwable e) {
-        traceLog("api8_log", "评论异常: " + userUin + " " + e.getMessage());
+        traceLog("api8_log", "[sendQzoneComment] 评论异常: " + userUin + " " + e.getMessage());
     }
 }
 checkAndStartOrStopThread();
