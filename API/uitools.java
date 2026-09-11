@@ -146,7 +146,7 @@ EditText makeInput(Activity a, String h, Integer bg) {
     EditText e = new EditText(a);
     e.setHint(h);
     e.setTextSize(13);
-    int useBg = (bg == null) ? tc(a, "surface") : bg;
+    int useBg = (bg == null) ? getAdaptiveInputBg(a) : bg;
     if (bg == null) {
         e.setTextColor(tc(a, "on_surface"));
         e.setHintTextColor(tc(a, "on_surface_variant"));
@@ -1291,7 +1291,7 @@ public Object[] createSwitchViewWithState(Context ctx, boolean initVal) {
         public void onClick(View v) {
             state[0] = !state[0];
             updateUI.run();
-            traceLog("uitools_log", "自定义开关点击，新状态: " + state[0]);
+            traceLog("uitools_log", "[onClick] 自定义开关点击，新状态: " + state[0]);
         }
     });
 
@@ -1397,11 +1397,30 @@ void executeApplyTheme(final Activity activity, final android.app.Dialog dialog,
         
         String rawBgColor = getString("settings", isDark ? "ui_bg_color_dark" : "ui_bg_color_light", 
             isDark ? "#FF1E1E1E" : "#FFFFFFFF");
+        // 纯色列表：多色轮转，1色常驻
+        String solidListKey = isDark ? "ui_bg_solid_list_dark" : "ui_bg_solid_list_light";
+        int[] solidArr = parseColorCsv(getString("settings", solidListKey, ""), false);
+        if (solidArr != null && solidArr.length > 0) {
+            int picked = pickFrom(solidArr);
+            String hx = Integer.toHexString(picked);
+            while (hx.length() < 8) hx = "0" + hx;
+            rawBgColor = "#" + hx.toUpperCase();
+            traceLog("uitools_log", "[executeApplyTheme] solidList n=" + solidArr.length + " picked=" + rawBgColor);
+        } else {
+            traceLog("uitools_log", "[executeApplyTheme] solidList空 key=" + solidListKey + " fallback=" + rawBgColor);
+        }
         String validFallbackColor = isValidHexColor(rawBgColor) ? rawBgColor : (isDark ? "#FF1E1E1E" : "#FFFFFFFF");
         
         if ((skip & 2) == 0) {
-        if ("gradient".equals(bgType) && isValidGradientString(bgGradient)) {
-            applyGradientBackground(activity, window, bgGradient, validFallbackColor, isDark);
+        String gradList = bgGradient;
+        // 渐变列表 key 与 toast 同格式，空则用原值
+        if ("gradient".equals(bgType)) {
+            String gk = isDark ? "ui_bg_gradient_dark" : "ui_bg_gradient_light";
+            String graw = getString("settings", gk, "");
+            if (graw != null && !graw.trim().isEmpty()) gradList = graw;
+        }
+        if ("gradient".equals(bgType) && isValidGradientString(gradList)) {
+            applyGradientBackground(activity, window, gradList, validFallbackColor, isDark);
         } else {
             applyFallbackBg(activity, window, validFallbackColor, isDark);
         }
@@ -1465,7 +1484,7 @@ void executeApplyTheme(final Activity activity, final android.app.Dialog dialog,
                                     origin.recycle();
                                 }
                                 
-                            } catch (Throwable e) { traceLog("uitools_log", "[run] 异常: " + e); }
+                            } catch (Throwable e) { traceLog("uitools_log", "[executeApplyTheme] 异常: " + e); }
                         }
                     });
                 }
@@ -1509,7 +1528,7 @@ void executeApplyTheme(final Activity activity, final android.app.Dialog dialog,
         }
         
     } catch (Throwable e) {
-        try { e.printStackTrace(); } catch (Throwable ex) { traceLog("uitools_log", "[run] 异常: " + ex); }
+        try { e.printStackTrace(); } catch (Throwable ex) { traceLog("uitools_log", "[executeApplyTheme] 异常: " + ex); }
     }
 }
 
@@ -1528,8 +1547,8 @@ void applyDrawableWithTransition(final Activity activity, final Window window, f
                 window.setBackgroundDrawable(transitionDrawable);
                 transitionDrawable.startTransition(300);
                 
-                clearInnerBackgrounds(decorView);
                 applyWindowRadius(activity, window);
+                applyWindowBlurBehind(window);
                 
             } catch (Throwable e) {
                 window.setBackgroundDrawable(newDrawable);
@@ -1648,7 +1667,7 @@ void loadImageOptimized(final Activity activity, final Window window,
             origin.recycle();
         }
         
-    } catch (Throwable e) { traceLog("uitools_log", "[run] 异常: " + e); }
+    } catch (Throwable e) { traceLog("uitools_log", "[applyDrawableWithTransition] 异常: " + e); }
     finally {
         synchronized (BG_LOCK) {
             isBgLoading = false;
@@ -1674,10 +1693,8 @@ void applyDrawableWithoutTextRecalc(final Activity activity, final Window window
                 }
                 
                 window.setBackgroundDrawable(drawable);
-                
-                clearInnerBackgrounds(decorView);
-                
                 applyWindowRadius(activity, window);
+                applyWindowBlurBehind(window);
                 
             } catch (Throwable e) {
                 e.printStackTrace();
@@ -1704,26 +1721,7 @@ void finalizeTextStyle(final Activity activity, final View decorView, final bool
     });
 }
 
-void clearInnerBackgrounds(View view) {
-    if (view == null) return;
-    
-    try {
-        if (view instanceof ViewGroup) {
-            String clsName = view.getClass().getSimpleName();
-            if (clsName.contains("Decor") || clsName.contains("Content") || clsName.contains("Dialog")) {
-                Drawable bg = view.getBackground();
-                if (bg == null || isDrawableTransparent(bg)) {
-                    view.setBackground(null);
-                }
-            }
-            
-            ViewGroup vg = (ViewGroup) view;
-            for (int i = 0; i < vg.getChildCount(); i++) {
-                clearInnerBackgrounds(vg.getChildAt(i));
-            }
-        }
-    } catch (Throwable e) { traceLog("uitools_log", "[clearInnerBackgrounds] 异常: " + e); }
-}
+// clearInnerBackgrounds 已移除：窗体主题由 applyUiTheme 统一负责
 
 void applyDialogSize(final Activity activity, final Window window) {
     try {
@@ -1747,9 +1745,9 @@ void applyDialogSize(final Activity activity, final Window window) {
         if (customWidth > 0) {
             dialogWidth = customWidth;
         } else {
-            int maxWidth = (int) (260 * density);
             int screenWidth = activity.getResources().getDisplayMetrics().widthPixels;
-            dialogWidth = (int) (Math.min(maxWidth, screenWidth - (int) (48 * density)) * scale);
+            int maxDp = Math.min(260, (int)(screenWidth / density) - 48);
+            dialogWidth = (int) (maxDp * density * scale);
         }
         
         int dialogHeight = ViewGroup.LayoutParams.WRAP_CONTENT;
@@ -1770,30 +1768,69 @@ boolean isDrawableTransparent(Drawable drawable) {
     return false;
 }
 
+// applyUiSeekBar 仅保留 3 参版本
+
+void applyUiSeekBar(android.widget.SeekBar sb, Context ctx, int primary) {
+    try {
+        int trackH = dp(ctx, 4);
+        int thumbSize = dp(ctx, 22);
+        int corner = trackH / 2;
+        int trackPad = (thumbSize - trackH) / 2;
+        boolean dark = false;
+        try { if (ctx instanceof Activity) dark = isThemeDark((Activity) ctx); } catch (Throwable ignore) {}
+        GradientDrawable bg = new GradientDrawable();
+        bg.setShape(GradientDrawable.RECTANGLE);
+        bg.setCornerRadius(corner);
+        bg.setColor(dark ? pc("#33FFFFFF") : pc("#33000000"));
+        bg.setSize(0, trackH);
+        GradientDrawable prog = new GradientDrawable();
+        prog.setShape(GradientDrawable.RECTANGLE);
+        prog.setCornerRadius(corner);
+        prog.setColor(primary);
+        prog.setSize(0, trackH);
+        ClipDrawable clip = new ClipDrawable(prog, 3, 1);
+        LayerDrawable layer = new LayerDrawable(new Drawable[]{bg, clip});
+        layer.setId(0, 16908288);
+        layer.setId(1, 16908301);
+        sb.setProgressDrawable(layer);
+        GradientDrawable thumb = new GradientDrawable();
+        thumb.setShape(GradientDrawable.OVAL);
+        thumb.setSize(thumbSize, thumbSize);
+        thumb.setColor(pc("#FFFFFFFF"));
+        thumb.setStroke(dp(ctx, 2), primary);
+        sb.setThumb(thumb);
+        sb.setThumbOffset(0);
+        int pad = thumbSize / 2;
+        sb.setPadding(pad, trackPad, pad, trackPad);
+        sb.setMinimumHeight(thumbSize);
+    } catch (Throwable e) { traceLog("uitools_log", "[applyUiSeekBar] 异常: " + e); }
+}
+
+int getUiCornerDp() {
+    int v = 16;
+    try { v = Integer.parseInt(getString("settings", "ui_corner_dp", "16")); } catch (Throwable e) { v = 16; }
+    if (v < 0) v = 0;
+    if (v > 32) v = 32;
+    return v;
+}
+
 void applyWindowRadius(final Activity activity, final Window window) {
     try {
-        final View decor = window != null ? window.getDecorView() : null;
-        final float radius = 16 * activity.getResources().getDisplayMetrics().density;
-        if (decor != null) {
-            if (android.os.Build.VERSION.SDK_INT >= 21) {
-                decor.setElevation(0);
-                decor.setClipToOutline(true);
-                decor.setOutlineProvider(new ViewOutlineProvider() {
-                    public void getOutline(View view, Outline outline) {
-                        try {
-                            outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), radius);
-                        } catch (Throwable e) { traceLog("uitools_log", "[getOutline] 异常: " + e); }
-                    }
-                });
-            }
+        if (window == null) return;
+        View decor = window.getDecorView();
+        if (decor == null) return;
+        decor.setElevation(0f);
+        if (android.os.Build.VERSION.SDK_INT >= 28) {
+            decor.setOutlineSpotShadowColor(Color.TRANSPARENT);
+            decor.setOutlineAmbientShadowColor(Color.TRANSPARENT);
         }
-    } catch (Throwable e) { traceLog("uitools_log", "[getOutline] 异常: " + e); }
+    } catch (Throwable e) { traceLog("uitools_log", "[applyWindowRadius] 异常: " + e); }
 }
 
 void applyGradientBackground(Activity activity, Window window, String gradientStr, String fallbackColor, boolean isDark) {
     try {
         GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(dp(activity, 16));
+        bg.setCornerRadius(dp(activity, getUiCornerDp()));
         
         if (gradientStr != null && !gradientStr.trim().isEmpty()) {
             String[] colors = gradientStr.split(",");
@@ -1831,23 +1868,37 @@ void applyGradientBackground(Activity activity, Window window, String gradientSt
 void applyFallbackBg(Activity activity, Window window, String colorStr, boolean isDark) {
     try {
         GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(dp(activity, 16));
+        bg.setCornerRadius(dp(activity, getUiCornerDp()));
         bg.setColor(pc(colorStr));
         applyDrawableToWindow(window, bg, activity, isDark);
     } catch(Exception e) { 
         try {
             GradientDrawable bg = new GradientDrawable();
-            bg.setCornerRadius(dp(activity, 16));
+            bg.setCornerRadius(dp(activity, getUiCornerDp()));
             bg.setColor(isDark ? pc("#FF1E1E1E") : Color.WHITE);
             applyDrawableToWindow(window, bg, activity, isDark);
         } catch (Throwable ex) { traceLog("uitools_log", "[applyFallbackBg] 异常: " + ex); }
     }
 }
 
+void applyWindowBlurBehind(Window window) {
+    if (window == null) return;
+    try {
+        if (!getBoolean("settings", "背景模糊", false)) return;
+        if (android.os.Build.VERSION.SDK_INT >= 31) {
+            WindowManager.LayoutParams lp = window.getAttributes();
+            window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
+            lp.setBlurBehindRadius(35);
+            window.setAttributes(lp);
+        }
+    } catch (Throwable e) { traceLog("uitools_log", "[applyWindowBlurBehind] 异常: " + e); }
+}
+
 void applyDrawableToWindow(Window window, Drawable drawable, Activity activity, boolean isDark) {
     try {
         window.setBackgroundDrawable(drawable);
         applyWindowRadius(activity, window);
+        applyWindowBlurBehind(window);
     } catch(Throwable e) {
         try {
             window.setBackgroundColor(isDark ? pc("#FF1E1E1E") : Color.WHITE);
@@ -1905,9 +1956,8 @@ boolean isDefaultTextColor(int color) {
     return false;
 }
 
-boolean isUserCustomColor(int color) {
-    return !isDefaultTextColor(color);
-}
+// isUserCustomColor 已删除（无调用）
+
 
 boolean isColorSimilar(int color1, int color2, int tolerance) {
     return Math.abs(Color.red(color1) - Color.red(color2)) <= tolerance &&
