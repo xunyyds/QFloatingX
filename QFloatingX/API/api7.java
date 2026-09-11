@@ -220,7 +220,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
             rootFrame.addView(snifferWindow.getView());
 
             setContentView(rootFrame);
-            traceLog("api7_log", "ContentView设置完成");
+            traceLog("api7_log", "[onCreate] ContentView设置完成");
 
             // --- 6. 延迟初始化 (默认收起底栏) ---
             bottomSheetLayout.post(new Runnable() {
@@ -228,14 +228,14 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                     try {
                         maxDragRange = controlsContainer.getHeight();
                         if (maxDragRange <= 0) {
-                            traceLog("api7_log", "获取高度失败，使用默认值");
+                            traceLog("api7_log", "[onCreate] 获取高度失败，使用默认值");
                             maxDragRange = dp(180);
                         }
                         bottomSheetLayout.setTranslationY(maxDragRange);
                         isExpanded = false;
-                        traceLog("api7_log", "底栏初始化完成，默认收起，高度=" + maxDragRange);
+                        traceLog("api7_log", "[onCreate] 底栏初始化完成，默认收起，高度=" + maxDragRange);
                     } catch (Throwable e) {
-                        traceLog("api7_log", "初始化异常: " + e.getMessage());
+                        traceLog("api7_log", "[onCreate] 初始化异常: " + e.getMessage());
                     }
                 }
             });
@@ -245,16 +245,16 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                 if (filePath.startsWith("http")) {
                     titleView.setText("网络页面");
                     webView.loadUrl(filePath);
-                    traceLog("api7_log", "加载网络: " + filePath);
+                    traceLog("api7_log", "[onCreate] 加载网络: " + filePath);
                 } else {
                     File file = new File(filePath);
                     setCleanTitle(file.getName());
                     if (file.getName().toLowerCase().endsWith(".zip")) {
-                        traceLog("api7_log", "准备解压: " + filePath);
+                        traceLog("api7_log", "[onCreate] 准备解压: " + filePath);
                         handleZipFile(file);
                     } else {
                         webView.loadUrl("file://" + filePath);
-                        traceLog("api7_log", "加载文件: " + filePath);
+                        traceLog("api7_log", "[onCreate] 加载文件: " + filePath);
                     }
                 }
             } else {
@@ -262,7 +262,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
             }
 
         } catch (Throwable e) {
-            traceLog("api7_log", "onCreate致命异常: " + e.getMessage());
+            traceLog("api7_log", "[onCreate] onCreate致命异常: " + e.getMessage());
             android.widget.Toast.makeText(this, "Init Error: " + e, 0).show();
         }
     }
@@ -301,7 +301,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
             settings.setAllowUniversalAccessFromFileURLs(true);
             settings.setAllowFileAccessFromFileURLs(true);
         } catch(Exception e){
-            traceLog("api7_log", "设置URL访问权限异常: " + e.getMessage());
+            traceLog("api7_log", "[initWebSettings] 设置URL访问权限异常: " + e.getMessage());
         }
 
         webView.setWebViewClient(new WebViewClient() {
@@ -312,14 +312,14 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                         lower.contains(".mp4?") || lower.contains("googlevideo")) {
                         if (!sniffedResources.contains(url)) {
                             sniffedResources.add(url);
-                            traceLog("api7_log", "嗅探到资源: " + url);
+                            traceLog("api7_log", "[onLoadResource] 嗅探到资源: " + url);
                             if(snifferWindow != null && snifferWindow.isShowing()) {
                                 runOnUiThread(new Runnable() { public void run() { snifferWindow.refreshList(); }});
                             }
                         }
                     }
                 } catch (Throwable e) {
-                    traceLog("api7_log", "嗅探异常: " + e.getMessage());
+                    traceLog("api7_log", "[onLoadResource] 嗅探异常: " + e.getMessage());
                 }
             }
         });
@@ -329,7 +329,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                     if (newProgress == 100) centerSpinner.setVisibility(View.GONE);
                     else centerSpinner.setVisibility(View.VISIBLE);
                 } catch (Throwable e) {
-                    traceLog("api7_log", "进度更新异常: " + e.getMessage());
+                    traceLog("api7_log", "[onProgressChanged] 进度更新异常: " + e.getMessage());
                 }
             }
         });
@@ -361,7 +361,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                 });
             }
         } catch (Throwable e) {
-            traceLog("api7_log", "上下文菜单异常: " + e.getMessage());
+            traceLog("api7_log", "[onCreateContextMenu] 上下文菜单异常: " + e.getMessage());
         }
     }
 
@@ -416,7 +416,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
             }
             return false;
         } catch (Throwable e) {
-            traceLog("api7_log", "触摸异常: " + e.getMessage());
+            traceLog("api7_log", "[onTouch] 触摸异常: " + e.getMessage());
             downTime = 0;
             isDragging = false;
             return false;
@@ -431,7 +431,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                 expandBottomSheet();
             }
         } catch (Throwable e) {
-            traceLog("api7_log", "切换异常: " + e.getMessage());
+            traceLog("api7_log", "[toggleBottomSheet] 切换异常: " + e.getMessage());
         }
     }
 
@@ -445,7 +445,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                 .withEndAction(new Runnable() { public void run() { isExpanded = true; }})
                 .start();
         } catch (Throwable e) {
-            traceLog("api7_log", "展开动画异常: " + e.getMessage());
+            traceLog("api7_log", "[expandBottomSheet] 展开动画异常: " + e.getMessage());
         }
     }
 
@@ -459,7 +459,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                 .withEndAction(new Runnable() { public void run() { isExpanded = false; }})
                 .start();
         } catch (Throwable e) {
-            traceLog("api7_log", "收起动画异常: " + e.getMessage());
+            traceLog("api7_log", "[collapseBottomSheet] 收起动画异常: " + e.getMessage());
         }
     }
 
@@ -468,7 +468,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
             if (v == btnRefresh) { 
                 webView.reload(); 
                 Toast("已刷新"); 
-                traceLog("api7_log", "点击刷新按钮");
+                traceLog("api7_log", "[onClick] 点击刷新按钮");
             }
             else if (v == btnBack) { 
                 if (webView.canGoBack()) webView.goBack(); 
@@ -484,7 +484,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                 if (snifferWindow != null) {
                     if (sniffedResources.isEmpty()) {
                         Toast("未嗅探到资源");
-                        traceLog("api7_log", "用户尝试打开嗅探窗口但资源为空");
+                        traceLog("api7_log", "[onClick] 用户尝试打开嗅探窗口但资源为空");
                     } else {
                         snifferWindow.show();
                     }
@@ -495,7 +495,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
             }
             else if (v == btnClose) finish();
         } catch (Throwable e) {
-            traceLog("api7_log", "点击处理异常: " + e.getMessage());
+            traceLog("api7_log", "[onClick] 点击处理异常: " + e.getMessage());
         }
     }
 
@@ -519,7 +519,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
             cm.setText(text);
             Toast("已复制");
         } catch (Throwable e) {
-            traceLog("api7_log", "复制异常: " + e.getMessage());
+            traceLog("api7_log", "[copyToClipboard] 复制异常: " + e.getMessage());
         }
     }
 
@@ -544,7 +544,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                 }
             });
         } catch (Throwable e) {
-            traceLog("api7_log", "下载启动异常: " + e.getMessage());
+            traceLog("api7_log", "[downloadFile] 下载启动异常: " + e.getMessage());
         }
     }
 
@@ -585,7 +585,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                 }
             });
         } catch (Throwable e) {
-            traceLog("api7_log", "解压启动异常: " + e.getMessage());
+            traceLog("api7_log", "[handleZipFile] 解压启动异常: " + e.getMessage());
         }
     }
 
@@ -667,7 +667,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                                 case MotionEvent.ACTION_MOVE: layout.animate().x(event.getRawX() + dX).y(event.getRawY() + dY).setDuration(0).start(); return true;
                             }
                         } catch (Throwable e) {
-                            traceLog("api7_log", "拖拽异常: " + e.getMessage());
+                            traceLog("api7_log", "[init] 拖拽异常: " + e.getMessage());
                         }
                         return false;
                     }
@@ -684,7 +684,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                 contentLayout.addView(listScroll);
                 layout.addView(contentLayout);
             } catch (Throwable e) {
-                traceLog("api7_log", "初始化异常: " + e.getMessage());
+                traceLog("api7_log", "[init] 初始化异常: " + e.getMessage());
             }
         }
 
@@ -695,17 +695,17 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
         public void show() {
             try {
                 if (sniffedResources == null || sniffedResources.isEmpty()) {
-                    traceLog("api7_log", "嗅探资源为空，拒绝显示窗口");
+                    traceLog("api7_log", "[show] 嗅探资源为空，拒绝显示窗口");
                     Toast("未嗅探到任何资源");
                     return;
                 }
                 
-                traceLog("api7_log", "显示嗅探窗口，资源数量: " + sniffedResources.size());
+                traceLog("api7_log", "[show] 显示嗅探窗口，资源数量: " + sniffedResources.size());
                 layout.setVisibility(View.VISIBLE);
                 refreshList();
                 if(isMinimized) toggleMinimize();
             } catch (Throwable e) {
-                traceLog("api7_log", "显示窗口异常: " + e.getMessage());
+                traceLog("api7_log", "[show] 显示窗口异常: " + e.getMessage());
             }
         }
 
@@ -714,11 +714,11 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                 titleTv.setText("资源 (" + sniffedResources.size() + ")");
                 listContainer.removeAllViews();
                 if (sniffedResources.isEmpty()) {
-                    traceLog("api7_log", "刷新列表但资源为空");
+                    traceLog("api7_log", "[refreshList] 刷新列表但资源为空");
                     return;
                 }
 
-                traceLog("api7_log", "刷新列表，资源数量: " + sniffedResources.size());
+                traceLog("api7_log", "[refreshList] 刷新列表，资源数量: " + sniffedResources.size());
                 for (final Object obj : sniffedResources) {
                     final String url = (String)obj;
                     LinearLayout item = new LinearLayout(act);
@@ -749,7 +749,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                     listContainer.addView(line);
                 }
             } catch (Throwable e) {
-                traceLog("api7_log", "刷新列表异常: " + e.getMessage());
+                traceLog("api7_log", "[refreshList] 刷新列表异常: " + e.getMessage());
             }
         }
         
@@ -760,9 +760,9 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                 FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) layout.getLayoutParams();
                 p.width = isMinimized ? dp(140) : dp(280);
                 layout.setLayoutParams(p);
-                traceLog("api7_log", "切换最小化状态: " + isMinimized);
+                traceLog("api7_log", "[toggleMinimize] 切换最小化状态: " + isMinimized);
             } catch (Throwable e) {
-                traceLog("api7_log", "切换异常: " + e.getMessage());
+                traceLog("api7_log", "[toggleMinimize] 切换异常: " + e.getMessage());
             }
         }
     }
@@ -784,7 +784,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                 btnTranslate.setText("翻译");
                 isTranslationActive = false;
                 Toast("已退出翻译");
-                traceLog("api7_log", "用户退出翻译");
+                traceLog("api7_log", "[toggleTranslation] 用户退出翻译");
             } else {
                 String script = "javascript:(function(){" +
                     "var s=document.createElement('script');" +
@@ -804,10 +804,10 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                 btnTranslate.setText("关闭翻译");
                 isTranslationActive = true;
                 Toast("翻译已启用");
-                traceLog("api7_log", "用户启用翻译");
+                traceLog("api7_log", "[toggleTranslation] 用户启用翻译");
             }
         } catch (Throwable e) {
-            traceLog("api7_log", "翻译切换异常: " + e.getMessage());
+            traceLog("api7_log", "[toggleTranslation] 翻译切换异常: " + e.getMessage());
             Toast("翻译操作失败");
         }
     }
@@ -1026,7 +1026,7 @@ private void showHtmlOptionDialog(final Activity activity) {
                 });
                 
             } catch(Exception e) { 
-                traceLog("api7_log", e.toString());
+                traceLog("api7_log", "[onEditorAction] " + e.toString());
             }
         }
     });
@@ -1084,7 +1084,15 @@ private void showHtmlFileBrowser(final Activity activity) {
                                     int contentWidth = activity.getResources().getDisplayMetrics().widthPixels - dp(activity, 72);
                                     content.setLayoutParams(new LinearLayout.LayoutParams(contentWidth, -2));
                                     
-                                    content.setBackgroundColor(tc(activity, "surface"));
+                                    boolean itemDark = isDark;
+                                    int itemFill = Color.argb(itemDark ? 120 : 150,
+                                        Color.red(tc(activity, "surface")),
+                                        Color.green(tc(activity, "surface")),
+                                        Color.blue(tc(activity, "surface")));
+                                    GradientDrawable itemBg = new GradientDrawable();
+                                    itemBg.setColor(itemFill);
+                                    itemBg.setCornerRadius(dp(activity, 12));
+                                    content.setBackground(itemBg);
                                     
                                     TextView icon = new TextView(activity);
                                     icon.setText(name.endsWith(".zip") ? "📦" : "🌐");
@@ -1161,19 +1169,31 @@ private void showHtmlFileBrowser(final Activity activity) {
                 refreshList.run();
                 
                 root.addView(scrollView, new LinearLayout.LayoutParams(-1, 0, 1.0f));
-                
+
+                LinearLayout bottomRow = new LinearLayout(activity);
+                bottomRow.setOrientation(LinearLayout.HORIZONTAL);
+                bottomRow.setGravity(Gravity.END);
+                bottomRow.setPadding(0, dp(activity, 12), 0, 0);
+                TextView cancelBtn = createButton(activity, "取消", tc(activity, "on_surface_variant"), Color.TRANSPARENT, 14f, 8, 16, 8, false, 0, 0, null);
+                bottomRow.addView(cancelBtn);
+                root.addView(bottomRow, new LinearLayout.LayoutParams(-1, -2));
+
                 final android.app.Dialog dialog = new android.app.Dialog(activity, android.R.style.Theme_Translucent_NoTitleBar);
                 dialog.requestWindowFeature(1);
                 dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0));
                 dialog.setContentView(root);
                 dialog.getWindow().setLayout(Math.min(dp(activity, 320), activity.getResources().getDisplayMetrics().widthPixels - dp(activity, 32)), dp(activity, 450));
                 
+                cancelBtn.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) { dialog.dismiss(); }
+                });
+
                 dialog.show();
                 applyUiTheme(activity, dialog, 1);
                 
             } catch(Exception e) { 
                 Toast("Error: " + e); 
-                traceLog("api7_log", e.toString());
+                traceLog("api7_log", "[showHtmlFileBrowser] " + e.toString());
             }
         }
     });
