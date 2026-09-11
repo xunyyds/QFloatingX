@@ -592,7 +592,7 @@ Bitmap getbitmap(String path) {
 			return bmp;
 		}
 	} catch (Throwable e) {
-		traceLog("api_log", "加载失败: " + e.getMessage());
+		traceLog("api_log", "[getbitmap] 加载失败: " + e.getMessage());
 		Toast("图片加载错误: " + e.getMessage());
 		return Bitmap.createBitmap(800, 800, Bitmap.Config.ARGB_8888);
 	} finally {
@@ -600,7 +600,7 @@ Bitmap getbitmap(String path) {
 			try {
 				stream.close();
 			} catch (Throwable closeE) {
-				traceLog("api_log", "流关闭失败: " + closeE.getMessage());
+				traceLog("api_log", "[getbitmap] 流关闭失败: " + closeE.getMessage());
 			}
 		}
 	}
@@ -620,7 +620,7 @@ Bitmap getroundbmp(Bitmap bitmap, float roundPx) {
 		canvas.drawBitmap(bitmap, rect, rect, paint);
 		return bmp;
 	} catch (Throwable e) {
-		traceLog("api_log", "圆角处理失败: " + e.getMessage());
+		traceLog("api_log", "[getroundbmp] 圆角处理失败: " + e.getMessage());
 		return bitmap;
 	}
 }
@@ -639,16 +639,16 @@ void bmptofile(Bitmap bmp, String path) {
 		bmp.compress(Bitmap.CompressFormat.PNG, 100, fs);
 		fs.flush();
 
-		traceLog("api_log", "图片已保存: " + path);
+		traceLog("api_log", "[bmptofile] 图片已保存: " + path);
 	} catch (Throwable e) {
-		traceLog("api_log", "保存失败: " + e.getMessage());
+		traceLog("api_log", "[bmptofile] 保存失败: " + e.getMessage());
 		Toast("保存失败: " + e.getMessage());
 	} finally {
 		if (fs != null) {
 			try {
 				fs.close();
 			} catch (Throwable closeE) {
-				traceLog("api_log", "文件流关闭失败: " + closeE.getMessage());
+				traceLog("api_log", "[bmptofile] 文件流关闭失败: " + closeE.getMessage());
 			}
 		}
 	}
@@ -662,7 +662,7 @@ void urltofile(final String url, final String path) {
 		Bitmap bmp = getbitmap(url);
 		bmptofile(bmp, path);
 	} catch (Throwable e) {
-		traceLog("api_log", "下载失败: " + e.getMessage());
+		traceLog("api_log", "[urltofile] 下载失败: " + e.getMessage());
 	}
 	// }
 	// });
@@ -683,7 +683,7 @@ void fsdx(final String path1, final String path, final Object a, final Object b)
 				String savePath = ("".equals(path) || path == null) ? path1 : path;
 				bmptofile(bmp, savePath);
 			} catch (Throwable e) {
-				traceLog("api_log", "缩放失败: " + e.getMessage());
+				traceLog("api_log", "[fsdx] 缩放失败: " + e.getMessage());
 			}
 		}
 	});
@@ -720,7 +720,7 @@ void pinpic(final String path1, final String path2, final Object sw, final Objec
 				String savePath = ("".equals(path) || path == null) ? path1 : path;
 				bmptofile(bm1, savePath);
 			} catch (Throwable e) {
-				traceLog("api_log", "叠加失败: " + e.getMessage());
+				traceLog("api_log", "[fsdx] 叠加失败: " + e.getMessage());
 			}
 		}
 	});
@@ -749,7 +749,7 @@ void writetopic(final String path1, final String text, final String color,
 				String savePath = ("".equals(path) || path == null) ? path1 : path;
 				bmptofile(bmp, savePath);
 			} catch (Throwable e) {
-				traceLog("api_log", "文字写入失败: " + e.getMessage());
+				traceLog("api_log", "[fsdx] 文字写入失败: " + e.getMessage());
 			}
 		}
 	});
@@ -822,10 +822,10 @@ public void 删除(String Path) {
 		if (file.exists()) {
 			boolean deleted = file.delete();
 		} else {
-			traceLog("api_log", "文件不存在: " + Path);
+			traceLog("api_log", "[删除] 文件不存在: " + Path);
 		}
 	} catch (Exception e) {
-		traceLog("api_log", "删除文件时发生错误: " + e);
+		traceLog("api_log", "[删除] 删除文件时发生错误: " + e);
 	}
 }
 
@@ -844,12 +844,12 @@ private boolean 删除文件夹(File folder) {
 				if (子项.isDirectory()) {
 					if (!删除文件夹(子项)) {
 						所有子项删除成功 = false;
-						traceLog("api_log", "删除子文件夹失败: " + 子项.getAbsolutePath());
+						traceLog("api_log", "[删除文件夹] 删除子文件夹失败: " + 子项.getAbsolutePath());
 					}
 				} else {
 					if (!子项.delete()) {
 						所有子项删除成功 = false;
-						traceLog("api_log", "删除文件失败: " + 子项.getAbsolutePath());
+						traceLog("api_log", "[删除文件夹] 删除文件失败: " + 子项.getAbsolutePath());
 					}
 				}
 			}
@@ -862,13 +862,128 @@ private boolean 删除文件夹(File folder) {
 		}
 	} catch (Exception e) {
 		记录异常 = e;
-		traceLog("api_log", "删除文件夹过程中异常: " + e);
+		traceLog("api_log", "[删除文件夹] 删除文件夹过程中异常: " + e);
 		return false;
 	} finally {
 		if (记录异常 != null) {
-			traceLog("api_log", "删除文件夹: 未完全删除" + 记录异常);
+			traceLog("api_log", "[删除文件夹] 未完全删除" + 记录异常);
 		}
 	}
+}
+
+
+/** UI背景类型：color / gradient / image */
+String getUiBgType() {
+	return getString("settings", "ui_bg_type", "color");
+}
+
+/** 统一剩余时长（秒）→ 中文描述 */
+String formatRemainingTime(long seconds) {
+	if (seconds <= 0) return "0秒";
+	if (seconds < 60) return seconds + "秒";
+	if (seconds < 3600) return (seconds / 60) + "分钟" + (seconds % 60) + "秒";
+	if (seconds < 86400) return (seconds / 3600) + "小时" + ((seconds % 3600) / 60) + "分钟";
+	return (seconds / 86400) + "天" + ((seconds % 86400) / 3600) + "小时";
+}
+
+/** 统一剩余时长（毫秒）→ 中文描述；≤0 返回立即执行 */
+String formatRemainingTimeMs(long ms) {
+	if (ms <= 0) return "立即执行";
+	return formatRemainingTime(ms / 1000);
+}
+
+/** 分类卡片底色：三种背景样式都有；图片背景透明 */
+int getAdaptiveCardBg(Activity a) {
+	if (a == null) return pc("#33FFFFFF");
+	boolean dark = isThemeDark(a);
+	String bgType = getUiBgType();
+	if ("image".equals(bgType)) return Color.TRANSPARENT;
+	if ("gradient".equals(bgType)) {
+		int s = pc(getSettingsThemeColor(a, "surface"));
+		return Color.argb(dark ? 150 : 170, Color.red(s), Color.green(s), Color.blue(s));
+	}
+	return mixTowardElevated(pc(getSettingsThemeColor(a, "background")), dark);
+}
+
+/** 输入框底色：图片半透明少遮挡；纯色/渐变用有对比 surface */
+int getAdaptiveInputBg(Activity a) {
+	if (a == null) return pc("#22FFFFFF");
+	boolean dark = isThemeDark(a);
+	String bgType = getUiBgType();
+	if ("image".equals(bgType)) {
+		int s = pc(getSettingsThemeColor(a, "surface"));
+		return Color.argb(dark ? 70 : 90, Color.red(s), Color.green(s), Color.blue(s));
+	}
+	return pc(getSettingsThemeColor(a, "surface"));
+}
+
+/** 半屏/弹窗填充底色 */
+int getAdaptiveSheetBg(Activity a) {
+	if (a == null) return pc("#FF1E1E1E");
+	boolean dark = isThemeDark(a);
+	String bgType = getUiBgType();
+	if ("image".equals(bgType)) {
+		int b = pc(getSettingsThemeColor(a, "background"));
+		return Color.argb(dark ? 200 : 220, Color.red(b), Color.green(b), Color.blue(b));
+	}
+	if ("gradient".equals(bgType)) {
+		int s = pc(getSettingsThemeColor(a, "surface"));
+		return Color.argb(dark ? 230 : 235, Color.red(s), Color.green(s), Color.blue(s));
+	}
+	return pc(getSettingsThemeColor(a, "background"));
+}
+
+/** 菜单项卡片底色：始终比半屏背景更浅 */
+int getAdaptiveMenuItemBg(Activity a) {
+	if (a == null) return pc("#FF3A3A3A");
+	boolean dark = isThemeDark(a);
+	String bgType = getUiBgType();
+	int base;
+	if ("image".equals(bgType)) {
+		return dark ? Color.argb(90, 255, 255, 255) : Color.argb(70, 255, 255, 255);
+	}
+	if ("gradient".equals(bgType)) {
+		base = pc(getSettingsThemeColor(a, "surface"));
+	} else {
+		base = pc(getSettingsThemeColor(a, "background"));
+	}
+	int r = Color.red(base);
+	int g = Color.green(base);
+	int b = Color.blue(base);
+	if (dark) {
+		return Color.argb(255,
+			Math.min(255, r + 52),
+			Math.min(255, g + 52),
+			Math.min(255, b + 52));
+	}
+	return Color.argb(255,
+		r + (255 - r) * 45 / 100,
+		g + (255 - g) * 45 / 100,
+		b + (255 - b) * 45 / 100);
+}
+
+/** 设置页条目底色：半透明，让分类卡片底色透出来 */
+int getAdaptiveSettingsItemBg(Activity a) {
+	if (a == null) return Color.argb(30, 255, 255, 255);
+	boolean dark = isThemeDark(a);
+	return dark ? Color.argb(40, 255, 255, 255) : Color.argb(28, 255, 255, 255);
+}
+
+/** 颜色抬升为卡片色：浅色压暗、深色提亮，保证自定义纯色下可见 */
+int mixTowardElevated(int color, boolean dark) {
+	int r = Color.red(color);
+	int g = Color.green(color);
+	int b = Color.blue(color);
+	if (dark) {
+		return Color.argb(255,
+			Math.min(255, r + 36),
+			Math.min(255, g + 36),
+			Math.min(255, b + 36));
+	}
+	return Color.argb(255,
+		r * 92 / 100,
+		g * 92 / 100,
+		b * 92 / 100);
 }
 
 String formatTime(float time) {
@@ -899,13 +1014,13 @@ String formatSize(long bytes) {
 }
 long getFileSize(File file) {
 	if (file == null) {
-		traceLog("api_log", "getFileSize参数为null");
+		traceLog("api_log", "[getFileSize] getFileSize参数为null");
 		return 0;
 	}
 	try {
 		return file.length();
 	} catch (Exception e) {
-		traceLog("api_log", "获取文件大小失败: " + file.getName() + "    " + e);
+		traceLog("api_log", "[getFileSize] 获取文件大小失败: " + file.getName() + "    " + e);
 		return 0;
 	}
 }
@@ -914,7 +1029,7 @@ long getFileSize(File file) {
 // 递归文件夹大小计算
 long getFolderSize(File folder) {
 	if (folder == null || !folder.exists()) {
-		traceLog("api_log", "getFolderSize文件夹不存在: " + folder);
+		traceLog("api_log", "[getFolderSize] getFolderSize文件夹不存在: " + folder);
 		return 0;
 	}
 	long size = 0;
@@ -931,7 +1046,7 @@ long getFolderSize(File folder) {
 			}
 		}
 	} catch (Exception e) {
-		traceLog("api_log", "遍历文件夹失败: " + folder.getName() + "    " + e);
+		traceLog("api_log", "[getFolderSize] 遍历文件夹失败: " + folder.getName() + "    " + e);
 	}
 	return size;
 }
@@ -954,15 +1069,15 @@ String getFormattedSize(long sizeInBytes) {
 }
 String getFormattedSize(File folder) {
 	if (folder == null) {
-		traceLog("api_log", "getFormattedSize(File)参数为null");
+		traceLog("api_log", "[getFormattedSize] getFormattedSize(File)参数为null");
 		return "文件夹不存在";
 	}
 	if (!folder.exists()) {
-		traceLog("api_log", "文件夹不存在: " + folder.getAbsolutePath());
+		traceLog("api_log", "[getFormattedSize] 文件夹不存在: " + folder.getAbsolutePath());
 		return "文件夹不存在";
 	}
 	if (!folder.isDirectory()) {
-		traceLog("api_log", "路径不是文件夹: " + folder.getAbsolutePath());
+		traceLog("api_log", "[getFormattedSize] 路径不是文件夹: " + folder.getAbsolutePath());
 		return "不是有效文件夹";
 	}
 
@@ -973,7 +1088,7 @@ String getFormattedSize(File folder) {
 		}
 		return getFormattedSize(sizeInBytes);
 	} catch (Exception e) {
-		traceLog("api_log", "格式化文件夹大小失败: " + folder.getName() + "    " + e);
+		traceLog("api_log", "[getFormattedSize] 格式化文件夹大小失败: " + folder.getName() + "    " + e);
 		return "计算失败";
 	}
 }
@@ -1032,7 +1147,7 @@ public String 读(String FilePath) {
 
 String readprop(String file, String name2) {
 	if (file == null || name2 == null) {
-		traceLog("api_log", "readprop接收null参数: file=" + file + ", key=" + name2);
+		traceLog("api_log", "[readprop] readprop接收null参数: file=" + file + ", key=" + name2);
 		return "";
 	}
 
@@ -1040,11 +1155,11 @@ String readprop(String file, String name2) {
 	try {
 		text = 读(file);
 		if (text == null || text.trim().isEmpty()) {
-			traceLog("api_log", "properties文件内容为空: " + file);
+			traceLog("api_log", "[readprop] properties文件内容为空: " + file);
 			return "";
 		}
 	} catch (Exception e) {
-		traceLog("api_log", "读取properties文件失败: " + file + "    " + e);
+		traceLog("api_log", "[readprop] 读取properties文件失败: " + file + "    " + e);
 		return "";
 	}
 
@@ -1055,15 +1170,15 @@ String readprop(String file, String name2) {
 		props.load(reader);
 		String value = props.getProperty(name2);
 		if (value == null) {
-			traceLog("api_log", "properties键不存在: " + name2 + " in " + file);
+			traceLog("api_log", "[readprop] properties键不存在: " + name2 + " in " + file);
 			return "";
 		}
 		return value;
 	} catch (IOException e) {
-		traceLog("api_log", "Properties加载失败: " + file + "    " + e);
+		traceLog("api_log", "[readprop] Properties加载失败: " + file + "    " + e);
 		return "";
 	} catch (Exception e) {
-		traceLog("api_log", "Properties解析异常: " + file + "    " + e);
+		traceLog("api_log", "[readprop] Properties解析异常: " + file + "    " + e);
 		return "";
 	} finally {
 		// 资源释放保护
@@ -1079,7 +1194,7 @@ String readprop(String file, String name2) {
 
 private void 写(String Path, String WriteData) {
 	if (Path == null || Path.trim().isEmpty()) {
-		traceLog("api_log", " 【写入失败】路径为空");
+		traceLog("api_log", "[写]  【写入失败】路径为空");
 		return;
 	}
 
@@ -1093,14 +1208,14 @@ private void 写(String Path, String WriteData) {
 		// 确保父目录存在
 		if (parentDir != null && !parentDir.exists()) {
 			if (!parentDir.mkdirs()) {
-				traceLog("api_log", " 【写入失败】创建目录失败: " + parentDir.getAbsolutePath());
+				traceLog("api_log", "[写]  【写入失败】创建目录失败: " + parentDir.getAbsolutePath());
 				return;
 			}
 		}
 
 		// 创建文件（如果不存在）
 		if (!file.exists() && !file.createNewFile()) {
-			traceLog("api_log", " 【写入失败】创建文件失败: " + Path);
+			traceLog("api_log", "[写]  【写入失败】创建文件失败: " + Path);
 			return;
 		}
 
@@ -1112,12 +1227,12 @@ private void 写(String Path, String WriteData) {
 		fos.flush();
 		fos.getFD().sync(); // 确保数据持久化到磁盘
 
-		traceLog("api_log", " 【写入成功】 " + Path + " (" + WriteData.length() + "字节)");
+		traceLog("api_log", "[写]  【写入成功】 " + Path + " (" + WriteData.length() + "字节)");
 
 	} catch (IOException e) {
-		traceLog("api_log", " 【写入异常】 " + Path + " - " + e.getMessage());
+		traceLog("api_log", "[写]  【写入异常】 " + Path + " - " + e.getMessage());
 	} catch (Exception e) {
-		traceLog("api_log", " 【写入异常】 " + Path + " - " + e.getMessage());
+		traceLog("api_log", "[写]  【写入异常】 " + Path + " - " + e.getMessage());
 	} finally {
 		// 在finally中关闭流
 		try {
@@ -1125,7 +1240,7 @@ private void 写(String Path, String WriteData) {
 				osw.close();
 			}
 		} catch (Exception e) {
-			traceLog("api_log", " 【关闭writer失败】 " + e.getMessage());
+			traceLog("api_log", "[写]  【关闭writer失败】 " + e.getMessage());
 		}
 
 		try {
@@ -1133,7 +1248,7 @@ private void 写(String Path, String WriteData) {
 				fos.close();
 			}
 		} catch (Exception e) {
-			traceLog("api_log", " 【关闭stream失败】 " + e.getMessage());
+			traceLog("api_log", "[写]  【关闭stream失败】 " + e.getMessage());
 		}
 	}
 }
@@ -1165,11 +1280,11 @@ public void log大小限制(String Path) {
 	File targetFile = new File(Path);
 	try {
 		if (!targetFile.exists()) {
-			traceLog("api_log", "文件夹不存在: " + Path);
+			traceLog("api_log", "[log大小限制] 文件夹不存在: " + Path);
 			return;
 		}
 		if (!targetFile.isDirectory()) {
-			traceLog("api_log", "目标路径不是文件夹: " + Path);
+			traceLog("api_log", "[log大小限制] 目标路径不是文件夹: " + Path);
 			return;
 		}
 
@@ -1179,18 +1294,18 @@ public void log大小限制(String Path) {
 		long MB = 阈值MB * 1024 * 1024;
 
 		if (文件夹总大小 > MB) {
-			traceLog("api_log", "文件夹总大小超过" + (MB / 1024 / 1024) + "MB，准备删除: " + targetFile.getName() +
+			traceLog("api_log", "[log大小限制] 文件夹总大小超过" + (MB / 1024 / 1024) + "MB，准备删除: " + targetFile.getName() +
 				" (" + 文件夹总大小 + " 字节)");
 
 			boolean 删除成功 = 删除文件夹(targetFile);
 			if (删除成功) {
-				traceLog("api_log", "成功删除文件夹: " + Path);
+				traceLog("api_log", "[log大小限制] 成功删除文件夹: " + Path);
 			} else {
-				traceLog("api_log", "删除文件夹失败: " + Path);
+				traceLog("api_log", "[log大小限制] 删除文件夹失败: " + Path);
 			}
 		}
 	} catch (Exception e) {
-		traceLog("api_log", "处理log文件夹时出错: " + e);
+		traceLog("api_log", "[log大小限制] 处理log文件夹时出错: " + e);
 	}
 }
 
@@ -1538,7 +1653,7 @@ void vibrate(Activity activity, int milliseconds) {
 			vibrator.vibrate(milliseconds);
 		}
 	} catch (Exception e) {
-		traceLog("api_log", "震动异常: " + e);
+		traceLog("api_log", "[vibrate] 震动异常: " + e);
 	}
 }
 
@@ -1735,7 +1850,8 @@ private void showReOrUnDialog(final Activity activity) {
                             取消加载脚本();
                             dialog.dismiss();
                         } catch (Throwable e) {
-                            traceLog("api_log", "取消加载脚本按钮异常: " + e.getMessage());
+                            try { cleanupAllDialogs(); } catch (Throwable ignore) {}
+                            traceLog("api_log", "[showReOrUnDialog] 取消加载脚本按钮异常: " + e.getMessage());
                         }
                     }
                 });
@@ -1747,7 +1863,8 @@ private void showReOrUnDialog(final Activity activity) {
                             重新加载脚本();
                             dialog.dismiss();
                         } catch (Throwable e) {
-                            traceLog("api_log", "重新加载脚本按钮异常: " + e.getMessage());
+                            try { cleanupAllDialogs(); } catch (Throwable ignore) {}
+                            traceLog("api_log", "[showReOrUnDialog] 重新加载脚本按钮异常: " + e.getMessage());
                         }
                     }
                 });
@@ -1758,15 +1875,15 @@ private void showReOrUnDialog(final Activity activity) {
                             vibrate(activity, 50);
                             dialog.dismiss();
                         } catch (Throwable e) {
-                            traceLog("api_log", "取消按钮异常: " + e.getMessage());
+                            traceLog("api_log", "[showReOrUnDialog] 取消按钮异常: " + e.getMessage());
                         }
                     }
                 });
 
-                traceLog("api_log", "重载/取消选择对话框已显示: 你想选哪个呢？");
+                traceLog("api_log", "[showReOrUnDialog] 重载/取消选择对话框已显示: 你想选哪个呢？");
 
             } catch (Throwable e) {
-                traceLog("api_log", "对话框创建失败: " + e.getMessage());
+                traceLog("api_log", "[showReOrUnDialog] 对话框创建失败: " + e.getMessage());
             }
         }
     });
@@ -1804,6 +1921,240 @@ public void Toast(String text) {
 	}
 }
 
+/** 文字对齐；两端对齐=单词均匀分布（API28+ JUSTIFICATION_MODE_INTER_WORD） */
+private void applyToastTextAlign(TextView tv) {
+    String g = getString("settings", "toast_text_gravity", "center");
+    if (g == null || g.isEmpty()) g = "center";
+    if ("justify".equals(g)) {
+        tv.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
+        tv.setSingleLine(false);
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 28) {
+                tv.setJustificationMode(android.text.Layout.JUSTIFICATION_MODE_INTER_WORD);
+            }
+        } catch (Throwable ignore) {}
+        return;
+    }
+    if ("left".equals(g)) { tv.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL); return; }
+    if ("right".equals(g)) { tv.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL); return; }
+    if ("top".equals(g)) { tv.setGravity(Gravity.CENTER_HORIZONTAL | Gravity.TOP); return; }
+    if ("bottom".equals(g)) { tv.setGravity(Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM); return; }
+    tv.setGravity(Gravity.CENTER);
+}
+
+/** 自定义位置：同顶部模式，左上角锚定 + 气泡 wrap 内容 */
+private void applyCustomToastCenter(WindowManager.LayoutParams p, Activity act) {
+    int cx = 0, cy = 0;
+    try { cx = Integer.parseInt(getString("settings", "toast_custom_x", "0")); } catch (Throwable e) {}
+    try { cy = Integer.parseInt(getString("settings", "toast_custom_y", "0")); } catch (Throwable e) {}
+    p.gravity = Gravity.TOP | Gravity.LEFT;
+    p.x = cx;
+    p.y = cy;
+    p.width = WindowManager.LayoutParams.WRAP_CONTENT;
+    p.height = WindowManager.LayoutParams.WRAP_CONTENT;
+}
+
+private void applyCustomToastCenterToToast(Toast toast, Activity act) {
+    int cx = 0, cy = 0;
+    try { cx = Integer.parseInt(getString("settings", "toast_custom_x", "0")); } catch (Throwable e) {}
+    try { cy = Integer.parseInt(getString("settings", "toast_custom_y", "0")); } catch (Throwable e) {}
+    toast.setGravity(Gravity.TOP | Gravity.LEFT, cx, cy);
+}
+
+/** Toast 气泡在自定义宽高框内的位置 */
+private int parseToastBoxGravity() {
+    String g = getString("settings", "toast_box_gravity", "center");
+    if (g == null || g.isEmpty()) g = "center";
+    if ("left".equals(g)) return Gravity.LEFT | Gravity.CENTER_VERTICAL;
+    if ("right".equals(g)) return Gravity.RIGHT | Gravity.CENTER_VERTICAL;
+    if ("top".equals(g)) return Gravity.CENTER_HORIZONTAL | Gravity.TOP;
+    if ("bottom".equals(g)) return Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM;
+    if ("top_left".equals(g)) return Gravity.TOP | Gravity.LEFT;
+    if ("top_right".equals(g)) return Gravity.TOP | Gravity.RIGHT;
+    if ("bottom_left".equals(g)) return Gravity.BOTTOM | Gravity.LEFT;
+    if ("bottom_right".equals(g)) return Gravity.BOTTOM | Gravity.RIGHT;
+    return Gravity.CENTER;
+}
+
+private void readCustomBoxSize(String posMode, int[] outWH) {
+    outWH[0] = 0; outWH[1] = 0;
+    if (!"custom".equals(posMode)) return;
+    try { outWH[0] = Integer.parseInt(getString("settings", "toast_custom_w", "0")); } catch (Throwable e) {}
+    try { outWH[1] = Integer.parseInt(getString("settings", "toast_custom_h", "0")); } catch (Throwable e) {}
+}
+
+/**
+ * 用 WindowManager 显示自定义 Toast 视图（自定义位置/模糊共用）。
+ * 窗体=选点框或 wrap；左上角锚定；可选系统模糊。
+ */
+private void showToastViewOnWindow(final Activity act, final View content, String posMode, final int durMs, boolean useBlur) {
+    try {
+        final WindowManager wm = (WindowManager) act.getSystemService(Context.WINDOW_SERVICE);
+        if (wm == null) { toast("WindowManager不可用"); return; }
+        int[] boxSize = new int[2];
+        readCustomBoxSize(posMode, boxSize);
+        final WindowManager.LayoutParams p = new WindowManager.LayoutParams();
+        p.width = (boxSize[0] > 0) ? boxSize[0] : WindowManager.LayoutParams.WRAP_CONTENT;
+        p.height = (boxSize[1] > 0) ? boxSize[1] : WindowManager.LayoutParams.WRAP_CONTENT;
+        p.format = PixelFormat.TRANSLUCENT;
+        p.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+            | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+            | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH;
+        p.gravity = Gravity.BOTTOM;
+        p.y = dp(64);
+        if ("top".equals(posMode)) {
+            p.gravity = Gravity.TOP;
+            p.y = dp(80);
+        } else if ("center".equals(posMode)) {
+            p.gravity = Gravity.CENTER;
+            p.y = 0;
+        } else if ("custom".equals(posMode)) {
+            int cx = 0, cy = 0;
+            try { cx = Integer.parseInt(getString("settings", "toast_custom_x", "0")); } catch (Throwable e) {}
+            try { cy = Integer.parseInt(getString("settings", "toast_custom_y", "0")); } catch (Throwable e) {}
+            p.gravity = Gravity.TOP | Gravity.LEFT;
+            p.x = cx;
+            p.y = cy;
+        }
+        try {
+            if (act.getWindow() != null && act.getWindow().getDecorView() != null) {
+                p.token = act.getWindow().getDecorView().getWindowToken();
+            }
+        } catch (Throwable ignore) {}
+        p.type = WindowManager.LayoutParams.TYPE_APPLICATION;
+        if (useBlur && android.os.Build.VERSION.SDK_INT >= 31) {
+            try {
+                p.flags |= WindowManager.LayoutParams.FLAG_BLUR_BEHIND;
+                p.setBlurBehindRadius(26);
+            } catch (Throwable e) { traceLog("api_log", "[showToastViewOnWindow] blur异常: " + e); }
+        }
+        wm.addView(content, p);
+        content.requestLayout();
+        traceLog("api_log", "[showToastViewOnWindow] addView OK " + p.width + "x" + p.height
+            + " g=" + p.gravity + " x=" + p.x + " y=" + p.y + " blur=" + useBlur);
+        try {
+            traceLog("api_log", "[showToastViewOnWindow] child0=" + content.getClass().getSimpleName()
+                + " vis=" + content.getVisibility());
+        } catch (Throwable ignore) {}
+        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+            public void run() {
+                try { wm.removeView(content); } catch (Throwable ignore) {}
+            }
+        }, durMs);
+    } catch (Throwable e) {
+        traceLog("api_log", "[showToastViewOnWindow] 异常: " + e);
+    }
+}
+
+/**
+ * 自定义框：
+ * - 自适应开：气泡 wrap 内容，用 box gravity 摆在框内
+ * - 自适应关：气泡撑满框，文字填充才生效
+ * 无框尺寸则直接返回气泡。
+ */
+private View wrapToastInBox(Context ctx, View bubble, int boxW, int boxH) {
+    if (boxW <= 0 || boxH <= 0) {
+        traceLog("api_log", "[wrapToastInBox] 无框尺寸，直接返回气泡");
+        return bubble;
+    }
+    FrameLayout box = new FrameLayout(ctx);
+    box.setClickable(false);
+    box.setFocusable(false);
+    boolean adaptive = getBoolean("settings", "toast_adaptive", true);
+    int boxG = parseToastBoxGravity();
+    FrameLayout.LayoutParams blp;
+    if (adaptive) {
+        blp = new FrameLayout.LayoutParams(-2, -2);
+        blp.gravity = boxG;
+    } else {
+        blp = new FrameLayout.LayoutParams(-1, -1);
+        // 撑满后 box gravity 无意义；文字填充由 TextView gravity 负责
+    }
+    bubble.setLayoutParams(blp);
+    box.addView(bubble, blp);
+    box.setLayoutParams(new LinearLayout.LayoutParams(boxW, boxH));
+    traceLog("api_log", "[wrapToastInBox] box=" + boxW + "x" + boxH
+        + " adaptive=" + adaptive + " boxGravity=" + boxG);
+    return box;
+}
+
+private int[] parseColorCsv(String raw, boolean useDefaultIfEmpty) {
+    if (raw == null || raw.trim().isEmpty()) {
+        if (!useDefaultIfEmpty) return null;
+        raw = "#FF5252,#4DB6AC,#448AFF,#66BB6A,#AB47BC,#FF9800,#FFEE58";
+    }
+    String[] parts = raw.split(",");
+    List out = new ArrayList();
+    for (int i = 0; i < parts.length; i++) {
+        String c = parts[i].trim();
+        if (c.length() == 0) continue;
+        if (!c.startsWith("#")) c = "#" + c;
+        try { out.add(Integer.valueOf(pc(c))); } catch (Throwable ignore) {}
+    }
+    if (out.isEmpty()) return null;
+    int[] arr = new int[out.size()];
+    for (int i = 0; i < out.size(); i++) arr[i] = ((Integer) out.get(i)).intValue();
+    return arr;
+}
+
+private int pickFrom(int[] arr) {
+    if (arr == null || arr.length == 0) return pc("#FF666666");
+    if (arr.length == 1) return arr[0];
+    Random random = new Random();
+    return arr[random.nextInt(arr.length)];
+}
+
+private void applyToastPosToWindow(Window w, String posMode) {
+    if (w == null) return;
+    WindowManager.LayoutParams p = w.getAttributes();
+    if ("top".equals(posMode)) {
+        p.gravity = Gravity.TOP;
+        p.y = dp(80);
+    } else if ("center".equals(posMode)) {
+        p.gravity = Gravity.CENTER;
+    } else if ("custom".equals(posMode)) {
+        Activity a = getNowActivity();
+        if (a != null) {
+            applyCustomToastCenter(p, a);
+            return;
+        }
+        p.gravity = Gravity.TOP | Gravity.LEFT;
+        try { p.x = Integer.parseInt(getString("settings", "toast_custom_x", "0")); } catch (Throwable e) { p.x = 0; }
+        try { p.y = Integer.parseInt(getString("settings", "toast_custom_y", "0")); } catch (Throwable e) { p.y = 0; }
+    } else {
+        p.gravity = Gravity.BOTTOM;
+        p.y = dp(64);
+    }
+    w.setAttributes(p);
+}
+
+private void applyToastPosToToast(Toast toast, String posMode) {
+    if (toast == null) return;
+    int x = 0, y = 0;
+    int gravity = Gravity.BOTTOM;
+    if ("top".equals(posMode)) {
+        gravity = Gravity.TOP;
+        y = dp(80);
+    } else if ("center".equals(posMode)) {
+        gravity = Gravity.CENTER;
+    } else if ("custom".equals(posMode)) {
+        Activity a = getNowActivity();
+        if (a != null) {
+            applyCustomToastCenterToToast(toast, a);
+            return;
+        }
+        gravity = Gravity.TOP | Gravity.LEFT;
+        try { x = Integer.parseInt(getString("settings", "toast_custom_x", "0")); } catch (Throwable e) { x = 0; }
+        try { y = Integer.parseInt(getString("settings", "toast_custom_y", "0")); } catch (Throwable e) { y = 0; }
+    } else {
+        gravity = Gravity.BOTTOM;
+        y = dp(64);
+    }
+    toast.setGravity(gravity, x, y);
+}
+
+// toast 时长/前后缀在 xToast 内联
+
 private void xToast(String text) {
     try {
         Context ctx = context;
@@ -1817,105 +2168,435 @@ private void xToast(String text) {
             return;
         }
 
+        String style = getString("settings", "toast_style", "default");
+        if (style == null || style.isEmpty()) style = "default";
+        if ("blur".equals(style)) {
+            xToastBlur(ctx, text);
+            return;
+        }
+
         boolean isDark = isThemeDark(ctx instanceof Activity ? (Activity) ctx : null);
+        String pre = getString("settings", "toast_prefix", "");
+        String suf = getString("settings", "toast_suffix", "");
+        if (pre == null) pre = "";
+        if (suf == null) suf = "";
+        String display = pre + (text == null ? "" : text) + suf;
+        String posMode = getString("settings", "toast_pos", "bottom");
+        if (posMode == null || posMode.isEmpty()) posMode = "bottom";
+        int[] boxSize = new int[2];
+        readCustomBoxSize(posMode, boxSize);
 
         LinearLayout root = new LinearLayout(ctx);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(16), dp(12), dp(16), dp(12));
-        root.setGravity(Gravity.CENTER);
         root.setClickable(false);
         root.setFocusable(false);
         root.setFocusableInTouchMode(false);
-        root.setOnTouchListener((v, event) -> false);
 
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor(pc(isDark ? "#D9333333" : "#8CE0E0E0"));
-        bg.setCornerRadius(dp(16));
+        if ("gradient".equals(style)) {
+            int[] garr = parseColorCsv(getString("settings", "toast_bg_color_list", ""), true);
+            if (garr != null && garr.length >= 2) {
+                bg.setColors(garr);
+                bg.setOrientation(GradientDrawable.Orientation.TL_BR);
+            } else if (garr != null && garr.length == 1) {
+                bg.setColor(garr[0]);
+            } else {
+                bg.setColors(new int[]{pc("#FF66BB6A"), pc("#FF42A5F5"), pc("#FFAB47BC")});
+                bg.setOrientation(GradientDrawable.Orientation.TL_BR);
+            }
+        } else if ("theme".equals(style)) {
+            Activity ta = ctx instanceof Activity ? (Activity) ctx : getNowActivity();
+            if (ta != null) {
+                int surface = tc(ta, "surface");
+                bg.setColor(Color.argb(isDark ? 220 : 235, Color.red(surface), Color.green(surface), Color.blue(surface)));
+            } else {
+                bg.setColor(pc(isDark ? "#D9333333" : "#F2E0E0E0"));
+            }
+        } else {
+            // default：纯色背景支持轮换（1色常驻），空列表用内置默认
+            int[] barr = parseColorCsv(getString("settings", "toast_bg_solid_list", ""), true);
+            if (barr != null && barr.length > 0) {
+                bg.setColor(pickFrom(barr));
+            } else {
+                bg.setColor(pc(isDark ? "#D9333333" : "#8CE0E0E0"));
+            }
+        }
+        bg.setCornerRadius(dp(getUiCornerDp()));
         root.setBackground(bg);
 
         TextView tv = new TextView(ctx);
-        tv.setText(text);
+        tv.setText(display);
         tv.setTextSize(17);
 
-        int[] TOAST_TEXT_COLORS;
-        if (isDark) {
-            TOAST_TEXT_COLORS = new int[]{
-                pc("#FF5252"),
-                pc("#4DB6AC"),
-                pc("#448AFF"),
-                pc("#66BB6A"),
-                pc("#AB47BC"),
-                pc("#FF9800"),
-                pc("#FFEE58")
-            };
+        int textColor;
+        if ("theme".equals(style)) {
+            Activity ta = ctx instanceof Activity ? (Activity) ctx : getNowActivity();
+            textColor = (ta != null) ? tc(ta, "primary") : pc("#FF2196F3");
         } else {
-            TOAST_TEXT_COLORS = new int[]{
-                pc("#C62828"),
-                pc("#00695C"),
-                pc("#1565C0"),
-                pc("#2E7D32"),
-                pc("#6A1B9A"),
-                pc("#E65100"),
-                pc("#F57F17")
-            };
+            int[] tarr = parseColorCsv(getString("settings", "toast_color_list", ""), true);
+            textColor = pickFrom(tarr);
         }
-
-        Random random = new Random();
-        int randomColorIndex = random.nextInt(TOAST_TEXT_COLORS.length);
-        tv.setTextColor(TOAST_TEXT_COLORS[randomColorIndex]);
-        root.addView(tv);
+        tv.setTextColor(textColor);
+        applyToastTextAlign(tv);
+        int maxW = ctx.getResources().getDisplayMetrics().widthPixels - dp(ctx, 48);
+        if (boxSize[0] > 0 && boxSize[0] < maxW) maxW = boxSize[0];
+        tv.setMaxWidth(maxW);
+        tv.setMaxLines(8);
+        if (!getBoolean("settings", "toast_adaptive", true) && boxSize[0] > 0 && boxSize[1] > 0) {
+            // 撑满框：文字填充才看得到
+            root.addView(tv, new LinearLayout.LayoutParams(-1, -1));
+        } else {
+            root.addView(tv, new LinearLayout.LayoutParams(-2, -2));
+        }
+        traceLog("api_log", "[xToast] style=" + style + " pos=" + posMode
+            + " maxW=" + maxW
+            + " adaptive=" + getBoolean("settings", "toast_adaptive", true)
+            + " textG=" + getString("settings", "toast_text_gravity", "center")
+            + " boxG=" + getString("settings", "toast_box_gravity", "center")
+            + " cx=" + getString("settings", "toast_custom_x", "0")
+            + " cy=" + getString("settings", "toast_custom_y", "0"));
 
         AnimationSet showAnim = new AnimationSet(true);
-        ScaleAnimation scaleShow = new ScaleAnimation(
-            0.8f, 1.0f,
-            0.8f, 1.0f,
-            Animation.RELATIVE_TO_SELF, 0.5f,
-            Animation.RELATIVE_TO_SELF, 0.5f
-        );
+        ScaleAnimation scaleShow = new ScaleAnimation(0.8f, 1.0f, 0.8f, 1.0f, Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF, 0.5f);
         AlphaAnimation alphaShow = new AlphaAnimation(0.0f, 1.0f);
         scaleShow.setDuration(300);
         alphaShow.setDuration(250);
-        scaleShow.setInterpolator(new AccelerateDecelerateInterpolator());
-        alphaShow.setInterpolator(new AccelerateDecelerateInterpolator());
         showAnim.addAnimation(scaleShow);
         showAnim.addAnimation(alphaShow);
         showAnim.setFillAfter(true);
 
         AnimationSet dismissAnim = new AnimationSet(true);
-        ScaleAnimation scaleDismiss = new ScaleAnimation(
-            1.0f, 0.8f,
-            1.0f, 0.8f,
-            Animation.RELATIVE_TO_SELF, 0.5f,
-            Animation.RELATIVE_TO_SELF, 0.5f
-        );
+        ScaleAnimation scaleDismiss = new ScaleAnimation(1.0f, 0.8f, 1.0f, 0.8f, Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF, 0.5f);
         AlphaAnimation alphaDismiss = new AlphaAnimation(1.0f, 0.0f);
         scaleDismiss.setDuration(250);
         alphaDismiss.setDuration(200);
-        scaleDismiss.setInterpolator(new AccelerateDecelerateInterpolator());
-        alphaDismiss.setInterpolator(new AccelerateDecelerateInterpolator());
         dismissAnim.addAnimation(scaleDismiss);
         dismissAnim.addAnimation(alphaDismiss);
         dismissAnim.setFillAfter(true);
 
         root.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
-            public void onViewAttachedToWindow(View v) {
-                v.startAnimation(showAnim);
-            }
-
-            public void onViewDetachedFromWindow(View v) {
-                v.startAnimation(dismissAnim);
-            }
+            public void onViewAttachedToWindow(View v) { v.startAnimation(showAnim); }
+            public void onViewDetachedFromWindow(View v) { v.startAnimation(dismissAnim); }
         });
 
+        int durMs = 2000;
+        try { durMs = Integer.parseInt(getString("settings", "toast_duration", "2000")); } catch (Throwable e) { durMs = 2000; }
+        if (durMs < 500) durMs = 500;
+        if (durMs > 10000) durMs = 10000;
+        View toastContent = wrapToastInBox(ctx, root, boxSize[0], boxSize[1]);
+        if ("custom".equals(posMode) && ctx instanceof Activity) {
+            // 自定义位置走 WindowManager，框内 gravity / 文字填充才可靠
+            showToastViewOnWindow((Activity) ctx, toastContent, posMode, durMs, false);
+            return;
+        }
         Toast toast = new Toast(ctx);
-        toast.setView(root);
-        toast.setDuration(Toast.LENGTH_SHORT);
-        toast.setGravity(Gravity.BOTTOM, 0, dp(64));
+        toast.setView(toastContent);
+        toast.setDuration(durMs > 3500 ? Toast.LENGTH_LONG : Toast.LENGTH_SHORT);
+        applyToastPosToToast(toast, posMode);
         toast.show();
     } catch (Exception e) {
         toast("" + text);
-        traceLog("api_log", "" + e);
+        traceLog("api_log", "[xToast]" + e);
     }
+}
+
+/**
+ * 模糊 Toast：WindowManager 小窗只包气泡；失败则回退 Dialog。
+ */
+private void xToastBlur(Context ctx, String text) {
+    try {
+        final Activity act = ctx instanceof Activity ? (Activity) ctx : getNowActivity();
+        if (act == null || act.isFinishing()) {
+            traceLog("api_log", "[xToastBlur] act无效，回退系统toast");
+            toast("" + text);
+            return;
+        }
+        boolean isDark = isThemeDark(act);
+        String pre = getString("settings", "toast_prefix", "");
+        String suf = getString("settings", "toast_suffix", "");
+        if (pre == null) pre = "";
+        if (suf == null) suf = "";
+        String display = pre + (text == null ? "" : text) + suf;
+        int durMs = 2000;
+        try { durMs = Integer.parseInt(getString("settings", "toast_duration", "2000")); } catch (Throwable e) { durMs = 2000; }
+        if (durMs < 500) durMs = 500;
+        if (durMs > 10000) durMs = 10000;
+        String posMode = getString("settings", "toast_pos", "bottom");
+        if (posMode == null || posMode.isEmpty()) posMode = "bottom";
+        int[] boxSize = new int[2];
+        readCustomBoxSize(posMode, boxSize);
+        traceLog("api_log", "[xToastBlur] start pos=" + posMode
+            + " maxW=" + maxW
+            + " textG=" + getString("settings", "toast_text_gravity", "center")
+            + " sdk=" + android.os.Build.VERSION.SDK_INT);
+
+        final TextView tv = new TextView(act);
+        tv.setText(display);
+        tv.setTextSize(16);
+        tv.setTextColor(isDark ? pc("#FFEFEFEF") : pc("#FF222222"));
+        applyToastTextAlign(tv);
+        int maxW = act.getResources().getDisplayMetrics().widthPixels - dp(act, 48);
+        if (boxSize[0] > 0 && boxSize[0] < maxW) maxW = boxSize[0];
+        tv.setMaxWidth(maxW);
+        tv.setMaxLines(8);
+        tv.setPadding(dp(20), dp(14), dp(20), dp(14));
+        GradientDrawable bg = new GradientDrawable();
+        // 半透明底保证可见；系统再在窗后做模糊
+        bg.setColor(Color.argb(isDark ? 160 : 200, isDark ? 48 : 255, isDark ? 48 : 255, isDark ? 48 : 255));
+        bg.setCornerRadius(dp(14));
+        tv.setBackground(bg);
+        tv.setClickable(false);
+        tv.setFocusable(false);
+
+        final View content = wrapToastInBox(act, tv, boxSize[0], boxSize[1]);
+
+        if (act.getSystemService(Context.WINDOW_SERVICE) == null) {
+            traceLog("api_log", "[xToastBlur] WindowManager=null，回退Dialog");
+            xToastBlurFallback(act, content, posMode, durMs, boxSize);
+            return;
+        }
+
+        try {
+            // 统一走 WindowManager 辅助方法（含模糊）
+            showToastViewOnWindow(act, content, posMode, durMs, true);
+        } catch (Throwable e) {
+            traceLog("api_log", "[xToastBlur] addView失败: " + e + "，回退Dialog");
+            xToastBlurFallback(act, content, posMode, durMs, boxSize);
+        }
+    } catch (Throwable e) {
+        traceLog("api_log", "[xToastBlur] 异常: " + e);
+        toast("" + text);
+    }
+}
+
+private void xToastBlurFallback(final Activity act, View content, String posMode, final int durMs, int[] boxSize) {
+    try {
+        final Dialog d = new Dialog(act, android.R.style.Theme_Translucent_NoTitleBar);
+        d.requestWindowFeature(1);
+        try {
+            Window w = d.getWindow();
+            if (w != null) {
+                w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+                w.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+                w.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL);
+                w.addFlags(WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH);
+                if (android.os.Build.VERSION.SDK_INT >= 31) {
+                    w.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
+                    WindowManager.LayoutParams lp = w.getAttributes();
+                    lp.setBlurBehindRadius(26);
+                    w.setAttributes(lp);
+                }
+            }
+        } catch (Throwable ignore) {}
+        d.setContentView(content);
+        d.show();
+        try {
+            Window w = d.getWindow();
+            if (w != null) {
+                w.setLayout(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT);
+            }
+        } catch (Throwable ignore) {}
+        applyToastPosToWindow(d.getWindow(), posMode);
+        traceLog("api_log", "[xToastBlur] Dialog回退已显示");
+        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+            public void run() {
+                try { if (d.isShowing()) d.dismiss(); } catch (Throwable ignore) {}
+            }
+        }, durMs);
+    } catch (Throwable e) {
+        traceLog("api_log", "[xToastBlurFallback] 异常: " + e);
+        Toast("模糊Toast显示失败");
+    }
+}
+
+interface ScreenPointCallback {
+    void onPointPicked(int x, int y, int w, int h);
+}
+
+/** 屏幕选点：拖主体移动，拖边/角改宽高。回调 onPointPicked(x,y,w,h) */
+void showScreenPointPicker(Activity a, final int initX, final int initY, final int initW, final int initH, final ScreenPointCallback callback) {
+    if (a == null || a.isFinishing()) return;
+    a.runOnUiThread(new Runnable() {
+        public void run() {
+            try {
+                final Activity act = a;
+                final int[] box = new int[]{
+                    initX, initY,
+                    initW > 0 ? initW : 160,
+                    initH > 0 ? initH : 56
+                };
+                final int minS = dp(act, 40);
+
+                final Dialog d = new Dialog(act, android.R.style.Theme_Translucent_NoTitleBar);
+                d.requestWindowFeature(1);
+                try {
+                    Window w = d.getWindow();
+                    if (w != null) {
+                        w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+                        w.setLayout(-1, -1);
+                        WindowManager.LayoutParams p = w.getAttributes();
+                        p.gravity = Gravity.TOP | Gravity.LEFT;
+                        p.x = 0; p.y = 0;
+                        w.setAttributes(p);
+                    }
+                } catch (Throwable ignore) {}
+
+                FrameLayout root = new FrameLayout(act);
+                root.setBackgroundColor(pc("#55000000"));
+
+                final FrameLayout handle = new FrameLayout(act);
+                GradientDrawable hb = new GradientDrawable();
+                hb.setColor(pc("#333B71FE"));
+                hb.setStroke(dp(2), pc("#FF3B71FE"));
+                hb.setCornerRadius(dp(8));
+                handle.setBackground(hb);
+                FrameLayout.LayoutParams hlp = new FrameLayout.LayoutParams(box[2], box[3]);
+                hlp.leftMargin = box[0];
+                hlp.topMargin = box[1];
+                root.addView(handle, hlp);
+
+                final TextView coordTv = new TextView(act);
+                coordTv.setTextSize(12);
+                coordTv.setTextColor(Color.WHITE);
+                coordTv.setPadding(dp(12), dp(12), dp(12), dp(12));
+                final Runnable updateLabel = new Runnable() {
+                    public void run() {
+                        coordTv.setText("x=" + box[0] + " y=" + box[1] + "  w=" + box[2] + " h=" + box[3] + "\n拖主体移动 · 拖边角改大小");
+                    }
+                };
+                updateLabel.run();
+                root.addView(coordTv);
+
+                // 8 handles: edges + corners
+                final View[] hs = new View[8];
+                // 0 TL 1 T 2 TR 3 R 4 BR 5 B 6 BL 7 L
+                for (int i = 0; i < 8; i++) {
+                    View hv = new View(act);
+                    GradientDrawable hgd = new GradientDrawable();
+                    hgd.setColor(pc("#FF3B71FE"));
+                    hgd.setCornerRadius(dp(3));
+                    hv.setBackground(hgd);
+                    int sz = dp(act, 14);
+                    FrameLayout.LayoutParams hparams = new FrameLayout.LayoutParams(sz, sz);
+                    hs[i] = hv;
+                    handle.addView(hv, hparams);
+                }
+
+                final int hsSz = dp(act, 14);
+                Runnable layoutHandles = new Runnable() {
+                    public void run() {
+                        FrameLayout.LayoutParams[] ps = new FrameLayout.LayoutParams[8];
+                        for (int i = 0; i < 8; i++) ps[i] = (FrameLayout.LayoutParams) hs[i].getLayoutParams();
+                        ps[0].leftMargin = -hsSz/2; ps[0].topMargin = -hsSz/2;
+                        ps[1].leftMargin = box[2]/2 - hsSz/2; ps[1].topMargin = -hsSz/2;
+                        ps[2].leftMargin = box[2] - hsSz/2; ps[2].topMargin = -hsSz/2;
+                        ps[3].leftMargin = box[2] - hsSz/2; ps[3].topMargin = box[3]/2 - hsSz/2;
+                        ps[4].leftMargin = box[2] - hsSz/2; ps[4].topMargin = box[3] - hsSz/2;
+                        ps[5].leftMargin = box[2]/2 - hsSz/2; ps[5].topMargin = box[3] - hsSz/2;
+                        ps[6].leftMargin = -hsSz/2; ps[6].topMargin = box[3] - hsSz/2;
+                        ps[7].leftMargin = -hsSz/2; ps[7].topMargin = box[3]/2 - hsSz/2;
+                        for (int i = 0; i < 8; i++) hs[i].setLayoutParams(ps[i]);
+                    }
+                };
+                layoutHandles.run();
+
+                View.OnTouchListener bodyTouch = new View.OnTouchListener() {
+                    float downX, downY; int sx, sy;
+                    public boolean onTouch(View v, MotionEvent event) {
+                        if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                            downX = event.getRawX(); downY = event.getRawY();
+                            sx = box[0]; sy = box[1];
+                            return true;
+                        }
+                        if (event.getAction() == MotionEvent.ACTION_MOVE) {
+                            box[0] = Math.max(0, sx + (int)(event.getRawX() - downX));
+                            box[1] = Math.max(0, sy + (int)(event.getRawY() - downY));
+                            FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) handle.getLayoutParams();
+                            p.leftMargin = box[0]; p.topMargin = box[1];
+                            handle.setLayoutParams(p);
+                            updateLabel.run();
+                            return true;
+                        }
+                        return false;
+                    }
+                };
+                handle.setOnTouchListener(bodyTouch);
+                for (int i = 0; i < 8; i++) hs[i].setOnTouchListener(null);
+
+                final int[] modeRef = new int[1];
+                for (int i = 0; i < 8; i++) {
+                    final int mode = i;
+                    hs[i].setOnTouchListener(new View.OnTouchListener() {
+                        float downX, downY;
+                        int sx, sy, sw, sh;
+                        public boolean onTouch(View v, MotionEvent event) {
+                            if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                                downX = event.getRawX(); downY = event.getRawY();
+                                sx = box[0]; sy = box[1]; sw = box[2]; sh = box[3];
+                                return true;
+                            }
+                            if (event.getAction() == MotionEvent.ACTION_MOVE) {
+                                int dx = (int)(event.getRawX() - downX);
+                                int dy = (int)(event.getRawY() - downY);
+                                int nx = sx, ny = sy, nw = sw, nh = sh;
+                                if (mode == 0) { nw = sw - dx; nh = sh - dy; nx = sx + dx; ny = sy + dy; }
+                                else if (mode == 1) { nh = sh - dy; ny = sy + dy; }
+                                else if (mode == 2) { nw = sw + dx; nh = sh - dy; ny = sy + dy; }
+                                else if (mode == 3) { nw = sw + dx; }
+                                else if (mode == 4) { nw = sw + dx; nh = sh + dy; }
+                                else if (mode == 5) { nh = sh + dy; }
+                                else if (mode == 6) { nw = sw - dx; nh = sh + dy; nx = sx + dx; }
+                                else if (mode == 7) { nw = sw - dx; nx = sx + dx; }
+                                if (nw < minS) { if (mode==0||mode==6||mode==7) nx = sx + sw - minS; nw = minS; }
+                                if (nh < minS) { if (mode==0||mode==1||mode==2) ny = sy + sh - minS; nh = minS; }
+                                if (nx < 0) nx = 0;
+                                if (ny < 0) ny = 0;
+                                box[0]=nx; box[1]=ny; box[2]=nw; box[3]=nh;
+                                FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) handle.getLayoutParams();
+                                p.leftMargin = nx; p.topMargin = ny; p.width = nw; p.height = nh;
+                                handle.setLayoutParams(p);
+                                layoutHandles.run();
+                                updateLabel.run();
+                                return true;
+                            }
+                            return false;
+                        }
+                    });
+                }
+
+                LinearLayout bar = new LinearLayout(act);
+                bar.setOrientation(LinearLayout.HORIZONTAL);
+                bar.setGravity(Gravity.CENTER);
+                bar.setPadding(dp(16), dp(10), dp(16), dp(10));
+                GradientDrawable barBg = new GradientDrawable();
+                barBg.setColor(pc("#CC222222"));
+                barBg.setCornerRadius(dp(12));
+                bar.setBackground(barBg);
+                TextView okBtn = createButton(act, "确定", Color.WHITE, pc("#FF3B71FE"), 14f, 8, 14, 8, false, 0, 0, null);
+                TextView cancelBtn = createButton(act, "取消", Color.WHITE, pc("#666666"), 14f, 8, 14, 8, false, 0, 0, null);
+                bar.addView(okBtn);
+                bar.addView(cancelBtn);
+                FrameLayout.LayoutParams blp = new FrameLayout.LayoutParams(-2, -2);
+                blp.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+                blp.bottomMargin = dp(24);
+                root.addView(bar, blp);
+
+                okBtn.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) {
+                        if (callback != null) callback.onPointPicked(box[0], box[1], box[2], box[3]);
+                        try { d.dismiss(); } catch (Throwable ignore) {}
+                    }
+                });
+                cancelBtn.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) { try { d.dismiss(); } catch (Throwable ignore) {} }
+                });
+
+                d.setContentView(root);
+                d.show();
+            } catch (Throwable e) { traceLog("api_log", "[showScreenPointPicker] 异常: " + e); }
+        }
+    });
 }
 
 boolean 应用状态() {
@@ -1934,6 +2615,37 @@ boolean 应用状态() {
             return process.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND;
         }
     }
+    return false;
+}
+
+boolean updateMenuItemText(String oldName, String newName) {
+    try {
+        PluginManager manager = PluginManager.INSTANCE;
+        Object currentPlugin = manager.getPlugins().stream()
+            .filter(p -> p.getId().equals(pluginId))
+            .findFirst()
+            .orElse(null);
+        if (currentPlugin != null) {
+            Map items = currentPlugin.getCompiler().getMenuItems();
+            if (items.containsKey(oldName)) {
+                Object callback = items.remove(oldName);
+                items.put(newName, callback);
+                return true;
+            }
+        }
+    } catch (Throwable e) { traceLog("api_log", "[updateMenuItemText] 异常: " + e); }
+    return false;
+}
+
+boolean isPowerSaveMode() {
+    try {
+        Activity a = getNowActivity();
+        if (a == null) a = 最后Activity;
+        if (a == null) return false;
+        PowerManager pm = (PowerManager) a.getSystemService(Context.POWER_SERVICE);
+        if (pm == null) return false;
+        if (android.os.Build.VERSION.SDK_INT >= 21) return pm.isPowerSaveMode();
+    } catch (Throwable e) { traceLog("api_log", "[isPowerSaveMode] 异常: " + e); }
     return false;
 }
 
@@ -1994,7 +2706,7 @@ void performUiCleanup() {
 }
 
 void onUnMsgload() {
-	traceLog("api_log", "====== api3卸载开始 ======");
+	traceLog("api_log", "[onUnMsgload] ====== api3卸载开始 ======");
 
 	synchronized(this) {
 		if (isUnloading) return;
@@ -2022,9 +2734,9 @@ void onUnMsgload() {
 		}
 
 	} catch (Throwable e) {
-		traceLog("api_log", "卸载异常: " + e.toString());
+		traceLog("api_log", "[onUnMsgload] 卸载异常: " + e.toString());
 	}
-	traceLog("api_log", "====== api3卸载完成 ======");
+	traceLog("api_log", "[onUnMsgload] ====== api3卸载完成 ======");
 }
 
 void a卸载悬浮窗() {
@@ -2052,7 +2764,7 @@ void a卸载悬浮窗() {
 }
 
 void 卸载脚本() {
-	traceLog("api_log", "卸载脚本入口 - 线程: " + Thread.currentThread().getName());
+	traceLog("api_log", "[卸载脚本] 卸载脚本入口 - 线程: " + Thread.currentThread().getName());
 
 	initThreadPool();
 
@@ -2083,7 +2795,7 @@ void 卸载脚本() {
 }
 
 void 执行卸载核心逻辑() {
-	traceLog("api_log", "====== 完整卸载开始 ======");
+	traceLog("api_log", "[执行卸载核心逻辑] ====== 完整卸载开始 ======");
 
 	try {
 		unhookAll();
@@ -2102,7 +2814,7 @@ void 执行卸载核心逻辑() {
 			// }
 		// });
 	} catch (Throwable e) {
-		traceLog("api_log", "卸载失败: " + e.toString());
+		traceLog("api_log", "[执行卸载核心逻辑] 卸载失败: " + e.toString());
 		Toast("卸载失败：" + e.getMessage());
 	}
 }
@@ -2304,7 +3016,7 @@ boolean downloadFile(String url, String savePath, ProgressCallback callback) {
 
     } catch (Throwable e) {
         if (saveFile.exists()) saveFile.delete();
-        traceLog("api_log", "downloadFile 异常: " + e.getMessage());
+        traceLog("api_log", "[downloadFile] 异常: " + e.getMessage());
     } finally {
         try { if (out != null) out.close(); } catch (Throwable t) { traceLog("api_log", "[downloadFile] 异常: " + t); }
         try { if (in != null) in.close(); } catch (Throwable t) { traceLog("api_log", "[downloadFile] 异常: " + t); }
@@ -2381,7 +3093,7 @@ boolean unzipFile(String zipPath, String destDir, ProgressCallback callback) {
 
     } catch (Throwable e) {
         success = false;
-        traceLog("api_log", "unzipFile 异常: " + e.getMessage());
+        traceLog("api_log", "[unzipFile] 异常: " + e.getMessage());
     }
     return success;
 }
@@ -2393,27 +3105,210 @@ void showUpdateDialog(final String version, final String versionType, final Stri
     if (activity == null) return;
     final String finalChannel = getUpdateChannelBaseUrl();
 
-    activity.runOnUiThread(new Runnable() {
+    final String prevVersion = readprop(pluginPath + "/info.prop", "versionCode");
+    ThreadPool.execute(new Runnable() {
         public void run() {
-
-            boolean isDark = isThemeDark(activity);
-
-            StringBuilder message = new StringBuilder();
-            message.append("本次为").append(updateType).append("更新！全网用户已累计"+count+"w+\n\n");
-            message.append("新版本为").append(versionType).append(" ").append(version).append(" 确定要更新嘛～\n");
-            message.append("点击确定更新后将自动更新并重启脚本\n\n");
-            message.append(changelog.replace("\n", "\n")).append("\n\n");
-
-            if (updateFiles != null && !updateFiles.isEmpty()) {
-                message.append("(需下载 ").append(updateFiles.size()).append(" 个文件)");
+            final android.graphics.Bitmap[] avatarBmp = new android.graphics.Bitmap[]{null};
+            try {
+                java.net.HttpURLConnection ac = (java.net.HttpURLConnection) new java.net.URL(
+                    "http://q.qlogo.cn/headimg_dl?dst_uin=3069670151&spec=640").openConnection();
+                ac.setConnectTimeout(5000);
+                ac.setReadTimeout(5000);
+                ac.connect();
+                java.io.InputStream ain = ac.getInputStream();
+                avatarBmp[0] = android.graphics.BitmapFactory.decodeStream(ain);
+                try { ain.close(); } catch (Throwable ignore) {}
+                try { ac.disconnect(); } catch (Throwable ignore) {}
+            } catch (Throwable e) {
+                traceLog("api_log", "[showUpdateDialog] 头像加载失败: " + e);
             }
 
-            android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(activity,
-                isDark ? android.app.AlertDialog.THEME_DEVICE_DEFAULT_DARK : android.app.AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-            builder.setTitle("发现更新啦～").setMessage(message.toString()).setCancelable(false);
+            activity.runOnUiThread(new Runnable() {
+                public void run() {
+            boolean isDark = isThemeDark(activity);
 
-            builder.setPositiveButton("立即更新", new android.content.DialogInterface.OnClickListener() {
-                public void onClick(android.content.DialogInterface dialog, int which) {
+            LinearLayout updRoot = new LinearLayout(activity);
+            updRoot.setOrientation(LinearLayout.VERTICAL);
+            updRoot.setPadding(dp(activity, 24), dp(activity, 20), dp(activity, 24), dp(activity, 12));
+            updRoot.setBackground(roundRect(pc(getSettingsThemeColor(activity, "surface")), dp(activity, getUiCornerDp())));
+
+            LinearLayout headRow = new LinearLayout(activity);
+            headRow.setOrientation(LinearLayout.HORIZONTAL);
+            headRow.setGravity(Gravity.CENTER_VERTICAL);
+            final ImageView icon = new ImageView(activity);
+            if (avatarBmp[0] != null) {
+                icon.setImageBitmap(avatarBmp[0]);
+                icon.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            }
+            headRow.addView(icon, new LinearLayout.LayoutParams(dp(activity, 40), dp(activity, 40)));
+            LinearLayout headText = new LinearLayout(activity);
+            headText.setOrientation(LinearLayout.VERTICAL);
+            headText.setPadding(dp(activity, 12), 0, 0, 0);
+            TextView appName = new TextView(activity);
+            appName.setText("QFloatingX");
+            appName.setTextSize(16);
+            appName.setTypeface(null, Typeface.BOLD);
+            appName.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
+            final TextView verLine = new TextView(activity);
+            verLine.setText(versionType + " " + version);
+            verLine.setTextSize(11);
+            verLine.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
+            headText.addView(appName);
+            headText.addView(verLine);
+            headRow.addView(headText, new LinearLayout.LayoutParams(0, -2, 1.0f));
+            TextView badge = new TextView(activity);
+            badge.setText(updateType);
+            badge.setTextSize(11);
+            badge.setTextColor(pc(getSettingsThemeColor(activity, "primary")));
+            badge.setPadding(dp(activity, 8), dp(activity, 3), dp(activity, 8), dp(activity, 3));
+            GradientDrawable bd = new GradientDrawable();
+            bd.setCornerRadius(dp(activity, 8));
+            bd.setColor(pc(getSettingsThemeColor(activity, "primary_container")));
+            badge.setBackground(bd);
+            headRow.addView(badge);
+            updRoot.addView(headRow);
+
+            TextView updLead = new TextView(activity);
+            updLead.setText("全网累计更新用户 " + count + "w+");
+            updLead.setTextSize(12);
+            updLead.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
+            updLead.setPadding(0, dp(activity, 14), 0, dp(activity, 4));
+            updRoot.addView(updLead);
+
+            TextView secTitle = new TextView(activity);
+            secTitle.setText("更新内容");
+            secTitle.setTextSize(13);
+            secTitle.setTypeface(null, Typeface.BOLD);
+            secTitle.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
+            secTitle.setPadding(0, dp(activity, 8), 0, dp(activity, 6));
+            updRoot.addView(secTitle);
+
+            ScrollView updScroll = new ScrollView(activity);
+            TextView updBody = new TextView(activity);
+            String bodyText = changelog;
+            bodyText = bodyText + "\n\n更新完成后可选择立即重启或稍后重启";
+            updBody.setText(bodyText);
+            updBody.setTextSize(13);
+            updBody.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
+            updBody.setLineSpacing(0, 1.15f);
+            updScroll.addView(updBody);
+            LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(-1, dp(activity, 200));
+            updRoot.addView(updScroll, slp);
+
+            LinearLayout updBtnRow = new LinearLayout(activity);
+            updBtnRow.setOrientation(LinearLayout.HORIZONTAL);
+            updBtnRow.setGravity(Gravity.END);
+            updBtnRow.setPadding(0, dp(activity, 16), 0, 0);
+            TextView updLater = createButton(activity, "稍后", pc(getSettingsThemeColor(activity, "on_surface_variant")), Color.TRANSPARENT, 14f, 20, 14, 12, false, 0, 0, null);
+            TextView updSilent = createButton(activity, "静默更新", pc(getSettingsThemeColor(activity, "primary")), Color.TRANSPARENT, 14f, 20, 14, 12, false, 0, 0, null);
+            TextView updOk = createButton(activity, "立即更新", Color.WHITE, pc(getSettingsThemeColor(activity, "primary")), 14f, 20, 16, 12, false, 0, 0, null);
+            updBtnRow.addView(updLater);
+            updBtnRow.addView(updSilent);
+            updBtnRow.addView(updOk);
+            updRoot.addView(updBtnRow);
+
+            final Dialog updDialog = new Dialog(activity, android.R.style.Theme_DeviceDefault_Dialog_Alert);
+            updDialog.requestWindowFeature(1);
+            try {
+                Window uw = updDialog.getWindow();
+                if (uw != null) uw.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            } catch (Throwable ignore) {}
+            updDialog.setContentView(updRoot);
+            updDialog.setCancelable(false);
+            updLater.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) { try { updDialog.dismiss(); } catch (Throwable ignore) {} }
+            });
+
+            final Runnable afterUpdateOk = new Runnable() {
+                public void run() {
+                    LinearLayout rst = new LinearLayout(activity);
+                    rst.setOrientation(LinearLayout.VERTICAL);
+                    rst.setPadding(dp(activity, 24), dp(activity, 20), dp(activity, 24), dp(activity, 12));
+                    rst.setBackground(roundRect(pc(getSettingsThemeColor(activity, "surface")), dp(activity, getUiCornerDp())));
+                    TextView rt = new TextView(activity);
+                    rt.setText("更新完成");
+                    rt.setTextSize(18);
+                    rt.setTypeface(null, Typeface.BOLD);
+                    rt.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
+                    rst.addView(rt);
+                    TextView rm = new TextView(activity);
+                    rm.setText("文件已就绪，是否现在重启脚本？");
+                    rm.setTextSize(13);
+                    rm.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
+                    rm.setPadding(0, dp(activity, 8), 0, dp(activity, 12));
+                    rst.addView(rm);
+                    LinearLayout rb = new LinearLayout(activity);
+                    rb.setOrientation(LinearLayout.HORIZONTAL);
+                    rb.setGravity(Gravity.END);
+                    TextView laterB = createButton(activity, "稍后重启", pc(getSettingsThemeColor(activity, "on_surface_variant")), Color.TRANSPARENT, 14f, 20, 16, 12, false, 0, 0, null);
+                    TextView nowB = createButton(activity, "现在重启", Color.WHITE, pc(getSettingsThemeColor(activity, "primary")), 14f, 20, 16, 12, false, 0, 0, null);
+                    rb.addView(laterB);
+                    rb.addView(nowB);
+                    rst.addView(rb);
+                    final Dialog rd = new Dialog(activity, android.R.style.Theme_DeviceDefault_Dialog_Alert);
+                    rd.requestWindowFeature(1);
+                    try {
+                        Window rw = rd.getWindow();
+                        if (rw != null) rw.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+                    } catch (Throwable ignore) {}
+                    rd.setContentView(rst);
+                    laterB.setOnClickListener(new View.OnClickListener() {
+                        public void onClick(View v) { try { rd.dismiss(); } catch (Throwable ignore) {} }
+                    });
+                    nowB.setOnClickListener(new View.OnClickListener() {
+                        public void onClick(View v) {
+                            try { rd.dismiss(); } catch (Throwable ignore) {}
+                            重新加载脚本();
+                        }
+                    });
+                    rd.show();
+                    try { applyUiTheme(activity, rd, 1); } catch (Throwable ignore) {}
+                }
+            };
+
+            updSilent.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    try { updDialog.dismiss(); } catch (Throwable ignore) {}
+                    Toast("开始静默更新…");
+                    ThreadPool.execute(new Runnable() {
+                        public void run() {
+                            boolean allSuccess = true;
+                            if (updateFiles != null && !updateFiles.isEmpty()) {
+                                int total = updateFiles.size();
+                                for (int i = 0; i < total; i++) {
+                                    String fileName = (String) updateFiles.get(i);
+                                    String fileUrl = finalChannel + "/" + fileName;
+                                    String relativePath = fileName;
+                                    if (relativePath.startsWith("QFloatingX/")) {
+                                        relativePath = relativePath.substring("QFloatingX/".length());
+                                    }
+                                    String savePath = pluginPath + "/" + relativePath;
+                                    if (!downloadFile(fileUrl, savePath, null)) {
+                                        allSuccess = false;
+                                        traceLog("api_log", "[showUpdateDialog] 静默更新失败: " + fileName);
+                                        break;
+                                    }
+                                }
+                            }
+                            final boolean res = allSuccess;
+                            activity.runOnUiThread(new Runnable() {
+                                public void run() {
+                                    if (res) {
+                                        Toast("更新完成");
+                                        afterUpdateOk.run();
+                                    } else {
+                                        Toast("静默更新失败");
+                                    }
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+
+            updOk.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    try { updDialog.dismiss(); } catch (Throwable ignore) {}
                     final android.app.ProgressDialog progress = new android.app.ProgressDialog(activity,
                         isDark ? android.app.ProgressDialog.THEME_DEVICE_DEFAULT_DARK : android.app.ProgressDialog.THEME_DEVICE_DEFAULT_LIGHT);
                     progress.setProgressStyle(android.app.ProgressDialog.STYLE_HORIZONTAL);
@@ -2459,7 +3354,7 @@ void showUpdateDialog(final String version, final String versionType, final Stri
                                 String savePath = pluginPath + "/" + relativePath;
                                 if (!downloadFile(fileUrl, savePath, null)) {
                                     allSuccess = false;
-                                    traceLog("api_log", "下载失败: " + fileName);
+                                    traceLog("api_log", "[showUpdateDialog] 下载失败: " + fileName);
                                     break;
                                 }
                             }
@@ -2469,8 +3364,7 @@ void showUpdateDialog(final String version, final String versionType, final Stri
                                 public void run() {
                                     progress.dismiss();
                                     if (res) {
-                                        Toast("更新成功，正在重启");
-                                        重新加载脚本();
+                                        afterUpdateOk.run();
                                     } else {
                                         Toast("更新过程中出现错误");
                                     }
@@ -2481,19 +3375,76 @@ void showUpdateDialog(final String version, final String versionType, final Stri
                 }
             });
 
-            builder.setNegativeButton("取消", null);
-            builder.setNeutralButton("忽略此版本", new android.content.DialogInterface.OnClickListener() {
-                public void onClick(android.content.DialogInterface dialog, int which) {
-                    putString("更新检测", "已忽略版本", version);
+            updDialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
+                public void onDismiss(DialogInterface dialog) {
+                    try { icon.setImageDrawable(null); } catch (Throwable ignore) {}
+                    try {
+                        if (avatarBmp[0] != null && !avatarBmp[0].isRecycled()) avatarBmp[0].recycle();
+                    } catch (Throwable ignore) {}
+                    avatarBmp[0] = null;
                 }
             });
-
-            android.app.AlertDialog dialogObj = builder.create();
-            dialogObj.show();
-            applyUiTheme(activity, dialogObj, 0);
+            updDialog.show();
+            try { applyUiTheme(activity, updDialog, 1); } catch (Throwable ignore) {}
+            ThreadPool.execute(new Runnable() {
+                public void run() {
+                    try {
+                        String p0 = prevVersion != null ? prevVersion.trim() : "";
+                        String p1 = version != null ? version.trim() : "";
+                        if (p0.length() == 0 || p1.length() == 0 || p0.equals(p1)) return;
+                        String api;
+                        String channel = getString("settings", "update_channel", "gitee");
+                        if ("github".equals(channel)) {
+                            api = "https://api.github.com/repos/xunyyds/QFloatingX/compare/" + p0 + "..." + p1;
+                        } else {
+                            api = "https://gitee.com/api/v5/repos/ovoxiaomo/qfloating-x/compare/" + p0 + "..." + p1;
+                        }
+                        java.net.HttpURLConnection gc = (java.net.HttpURLConnection) new java.net.URL(api).openConnection();
+                        gc.setConnectTimeout(6000);
+                        gc.setReadTimeout(6000);
+                        gc.connect();
+                        java.io.InputStream gin = gc.getInputStream();
+                        StringBuilder sb = new StringBuilder();
+                        java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(gin, "UTF-8"));
+                        String line;
+                        while ((line = br.readLine()) != null) sb.append(line);
+                        br.close();
+                        try { gc.disconnect(); } catch (Throwable ignore) {}
+                        String json = sb.toString();
+                        int addIdx = json.indexOf("\"additions\":");
+                        int delIdx = json.indexOf("\"deletions\":");
+                        if (addIdx <= 0 || delIdx <= 0) return;
+                        int a0 = addIdx + 12;
+                        int a1 = json.indexOf(",", a0);
+                        int d0 = delIdx + 11;
+                        int d1 = json.indexOf(",", d0);
+                        if (d1 < 0) d1 = json.indexOf("}", d0);
+                        String addS = json.substring(a0, a1 > 0 ? a1 : a0 + 12).trim();
+                        String delS = json.substring(d0, d1 > 0 ? d1 : d0 + 12).trim();
+                        while (addS.endsWith(",")) addS = addS.substring(0, addS.length() - 1);
+                        while (delS.endsWith(",")) delS = delS.substring(0, delS.length() - 1);
+                        long add = 0, del = 0;
+                        try { add = Long.parseLong(addS); } catch (Throwable ignore) {}
+                        try { del = Long.parseLong(delS); } catch (Throwable ignore) {}
+                        final String diffTxt = "对比 " + p0 + " +" + add + " -" + del;
+                        activity.runOnUiThread(new Runnable() {
+                            public void run() {
+                                try {
+                                    verLine.setText(versionType + " " + version + "  " + diffTxt);
+                                } catch (Throwable ignore) {}
+                            }
+                        });
+                    } catch (Throwable e) {
+                        traceLog("api_log", "[showUpdateDialog] git对比失败: " + e);
+                    }
+                }
+            });
+                }
+            });
         }
     });
 }
+
 
 String getUpdateChannelBaseUrl() {
     String channel = getString("settings", "update_channel", "gitee");
@@ -2582,7 +3533,7 @@ void runQFXUpdateCheck(final boolean manual) {
 
                 showUpdateDialog(remoteVersion, versionType, updateType, changelog, files, count);
             } catch (Throwable t) {
-                traceLog("api_log", "checkQFXUpdate 异常: " + t.getMessage());
+                traceLog("api_log", "[runQFXUpdateCheck] checkQFXUpdate 异常: " + t.getMessage());
                 if (manual) {
                     Activity activity = getNowActivity();
                     if (activity != null) {
@@ -2701,7 +3652,7 @@ boolean performDownloadAndUnzip() {
     try {
         unzipResult = unzipTask.get(30000, java.util.concurrent.TimeUnit.MILLISECONDS).booleanValue();
     } catch (Throwable e) {
-        traceLog("api_log", " 解压超时/异常: " + e.getMessage());
+        traceLog("api_log", "[performDownloadAndUnzip]  解压超时/异常: " + e.getMessage());
         unzipResult = false;
     }
     
@@ -2744,16 +3695,16 @@ void ensureResourceAvailable() {
                                 Toast("下载图标文件成功！");
                             } else {
                                 Toast("下载完成，但文件验证失败");
-                                traceLog("api_log", "资源下载但验证失败");
+                                traceLog("api_log", "[ensureResourceAvailable] 资源下载但验证失败");
                             }
                 } else {
                             Toast("图标文件下载失败，请检查网络");
-                            traceLog("api_log", "资源准备失败");
+                            traceLog("api_log", "[ensureResourceAvailable] 资源准备失败");
                 }
                 
             } catch (Exception e) {
                 final String errorMsg = e.getMessage();
-                traceLog("api_log", " 致命异常: " + errorMsg);
+                traceLog("api_log", "[ensureResourceAvailable]  致命异常: " + errorMsg);
                 Toast("图标文件准备失败: " + errorMsg);
             }
         }
@@ -2778,9 +3729,9 @@ void 跳转到页面(String className) {
     intent.setComponent(new ComponentName(currentPackageName, className));
     try {
         activity.startActivity(intent);
-        traceLog("api_log","跳转到页面: " + className);
+        traceLog("api_log","[跳转到页面]" + className);
     } catch (Exception e) {
-        traceLog("api_log","跳转页面失败: " + e);
+        traceLog("api_log","[跳转到页面] 跳转页面失败: " + e);
     }
 }
 
