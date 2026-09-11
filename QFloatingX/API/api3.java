@@ -17,14 +17,28 @@ private View progressBarCache = null;
 private TextView sendTargetLabelCache = null;
 private TextView achievementTextCache = null;
 
-private static final String[] STAT_TYPES = {
-    "Receive", "ReceiveText", "ReceivePic", "ReceiveFile", "ReceiveVideo",
-    "ReceiveEmoji", "ReceiveAudio", "ReceiveCard", "ReceiveCall", "ReceiveGrayTip",
-    "ReceiveWordCount", "ReceiveUnknown",
-    "Send", "SendText", "SendPic", "SendFile", "SendVideo",
-    "SendEmoji", "SendAudio", "SendCard", "SendCall", "Command", "Like",
-    "SendWordCount", "SendUnknown"
-};
+private String[] api3StatTypes() {
+    return new String[] {
+        "Receive", "ReceiveText", "ReceivePic", "ReceiveFile", "ReceiveVideo",
+        "ReceiveEmoji", "ReceiveAudio", "ReceiveCard", "ReceiveCall", "ReceiveGrayTip",
+        "ReceiveWordCount", "ReceiveUnknown",
+        "Send", "SendText", "SendPic", "SendFile", "SendVideo",
+        "SendEmoji", "SendAudio", "SendCard", "SendCall", "Command", "Like",
+        "SendWordCount", "SendUnknown"
+    };
+}
+
+private String statsConfigPath() {
+    return pluginPath + "/config/msg_stats.json";
+}
+
+private String timeRangeName(int range) {
+    if (range == 1) return "昨日";
+    if (range == 2) return "本周";
+    if (range == 3) return "本月";
+    if (range == 4) return "自定义日期";
+    return "今日";
+}
 
 private static final Hashtable OP_STATS = new Hashtable();
 private static final Vector CHANGED_KEYS = new Vector();
@@ -32,35 +46,8 @@ private static final Vector messageBatchQueue = new Vector();
 private static final Hashtable cardExpandStatus = new Hashtable();
 volatile long TOTAL_MSG_SEQ_MAX = 0L;
 
-private int[] COLORS = {
-    pc("#FF6B6B"), pc("#4ECDC4"), pc("#45B7D1"),
-    pc("#96CEB4"), pc("#FFEAA7"), pc("#DDA0DD"),
-    pc("#FFA07A"), pc("#87CEEB"), pc("#F0E68C"),
-    pc("#CD853F"), pc("#98FB98")
-};
-
-String configName = pluginPath + "/config/msg_stats.json";
-
-public class TimeRange {
-    public static final int TODAY = 0;
-    public static final int YESTERDAY = 1;
-    public static final int THIS_WEEK = 2;
-    public static final int THIS_MONTH = 3;
-    public static final int CUSTOM_DATE = 4;
-    
-    public static String toString(int range) {
-        switch (range) {
-            case TODAY: return "今日";
-            case YESTERDAY: return "昨日";
-            case THIS_WEEK: return "本周";
-            case THIS_MONTH: return "本月";
-            case CUSTOM_DATE: return "自定义日期";
-            default: return "今日";
-        }
-    }
-}
-
-private volatile int currentTimeRange = TimeRange.TODAY;
+// 时间范围常量（仅 api3 使用）：0今日 1昨日 2本周 3本月 4自定义
+private volatile int currentTimeRange = 0;
 private String customDateStr = null;
 
 private volatile String todayDateStr = getTodayDateStr();
@@ -107,7 +94,7 @@ private void startWriteThread() {
     
     ThreadPool.execute(new Runnable() {
         public void run() {
-            traceLog("api3_log", "后台写入任务启动（懒调用模式）");
+            traceLog("api3_log", "[startWriteThread] 后台写入任务启动（懒调用模式）");
             while (writeThreadRunning) {
                 try {
                     synchronized(writeLock) {
@@ -121,20 +108,20 @@ private void startWriteThread() {
                     writeStats();
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    traceLog("api3_log", "任务被中断，退出");
+                    traceLog("api3_log", "[startWriteThread] 任务被中断，退出");
                     break;
                 } catch (Exception e) {
-                    traceLog("api3_log", "运行时错误: " + e.getMessage());
+                    traceLog("api3_log", "[startWriteThread] 运行时错误: " + e.getMessage());
                 }
             }
-            traceLog("api3_log", "后台写入任务已停止");
+            traceLog("api3_log", "[startWriteThread] 后台写入任务已停止");
         }
     });
-    traceLog("api3_log","写入任务提交完成");
+    traceLog("api3_log","[startWriteThread] 写入任务提交完成");
 }
 
 private void stopWriteThread() {
-    traceLog("api3_log", "停止写入任务");
+    traceLog("api3_log", "[stopWriteThread] 停止写入任务");
     writeThreadRunning = false;
     synchronized(writeLock) {
         writeLock.notifyAll();
@@ -220,11 +207,11 @@ private void checkTodayReset() {
     String currentDate = getTodayDateStr();
     if (todayDateStr == null || todayDateStr.isEmpty()) {
         todayDateStr = currentDate;
-        traceLog("api3_log", "初始化todayDateStr=" + todayDateStr);
+        traceLog("api3_log", "[checkTodayReset] 初始化todayDateStr=" + todayDateStr);
         return;
     }
     if (!currentDate.equals(todayDateStr)) {
-        traceLog("api3_log", "日期变更，旧:" + todayDateStr + " 新:" + currentDate);
+        traceLog("api3_log", "[checkTodayReset] 日期变更，旧:" + todayDateStr + " 新:" + currentDate);
         todayDateStr = currentDate;
         
         synchronized(writeLock) {
@@ -244,16 +231,22 @@ private int getDailyTargetFromPrefs() {
     if (activity != null) {
         SharedPreferences sp = activity.getSharedPreferences("msg_stats_config", Activity.MODE_PRIVATE);
         int target = sp.getInt("daily_msg_target", 100);
-        traceLog("api3_log","读取目标: " + target);
+        traceLog("api3_log","[getDailyTargetFromPrefs] 读取目标: " + target);
         return target;
     }
-    traceLog("api3_log","activity为null，返回默认值: " + 100);
+    traceLog("api3_log","[getDailyTargetFromPrefs] activity为null，返回默认值: " + 100);
     return 100;
 }
 
 private int getColorForStat(int index) {
-    if (index >= 0 && index < COLORS.length) {
-        return COLORS[index];
+    int[] colors = {
+        pc("#FF6B6B"), pc("#4ECDC4"), pc("#45B7D1"),
+        pc("#96CEB4"), pc("#FFEAA7"), pc("#DDA0DD"),
+        pc("#FFA07A"), pc("#87CEEB"), pc("#F0E68C"),
+        pc("#CD853F"), pc("#98FB98")
+    };
+    if (index >= 0 && index < colors.length) {
+        return colors[index];
     }
     return pc("#333333");
 }
@@ -278,49 +271,50 @@ private View createDivider(Activity activity) {
 
 private void initTimeRange(Activity activity) {
     if (activity == null) {
-        currentTimeRange = TimeRange.TODAY;
-        traceLog("api3_log","activity为null，默认TODAY");
+        currentTimeRange = 0;
+        traceLog("api3_log","[initTimeRange] activity为null，默认TODAY");
         return;
     }
     SharedPreferences sp = activity.getSharedPreferences("msg_stats_config", Activity.MODE_PRIVATE);
     int savedOrdinal = sp.getInt("selected_time_range", 0);
     switch (savedOrdinal) {
-        case 1: currentTimeRange = TimeRange.YESTERDAY; break;
-        case 2: currentTimeRange = TimeRange.THIS_WEEK; break;
-        case 3: currentTimeRange = TimeRange.THIS_MONTH; break;
-        case 4: currentTimeRange = TimeRange.CUSTOM_DATE; break;
-        default: currentTimeRange = TimeRange.TODAY; break;
+        case 1: currentTimeRange = 1; break;
+        case 2: currentTimeRange = 2; break;
+        case 3: currentTimeRange = 3; break;
+        case 4: currentTimeRange = 4; break;
+        default: currentTimeRange = 0; break;
     }
     customDateStr = sp.getString("custom_selected_date", null);
     if (customDateStr == null) {
         customDateStr = getTodayDateStr();
     }
-    traceLog("api3_log","加载范围: " + TimeRange.toString(currentTimeRange) + " 自定义日期: " + customDateStr);
+    traceLog("api3_log","[initTimeRange] 加载范围: " + timeRangeName(currentTimeRange) + " 自定义日期: " + customDateStr);
 }
 
 private synchronized void readFullStats() {
+    String configName = statsConfigPath();
     if (configName == null || configName.isEmpty()) {
-        traceLog("api3_log", "configName无效");
+        traceLog("api3_log", "[readFullStats] configName无效");
         return;
     }
 
-    File mainFile = new File(configName);
-    traceLog("api3_log", "尝试读取主文件: " + mainFile.getAbsolutePath());
+    File mainFile = new File(statsConfigPath());
+    traceLog("api3_log", "[readFullStats] 尝试读取主文件: " + mainFile.getAbsolutePath());
     if (mainFile.exists() && parseStatsFile(mainFile)) {
-        traceLog("api3_log", "从主文件加载数据");
+        traceLog("api3_log", "[readFullStats] 从主文件加载数据");
         return;
     }
 
-    File backupFile = new File(configName + ".bak");
+    File backupFile = new File(statsConfigPath() + ".bak");
     if (backupFile.exists() && parseStatsFile(backupFile)) {
-        traceLog("api3_log", "从备份文件恢复数据");
+        traceLog("api3_log", "[readFullStats] 从备份文件恢复数据");
         Toast("已从备份文件恢复数据");
         return;
     }
 
     msgHandle.post(new Runnable() {
         public void run() {
-            traceLog("api3_log", "无历史数据，初始化空统计");
+            traceLog("api3_log", "[readFullStats] 无历史数据，初始化空统计");
             initEmptyStats();
             Toast("无历史数据，初始化新统计");
         }
@@ -345,10 +339,10 @@ private boolean parseStatsFile(File file) {
             OP_STATS.put(key, new Long(value));
         }
         TOTAL_MSG_SEQ_MAX = atomicGet("totalReceive");
-        traceLog("api3_log", "解析完成，加载键数量: " + OP_STATS.size());
+        traceLog("api3_log", "[parseStatsFile] 解析完成，加载键数量: " + OP_STATS.size());
         return true;
     } catch (Exception e) {
-        traceLog("api3_log", "文件: " + file.getName() + " - " + e.getMessage());
+        traceLog("api3_log", "[parseStatsFile] 文件: " + file.getName() + " - " + e.getMessage());
         return false;
     } finally {
         try { if (bf != null) bf.close(); } catch (Throwable e) { traceLog("api3_log", "[parseStatsFile] 异常: " + e); }
@@ -357,26 +351,31 @@ private boolean parseStatsFile(File file) {
 
 private void initEmptyStats() {
     synchronized(writeLock) {
-        traceLog("api3_log", "初始化空统计数据");
+        traceLog("api3_log", "[initEmptyStats] 初始化空统计数据");
         OP_STATS.clear();
         CHANGED_KEYS.clear();
-        for (int i = 0; i < STAT_TYPES.length; i++) {
-            String type = STAT_TYPES[i];
+        String[] statTypes = api3StatTypes();
+        for (int i = 0; i < statTypes.length; i++) {
+            String type = statTypes[i];
             OP_STATS.put("total" + type, new Long(0L));
-            traceLog("api3_log", "初始化total" + type);
+            traceLog("api3_log", "[initEmptyStats] 初始化total" + type);
         }
         TOTAL_MSG_SEQ_MAX = 0L;
-        traceLog("api3_log", "初始化结束");
+        traceLog("api3_log", "[initEmptyStats] 初始化结束");
     }
 }
 
 public void initStats() {
-    traceLog("api3_log", "api3初始化开始");
+    if (!getBoolean("settings", "消息统计开关", true)) {
+        traceLog("api3_log", "[initStats] 消息统计开关关闭，跳过初始化");
+        return;
+    }
+    traceLog("api3_log", "[initStats] api3初始化开始");
     Activity activity = getNowActivity();
     initTimeRange(activity);
     readFullStats();
     startWriteThread();
-    traceLog("api3_log", "api3初始化完成");
+    traceLog("api3_log", "[initStats] api3初始化完成");
 }
 
 private void processBatch() {
@@ -391,7 +390,7 @@ private void processBatch() {
     
     if (batch.isEmpty()) return;
     
-    traceLog("api3_log", "批量处理 " + batch.size() + " 条消息");
+    traceLog("api3_log", "[processBatch] 批量处理 " + batch.size() + " 条消息");
     
     SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd", Locale.CHINA);
     
@@ -455,7 +454,7 @@ private void processBatch() {
                 atomicIncrement(dateKeyPrefix + "SendCall");
                 atomicIncrement("totalSendCall");
             } else {
-                traceLog("api3_log", "消息类型未知，归类为Unknown");
+                traceLog("api3_log", "[processBatch] 消息类型未知，归类为Unknown");
                 atomicIncrement(dateKeyPrefix + "SendUnknown");
                 atomicIncrement("totalSendUnknown");
             }
@@ -495,7 +494,7 @@ private void processBatch() {
                 atomicIncrement(dateKeyPrefix + "ReceiveGrayTip");
                 atomicIncrement("totalReceiveGrayTip");
             } else {
-                traceLog("api3_log", "消息类型未知，归类为Unknown");
+                traceLog("api3_log", "[processBatch] 消息类型未知，归类为Unknown");
                 atomicIncrement(dateKeyPrefix + "ReceiveUnknown");
                 atomicIncrement("totalReceiveUnknown");
             }
@@ -521,11 +520,12 @@ public void onMsg(Object data) {
     
     int queueSize = messageBatchQueue.size();
     if (queueSize > 50) {
-        traceLog("api3_log", "队列积压: " + queueSize + " 条");
+        traceLog("api3_log", "[onMsg] 队列积压: " + queueSize + " 条");
     }
 }
 
 private void writeStats() {
+    String configName = statsConfigPath();
     if (CHANGED_KEYS.isEmpty() || configName == null || configName.isEmpty()) {
         return;
     }
@@ -540,13 +540,13 @@ private void writeStats() {
         
         synchronized(writeLock) {
             CHANGED_KEYS.removeAll(keysToWrite);
-            traceLog("api3_log", "成功写入" + keysToWrite.size() + "个键，剩余" + CHANGED_KEYS.size() + "个键待写入");
+            traceLog("api3_log", "[writeStats] 成功写入" + keysToWrite.size() + "个键，剩余" + CHANGED_KEYS.size() + "个键待写入");
         }
     }
 }
 
 private void writeFullStats() {
-    traceLog("api3_log", "用户触发强制全量持久化");
+    traceLog("api3_log", "[writeFullStats] 用户触发强制全量持久化");
     synchronized(writeLock) {
         writeFullStatsInternal(new Vector());
     }
@@ -562,12 +562,12 @@ private void writeFullStatsInternal(Vector triggeredKeys) {
     }
     String jsonStr = statsJson.toString(2);
 
-    File mainFile = new File(configName);
-    File tempFile = new File(configName + ".tmp");
+    File mainFile = new File(statsConfigPath());
+    File tempFile = new File(statsConfigPath() + ".tmp");
     
     File parentDir = mainFile.getParentFile();
     if (!parentDir.exists() && !parentDir.mkdirs()) {
-        traceLog("api3_log", "创建目录失败: " + parentDir.getAbsolutePath());
+        traceLog("api3_log", "[writeFullStatsInternal] 创建目录失败: " + parentDir.getAbsolutePath());
         return;
     }
 
@@ -582,33 +582,33 @@ private void writeFullStatsInternal(Vector triggeredKeys) {
         osw.close();
 
         if (mainFile.exists() && !mainFile.delete()) {
-            traceLog("api3_log", "删除原文件失败: " + mainFile.getName());
+            traceLog("api3_log", "[writeFullStatsInternal] 删除原文件失败: " + mainFile.getName());
             tempFile.delete();
             return;
         }
         if (!tempFile.renameTo(mainFile)) {
-            traceLog("api3_log", "重命名失败: " + tempFile.getName());
+            traceLog("api3_log", "[writeFullStatsInternal] 重命名失败: " + tempFile.getName());
             tempFile.delete();
             return;
         }
 
         if (mainFile.exists() && mainFile.length() > 0) {
-            traceLog("api3_log", "文件写入完成: " + mainFile.getName() + " 大小=" + mainFile.length() + "字节");
+            traceLog("api3_log", "[writeFullStatsInternal] 文件写入完成: " + mainFile.getName() + " 大小=" + mainFile.length() + "字节");
             
             String verifyContent = 读(mainFile.getAbsolutePath());
             if (verifyContent != null && verifyContent.contains("totalSend") && verifyContent.contains("totalReceive")) {
-                traceLog("api3_log", "文件完整性验证通过");
+                traceLog("api3_log", "[writeFullStatsInternal] 文件完整性验证通过");
             } else {
-                traceLog("api3_log", "文件完整性验证失败！");
+                traceLog("api3_log", "[writeFullStatsInternal] 文件完整性验证失败！");
             }
         } else {
-            traceLog("api3_log", "文件不存在或大小为0！");
+            traceLog("api3_log", "[writeFullStatsInternal] 文件不存在或大小为0！");
         }
         
         createSingleBackup();
         
     } catch (Exception e) {
-        traceLog("api3_log", "写入失败: " + e.getMessage());
+        traceLog("api3_log", "[writeFullStatsInternal] 写入失败: " + e.getMessage());
         if (tempFile != null) tempFile.delete();
     } finally {
         if (osw != null) try { osw.close(); } catch (Throwable e) { traceLog("api3_log", "[writeFullStatsInternal] 异常: " + e); }
@@ -617,9 +617,10 @@ private void writeFullStatsInternal(Vector triggeredKeys) {
 }
 
 private void recalculateTotalStats() {
-    traceLog("api3_log", "重新计算所有total统计");
-    for (int i = 0; i < STAT_TYPES.length; i++) {
-        String type = STAT_TYPES[i];
+    traceLog("api3_log", "[recalculateTotalStats] 重新计算所有total统计");
+    String[] statTypes = api3StatTypes();
+    for (int i = 0; i < statTypes.length; i++) {
+        String type = statTypes[i];
         long total = 0L;
         String keySuffix = "_" + type;
         
@@ -635,23 +636,23 @@ private void recalculateTotalStats() {
         
         OP_STATS.put("total" + type, new Long(total));
         addChangedKey("total" + type);
-        traceLog("api3_log", "type=" + type + " total=" + total);
+        traceLog("api3_log", "[recalculateTotalStats] type=" + type + " total=" + total);
     }
-    traceLog("api3_log", "重新计算结束");
+    traceLog("api3_log", "[recalculateTotalStats] 重新计算结束");
 }
 
 private void createSingleBackup() {
-    File mainFile = new File(configName);
+    File mainFile = new File(statsConfigPath());
     if (!mainFile.exists() || mainFile.length() == 0) return;
     
-    File backupFile = new File(configName + ".bak");
+    File backupFile = new File(statsConfigPath() + ".bak");
     if (backupFile.exists()) backupFile.delete();
     
     try {
         java.nio.file.Files.copy(mainFile.toPath(), backupFile.toPath());
-        traceLog("api3_log", "备份文件已创建");
+        traceLog("api3_log", "[createSingleBackup] 备份文件已创建");
     } catch (Exception e) {
-        traceLog("api3_log", "备份失败: " + e.getMessage());
+        traceLog("api3_log", "[createSingleBackup] 备份失败: " + e.getMessage());
     }
 }
 
@@ -665,7 +666,7 @@ private void triggerUIUpdate() {
             return;
         }
     } catch (Exception e) {
-        traceLog("api3_log", "对话框状态检查失败: " + e.getMessage());
+        traceLog("api3_log", "[triggerUIUpdate] 对话框状态检查失败: " + e.getMessage());
         return;
     }
     
@@ -674,7 +675,7 @@ private void triggerUIUpdate() {
         msgHandle.removeCallbacksAndMessages(null);
         msgHandle.postDelayed(new Runnable() {
             public void run() {
-                traceLog("api3_log", "防抖延迟刷新");
+                traceLog("api3_log", "[triggerUIUpdate] 防抖延迟刷新");
                 updateUIImmediately();
             }
         }, 150);
@@ -682,15 +683,15 @@ private void triggerUIUpdate() {
     }
     lastUIUpdateTime = currentTime;
     
-    traceLog("api3_log", "触发UI刷新");
+    traceLog("api3_log", "[triggerUIUpdate] 触发UI刷新");
     msgHandle.post(new Runnable() {
         public void run() {
             try {
                 updateUIImmediately();
-                traceLog("api3_log", "UI刷新成功");
+                traceLog("api3_log", "[triggerUIUpdate] UI刷新成功");
             } catch (Throwable e) {
-                traceLog("api3_log", "UI更新失败: " + e.getMessage());
-                traceLog("api3_log","" + e);
+                traceLog("api3_log", "[triggerUIUpdate] UI更新失败: " + e.getMessage());
+                traceLog("api3_log","[triggerUIUpdate]" + e);
             }
         }
     });
@@ -698,15 +699,15 @@ private void triggerUIUpdate() {
 
 private void updateUIImmediately() {
     if (statsDialog == null || !statsDialog.isShowing()) {
-        traceLog("api3_log", "对话框无效");
+        traceLog("api3_log", "[updateUIImmediately] 对话框无效");
         return;
     }
     
     final String rangeName;
-    if (currentTimeRange == TimeRange.CUSTOM_DATE && customDateStr != null) {
+    if (currentTimeRange == 4 && customDateStr != null) {
         rangeName = formatDateForDisplay(customDateStr);
     } else {
-        rangeName = TimeRange.toString(currentTimeRange);
+        rangeName = timeRangeName(currentTimeRange);
     }
     
     final long todaySend = atomicGet("date_" + todayDateStr + "_Send");
@@ -754,29 +755,29 @@ private void updateCachedTextView(String tag, String text) {
             if (tv != null) {
                 statsTextViewCache.add(tv);
             } else {
-                traceLog("api3_log", "未找到Tag=" + tag + "的TextView");
+                traceLog("api3_log", "[updateCachedTextView] 未找到Tag=" + tag + "的TextView");
                 return;
             }
         } else {
-            traceLog("api3_log", "rootView为null");
+            traceLog("api3_log", "[updateCachedTextView] rootView为null");
             return;
         }
     }
     if (!text.equals(tv.getText().toString())) {
         tv.setText(text);
-        traceLog("api3_log", "更新Tag=" + tag + " 文本=" + text);
+        traceLog("api3_log", "[updateCachedTextView] 更新Tag=" + tag + " 文本=" + text);
     }
 }
 
 private void updateTodayProgress(long todaySend, int dailyTarget) {
     if (todayCoreCardCache == null) {
-        traceLog("api3_log", "todayCoreCardCache为null");
+        traceLog("api3_log", "[updateTodayProgress] todayCoreCardCache为null");
         return;
     }
     
     int progress = (int) Math.min(todaySend * 100 / Math.max(dailyTarget, 1), 100);
     int remaining = Math.max(dailyTarget - (int) todaySend, 0);
-    traceLog("api3_log", "今日发送=" + todaySend + " dailyTarget=" + dailyTarget + " progress=" + progress);
+    traceLog("api3_log", "[updateTodayProgress] 今日发送=" + todaySend + " dailyTarget=" + dailyTarget + " progress=" + progress);
 
     if (sendTargetLabelCache != null) {
         sendTargetLabelCache.setText("今天已经逼逼了" + todaySend + "句，还差" + remaining + " 句，目标：" + dailyTarget + "(" + progress + "%)");
@@ -786,12 +787,12 @@ private void updateTodayProgress(long todaySend, int dailyTarget) {
         LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) progressBarCache.getLayoutParams();
         params.width = (int) (todayCoreCardCache.getWidth() * progress / 100.0f);
         progressBarCache.setLayoutParams(params);
-        traceLog("api3_log", "进度条宽度更新: " + params.width);
+        traceLog("api3_log", "[updateTodayProgress] 进度条宽度更新: " + params.width);
     }
 
     if (achievementTextCache != null) {
         achievementTextCache.setVisibility(progress >= 100 ? View.VISIBLE : View.GONE);
-        traceLog("api3_log", "成就显示: " + (progress >= 100 ? "显示" : "隐藏"));
+        traceLog("api3_log", "[updateTodayProgress] 成就显示: " + (progress >= 100 ? "显示" : "隐藏"));
     }
 }
 
@@ -801,14 +802,14 @@ private long getStatsByTimeRange(String typeKey) {
     String keySuffix = "_" + typeKey;
     SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd", Locale.CHINA);
 
-    if (currentTimeRange == TimeRange.TODAY) {
+    if (currentTimeRange == 0) {
         return atomicGet(datePrefix + todayDateStr + keySuffix);
-    } else if (currentTimeRange == TimeRange.YESTERDAY) {
+    } else if (currentTimeRange == 1) {
         Calendar cal = Calendar.getInstance();
         cal.add(Calendar.DATE, -1);
         String yesterday = dateFormat.format(cal.getTime());
         return atomicGet(datePrefix + yesterday + keySuffix);
-    } else if (currentTimeRange == TimeRange.THIS_WEEK) {
+    } else if (currentTimeRange == 2) {
         String cacheKey = todayDateStr + "_week";
         if (!cacheKey.equals(weekCacheKey) || weekDatesCache.isEmpty()) {
             weekDatesCache.clear();
@@ -830,7 +831,7 @@ private long getStatsByTimeRange(String typeKey) {
             String date = (String) weekDatesCache.get(i);
             total += atomicGet(datePrefix + date + keySuffix);
         }
-    } else if (currentTimeRange == TimeRange.THIS_MONTH) {
+    } else if (currentTimeRange == 3) {
         String cacheKey = todayDateStr.substring(0, 6) + "_month";
         if (!cacheKey.equals(monthCacheKey) || monthDatesCache.isEmpty()) {
             monthDatesCache.clear();
@@ -852,7 +853,7 @@ private long getStatsByTimeRange(String typeKey) {
             String date = (String) monthDatesCache.get(i);
             total += atomicGet(datePrefix + date + keySuffix);
         }
-    } else if (currentTimeRange == TimeRange.CUSTOM_DATE) {
+    } else if (currentTimeRange == 4) {
         if (customDateStr == null) {
             customDateStr = getTodayDateStr();
         }
@@ -981,22 +982,22 @@ private View createRangeSpinner(Activity activity) {
     }
 
     int selectedPos = 0;
-    if (currentTimeRange == TimeRange.YESTERDAY) selectedPos = 1;
-    else if (currentTimeRange == TimeRange.THIS_WEEK) selectedPos = 2;
-    else if (currentTimeRange == TimeRange.THIS_MONTH) selectedPos = 3;
-    else if (currentTimeRange == TimeRange.CUSTOM_DATE) selectedPos = 4;
+    if (currentTimeRange == 1) selectedPos = 1;
+    else if (currentTimeRange == 2) selectedPos = 2;
+    else if (currentTimeRange == 3) selectedPos = 3;
+    else if (currentTimeRange == 4) selectedPos = 4;
     spinner.setSelection(selectedPos);
 
     spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
         public void onItemSelected(AdapterView parent, View view, int position, long id) {
-            int selected = TimeRange.TODAY;
+            int selected = 0;
             boolean needShowDatePicker = false;
             switch (position) {
-                case 1: selected = TimeRange.YESTERDAY; break;
-                case 2: selected = TimeRange.THIS_WEEK; break;
-                case 3: selected = TimeRange.THIS_MONTH; break;
+                case 1: selected = 1; break;
+                case 2: selected = 2; break;
+                case 3: selected = 3; break;
                 case 4: 
-                    selected = TimeRange.CUSTOM_DATE;
+                    selected = 4;
                     needShowDatePicker = true;
                     break;
             }
@@ -1006,10 +1007,10 @@ private View createRangeSpinner(Activity activity) {
                 SharedPreferences sp = finalActivity.getSharedPreferences("msg_stats_config", Activity.MODE_PRIVATE);
                 sp.edit().putInt("selected_time_range", position).apply();
                 
-                if (selected == TimeRange.THIS_WEEK) {
+                if (selected == 2) {
                     weekDatesCache.clear();
                     weekCacheKey = "";
-                } else if (selected == TimeRange.THIS_MONTH) {
+                } else if (selected == 3) {
                     monthDatesCache.clear();
                     monthCacheKey = "";
                 }
@@ -1064,14 +1065,14 @@ private void showDatePickerDialog(final Activity activity) {
                 SharedPreferences sp = activity.getSharedPreferences("msg_stats_config", Activity.MODE_PRIVATE);
                 sp.edit().putString("custom_selected_date", customDateStr).apply();
                 
-                traceLog("api3_log", "用户选择日期: " + customDateStr);
+                traceLog("api3_log", "[showDatePickerDialog] 用户选择日期: " + customDateStr);
                 Toast("已选择日期: " + formatDateForDisplay(customDateStr));
                 triggerUIUpdate();
             }
         })
         .setNegativeButton("取消", new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int which) {
-                currentTimeRange = TimeRange.TODAY;
+                currentTimeRange = 0;
                 SharedPreferences sp = activity.getSharedPreferences("msg_stats_config", Activity.MODE_PRIVATE);
                 sp.edit().putInt("selected_time_range", 0).apply();
                 triggerUIUpdate();
@@ -1108,7 +1109,7 @@ private void showTargetSettingDialog(Activity activity) {
                         int target = Integer.parseInt(input);
                         if (target > 0) {
                             sp.edit().putInt("daily_msg_target", target).apply();
-                            traceLog("api3_log", "用户设置目标: " + target);
+                            traceLog("api3_log", "[showTargetSettingDialog] 用户设置目标: " + target);
                             Toast("目标设置成功：" + target + "条/天");
                             triggerUIUpdate();
                         } else {
@@ -1197,7 +1198,7 @@ private void updateCardExpandStatus(LinearLayout card, boolean isExpanded) {
             container.startAnimation(collapseAnim);
         }
         cardExpandStatus.put(cardType, isExpanded);
-        traceLog("api3_log", cardType + " 展开状态: " + isExpanded);
+        traceLog("api3_log", "[updateCardExpandStatus] " + cardType + " 展开状态: " + isExpanded);
     }
 }
 
@@ -1264,7 +1265,7 @@ private LinearLayout createTypeStatsItemLayout(Activity activity, String label, 
     TextView statsTv = new TextView(activity);
     long rangeValue = getStatsByTimeRange(typeKey);
     long totalValue = atomicGet("total" + typeKey);
-    statsTv.setText(TimeRange.toString(currentTimeRange) + ": " + formatStatValue(rangeValue) + "  累计: " + formatStatValue(totalValue));
+    statsTv.setText(timeRangeName(currentTimeRange) + ": " + formatStatValue(rangeValue) + "  累计: " + formatStatValue(totalValue));
     statsTv.setTextColor(getColorForStat(colorIndex));
     statsTv.setTextSize(14);
     statsTv.setTag(typeKey);
@@ -1302,7 +1303,7 @@ private LinearLayout createStatsItemLayout(Activity activity, String label, Stri
         textPrefix = "累计: ";
     } else {
         value = getStatsByTimeRange(key);
-        textPrefix = TimeRange.toString(currentTimeRange) + ": ";
+        textPrefix = timeRangeName(currentTimeRange) + ": ";
     }
 
     TextView valueTv = new TextView(activity);
@@ -1492,7 +1493,7 @@ private LinearLayout createSendStatsCard(Activity activity, String title, String
 }
 
 private void resetTodayStats(final Activity activity) {
-    traceLog("api3_log", "用户请求重置今日数据");
+    traceLog("api3_log", "[resetTodayStats] 用户请求重置今日数据");
     boolean isDark = isThemeDark(activity);
     new AlertDialog.Builder(activity, isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT)
         .setTitle("重置确认")
@@ -1502,7 +1503,7 @@ private void resetTodayStats(final Activity activity) {
                 vibrate(activity, 48);
                 String todayPrefix = "date_" + todayDateStr + "_";
                 synchronized(writeLock) {
-                    traceLog("api3_log", "删除今日数据，前缀: " + todayPrefix);
+                    traceLog("api3_log", "[resetTodayStats] 删除今日数据，前缀: " + todayPrefix);
                     List entriesToRemove = new ArrayList();
                     Iterator iterator = OP_STATS.entrySet().iterator();
                     int deletedCount = 0;
@@ -1522,7 +1523,7 @@ private void resetTodayStats(final Activity activity) {
                         }
                     }
                     recalculateTotalStats();
-                    traceLog("api3_log", "删除键数量: " + deletedCount);
+                    traceLog("api3_log", "[resetTodayStats] 删除键数量: " + deletedCount);
                     writeStats();
                 }
                 
@@ -1540,7 +1541,7 @@ private void resetTodayStats(final Activity activity) {
 }
 
 private void resetTotalStats(final Activity activity) {
-    traceLog("api3_log", "用户请求重置累计数据");
+    traceLog("api3_log", "[resetTotalStats] 用户请求重置累计数据");
     boolean isDark = isThemeDark(activity);
     new AlertDialog.Builder(activity, isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT)
         .setTitle("重置确认")
@@ -1549,16 +1550,17 @@ private void resetTotalStats(final Activity activity) {
             public void onClick(DialogInterface dialog, int which) {
                 vibrate(activity, 48);
                 synchronized(writeLock) {
-                    traceLog("api3_log", "清空所有数据");
+                    traceLog("api3_log", "[resetTotalStats] 清空所有数据");
                     OP_STATS.clear();
-                    for (int i = 0; i < STAT_TYPES.length; i++) {
-                        String type = STAT_TYPES[i];
+                    String[] statTypes = api3StatTypes();
+                    for (int i = 0; i < statTypes.length; i++) {
+                        String type = statTypes[i];
                         OP_STATS.put("total" + type, new Long(0L));
                         addChangedKey("total" + type);
-                        traceLog("api3_log", "初始化total" + type);
+                        traceLog("api3_log", "[resetTotalStats] 初始化total" + type);
                     }
                     TOTAL_MSG_SEQ_MAX = 0L;
-                    traceLog("api3_log", "数据清空并初始化");
+                    traceLog("api3_log", "[resetTotalStats] 数据清空并初始化");
                     writeStats();
                 }
                 
@@ -1576,7 +1578,7 @@ private void resetTotalStats(final Activity activity) {
 }
 
 private void repairStatsData(final Activity activity) {
-    traceLog("api3_log", "用户请求修复数据");
+    traceLog("api3_log", "[repairStatsData] 用户请求修复数据");
     vibrate(activity, 48);
     
     synchronized(writeLock) {
@@ -1591,13 +1593,13 @@ private void repairStatsData(final Activity activity) {
 
 public void showStatsDialog(Activity activity) {
     if (activity == null || activity.isFinishing()) {
-        traceLog("api3_log", "activity无效");
+        traceLog("api3_log", "[showStatsDialog] activity无效");
         Toast("无法显示消息统计: Activity无效");
         return;
     }
 
     if (statsDialog != null && statsDialog.isShowing()) {
-        traceLog("api3_log", "对话框已存在，执行关闭");
+        traceLog("api3_log", "[showStatsDialog] 对话框已存在，执行关闭");
         statsDialog.dismiss();
         statsDialog = null;
         dialogVisible = false;
@@ -1728,14 +1730,14 @@ public void showStatsDialog(Activity activity) {
     }
 
     dialogVisible = true;
-    traceLog("api3_log", "对话框显示完成");
+    traceLog("api3_log", "[showStatsDialog] 对话框显示完成");
 
     msgHandle.postDelayed(new Runnable() {
         public void run() {
             if (dialogVisible && statsDialog != null && statsDialog.isShowing()) {
                 View rootView = statsDialog.getWindow().getDecorView();
                 if (rootView == null) {
-                    traceLog("api3_log", "rootView为null");
+                    traceLog("api3_log", "[showStatsDialog] rootView为null");
                     return;
                 }
 
@@ -1762,7 +1764,7 @@ public void showStatsDialog(Activity activity) {
                     progressBarCache = todayCoreCardCache.findViewWithTag("send_progress");
                     achievementTextCache = (TextView) todayCoreCardCache.findViewWithTag("achievement_text");
                 }
-                traceLog("api3_log", "控件缓存完成");
+                traceLog("api3_log", "[showStatsDialog] 控件缓存完成");
 
                 triggerUIUpdate();
             }
