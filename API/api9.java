@@ -292,7 +292,7 @@ public class PacketHelper {
             QQCurrentEnv.INSTANCE.getQQAppInterface().startServlet(intent);
 
         } catch (Exception e) {
-            traceLog("api9_log", "发送请求失败: " + e.getMessage());
+            traceLog("api9_log", "[sendRequest] 发送请求失败: " + e.getMessage());
             receiver.onReceive(null);
         }
     }
@@ -313,10 +313,10 @@ public class PacketHelper {
             logContent.append("解析JSON:\n").append(json.toString(2)).append("\n");
             logContent.append("================================\n");
 
-            traceLog("api9_log", logContent.toString());
+            traceLog("api9_log", "[logReceivedPB] " + logContent.toString());
 
         } catch (Exception e) {
-            traceLog("api9_log", "解析PB数据失败: " + e.getMessage() +
+            traceLog("api9_log", "[logReceivedPB] 解析PB数据失败: " + e.getMessage() +
                 "\n原始HEX: " + bytesToHex(data));
         }
     }
@@ -342,31 +342,31 @@ void showPBSenderDialog() {
         
         LinearLayout card = new LinearLayout(act);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setBackground(roundRect(pc("#FFFFFF"), dp(act, 16)));
+        card.setBackground(roundRect(Color.TRANSPARENT, dp(act, 16)));
         card.setPadding(dp(act, 20), dp(act, 20), dp(act, 20), dp(act, 20));
         scroll.addView(card);
         
         TextView title = new TextView(act);
         title.setText("PB发包工具");
         title.setTextSize(17);
-        title.setTextColor(pc("#222222"));
+        title.setTextColor(tc(act, "on_surface"));
         title.setGravity(Gravity.CENTER);
         title.setPadding(0, 0, 0, dp(act, 20));
         card.addView(title);
         
         // 服务名输入
-        card.addView(makeSubTitleCompact(act, "服务名", pc("#666666")));
+        card.addView(makeSubTitleCompact(act, "服务名", tc(act, "on_surface_variant")));
         EditText etService = makeInput(act, "MessageSvc.PbSendMsg", null);
         card.addView(etService);
         
         // PB数据输入
-        card.addView(makeSubTitleCompact(act, "PB数据 (JSON)", pc("#666666")));
+        card.addView(makeSubTitleCompact(act, "PB数据 (JSON)", tc(act, "on_surface_variant")));
         EditText etPB = makeInput(act, "{\"1\":123,\"2\":\"示例数据\"}", null);
         etPB.setMinLines(4);
         card.addView(etPB);
         
         // 模板管理区域
-        card.addView(makeSubTitleCompact(act, "模板管理", pc("#666666")));
+        card.addView(makeSubTitleCompact(act, "模板管理", tc(act, "on_surface_variant")));
         
         LinearLayout templateContainer = new LinearLayout(act);
         templateContainer.setOrientation(LinearLayout.HORIZONTAL);
@@ -374,9 +374,9 @@ void showPBSenderDialog() {
         templateContainer.setPadding(0, 0, 0, dp(act, 12));
         card.addView(templateContainer);
         
-        TextView btnSave = createButton(act, "保存模板", Color.WHITE, pc("#3B71FE"), 14f, 8, 16, 10, false, 0, 0, null);
-        TextView btnLoad = createButton(act, "使用模板", pc("#3B71FE"), pc("#E8EEFF"), 14f, 8, 16, 10, false, 0, 0, null);
-        TextView btnPreview = createButton(act, "预览", pc("#3B71FE"), pc("#E8EEFF"), 14f, 8, 16, 10, false, 0, 0, null);
+        TextView btnSave = createButton(act, "保存模板", Color.WHITE, tc(act, "primary"), 14f, 8, 16, 10, false, 0, 0, null);
+        TextView btnLoad = createButton(act, "使用模板", tc(act, "primary"), tc(act, "primary_container"), 14f, 8, 16, 10, false, 0, 0, null);
+        TextView btnPreview = createButton(act, "预览", tc(act, "primary"), tc(act, "primary_container"), 14f, 8, 16, 10, false, 0, 0, null);
         
         LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(0, -2, 1);
         btnParams.setMargins(0, 0, dp(act, 8), 0);
@@ -443,8 +443,8 @@ void showPBSenderDialog() {
         bottomContainer.setPadding(0, dp(act, 20), 0, 0);
         card.addView(bottomContainer);
         
-        TextView btnCancel = createButton(act, "取消", pc("#666666"), pc("#F7F8FA"), 14f, 8, 16, 10, false, 0, 0, null);
-        TextView btnConfirm = createButton(act, "发送", Color.WHITE, pc("#3B71FE"), 14f, 8, 16, 10, false, 0, 0, null);
+        TextView btnCancel = createButton(act, "取消", tc(act, "on_surface_variant"), tc(act, "surface"), 14f, 8, 16, 10, false, 0, 0, null);
+        TextView btnConfirm = createButton(act, "发送", Color.WHITE, tc(act, "primary"), 14f, 8, 16, 10, false, 0, 0, null);
         
         LinearLayout.LayoutParams bottomBtnParams = new LinearLayout.LayoutParams(0, dp(act, 44), 1);
         bottomBtnParams.setMargins(0, 0, dp(act, 12), 0);
@@ -493,7 +493,7 @@ void showPBSenderDialog() {
                     logContent.append("JSON:\n").append(pbData).append("\n");
                     logContent.append("HEX: ").append(PacketHelper.bytesToHex(pbBytes)).append("\n");
                     logContent.append("================================\n");
-                    traceLog("api9_log", logContent.toString());
+                    traceLog("api9_log", "[showPBSenderDialog] " + logContent.toString());
                     
                     // 发送
                     PacketHelper.sendRequest(service, pbBytes, new IReceiver() {
@@ -519,6 +519,7 @@ void showPBSenderDialog() {
             dialog.getWindow().setLayout((int)(act.getResources().getDisplayMetrics().widthPixels * 0.85), -2);
         }
         dialog.show();
+        applyUiTheme(act, dialog, 1);
     });
 }
 
@@ -1509,7 +1510,7 @@ void showTrafficRedPacketDialog(Object data) {
                         FunProtoData proto = new FunProtoData();
                         proto.fromJSON(root);
                         byte[] pb = proto.toBytes();
-                        traceLog("api9_log", "" + root);
+                        traceLog("api9_log", "[showTrafficRedPacketDialog]" + root);
 
                         PacketHelper.sendRequest("MessageSvc.PbSendMsg", pb, new IReceiver() {
                             public void onReceive(byte[] resp) {
@@ -1522,7 +1523,7 @@ void showTrafficRedPacketDialog(Object data) {
                         });
                     } catch (Exception e) {
                         qqToast(1, "异常: " + e.getMessage());
-                        traceLog("api9_log",""+e);
+                        traceLog("api9_log","[showTrafficRedPacketDialog]"+e);
                     }
                 }
             });
@@ -1635,7 +1636,7 @@ void RecallMessage(Object data, long seq) {
                     return;
                 }
 
-                traceLog("api9_log", json.toString());
+                traceLog("api9_log", "[RecallMessage] " + json.toString());
 
                 FunProtoData proto = new FunProtoData();
                 proto.fromJSON(json);
