@@ -23,7 +23,7 @@ String getFullPicUrl(String url, int chatType) {
     try {
         rkey = (chatType == 1) ? OnGetRKey.INSTANCE.getFriendRkey() : OnGetRKey.INSTANCE.getGroupRkey();
     } catch (Throwable t) {
-        traceLog("api5_log","RKey获取失败: " + t.getMessage());
+        traceLog("api5_log","[getFullPicUrl] RKey获取失败: " + t.getMessage());
     }
     return domain + url + rkey;
 }
@@ -60,7 +60,7 @@ void fetchRealMsgRecord(final long msgId, final int chatType, final String peerU
                                 final MsgData msgData = new MsgData(realRecord);
                                 uiHandler.post(new Runnable() { public void run() { if (callback != null) callback.onLoaded(msgData); } });
                             } catch (Throwable t) {
-                                traceLog("api5_log","MsgData构造失败");
+                                traceLog("api5_log","[fetchRealMsgRecord] MsgData构造失败");
                                 isDialogShowing = false;
                             }
                         } else {
@@ -69,7 +69,7 @@ void fetchRealMsgRecord(final long msgId, final int chatType, final String peerU
                     }
                 });
             } catch (Throwable t) {
-                traceLog("api5_log","FetchMsg异常: " + t.getMessage());
+                traceLog("api5_log","[fetchRealMsgRecord] FetchMsg异常: " + t.getMessage());
                 isDialogShowing = false;
             }
         }
@@ -245,7 +245,7 @@ void doMultiSendWithDelay(final MsgData data, final String newText, final int co
                                 msgService.sendMsg(contact, sendElements, null);
                             }
                         }
-                    } catch (Throwable ignored) { traceLog("api5_log", "[run] 异常: " + ignored); }
+                    } catch (Throwable ignored) { traceLog("api5_log", "[doMultiSendWithDelay] 异常: " + ignored); }
                     // 发送完成后，主线程调度下一条                 
                        uiHandler.postDelayed(new Runnable() {
                         public void run() {
@@ -463,7 +463,7 @@ View createReplyBox(Context ctx, MsgData msgData) {
 
 void 作图(Activity activity, String content) {
     Toast("还是空壳\n" + content);
-    // traceLog("api5_log","调用 makeImage()");
+    // traceLog("api5_log","[作图] 调用 makeImage()");
 }
 
 void updateSliderPhysics(float rawDx, boolean isDrag) {
@@ -735,11 +735,14 @@ void showActionDialog(final Activity activity, final MsgData msgData, final View
 
     View spacer = new View(activity);
     rightBtnContainer.addView(spacer, new LinearLayout.LayoutParams(-1, dp(activity, 4)));
-    TextView previewBtn = createButton(activity, "预览", pc("#999999"), Color.TRANSPARENT, 12f, 8, 6, 10, false, 1, pc("#E0E0E0"), new Runnable() {
+    TextView previewBtn = createButton(activity, "预览", pc("#999999"), Color.TRANSPARENT, 12f, 8, 10, 12, false, 1, pc("#E0E0E0"), new Runnable() {
         public void run() { applySpans(editText, true); }
     });
+    previewBtn.setSingleLine(true);
+    previewBtn.setIncludeFontPadding(false);
+    previewBtn.setGravity(Gravity.CENTER);
     if (hasImage[0]) {
-        rightBtnContainer.addView(previewBtn, new LinearLayout.LayoutParams(dp(activity, 68), dp(activity, 28)));
+        rightBtnContainer.addView(previewBtn, new LinearLayout.LayoutParams(dp(activity, 68), -2));
     }
 
     interactionRow.addView(rightBtnContainer);
@@ -1168,7 +1171,7 @@ void initdoublemsg() {
     if (execStartActivity == null) execStartActivity = getCachedMethod(Instrumentation.class, "execStartActivity", sig8);
     if (execStartActivity == null) execStartActivity = getCachedMethod(Instrumentation.class, "execStartActivity", sig7);
     if (execStartActivity == null) {
-        traceLog("api5_log", "安装失败: execStartActivity方法未找到");
+        traceLog("api5_log", "[initdoublemsg] 安装失败: execStartActivity方法未找到");
         Toast("Hook加载失败: execStartActivity方法未找到");
         return;
     }
@@ -1207,7 +1210,7 @@ void initdoublemsg() {
                     intent.putExtra("qfun_script_handled", true);
                     return;
                 }
-                traceLog("api5_log", "Intent拦截: MsgId=" + msgId);
+                traceLog("api5_log", "[initdoublemsg] Intent拦截: MsgId=" + msgId);
                 param.setResult(null);
                 Activity act = null;
                 for (int j = 0; j < args.length; j++) {
@@ -1225,7 +1228,7 @@ void initdoublemsg() {
             }
         }));
     } catch (Throwable t) {
-        traceLog("api5_log", "安装失败: " + t.getMessage());
+        traceLog("api5_log", "[initdoublemsg] 安装失败: " + t.getMessage());
         Toast("Hook加载失败: " + t.getMessage());
     }
 }
