@@ -570,8 +570,10 @@ void setLoad(String f, boolean on) {
         if (on) {
             long interval = 0;
             int count = 0;
-            try { interval = Long.parseLong(m[12]); } catch (Throwable e) { traceLog("function_log", "[setLoad] 异常: " + e); } // res[12] is interval
-            try { count = Integer.parseInt(m[14]); } catch (Throwable e) { traceLog("function_log", "[setLoad] 异常: " + e); } // res[14] is count
+            try {
+                interval = Long.parseLong(m[12]); // res[12] is interval
+                count = Integer.parseInt(m[14]); // res[14] is count
+            } catch (Throwable e) { traceLog("function_log", "[setLoad] 异常: " + e); }
             startIndepThread(f, interval, count);
         } else {
             stopThread(f);
@@ -707,29 +709,7 @@ long getNextScheduleTime(String cfg) {
  * @return String: 友好的时间描述
  */
 String formatCountdown(long ms) {
-    if (ms <= 0) return "立即执行";
-    long totalSeconds = ms / 1000;
-    long days = totalSeconds / 86400;
-    long hours = (totalSeconds % 86400) / 3600;
-    long minutes = (totalSeconds % 3600) / 60;
-    long seconds = totalSeconds % 60;
-    
-    StringBuilder sb = new StringBuilder();
-    if (days > 0) sb.append(days).append("天");
-    if (hours > 0) {
-        if (sb.length() > 0) sb.append(" ");
-        sb.append(hours).append("时");
-    }
-    if (minutes > 0) {
-        if (sb.length() > 0) sb.append(" ");
-        sb.append(minutes).append("分");
-    }
-    if (seconds > 0) {
-        if (sb.length() > 0) sb.append(" ");
-        sb.append(seconds).append("秒");
-    }
-    if (sb.length() == 0) return "立即执行";
-    return sb.toString();
+    return formatRemainingTimeMs(ms);
 }
 
 /**
@@ -1833,7 +1813,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                                     hourInput.setText(currentParts[0]);
                                     minuteInput.setText(currentParts[1]);
                                     secondInput.setText(currentParts[2]);
-                                } catch (Throwable e) { traceLog("function_log", "[run] 异常: " + e); }
+                                } catch (Throwable e) { traceLog("function_log", "[showSchedulePicker] 异常: " + e); }
                             } else {
                                 hourInput.setText("12");
                                 minuteInput.setText("00");
@@ -1905,7 +1885,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                                     hourInput.setText(currentParts[1]);
                                     minuteInput.setText(currentParts[2]);
                                     secondInput.setText(currentParts[3]);
-                                } catch (Throwable e) { traceLog("function_log", "[run] 异常: " + e); }
+                                } catch (Throwable e) { traceLog("function_log", "[showSchedulePicker] 异常: " + e); }
                             } else {
                                 daySpinner.setSelection(0);
                                 hourInput.setText("12");
@@ -1972,7 +1952,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                                     hourInput.setText(currentParts[1]);
                                     minuteInput.setText(currentParts[2]);
                                     secondInput.setText(currentParts[3]);
-                                } catch (Throwable e) { traceLog("function_log", "[run] 异常: " + e); }
+                                } catch (Throwable e) { traceLog("function_log", "[showSchedulePicker] 异常: " + e); }
                             } else {
                                 dayInput.setText("1");
                                 hourInput.setText("00");
@@ -2028,7 +2008,7 @@ void showSchedulePicker(Activity a, final EditText target) {
                                     hourInput.setText(currentParts[0]);
                                     minuteInput.setText(currentParts[1]);
                                     secondInput.setText(currentParts[2]);
-                                } catch (Throwable e) { traceLog("function_log", "[run] 异常: " + e); }
+                                } catch (Throwable e) { traceLog("function_log", "[showSchedulePicker] 异常: " + e); }
                             } else {
                                 hourInput.setText("01");
                                 minuteInput.setText("00");
@@ -2213,10 +2193,12 @@ void showEdit(Activity a, final String func, final String gid, final String gn) 
         String preTail = "";
         int repeatSend = 0;
         int repeatConcat = 0;
-        try { interval = Long.parseLong(m[12]); } catch (Throwable e) { traceLog("function_log", "[showEdit] 异常: " + e); }
-        try { loopCount = Integer.parseInt(m[14]); } catch (Throwable e) { traceLog("function_log", "[showEdit] 异常: " + e); }
-        try { repeatSend = Integer.parseInt(m[17]); } catch (Throwable e) { traceLog("function_log", "[showEdit] 异常: " + e); }
-        try { repeatConcat = Integer.parseInt(m[18]); } catch (Throwable e) { traceLog("function_log", "[showEdit] 异常: " + e); }
+        try {
+            interval = Long.parseLong(m[12]);
+            loopCount = Integer.parseInt(m[14]);
+            repeatSend = Integer.parseInt(m[17]);
+            repeatConcat = Integer.parseInt(m[18]);
+        } catch (Throwable e) { traceLog("function_log", "[showEdit] 异常: " + e); }
         
         try {
             JSONObject jo = new JSONObject(getString("HotPlug", "meta_" + func, ""));
@@ -2345,8 +2327,10 @@ void showEdit(Activity a, final String func, final String gid, final String gn) 
                         }
                     }
                     preTailVal = fc.etPreTail.getText().toString();
-                    try { repeatSendVal = Integer.parseInt(fc.etRepeatSend.getText().toString()); } catch (Throwable e) { traceLog("function_log", "[showEdit] 异常: " + e); }
-                    try { repeatConcatVal = Integer.parseInt(fc.etRepeatConcat.getText().toString()); } catch (Throwable e) { traceLog("function_log", "[showEdit] 异常: " + e); }
+                    try {
+                        repeatSendVal = Integer.parseInt(fc.etRepeatSend.getText().toString());
+                        repeatConcatVal = Integer.parseInt(fc.etRepeatConcat.getText().toString());
+                    } catch (Throwable e) { traceLog("function_log", "[showEdit] 异常: " + e); }
                 }
                 
                 String rawTime = etTime.getText().toString().trim();
@@ -2645,10 +2629,10 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                             preTailVal = fc.etPreTail.getText().toString();
                             try {
                                 repeatSendVal = Integer.parseInt(fc.etRepeatSend.getText().toString());
-                            } catch (Throwable e) { traceLog("function_log", "[run] 异常: " + e); }
+                            } catch (Throwable e) { traceLog("function_log", "[onRefresh] 异常: " + e); }
                             try {
                                 repeatConcatVal = Integer.parseInt(fc.etRepeatConcat.getText().toString());
-                            } catch (Throwable e) { traceLog("function_log", "[run] 异常: " + e); }
+                            } catch (Throwable e) { traceLog("function_log", "[onRefresh] 异常: " + e); }
                         }
 
                         String rawTime = etTime.getText().toString().trim();
@@ -2766,6 +2750,16 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                 d.getWindow().setLayout(Math.min(dp(a, 400), screenWidth - dp(a, 32)), WindowManager.LayoutParams.WRAP_CONTENT);
                 d.show();
                 applyUiTheme(a, d, 1);
+                try {
+                    Window hw = d.getWindow();
+                    if (hw != null) {
+                        hw.setFormat(android.graphics.PixelFormat.TRANSLUCENT);
+                        if (android.os.Build.VERSION.SDK_INT >= 21) {
+                            hw.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+                            hw.setStatusBarColor(Color.TRANSPARENT);
+                        }
+                    }
+                } catch (Throwable ignore) {}
                 animateDialogIn(d);
 
             } catch (Throwable e) {
@@ -3319,7 +3313,7 @@ String getMsgSplit(String m) {
                                 pos += seg.length();
                             }
                         } catch (Throwable e) {
-                            traceLog("function_log", "消息切片入队失败: " + e);
+                            traceLog("function_log", "[getMsgSplit] 消息切片入队失败: " + e);
                         }
                     }
                 });
@@ -3328,7 +3322,7 @@ String getMsgSplit(String m) {
         }
         return m;
     } catch(Throwable e) {
-        traceLog("function_log", "逐字模块异常: " + e);
+        traceLog("function_log", "[getMsgSplit] 逐字模块异常: " + e);
         return m;
     }
 }
@@ -3363,8 +3357,10 @@ String getMsg(String m){
                         String tail = (String)cfg.get("tail");
                         int repeatSend = 0;
                         int repeatConcat = 0;
-                        try { repeatSend = (Integer)cfg.get("rs"); } catch (Throwable e) { traceLog("function_log", "[getMsg] 异常: " + e); }
-                        try { repeatConcat = (Integer)cfg.get("rc"); } catch (Throwable e) { traceLog("function_log", "[getMsg] 异常: " + e); }
+                        try {
+                            repeatSend = (Integer)cfg.get("rs");
+                            repeatConcat = (Integer)cfg.get("rc");
+                        } catch (Throwable e) { traceLog("function_log", "[getMsg] 异常: " + e); }
                         
                         String result = m;
                         
