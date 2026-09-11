@@ -6,46 +6,7 @@ interface OnColorChangedListener {
     void onColorChanged(int color);
 }
 
-void applyMd3SeekBar(android.widget.SeekBar sb, int primary, Context ctx) {
-    try {
-        int trackH = dpxc(ctx, 4);
-        int thumbSize = dpxc(ctx, 20);
-        int corner = trackH / 2;
-        int trackPad = (thumbSize - trackH) / 2;
-        
-        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
-        bg.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
-        bg.setCornerRadius(corner);
-        bg.setColor((primary & 16777215) | 771751936);
-        bg.setSize(0, trackH);
-        
-        android.graphics.drawable.GradientDrawable prog = new android.graphics.drawable.GradientDrawable();
-        prog.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
-        prog.setCornerRadius(corner);
-        prog.setColor(primary);
-        prog.setSize(0, trackH);
-        
-        android.graphics.drawable.ClipDrawable clip = new android.graphics.drawable.ClipDrawable(prog, 3, 1);
-        
-        android.graphics.drawable.Drawable[] layers = new android.graphics.drawable.Drawable[]{bg, clip};
-        android.graphics.drawable.LayerDrawable layer = new android.graphics.drawable.LayerDrawable(layers);
-        layer.setId(0, 16908288);
-        layer.setId(1, 16908301);
-        sb.setProgressDrawable(layer);
-        
-        android.graphics.drawable.GradientDrawable thumb = new android.graphics.drawable.GradientDrawable();
-        thumb.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-        thumb.setSize(thumbSize, thumbSize);
-        thumb.setColor(pc("#FFFFFFFF"));
-        thumb.setStroke(dpxc(ctx, 1), primary);
-        sb.setThumb(thumb);
-        sb.setThumbOffset(0);
-        
-        int pad = thumbSize / 2;
-        sb.setPadding(pad, trackPad, pad, trackPad);
-        sb.setMinimumHeight(thumbSize);
-    } catch (Exception e) { traceLog("colorpicker_log", "applyMd3SeekBar 错误: " + e.getMessage()); }
-}
+// SeekBar 统一走 uitools.applyUiSeekBar
 
 String colorToHex(int color) {
     try {
@@ -90,7 +51,7 @@ ArrayList loadFavoriteColors(Activity activity) {
                 }
             }
         }
-    } catch (Exception e) { traceLog("colorpicker_log", e.getMessage()); }
+    } catch (Exception e) { traceLog("colorpicker_log", "[loadFavoriteColors] " + e.getMessage()); }
     return list;
 }
 
@@ -103,7 +64,7 @@ void saveFavoriteColors(Activity activity, ArrayList favorites) {
             sb.append(favorites.get(i).toString());
         }
         putString("settings", "color_favorites", sb.toString());
-    } catch (Exception e) { traceLog("colorpicker_log", e.getMessage()); }
+    } catch (Exception e) { traceLog("colorpicker_log", "[saveFavoriteColors] " + e.getMessage()); }
 }
 
 class ColorSeekBar extends LinearLayout {
@@ -136,8 +97,8 @@ class ColorSeekBar extends LinearLayout {
         seekBar.setMax(max);
         seekBar.setProgress(initialValue);
         try {
-            applyMd3SeekBar(seekBar, color, context);
-        } catch (Exception e) { traceLog("colorpicker_log", "ColorSeekBar md3 错误: " + e.getMessage()); }
+            applyUiSeekBar(seekBar, context, color);
+        } catch (Exception e) { traceLog("colorpicker_log", "[ColorSeekBar] ColorSeekBar md3 错误: " + e.getMessage()); }
         
         seekContainer.addView(seekBar);
         addView(seekContainer);
@@ -235,7 +196,7 @@ class MagnifierView extends View {
             canvas.drawLine(0, center, size * 2 * scale, center, crossPaint);
             
             invalidate();
-        } catch (Exception e) { traceLog("colorpicker_log", e.getMessage()); }
+        } catch (Exception e) { traceLog("colorpicker_log", "[update] " + e.getMessage()); }
     }
         protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
@@ -257,7 +218,7 @@ class MagnifierView extends View {
                 
                 canvas.drawCircle(w/2, h/2, radius, borderPaint);
             }
-        } catch (Exception e) { traceLog("colorpicker_log", e.getMessage()); }
+        } catch (Exception e) { traceLog("colorpicker_log", "[onDraw] " + e.getMessage()); }
     }
 }
 
@@ -331,7 +292,7 @@ Bitmap createHsvBitmap(int width, int height, int hue) {
         p.setShader(valShader);
         canvas.drawRect(8, 8, svW + 8, svH + 8, p);
         return bmp;
-    } catch (Exception e) { traceLog("colorpicker_log", "createHsvBitmap 错误: " + e.getMessage()); return null; }
+    } catch (Exception e) { traceLog("colorpicker_log", "[createHsvBitmap] 错误: " + e.getMessage()); return null; }
 }
 
 View createHsvView(Activity activity, int initialColor, final OnColorChangedListener listener) {
@@ -420,7 +381,7 @@ Bitmap createColorWheelBitmap(int size) {
         p.setShader(radial);
         canvas.drawCircle(cx, cy, r, p);
         return bmp;
-    } catch (Exception e) { traceLog("colorpicker_log", "createColorWheelBitmap 错误: " + e.getMessage()); return null; }
+    } catch (Exception e) { traceLog("colorpicker_log", "[createColorWheelBitmap] 错误: " + e.getMessage()); return null; }
 }
 
 View createColorWheelView(Activity activity, int initialColor, final OnColorChangedListener listener) {
@@ -483,7 +444,7 @@ Bitmap createColorBarBitmap(int width, int height) {
         p.setShader(shader);
         canvas.drawRect(0, 0, width, height, p);
         return bmp;
-    } catch (Exception e) { traceLog("colorpicker_log", "createColorBarBitmap 错误: " + e.getMessage()); return null; }
+    } catch (Exception e) { traceLog("colorpicker_log", "[createColorBarBitmap] 错误: " + e.getMessage()); return null; }
 }
 
 View createColorBarView(Activity activity, int initialColor, final OnColorChangedListener listener) {
@@ -598,7 +559,7 @@ void showFavoritesView(Activity activity, FrameLayout container, ArrayList favor
                     try {
                         int color = pc(colorStr);
                         if (listener != null) listener.onColorPicked(color);
-                    } catch (Exception e) { traceLog("colorpicker_log", e.getMessage()); }
+                    } catch (Exception e) { traceLog("colorpicker_log", "[showFavoritesView] " + e.getMessage()); }
                 }
             });
             
@@ -640,7 +601,7 @@ void showImagePickerDialog(final Activity activity, final OnColorPickedListener 
             if (pluginPath != null) {
                 imgPath = pluginPath + "/API/background.png";
             }
-        } catch (Exception e) { traceLog("colorpicker_log", e.getMessage()); }
+        } catch (Exception e) { traceLog("colorpicker_log", "[showImagePickerDialog] " + e.getMessage()); }
         
         if (imgPath == null) {
             Toast("图片路径错误");
@@ -758,7 +719,7 @@ void showImagePickerDialog(final Activity activity, final OnColorPickedListener 
                         case MotionEvent.ACTION_UP:
                             return true;
                     }
-                } catch (Exception e) { traceLog("colorpicker_log", e.getMessage()); }
+                } catch (Exception e) { traceLog("colorpicker_log", "[showImagePickerDialog] " + e.getMessage()); }
                 return true;
             }
         });
@@ -777,14 +738,14 @@ void showImagePickerDialog(final Activity activity, final OnColorPickedListener 
                 try {
                     int color = pc(hexText.getText().toString());
                     if (callback != null) callback.onColorPicked(color);
-                } catch (Exception e) { traceLog("colorpicker_log", e.getMessage()); }
+                } catch (Exception e) { traceLog("colorpicker_log", "[showImagePickerDialog] " + e.getMessage()); }
                 dialog.dismiss();
             }
         });
         
         dialog.show();
 
-    } catch (Exception e) { traceLog("colorpicker_log", e.getMessage()); }
+    } catch (Exception e) { traceLog("colorpicker_log", "[showImagePickerDialog] " + e.getMessage()); }
 }
 
 void showColorPickerDialog(final Activity activity, final String initialColor, final OnColorPickedListener callback) {
@@ -878,7 +839,7 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
             public void afterTextChanged(android.text.Editable s) {
                 if (isUpdatingFromInput[0]) return;
                 String input = s.toString().trim();
-                traceLog("colorpicker_log", "输入框变化 input=" + input);
+                traceLog("colorpicker_log", "[showColorPickerDialog] 输入框变化 input=" + input);
                 try {
                     if (input.startsWith("#") && (input.length() == 7 || input.length() == 9)) {
                         int newColor = pc(input);
@@ -897,7 +858,7 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
                             }
                         });
                     }
-                } catch (Throwable e) { traceLog("colorpicker_log", "afterTextChanged 错误: " + e.getMessage()); }
+                } catch (Throwable e) { traceLog("colorpicker_log", "[showColorPickerDialog] afterTextChanged 错误: " + e.getMessage()); }
             }
         });
         previewRow.addView(hexInput);
@@ -1000,8 +961,8 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
         alphaSeek.setProgress(Color.alpha(currentColor[0]));
         alphaSeek.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
         try {
-            applyMd3SeekBar(alphaSeek, pc(getSettingsThemeColor(activity, "primary")), activity);
-        } catch (Exception e) { traceLog("colorpicker_log", "alphaSeek md3 错误: " + e.getMessage()); }
+            applyUiSeekBar(alphaSeek, activity, pc(getSettingsThemeColor(activity, "primary")));
+        } catch (Exception e) { traceLog("colorpicker_log", "[showColorPickerDialog] alphaSeek md3 错误: " + e.getMessage()); }
         alphaRow.addView(alphaSeek);
         
         final TextView alphaValue = new TextView(activity);
@@ -1018,7 +979,7 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
         alphaSeek.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 if (fromUser) {
-                    traceLog("colorpicker_log", "alphaSeek 进度=" + progress);
+                    traceLog("colorpicker_log", "[onProgressChanged] alphaSeek 进度=" + progress);
                     currentColor[0] = Color.argb(progress, 
                         Color.red(currentColor[0]), 
                         Color.green(currentColor[0]), 
@@ -1134,28 +1095,31 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
         try {
             Window window = dialog.getWindow();
             if (window != null) {
-                window.setBackgroundDrawable(roundRect(pc(getSettingsThemeColor(activity, "surface")), dpx(activity, 16)));
+                boolean cpDark = isThemeDark(activity);
+                int elevated = mixTowardElevated(pc(getSettingsThemeColor(activity, "background")), cpDark);
+                window.setBackgroundDrawable(roundRect(elevated, dpx(activity, 16)));
+                applyWindowRadius(activity, window);
             }
-        } catch (Exception e) { traceLog("colorpicker_log", e.getMessage()); }
+        } catch (Exception e) { traceLog("colorpicker_log", "[showColorPickerDialog] " + e.getMessage()); }
         
-    } catch (Exception e) { traceLog("colorpicker_log", e.getMessage()); }
+    } catch (Exception e) { traceLog("colorpicker_log", "[showColorPickerDialog] " + e.getMessage()); }
 }
 
 void updatePreview(View preview, TextView hexText, int color) {
     try {
-        traceLog("colorpicker_log", "更新预览 color=" + colorToHex(color));
+        traceLog("colorpicker_log", "[updatePreview] 更新预览 color=" + colorToHex(color));
         preview.setBackgroundColor(color);
         String hex = colorToHex(color);
         String current = hexText.getText().toString();
         if (!current.equalsIgnoreCase(hex)) {
-            traceLog("colorpicker_log", "更新预览 setText=" + hex);
+            traceLog("colorpicker_log", "[updatePreview] 更新预览 setText=" + hex);
             hexText.setText(hex);
         }
-    } catch (Exception e) { traceLog("colorpicker_log", "updatePreview 错误: " + e.getMessage()); }
+    } catch (Exception e) { traceLog("colorpicker_log", "[updatePreview] 错误: " + e.getMessage()); }
 }
 void showModeContent(Activity activity, FrameLayout container, int mode, int initialColor, OnColorChangedListener listener) {
     container.removeAllViews();
-    traceLog("colorpicker_log", "显示模式内容 mode=" + mode + " initialColor=" + colorToHex(initialColor));
+    traceLog("colorpicker_log", "[showModeContent] 显示模式内容 mode=" + mode + " initialColor=" + colorToHex(initialColor));
     
     View view = null;
     switch (mode) {
@@ -1178,6 +1142,180 @@ void showModeContent(Activity activity, FrameLayout container, int mode, int ini
         params.gravity = Gravity.CENTER;
         container.addView(view, params);
     }
+}
+
+
+interface ColorListCallback {
+    void onColorListSaved(String csv);
+}
+
+/** 内置默认轮换色（文字/纯色背景共用起点，互不影响） */
+String getDefaultRotColorList() {
+    return "#FF5252,#4DB6AC,#448AFF,#66BB6A,#AB47BC,#FF9800,#FFEE58";
+}
+
+/** 读颜色列表，空则回退默认 */
+String loadRotColorList(String key) {
+    String s = getString("settings", key, "");
+    if (s == null || s.trim().isEmpty()) return getDefaultRotColorList();
+    return s;
+}
+
+/**
+ * 颜色列表编辑器：快捷增删，可限制数量
+ * @param maxColors 0=不限制
+ */
+void showColorListEditor(final Activity activity, String title, final int maxColors, String currentCsv, final ColorListCallback callback) {
+    if (activity == null || activity.isFinishing()) return;
+    activity.runOnUiThread(new Runnable() {
+        public void run() {
+            try {
+                final List colors = new ArrayList();
+                if (currentCsv != null && !currentCsv.trim().isEmpty()) {
+                    String[] parts = currentCsv.split(",");
+                    for (int i = 0; i < parts.length; i++) {
+                        String c = parts[i].trim();
+                        if (c.length() == 0) continue;
+                        if (!c.startsWith("#")) c = "#" + c;
+                        if (isValidHexColor(c)) colors.add(c);
+                    }
+                }
+
+                final Dialog dlg = new Dialog(activity);
+                dlg.requestWindowFeature(1);
+                try {
+                    Window w = dlg.getWindow();
+                    if (w != null) w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+                } catch (Throwable ignore) {}
+
+                LinearLayout root = new LinearLayout(activity);
+                root.setOrientation(LinearLayout.VERTICAL);
+                root.setPadding(dpx(activity, 20), dpx(activity, 18), dpx(activity, 20), dpx(activity, 12));
+                root.setBackground(roundRect(pc(getSettingsThemeColor(activity, "surface")), dpx(activity, 16)));
+
+                TextView titleTv = new TextView(activity);
+                titleTv.setText(title != null ? title : "颜色列表");
+                titleTv.setTextSize(17);
+                titleTv.setTypeface(null, Typeface.BOLD);
+                titleTv.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
+                titleTv.setPadding(0, 0, 0, dpx(activity, 8));
+                root.addView(titleTv);
+
+                TextView tip = new TextView(activity);
+                tip.setText(maxColors > 0 ? ("最多 " + maxColors + " 个，点击色块编辑，长按删除") : "点击色块编辑，长按删除");
+                tip.setTextSize(12);
+                tip.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
+                tip.setPadding(0, 0, 0, dpx(activity, 10));
+                root.addView(tip);
+
+                final LinearLayout listWrap = new LinearLayout(activity);
+                listWrap.setOrientation(LinearLayout.VERTICAL);
+                ScrollView sc = new ScrollView(activity);
+                sc.addView(listWrap);
+                sc.setLayoutParams(new LinearLayout.LayoutParams(-1, dpx(activity, 220)));
+                root.addView(sc);
+
+                final Runnable[] refresh = new Runnable[1];
+                refresh[0] = new Runnable() {
+                    public void run() {
+                        listWrap.removeAllViews();
+                        for (int i = 0; i < colors.size(); i++) {
+                            final int idx = i;
+                            final String hex = (String) colors.get(i);
+                            LinearLayout row = new LinearLayout(activity);
+                            row.setOrientation(LinearLayout.HORIZONTAL);
+                            row.setGravity(Gravity.CENTER_VERTICAL);
+                            row.setPadding(dpx(activity, 8), dpx(activity, 8), dpx(activity, 8), dpx(activity, 8));
+
+                            View sw = new View(activity);
+                            GradientDrawable sgd = new GradientDrawable();
+                            sgd.setColor(pc(hex));
+                            sgd.setCornerRadius(dpx(activity, 8));
+                            sw.setBackground(sgd);
+                            LinearLayout.LayoutParams swp = new LinearLayout.LayoutParams(dpx(activity, 36), dpx(activity, 36));
+                            swp.rightMargin = dpx(activity, 12);
+                            row.addView(sw, swp);
+
+                            TextView hexTv = new TextView(activity);
+                            hexTv.setText(hex);
+                            hexTv.setTextSize(14);
+                            hexTv.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
+                            row.addView(hexTv, new LinearLayout.LayoutParams(0, -2, 1.0f));
+
+                            TextView del = createButton(activity, "删除", Color.WHITE, pc(getSettingsThemeColor(activity, "error")), 13f, 6, 12, 6, false, 0, 0, null);
+                            row.addView(del);
+
+                            row.setOnClickListener(new View.OnClickListener() {
+                                public void onClick(View v) {
+                                    showColorPickerDialog(activity, hex, new OnColorPickedListener() {
+                                        public void onColorPicked(int color) {
+                                            colors.set(idx, colorToHex(color));
+                                            refresh[0].run();
+                                        }
+                                    });
+                                }
+                            });
+                            del.setOnClickListener(new View.OnClickListener() {
+                                public void onClick(View v) {
+                                    colors.remove(idx);
+                                    refresh[0].run();
+                                }
+                            });
+                            listWrap.addView(row);
+                        }
+                    }
+                };
+                refresh[0].run();
+
+                LinearLayout btnRow = new LinearLayout(activity);
+                btnRow.setOrientation(LinearLayout.HORIZONTAL);
+                btnRow.setGravity(Gravity.CENTER_VERTICAL);
+                btnRow.setPadding(0, dpx(activity, 12), 0, 0);
+
+                TextView addBtn = createButton(activity, "+ 添加颜色", Color.WHITE, pc(getSettingsThemeColor(activity, "primary")), 14f, 8, 16, 8, false, 0, 0, null);
+                TextView okBtn = createButton(activity, "确定", Color.WHITE, pc(getSettingsThemeColor(activity, "primary")), 14f, 8, 16, 8, false, 0, 0, null);
+                TextView cancelBtn = createButton(activity, "取消", pc(getSettingsThemeColor(activity, "on_surface_variant")), Color.TRANSPARENT, 14f, 8, 16, 8, false, 0, 0, null);
+                btnRow.addView(addBtn);
+                btnRow.addView(new Space(activity), new LinearLayout.LayoutParams(0, 1, 1.0f));
+                btnRow.addView(cancelBtn);
+                btnRow.addView(okBtn);
+                root.addView(btnRow);
+
+                addBtn.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) {
+                        if (maxColors > 0 && colors.size() >= maxColors) {
+                            Toast("最多 " + maxColors + " 个颜色");
+                            return;
+                        }
+                        showColorPickerDialog(activity, isThemeDark(activity) ? "#FF448AFF" : "#FF2196F3", new OnColorPickedListener() {
+                            public void onColorPicked(int color) {
+                                colors.add(colorToHex(color));
+                                refresh[0].run();
+                            }
+                        });
+                    }
+                });
+                cancelBtn.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) { try { dlg.dismiss(); } catch (Throwable ignore) {} }
+                });
+                okBtn.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) {
+                        StringBuilder sb = new StringBuilder();
+                        for (int i = 0; i < colors.size(); i++) {
+                            if (i > 0) sb.append(",");
+                            sb.append((String) colors.get(i));
+                        }
+                        if (callback != null) callback.onColorListSaved(sb.toString());
+                        try { dlg.dismiss(); } catch (Throwable ignore) {}
+                    }
+                });
+
+                dlg.setContentView(root);
+                dlg.show();
+                applyUiTheme(activity, dlg, 1);
+            } catch (Throwable e) { traceLog("colorpicker_log", "[showColorListEditor] 异常: " + e); }
+        }
+    });
 }
 
 void addSettingsColorItem(String categoryName, String itemName, String descriptionText, String keyName, String defaultValue, final Runnable onColorChanged, final boolean checkContrast) {
@@ -1233,7 +1371,7 @@ void addSettingsColorItem(String categoryName, String itemName, String descripti
 
     itemLayout.addView(colorRow);
 
-    itemLayout.setBackground(makeFeedbackBg(pc(getSettingsThemeColor(activity, "surface")), pc(getSettingsThemeColor(activity, "ripple")), 0));
+    itemLayout.setBackground(makeFeedbackBg(getAdaptiveSettingsItemBg(activity), pc(getSettingsThemeColor(activity, "ripple")), 0));
     itemLayout.setClickable(true);
 
     final String finalKeyName = keyName;
