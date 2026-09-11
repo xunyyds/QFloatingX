@@ -76,6 +76,10 @@ private static class GifImageView extends ImageView {
     protected void onDraw(Canvas canvas) {
         try {
             if (movie != null && isAnimating) {
+                if (isPowerSaveMode()) {
+                    movie.draw(canvas, 0, 0);
+                    return;
+                }
                 long now = android.os.SystemClock.uptimeMillis();
                 if (movieStart == 0) {
                     movieStart = now;
@@ -84,7 +88,12 @@ private static class GifImageView extends ImageView {
                 if (dur == 0) {
                     dur = 100;
                 }
-                int time = (int) ((now - movieStart) % dur);
+                int delay = 100;
+                try { delay = Integer.parseInt(getString("settings", "gifDelay", "100")); } catch (Throwable e) { delay = 100; }
+                if (delay < 10) delay = 10;
+                if (delay > 500) delay = 500;
+                long elapsed = now - movieStart;
+                int time = (int) ((elapsed * 100L / delay) % dur);
                 movie.setTime(time);
                 canvas.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR);
                 movie.draw(canvas, 0, 0);
@@ -886,13 +895,12 @@ void 设置触摸事件(final Activity activity) {
                                     if (悬浮窗显示状态) {
                                         Toast("长按关闭悬浮窗");
                                         停止悬浮窗(activity);
-                                        putBoolean("settings", "开关", false);
                                     }
                                 }
                             });
                         }
                     }
-                } catch (Throwable e) { traceLog("api4_log", "[run] 异常: " + e); }
+                } catch (Throwable e) { traceLog("api4_log", "[设置触摸事件] 异常: " + e); }
             }
         };
     }
@@ -976,13 +984,10 @@ void 设置触摸事件(final Activity activity) {
 
                         if (isDragging) {
                             isDragging = false;
-
                             if (isInCloseRange) {
                                 Toast("已关闭悬浮窗");
                                 停止悬浮窗(activity);
-                                putBoolean("settings", "开关", false);
                             }
-
                             隐藏关闭区域(activity);
                         } else if (event.getAction() == MotionEvent.ACTION_UP) {
                             long pressDuration = System.currentTimeMillis() - touchStartTime;
@@ -1023,14 +1028,21 @@ void 处理图标点击(Activity activity) {
     activity.runOnUiThread(new Runnable() {
         public void run() {
             try {
-                if (SettingsState.settingsSearchDialog != null 
+                if (SettingsState.settingsSearchDialog != null
                     && SettingsState.settingsSearchDialog.isShowing()) {
                     return;
+                }
+                if (SettingsState.settingsDialogStack != null
+                    && !SettingsState.settingsDialogStack.isEmpty()) {
+                    Dialog top = (Dialog) SettingsState.settingsDialogStack.get(SettingsState.settingsDialogStack.size() - 1);
+                    if (top != null && top.isShowing()) {
+                        return;
+                    }
                 }
                 vibrate(activity, 48);
                 showSettingsMenu(activity, null, null, null);
             } catch (Exception e) {
-                traceLog("api4_log", "菜单弹窗异常: " + e.getMessage());
+                traceLog("api4_log", "[处理图标点击] 菜单弹窗异常: " + e.getMessage());
             }
         }
     });
@@ -1049,6 +1061,12 @@ public void 悬浮窗开关(int chatType, String peerUin, String name) {
                 boolean 开关状态 = !getBoolean("settings", "开关", false);
                 putBoolean("settings", "开关", 开关状态);
                 vibrate(finalActivity, 48);
+                String newName = 开关状态 ? "关闭悬浮窗" : "开启悬浮窗";
+                if (!updateMenuItemText("开/关悬浮窗", newName)) {
+                    if (!updateMenuItemText("开启悬浮窗", newName)) {
+                        updateMenuItemText("关闭悬浮窗", newName);
+                    }
+                }
                 if (开关状态) {
                     启动悬浮窗(finalActivity);
                 } else {
