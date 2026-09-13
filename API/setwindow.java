@@ -49,6 +49,7 @@ class SettingsState {
     static ScrollView settingsScrollView;
     static Dialog settingsSearchDialog;
     static String settingsPendingHighlightKey;
+    static int settingsPendingHighlightDepth = -1;
     static Activity settingsCurrentActivityRef;
     static Map settingsItemMeta;
     static String settingsCurrentLevel1;
@@ -79,7 +80,24 @@ Activity getSettingsCurrentActivity() {
     return null;
 }
 
+private volatile long themeColorCacheTime = 0L;
+private final java.util.Hashtable themeColorCache = new java.util.Hashtable();
+
 String getSettingsThemeColor(Activity activity, String colorName) {
+    long nowT = System.currentTimeMillis();
+    if (nowT - themeColorCacheTime > 5000L) {
+        themeColorCache.clear();
+        themeColorCacheTime = nowT;
+    }
+    String cacheKey = (isThemeDark(activity) ? "d|" : "l|") + colorName;
+    String cached = (String) themeColorCache.get(cacheKey);
+    if (cached != null) return cached;
+    String resolved = resolveSettingsThemeColor(activity, colorName);
+    themeColorCache.put(cacheKey, resolved);
+    return resolved;
+}
+
+String resolveSettingsThemeColor(Activity activity, String colorName) {
     boolean isDarkTheme = isThemeDark(activity);
     String customBg = getString("settings", isDarkTheme ? "ui_bg_color_dark" : "ui_bg_color_light", "");
     String customText = getString("settings", isDarkTheme ? "ui_text_color_dark" : "ui_text_color_light", "");
@@ -233,17 +251,6 @@ View createSettingsSwitchView(Context context, boolean initialValue, final Strin
 
     return containerLayout;
 }
-boolean pinyinMatchText(String textValue, String queryValue) {
-    if (textValue == null || queryValue == null) return false;
-    textValue = textValue.toLowerCase();
-    queryValue = queryValue.toLowerCase();
-
-    if (textValue.contains(queryValue)) return true;
-
-    String pinyinLetters = getPinyinFirstLetters(textValue);
-    return pinyinLetters.contains(queryValue);
-}
-
 int calcSearchScore(SettingsItemMeta meta, String query) {
     if (meta == null || meta.name == null || query == null || query.length() == 0) return 0;
     if (meta.name.toLowerCase().equals(query.toLowerCase())) return 100;
@@ -387,6 +394,7 @@ void cleanupSettingsResources() {
     SettingsState.settingsScrollView = null;
     SettingsState.settingsHighlightView = null;
     SettingsState.settingsPendingHighlightKey = null;
+    SettingsState.settingsPendingHighlightDepth = -1;
     SettingsState.settingsCurrentLevel1 = null;
     SettingsState.settingsCurrentLevel2 = null;
     SettingsState.settingsCurrentLevel3 = null;
@@ -435,25 +443,31 @@ void highlightSettingsItem(final View targetView) {
     // 第一次高亮
     targetView.setBackground(highlightBg);
 
-    uiHandler.postDelayed(() -> {
-        Activity act = getSettingsCurrentActivity();
-        if (act != null) {
-            targetView.setBackground(makeFeedbackBg(getAdaptiveSettingsItemBg(act), pc(getSettingsThemeColor(act, "ripple")), 0));
-        }
+    uiHandler.postDelayed(new Runnable() {
+        public void run() {
+            Activity act = getSettingsCurrentActivity();
+            if (act != null) {
+                targetView.setBackground(makeFeedbackBg(getAdaptiveSettingsItemBg(act), pc(getSettingsThemeColor(act, "ripple")), 0));
+            }
 
-        uiHandler.postDelayed(() -> {
-            if (SettingsState.settingsHighlightView == targetView) targetView.setBackground(highlightBg);
+            uiHandler.postDelayed(new Runnable() {
+                public void run() {
+                    if (SettingsState.settingsHighlightView == targetView) targetView.setBackground(highlightBg);
 
-            uiHandler.postDelayed(() -> {
-                if (SettingsState.settingsHighlightView == targetView) {
-                    Activity act2 = getSettingsCurrentActivity();
-                    if (act2 != null) {
-                        targetView.setBackground(makeFeedbackBg(getAdaptiveSettingsItemBg(act2), pc(getSettingsThemeColor(act2, "ripple")), 0));
-                    }
-                    SettingsState.settingsHighlightView = null;
+                    uiHandler.postDelayed(new Runnable() {
+                        public void run() {
+                            if (SettingsState.settingsHighlightView == targetView) {
+                                Activity act2 = getSettingsCurrentActivity();
+                                if (act2 != null) {
+                                    targetView.setBackground(makeFeedbackBg(getAdaptiveSettingsItemBg(act2), pc(getSettingsThemeColor(act2, "ripple")), 0));
+                                }
+                                SettingsState.settingsHighlightView = null;
+                            }
+                        }
+                    }, 350);
                 }
-            }, 350);
-        }, 150);
+            }, 150);
+        }
     }, 350);
 }
 
@@ -556,13 +570,19 @@ void handleSearchResultClick(final Activity activity, final String itemKey, fina
     }
     SettingsState.settingsSearchDialog = null;
     SettingsState.settingsPendingHighlightKey = itemKey;
+    SettingsState.settingsPendingHighlightDepth = settingsMenuDepth(level1, level2, level3);
 
-    int targetDepth = level2 != null ? 2 : (level1 != null ? 1 : 0);
+    final int targetDepth = settingsMenuDepth(level1, level2, level3);
     int currentSize = SettingsState.settingsDialogStack != null ? SettingsState.settingsDialogStack.size() : 0;
 
     if (currentSize == targetDepth + 1) {
         Dialog topDialog = (Dialog) SettingsState.settingsDialogStack.get(currentSize - 1);
-        if (topDialog != null && topDialog.isShowing()) {
+        boolean samePath = (level1 == null ? SettingsState.settingsCurrentLevel1 == null : level1.equals(SettingsState.settingsCurrentLevel1))
+                && (level2 == null ? SettingsState.settingsCurrentLevel2 == null : level2.equals(SettingsState.settingsCurrentLevel2))
+                && (level3 == null ? SettingsState.settingsCurrentLevel3 == null : level3.equals(SettingsState.settingsCurrentLevel3));
+        if (samePath && topDialog != null && topDialog.isShowing()) {
+            SettingsState.settingsPendingHighlightKey = null;
+            SettingsState.settingsPendingHighlightDepth = -1;
             uiHandler.postDelayed(new Runnable() {
                 public void run() {
                     scrollToAndHighlight(itemKey);
@@ -572,18 +592,20 @@ void handleSearchResultClick(final Activity activity, final String itemKey, fina
         }
     }
 
-    if (SettingsState.settingsDialogStack != null) {
-        for (int i = SettingsState.settingsDialogStack.size() - 1; i >= 0; i--) {
-            Dialog dialog = (Dialog) SettingsState.settingsDialogStack.get(i);
-            if (dialog != null && dialog.isShowing()) {
-                dialog.dismiss();
-            }
-        }
-        SettingsState.settingsDialogStack.clear();
-    }
+    popSettingsToDepth(targetDepth);
 
     uiHandler.postDelayed(new Runnable() {
         public void run() {
+            int stackSize = SettingsState.settingsDialogStack != null ? SettingsState.settingsDialogStack.size() : 0;
+            for (int d = stackSize; d < targetDepth; d++) {
+                if (d == 0) {
+                    showSettingsMenu(activity, null, null, null);
+                } else if (d == 1) {
+                    showSettingsMenu(activity, level1, null, null);
+                } else if (d == 2) {
+                    showSettingsMenu(activity, level1, level2, null);
+                }
+            }
             showSettingsMenu(activity, level1, level2, level3);
         }
     }, 150);
@@ -810,9 +832,11 @@ void showSettingsMenu(final Activity activity, final String level1Title, final S
                 SettingsState.settingsDialogDepths.add(Integer.valueOf(newDepth));
                 currentDialog.show();
 
-                if (SettingsState.settingsPendingHighlightKey != null && !SettingsState.settingsPendingHighlightKey.isEmpty()) {
+                if (SettingsState.settingsPendingHighlightKey != null && !SettingsState.settingsPendingHighlightKey.isEmpty()
+                        && (SettingsState.settingsPendingHighlightDepth < 0 || newDepth == SettingsState.settingsPendingHighlightDepth)) {
                     final String keyToHighlight = SettingsState.settingsPendingHighlightKey;
                     SettingsState.settingsPendingHighlightKey = null;
+                    SettingsState.settingsPendingHighlightDepth = -1;
                     uiHandler.postDelayed(new Runnable() {
                         public void run() {
                             scrollToAndHighlight(keyToHighlight);
@@ -1025,6 +1049,24 @@ void addSearchResultItem(Activity activity, LinearLayout container, String itemT
     container.addView(resultItem);
 }
 
+private Bitmap cachedBottomIconGithub = null;
+private Bitmap cachedBottomIconQq = null;
+
+Bitmap getSettingsIconBitmap(String path, boolean isGithub) {
+    if (isGithub) {
+        if (cachedBottomIconGithub != null && !cachedBottomIconGithub.isRecycled()) return cachedBottomIconGithub;
+    } else {
+        if (cachedBottomIconQq != null && !cachedBottomIconQq.isRecycled()) return cachedBottomIconQq;
+    }
+    Bitmap bm = null;
+    try {
+        File f = new File(path);
+        if (f.exists()) bm = BitmapFactory.decodeFile(path);
+    } catch (Throwable t) { traceLog("setwindow_log", "[getSettingsIconBitmap] " + t.getMessage()); }
+    if (isGithub) cachedBottomIconGithub = bm; else cachedBottomIconQq = bm;
+    return bm;
+}
+
 void buildSettingsBottomArea(Activity activity) {
     if (activity == null) return;
     Activity currentActivity = getSettingsCurrentActivity();
@@ -1046,17 +1088,9 @@ void buildSettingsBottomArea(Activity activity) {
     icon1Container.setGravity(Gravity.CENTER);
 
     ImageView projectBtn = new ImageView(activity);
-    try {
-        String imagePath = rootPath + "GitHub.png";
-        File imageFile = new File(imagePath);
-        if (imageFile.exists()) {
-            Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
-            if (bitmap != null) {
-                projectBtn.setImageBitmap(bitmap);
-            }
-        }
-    } catch (Throwable exception) {
-        traceLog("setwindow_log", "[buildSettingsBottomArea] 加载项目按钮: " + exception.getMessage());
+    Bitmap githubIconBm = getSettingsIconBitmap(rootPath + "GitHub.png", true);
+    if (githubIconBm != null) {
+        projectBtn.setImageBitmap(githubIconBm);
     }
     LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(dp(activity, 40), dp(activity, 40));
     projectBtn.setLayoutParams(btnParams);
@@ -1090,17 +1124,9 @@ void buildSettingsBottomArea(Activity activity) {
     icon2Container.setGravity(Gravity.CENTER);
 
     ImageView qqBtn = new ImageView(activity);
-    try {
-        String imagePath = rootPath + "QQ.png";
-        File imageFile = new File(imagePath);
-        if (imageFile.exists()) {
-            Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
-            if (bitmap != null) {
-                qqBtn.setImageBitmap(bitmap);
-            }
-        }
-    } catch (Throwable exception) {
-        traceLog("setwindow_log", "[buildSettingsBottomArea] 加载QQ按钮: " + exception.getMessage());
+    Bitmap qqIconBm = getSettingsIconBitmap(rootPath + "QQ.png", false);
+    if (qqIconBm != null) {
+        qqBtn.setImageBitmap(qqIconBm);
     }
     LinearLayout.LayoutParams qqBtnParams = new LinearLayout.LayoutParams(dp(activity, 40), dp(activity, 40));
     qqBtn.setLayoutParams(qqBtnParams);
@@ -1210,16 +1236,14 @@ void buildFullSettingsIndex(Activity activity) {
     addIndexItem("ui_dialog_height", "弹窗高度", "自适应内容", "设置", "基础模式", "基础模式", "input");
     addIndexItem("振动反馈", "振动反馈", "", "设置", "基础模式", "基础模式", "switch");
     addIndexItem("背景模糊", "背景模糊", "系统模糊窗体后方内容(Android 12+)", "设置", "基础模式", "基础模式", "switch");
-    addIndexItem("ui_corner_dp", "弹窗圆角", "全局弹窗圆角(dp)", "设置", "基础模式", "基础模式", "click");
+    addIndexItem("基础模式_弹窗圆角", "弹窗圆角", "全局弹窗圆角(dp)", "设置", "基础模式", "基础模式", "click");
 
     addIndexItem("背景样式_背景类型", "背景类型", "", "设置", "背景样式", "背景样式", "choice");
     addIndexItem("背景样式_预设颜色" + suffix, "预设颜色", "点击选择内置配色", "设置", "背景样式", "背景样式", "click");
     addIndexItem("背景样式_预设渐变" + suffix, "预设渐变", "点击选择内置渐变", "设置", "背景样式", "背景样式", "click");
     addIndexItem("背景样式_选择背景图片", "选择背景图片", "点击选择本地图片", "设置", "背景样式", "背景样式", "click");
-    addIndexItem("ui_bg_color_dark", "自定义Hex", "", "设置", "背景样式", "背景样式", "color");
-    addIndexItem("ui_bg_color_light", "自定义Hex", "", "设置", "背景样式", "背景样式", "color");
-    addIndexItem("ui_bg_gradient_dark", "自定义渐变", "Hex1,Hex2,Hex3", "设置", "背景样式", "背景样式", "input");
-    addIndexItem("ui_bg_gradient_light", "自定义渐变", "Hex1,Hex2,Hex3", "设置", "背景样式", "背景样式", "input");
+    addIndexItem("背景样式_背景颜色列表" + suffix, "背景颜色列表", "多色轮转，1色常驻", "设置", "背景样式", "背景样式", "click");
+    addIndexItem("背景样式_渐变颜色列表" + suffix, "渐变颜色列表", "2~3色，复用调色盘列表", "设置", "背景样式", "背景样式", "click");
     addIndexItem("ui_img_blur", "图片模糊 (0-25)", "0为不模糊", "设置", "背景样式", "背景样式", "input");
     addIndexItem("ui_img_alpha", "遮罩浓度 (0-255)", "越大越暗", "设置", "背景样式", "背景样式", "input");
 
@@ -1230,12 +1254,17 @@ void buildFullSettingsIndex(Activity activity) {
 
     addIndexItem("加载提示", "加载提示", "开启后在脚本加载时显示提示", "设置", "提示", "提示", "switch");
     addIndexItem("加载通知", "加载通知", "开启后在脚本加载时发送通知提示", "设置", "提示", "提示", "switch");
-    addIndexItem("toast_style", "Toast样式", "默认/跟随主题/实时模糊", "设置", "提示", "提示", "choice");
-    addIndexItem("toast_color_list", "文字轮换颜色", "列表增删，空则默认", "设置", "提示", "提示", "click");
-    addIndexItem("toast_bg_color_list", "渐变背景颜色", "渐变样式用", "设置", "提示", "提示", "click");
+    addIndexItem("Toast样式_样式", "Toast样式", "默认/跟随主题/实时模糊", "设置", "提示", "提示", "choice");
+    addIndexItem("Toast样式_文字轮换颜色", "文字轮换颜色", "列表增删，空则默认", "设置", "提示", "提示", "click");
+    addIndexItem("Toast样式_渐变背景颜色", "渐变背景颜色", "渐变样式用", "设置", "提示", "提示", "click");
     addIndexItem("toast_duration", "弹出时长(ms)", "500-10000，默认2000", "设置", "提示", "提示", "input");
-    addIndexItem("toast_pos", "弹出位置", "底部/居中/顶部/自定义", "设置", "提示", "提示", "choice");
-    addIndexItem("toast_custom_xy", "自定义坐标", "屏幕选点，可设宽高", "设置", "提示", "提示", "click");
+    addIndexItem("Toast位置_弹出位置", "弹出位置", "底部/居中/顶部/自定义", "设置", "提示", "提示", "choice");
+    addIndexItem("Toast位置_自定义坐标/宽高", "自定义坐标", "屏幕选点，可设宽高", "设置", "提示", "提示", "click");
+    addIndexItem("toast_adaptive", "自适应", "开：气泡贴合内容；关：撑满框", "设置", "提示", "提示", "switch");
+    addIndexItem("Toast位置_气泡在框内位置", "气泡在框内位置", "", "设置", "提示", "提示", "choice");
+    addIndexItem("Toast位置_文字填充", "文字填充", "", "设置", "提示", "提示", "choice");
+    addIndexItem("Toast文字_测试Toast", "测试Toast", "预览当前配置", "设置", "提示", "提示", "click");
+    addIndexItem("Toast样式_背景轮换颜色", "背景轮换颜色", "纯色背景，1色常驻", "设置", "提示", "提示", "click");
     addIndexItem("toast_prefix", "前缀", "Toast文字前缀", "设置", "提示", "提示", "input");
     addIndexItem("toast_suffix", "后缀", "Toast文字后缀", "设置", "提示", "提示", "input");
 
@@ -1250,11 +1279,10 @@ void buildFullSettingsIndex(Activity activity) {
     addIndexItem("拖拽灵敏度", "拖拽灵敏度", "数值越小越灵敏", "设置", "悬浮窗设置", "悬浮窗设置", "input");
     addIndexItem("长按关闭阈值", "长按关闭阈值", "默认650ms", "设置", "悬浮窗设置", "悬浮窗设置", "input");
     addIndexItem("iconAlpha", "图标透明度", "0-255", "设置", "悬浮窗设置", "悬浮窗设置", "input");
-    addIndexItem("悬浮窗设置_帧率设置", "帧率设置", "", "设置", "悬浮窗设置", "悬浮窗设置", "choice");
-    addIndexItem("gifDelay", "GIF播放速度", "带实时预览", "设置", "悬浮窗设置", "悬浮窗设置", "click");
+    addIndexItem("悬浮窗设置_GIF播放速度", "GIF播放速度", "带实时预览", "设置", "悬浮窗设置", "悬浮窗设置", "click");
 
     addIndexItem("调试_预览设置", "预览设置", "预览当前设置效果", "设置", "调试", "调试", "click");
-    addIndexItem("其他_重置所有设置", "重置所有设置", "恢复默认设置", "设置", "其他", "其他", "click");
+    addIndexItem("item_reset_all", "重置所有设置", "恢复默认设置", "设置", "其他", "其他", "click");
     addIndexItem("log_delete_threshold", "日志大小阈值", "日志文件夹超过此MB数自动清理", "设置", "调试", "调试", "input");
 }
 
@@ -1287,15 +1315,15 @@ void buildLevel1MenuContent(Activity activity) {
 
     addSettingsCategory("开关", "");
     boolean mockLocationState = getBoolean("模拟定位开关", "模拟定位开关", false);
-    addSettingsItemSwitchWithKey("开关", "模拟定位", "item_mock_location", null, null, mockLocationState, new Runnable() { public void run() {
+    addSettingsItemSwitchWithKey("开关", "模拟定位", "item_mock_location", null, null, null, mockLocationState, new Runnable() { public void run() {
         setMockLocationEnabled(!getBoolean("模拟定位开关", "模拟定位开关", false));
     }});
     boolean inputHintState = getBoolean("输入框", "输入框开关", false);
-    addSettingsItemSwitchWithKey("开关", "输入框提示", "item_input_hint", "输入框", "输入框开关", inputHintState, null);
+    addSettingsItemSwitchWithKey("开关", "输入框提示", "item_input_hint", "输入框", "输入框开关", null, inputHintState, null);
     boolean KeepAlive = getBoolean("settings", "后台保活", false);
-    addSettingsItemSwitchWithKey("开关", "后台保活", "item_KeepAlive", "settings", "后台保活", KeepAlive, null);
+    addSettingsItemSwitchWithKey("开关", "后台保活", "item_KeepAlive", "settings", "后台保活", null, KeepAlive, null);
     boolean msgStatsState = getBoolean("settings", "消息统计开关", true);
-    addSettingsItemSwitchWithKey("开关", "消息统计", "item_msg_stats_switch", "settings", "消息统计开关", msgStatsState, new Runnable() { public void run() {
+    addSettingsItemSwitchWithKey("开关", "消息统计", "item_msg_stats_switch", "settings", "消息统计开关", null, msgStatsState, new Runnable() { public void run() {
         boolean on = !getBoolean("settings", "消息统计开关", true);
         putBoolean("settings", "消息统计开关", on);
         try {
@@ -1305,7 +1333,7 @@ void buildLevel1MenuContent(Activity activity) {
         Toast(on ? "消息统计已开启" : "消息统计已关闭");
     }});
     boolean doubleClickMsgState = getBoolean("settings", "双击消息开关", true);
-    addSettingsItemSwitchWithKey("开关", "双击消息", "item_double_click_switch", "settings", "双击消息开关", doubleClickMsgState, new Runnable() { public void run() {
+    addSettingsItemSwitchWithKey("开关", "双击消息", "item_double_click_switch", "settings", "双击消息开关", null, doubleClickMsgState, new Runnable() { public void run() {
         boolean on = !getBoolean("settings", "双击消息开关", true);
         putBoolean("settings", "双击消息开关", on);
         Toast(on ? "双击消息已开启" : "双击消息已关闭");
@@ -1762,12 +1790,14 @@ void showResetAllSettingsConfirmDialog(Activity activity) {
 
     builder.setNegativeButton("取消", null);
 
-    builder.setPositiveButton("确认重置", (dialog, which) -> {
-        int count = resetAllSettingsToDefault();
-        qqToast(0, "已重置 " + count + " 项设置");
-        Activity resetAct = getSettingsCurrentActivity();
-        if (resetAct != null) {
-            showSettingsMenu(resetAct, null, null, null);
+    builder.setPositiveButton("确认重置", new android.content.DialogInterface.OnClickListener() {
+        public void onClick(android.content.DialogInterface dialog, int which) {
+            int count = resetAllSettingsToDefault();
+            qqToast(0, "已重置 " + count + " 项设置");
+            Activity resetAct = getSettingsCurrentActivity();
+            if (resetAct != null) {
+                showSettingsMenu(resetAct, null, null, null);
+            }
         }
     });
 
@@ -1780,10 +1810,16 @@ int resetAllSettingsToDefault() {
             "ui_theme_mode", "ui_dialog_scale", "ui_dialog_width", "ui_dialog_height",
             "振动反馈", "ui_bg_type", "ui_bg_color_dark", "ui_bg_color_light",
             "ui_bg_gradient_dark", "ui_bg_gradient_light", "ui_img_blur", "ui_img_alpha",
+            "ui_bg_solid_list_dark", "ui_bg_solid_list_light",
             "ui_font_type", "ui_font_size", "ui_text_color_dark", "ui_text_color_light",
             "thread_pool_priority", "thread_pool_queue_capacity", "thread_pool_keep_alive",
             "thread_pool_name_prefix", "thread_pool_reject_policy", "悬浮窗大小",
-            "关闭区域图标大小", "拖拽灵敏度", "长按关闭阈值", "移动阈值"
+            "关闭区域图标大小", "关闭区域大小", "拖拽灵敏度", "长按关闭阈值", "移动阈值",
+            "背景模糊", "iconAlpha", "ui_corner_dp", "log_delete_threshold", "gifDelay",
+            "加载提示", "加载通知", "toast_style", "toast_pos", "toast_box_gravity",
+            "toast_text_gravity", "toast_duration", "toast_adaptive", "toast_prefix",
+            "toast_suffix", "toast_color_list", "toast_bg_solid_list", "toast_bg_color_list",
+            "黑白"
     };
 
     int count = 0;
@@ -1906,8 +1942,8 @@ void addSettingsItemClickWithKey(String categoryName, String itemName, String de
         SettingsState.settingsItemViews.put(itemKey, itemWrapper);
     }
 
-    if (itemKey != null && !itemKey.isEmpty() && SettingsState.settingsItemMeta != null) {
-        SettingsState.settingsItemMeta.put(itemKey,new SettingsItemMeta(
+    if (itemKey != null && !itemKey.isEmpty() && SettingsState.settingsItemMeta != null && !SettingsState.settingsItemMeta.containsKey(itemKey)) {
+        SettingsState.settingsItemMeta.put(itemKey, new SettingsItemMeta(
         itemName, 
         descriptionText, 
         SettingsState.settingsCurrentLevel1, 
@@ -1986,7 +2022,7 @@ void addSettingsItemChoiceWithKey(String categoryName, String itemName, String i
         SettingsState.settingsItemViews.put(itemKey, itemWrapper);
     }
 
-    if (itemKey != null && !itemKey.isEmpty() && SettingsState.settingsItemMeta != null) {
+    if (itemKey != null && !itemKey.isEmpty() && SettingsState.settingsItemMeta != null && !SettingsState.settingsItemMeta.containsKey(itemKey)) {
         SettingsState.settingsItemMeta.put(itemKey, new SettingsItemMeta(
             itemName, null,
             SettingsState.settingsCurrentLevel1,
@@ -2009,129 +2045,90 @@ void updateSettingsItemText(String updateKey, String newText) {
     }
 }
 
-void addSettingsItemSwitch(String categoryName, String itemName, String configName, String keyName, boolean currentValue, final Runnable switchCallback) {
-    String itemKey = keyName != null && !keyName.isEmpty() ? keyName : categoryName + "_" + itemName;
-    addSettingsItemSwitchWithKey(categoryName, itemName, itemKey, configName, keyName, currentValue, switchCallback);
-}
+void addSettingsItemSwitchWithKey(String categoryName, String itemName, String itemKey, String configName, String keyName, String descriptionText, boolean currentValue, final Runnable switchCallback) {
+	if (SettingsState.settingsCategoryContainers == null || categoryName == null) return;
+	Activity activity = getSettingsCurrentActivity();
+	if (activity == null) return;
 
-void addSettingsItemSwitchWithKey(String categoryName, String itemName, String itemKey, String configName, String keyName, boolean currentValue, final Runnable switchCallback) {
-    if (SettingsState.settingsCategoryContainers == null || categoryName == null) return;
-    Activity activity = getSettingsCurrentActivity();
-    if (activity == null) return;
+	LinearLayout container = (LinearLayout) SettingsState.settingsCategoryContainers.get(categoryName);
+	if (container == null) return;
 
-    LinearLayout container = (LinearLayout) SettingsState.settingsCategoryContainers.get(categoryName);
-    if (container == null) return;
+	FrameLayout itemWrapper = new FrameLayout(activity);
 
-    FrameLayout itemWrapper = new FrameLayout(activity);
+	LinearLayout itemLayout = new LinearLayout(activity);
+	itemLayout.setOrientation(LinearLayout.HORIZONTAL);
+	itemLayout.setGravity(Gravity.CENTER_VERTICAL);
+	itemLayout.setPadding(dp(activity, 16), dp(activity, 14), dp(activity, 16), dp(activity, 14));
 
-    LinearLayout itemLayout = new LinearLayout(activity);
-    itemLayout.setOrientation(LinearLayout.HORIZONTAL);
-    itemLayout.setGravity(Gravity.CENTER_VERTICAL);
-    itemLayout.setPadding(dp(activity, 16), dp(activity, 14), dp(activity, 16), dp(activity, 14));
+	if (descriptionText != null && !descriptionText.isEmpty()) {
+		LinearLayout textArea = new LinearLayout(activity);
+		textArea.setOrientation(LinearLayout.VERTICAL);
+		textArea.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
 
-    TextView nameView = new TextView(activity);
-    nameView.setText(itemName);
-    nameView.setTextSize(16);
-    nameView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
-    nameView.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
-    itemLayout.addView(nameView);
+		TextView nameView = new TextView(activity);
+		nameView.setText(itemName);
+		nameView.setTextSize(16);
+		nameView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
+		textArea.addView(nameView);
 
-    final View switchView = createSettingsSwitchView(activity, currentValue, configName, keyName, itemName, switchCallback);
-    if (switchView != null) {
-        itemLayout.addView(switchView);
-    }
+		TextView descView = new TextView(activity);
+		descView.setText(descriptionText);
+		descView.setTextSize(12);
+		descView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
+		descView.setPadding(0, dp(activity, 2), 0, 0);
+		textArea.addView(descView);
 
-    itemWrapper.addView(itemLayout);
+		itemLayout.addView(textArea);
+	} else {
+		TextView nameView = new TextView(activity);
+		nameView.setText(itemName);
+		nameView.setTextSize(16);
+		nameView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
+		nameView.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
+		itemLayout.addView(nameView);
+	}
 
-    itemWrapper.setBackground(makeFeedbackBg(getAdaptiveSettingsItemBg(activity), pc(getSettingsThemeColor(activity, "ripple")), 0));
-    itemWrapper.setClickable(false);
+	final View switchView = createSettingsSwitchView(activity, currentValue, configName, keyName, itemName, switchCallback);
+	if (switchView != null) {
+		itemLayout.addView(switchView);
+	}
 
-    if (itemKey != null && !itemKey.isEmpty() && SettingsState.settingsItemViews != null) {
-        SettingsState.settingsItemViews.put(itemKey, itemWrapper);
-    }
+	itemWrapper.addView(itemLayout);
 
-    if (itemKey != null && !itemKey.isEmpty() && SettingsState.settingsItemMeta != null) {
-        SettingsState.settingsItemMeta.put(itemKey, new SettingsItemMeta(
-            itemName, null,
-            SettingsState.settingsCurrentLevel1,
-            SettingsState.settingsCurrentLevel2,
-            SettingsState.settingsCurrentLevel3,
-            SettingsState.settingsCurrentCategory,
-            "switch"
-        ));
-    }
+	itemWrapper.setBackground(makeFeedbackBg(getAdaptiveSettingsItemBg(activity), pc(getSettingsThemeColor(activity, "ripple")), 0));
+	if (descriptionText != null && !descriptionText.isEmpty()) {
+		itemWrapper.setClickable(true);
+		itemWrapper.setOnClickListener(new View.OnClickListener() {
+			public void onClick(View view) {
+				if (switchView != null) {
+					switchView.performClick();
+				}
+			}
+		});
+	} else {
+		itemWrapper.setClickable(false);
+	}
 
-    container.addView(itemWrapper);
+	if (itemKey != null && !itemKey.isEmpty() && SettingsState.settingsItemViews != null) {
+		SettingsState.settingsItemViews.put(itemKey, itemWrapper);
+	}
+
+	if (itemKey != null && !itemKey.isEmpty() && SettingsState.settingsItemMeta != null && !SettingsState.settingsItemMeta.containsKey(itemKey)) {
+		SettingsState.settingsItemMeta.put(itemKey, new SettingsItemMeta(
+			itemName, descriptionText,
+			SettingsState.settingsCurrentLevel1,
+			SettingsState.settingsCurrentLevel2,
+			SettingsState.settingsCurrentLevel3,
+			SettingsState.settingsCurrentCategory,
+			"switch"
+		));
+	}
+
+	container.addView(itemWrapper);
 }
 
 void addSettingsSwitchItem(String categoryName, String itemName, String descriptionText, String keyName, boolean currentValue, final Runnable onChangeCallback) {
-    if (SettingsState.settingsCategoryContainers == null || categoryName == null) return;
-    Activity activity = getSettingsCurrentActivity();
-    if (activity == null) return;
-
-    LinearLayout container = (LinearLayout) SettingsState.settingsCategoryContainers.get(categoryName);
-    if (container == null) return;
-
-    FrameLayout itemWrapper = new FrameLayout(activity);
-
-    LinearLayout itemLayout = new LinearLayout(activity);
-    itemLayout.setOrientation(LinearLayout.HORIZONTAL);
-    itemLayout.setGravity(Gravity.CENTER_VERTICAL);
-    itemLayout.setPadding(dp(activity, 16), dp(activity, 14), dp(activity, 16), dp(activity, 14));
-
-    LinearLayout textArea = new LinearLayout(activity);
-    textArea.setOrientation(LinearLayout.VERTICAL);
-    textArea.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
-
-    TextView nameView = new TextView(activity);
-    nameView.setText(itemName);
-    nameView.setTextSize(16);
-    nameView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
-    textArea.addView(nameView);
-
-    if (descriptionText != null && !descriptionText.isEmpty()) {
-        TextView descView = new TextView(activity);
-        descView.setText(descriptionText);
-        descView.setTextSize(12);
-        descView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
-        descView.setPadding(0, dp(activity, 2), 0, 0);
-        textArea.addView(descView);
-    }
-
-    itemLayout.addView(textArea);
-
-    final View switchView = createSettingsSwitchView(activity, currentValue, "settings", keyName, itemName, onChangeCallback);
-    if (switchView != null) {
-        itemLayout.addView(switchView);
-    }
-
-    itemWrapper.addView(itemLayout);
-
-    itemWrapper.setBackground(makeFeedbackBg(getAdaptiveSettingsItemBg(activity), pc(getSettingsThemeColor(activity, "ripple")), 0));
-    itemWrapper.setClickable(true);
-    itemWrapper.setOnClickListener(new View.OnClickListener() {
-        public void onClick(View view) {
-            if (switchView != null) {
-                switchView.performClick();
-            }
-        }
-    });
-
-    if (keyName != null && !keyName.isEmpty() && SettingsState.settingsItemViews != null) {
-        SettingsState.settingsItemViews.put(keyName, itemWrapper);
-    }
-    if (keyName != null && !keyName.isEmpty() && SettingsState.settingsItemMeta != null) {
-        SettingsState.settingsItemMeta.put(keyName, new SettingsItemMeta(
-            itemName, descriptionText,
-            SettingsState.settingsCurrentLevel1,
-            SettingsState.settingsCurrentLevel2,
-            SettingsState.settingsCurrentLevel3,
-            SettingsState.settingsCurrentCategory,
-            "switch"
-        ));
-    }
-
-    container.addView(itemWrapper);
+	addSettingsItemSwitchWithKey(categoryName, itemName, keyName, "settings", keyName, descriptionText, currentValue, onChangeCallback);
 }
 
 void addSettingsInputItem(String categoryName, String itemName, String descriptionText, String keyName, String hintText, String defaultValue, final Runnable onValueChanged) {
@@ -2167,15 +2164,23 @@ void addSettingsInputItem(String categoryName, String itemName, String descripti
     itemLayout.addView(inputEdit);
 
     final String finalKeyName = keyName;
+    final long[] inputToken = new long[1];
     inputEdit.addTextChangedListener(new TextWatcher() {
         public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
         public void onTextChanged(CharSequence s, int start, int before, int count) {}
         public void afterTextChanged(Editable editable) {
-            String value = editable.toString().trim();
-            putString("settings", finalKeyName, value);
-            if (onValueChanged != null) {
-                onValueChanged.run();
-            }
+            final String value = editable.toString().trim();
+            inputToken[0] = System.currentTimeMillis();
+            final long token = inputToken[0];
+            uiHandler.postDelayed(new Runnable() {
+                public void run() {
+                    if (token != inputToken[0]) return;
+                    putString("settings", finalKeyName, value);
+                    if (onValueChanged != null) {
+                        onValueChanged.run();
+                    }
+                }
+            }, 300);
         }
     });
 
@@ -2185,7 +2190,7 @@ void addSettingsInputItem(String categoryName, String itemName, String descripti
     if (keyName != null && !keyName.isEmpty() && SettingsState.settingsItemViews != null) {
         SettingsState.settingsItemViews.put(keyName, itemLayout);
     }
-    if (keyName != null && !keyName.isEmpty() && SettingsState.settingsItemMeta != null) {
+    if (keyName != null && !keyName.isEmpty() && SettingsState.settingsItemMeta != null && !SettingsState.settingsItemMeta.containsKey(keyName)) {
         SettingsState.settingsItemMeta.put(keyName, new SettingsItemMeta(
             itemName, descriptionText,
             SettingsState.settingsCurrentLevel1,
@@ -2202,77 +2207,47 @@ void addSettingsInputItem(String categoryName, String itemName, String descripti
     }
 }
 
+void showChoiceDialogEx(Activity activity, String title, String[] names, String[] values, String configKey, String itemKey, String defaultVal, int checkedInit, int toastMode, String toastMsg, Runnable onDone) {
+	if (activity == null || activity.isFinishing()) return;
+	String cur = getString("settings", configKey, defaultVal);
+	int checked = checkedInit;
+	for (int i = 0; i < names.length; i++) if (values[i].equals(cur)) { checked = i; break; }
+	AlertDialog.Builder b = new AlertDialog.Builder(activity, isThemeDark(activity) ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
+	b.setTitle(title);
+	b.setSingleChoiceItems(names, checked, new DialogInterface.OnClickListener() {
+		public void onClick(DialogInterface dialog, int which) {
+			putString("settings", configKey, values[which]);
+			updateSettingsItemText(itemKey, names[which]);
+			dialog.dismiss();
+			if (toastMode == 1) Toast(toastMsg + names[which]);
+			else if (toastMode == 2) qqToast(2, toastMsg);
+			else if (toastMode == 3) qqToast(2, toastMsg + names[which]);
+			if (onDone != null) onDone.run();
+		}
+	});
+	b.setNegativeButton("取消", null);
+	AlertDialog dlg = b.show();
+	applyUiTheme(activity, dlg, 0);
+}
+
 void showToastBoxGravityChoiceDialog(final Activity activity) {
-    if (activity == null || activity.isFinishing()) return;
     final String[] names = {"居中", "靠左", "靠右", "靠上", "靠下", "左上", "右上", "左下", "右下"};
     final String[] values = {"center", "left", "right", "top", "bottom", "top_left", "top_right", "bottom_left", "bottom_right"};
-    String cur = getString("settings", "toast_box_gravity", "center");
-    int checked = 0;
-    for (int i = 0; i < values.length; i++) if (values[i].equals(cur)) checked = i;
-    AlertDialog.Builder b = new AlertDialog.Builder(activity, isThemeDark(activity) ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-    b.setTitle("气泡在框内位置");
-    b.setSingleChoiceItems(names, checked, new DialogInterface.OnClickListener() {
-        public void onClick(DialogInterface dialog, int which) {
-            putString("settings", "toast_box_gravity", values[which]);
-            updateSettingsItemText("toast_box_gravity", (("left".equals(getString("settings", "toast_box_gravity", "center")) ? "靠左" : "right".equals(getString("settings", "toast_box_gravity", "center")) ? "靠右" : "top".equals(getString("settings", "toast_box_gravity", "center")) ? "靠上" : "bottom".equals(getString("settings", "toast_box_gravity", "center")) ? "靠下" : "top_left".equals(getString("settings", "toast_box_gravity", "center")) ? "左上" : "top_right".equals(getString("settings", "toast_box_gravity", "center")) ? "右上" : "bottom_left".equals(getString("settings", "toast_box_gravity", "center")) ? "左下" : "bottom_right".equals(getString("settings", "toast_box_gravity", "center")) ? "右下" : "居中")));
-            dialog.dismiss();
-            Toast("气泡位置: " + names[which]);
-        }
-    });
-    b.setNegativeButton("取消", null);
-    AlertDialog dlg = b.create();
-    applyUiTheme(activity, dlg, 0);
-    dlg.show();
+    showChoiceDialogEx(activity, "气泡在框内位置", names, values, "toast_box_gravity", "toast_box_gravity", "center", 0, 1, "气泡位置: ", null);
 }
 
 void showToastGravityChoiceDialog(final Activity activity) {
-    if (activity == null || activity.isFinishing()) return;
     final String[] names = {"居中", "靠左", "靠右", "靠上", "靠下", "两端对齐"};
     final String[] values = {"center", "left", "right", "top", "bottom", "justify"};
-    String cur = getString("settings", "toast_text_gravity", "center");
-    int checked = 0;
-    for (int i = 0; i < values.length; i++) if (values[i].equals(cur)) checked = i;
-    AlertDialog.Builder b = new AlertDialog.Builder(activity, isThemeDark(activity) ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-    b.setTitle("文字填充");
-    b.setSingleChoiceItems(names, checked, new DialogInterface.OnClickListener() {
-        public void onClick(DialogInterface dialog, int which) {
-            putString("settings", "toast_text_gravity", values[which]);
-            updateSettingsItemText("toast_text_gravity", (("left".equals(getString("settings", "toast_text_gravity", "center")) ? "靠左" : "right".equals(getString("settings", "toast_text_gravity", "center")) ? "靠右" : "top".equals(getString("settings", "toast_text_gravity", "center")) ? "靠上" : "bottom".equals(getString("settings", "toast_text_gravity", "center")) ? "靠下" : "justify".equals(getString("settings", "toast_text_gravity", "center")) ? "两端对齐" : "居中")));
-            dialog.dismiss();
-            Toast("填充: " + names[which]);
-        }
-    });
-    b.setNegativeButton("取消", null);
-    AlertDialog dlg = b.create();
-    applyUiTheme(activity, dlg, 0);
-    dlg.show();
+    showChoiceDialogEx(activity, "文字填充", names, values, "toast_text_gravity", "toast_text_gravity", "center", 0, 1, "填充: ", null);
 }
 
 void showToastStyleChoiceDialog(final Activity activity) {
-    if (activity == null || activity.isFinishing()) return;
     final String[] names = {"默认", "跟随主题色", "实时模糊(仅Toast区,可能耗性能)", "渐变背景"};
     final String[] values = {"default", "theme", "blur", "gradient"};
-    String cur = getString("settings", "toast_style", "default");
-    int checked = 0;
-    for (int i = 0; i < values.length; i++) if (values[i].equals(cur)) checked = i;
-    AlertDialog.Builder b = new AlertDialog.Builder(activity, isThemeDark(activity) ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-    b.setTitle("Toast样式");
-    b.setSingleChoiceItems(names, checked, new DialogInterface.OnClickListener() {
-        public void onClick(DialogInterface dialog, int which) {
-            putString("settings", "toast_style", values[which]);
-            updateSettingsItemText("toast_style", (("theme".equals(getString("settings", "toast_style", "default")) ? "跟随主题色" : "blur".equals(getString("settings", "toast_style", "default")) ? "实时模糊(仅Toast区)" : "gradient".equals(getString("settings", "toast_style", "default")) ? "渐变背景" : "默认")));
-            Toast("Toast样式: " + names[which]);
-            dialog.dismiss();
-            try {
-                Activity act2 = getSettingsCurrentActivity();
-                if (act2 != null) showSettingsMenu(act2, "设置", "提示", null);
-            } catch (Throwable ignore) {}
-        }
-    });
-    b.setNegativeButton("取消", null);
-    AlertDialog dlg = b.create();
-    applyUiTheme(activity, dlg, 0);
-    dlg.show();
+    showChoiceDialogEx(activity, "Toast样式", names, values, "toast_style", "toast_style", "default", 0, 1, "Toast样式: ", new Runnable() { public void run() {
+        try { Activity act2 = getSettingsCurrentActivity(); if (act2 != null) showSettingsMenu(act2, "设置", "提示", null); } catch (Throwable ignore) {}
+    } });
 }
 
 void showUiCornerPicker(final Activity activity) {
@@ -2415,127 +2390,35 @@ void showUiCornerPicker(final Activity activity) {
 }
 
 void showToastPosChoiceDialog(final Activity activity) {
-    if (activity == null || activity.isFinishing()) return;
     final String[] names = {"底部", "居中", "顶部", "自定义"};
     final String[] values = {"bottom", "center", "top", "custom"};
-    String cur = getString("settings", "toast_pos", "bottom");
-    int checked = 0;
-    for (int i = 0; i < values.length; i++) if (values[i].equals(cur)) checked = i;
-    AlertDialog.Builder b = new AlertDialog.Builder(activity, isThemeDark(activity) ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-    b.setTitle("弹出位置");
-    b.setSingleChoiceItems(names, checked, new DialogInterface.OnClickListener() {
-        public void onClick(DialogInterface dialog, int which) {
-            putString("settings", "toast_pos", values[which]);
-            updateSettingsItemText("toast_pos", (("top".equals(getString("settings", "toast_pos", "bottom")) ? "顶部" : "center".equals(getString("settings", "toast_pos", "bottom")) ? "居中" : "custom".equals(getString("settings", "toast_pos", "bottom")) ? "自定义" : "底部")));
-            dialog.dismiss();
-            Toast("位置: " + names[which]);
-            try {
-                Activity actR = getSettingsCurrentActivity();
-                if (actR != null) showSettingsMenu(actR, "设置", "提示", null);
-            } catch (Throwable ignore) {}
-        }
-    });
-    b.setNegativeButton("取消", null);
-    AlertDialog dlg = b.create();
-    applyUiTheme(activity, dlg, 0);
-    dlg.show();
+    showChoiceDialogEx(activity, "弹出位置", names, values, "toast_pos", "toast_pos", "bottom", 0, 1, "位置: ", new Runnable() { public void run() {
+        try { Activity actR = getSettingsCurrentActivity(); if (actR != null) showSettingsMenu(actR, "设置", "提示", null); } catch (Throwable ignore) {}
+    } });
 }
 
 void showUpdateChannelChoiceDialog(final Activity activity) {
-    if (activity == null) return;
-    final String[] channels = {"Gitee (默认)", "GitHub"};
-    final String[] channelValues = {"gitee", "github"};
-
-    String currentChannel = getString("settings", "update_channel", "gitee");
-    int checkedItem = 0;
-    for (int i = 0; i < channelValues.length; i++) {
-        if (channelValues[i].equals(currentChannel)) {
-            checkedItem = i;
-            break;
-        }
-    }
-
-    AlertDialog.Builder builder = new AlertDialog.Builder(activity, isThemeDark(activity) ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-    builder.setTitle("更新通道");
-    builder.setSingleChoiceItems(channels, checkedItem, new DialogInterface.OnClickListener() {
-        public void onClick(DialogInterface dialog, int which) {
-            putString("settings", "update_channel", channelValues[which]);
-            updateSettingsItemText("item_update_channel", channels[which]);
-            qqToast(2, "已切换至 " + channels[which]);
-            dialog.dismiss();
-        }
-    });
-    builder.setNegativeButton("取消", null);
-    AlertDialog alertDialog = builder.show();
-    applyUiTheme(activity, alertDialog, 0);
+    final String[] names = {"Gitee (默认)", "GitHub"};
+    final String[] values = {"gitee", "github"};
+    showChoiceDialogEx(activity, "更新通道", names, values, "update_channel", "item_update_channel", "gitee", 0, 3, "已切换至 ", null);
 }
 
 void showThemeModeChoiceDialog(final Activity activity) {
-    if (activity == null) return;
-    final String[] modes = {"默认（推荐）", "跟随系统", "跟随模块", "强制浅色", "强制深色"};
-    final String[] modeValues = {"default", "system", "module", "light", "dark"};
-
-    String currentMode = getString("settings", "ui_theme_mode", "default");
-    int checkedItem = 0;
-    for (int i = 0; i < modeValues.length; i++) {
-        if (modeValues[i].equals(currentMode)) {
-            checkedItem = i;
-            break;
-        }
-    }
-
-    AlertDialog.Builder builder = new AlertDialog.Builder(activity, isThemeDark(activity) ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-    builder.setTitle("主题模式");
-    builder.setSingleChoiceItems(modes, checkedItem, new DialogInterface.OnClickListener() {
-        public void onClick(DialogInterface dialog, int which) {
-            String newValue = modeValues[which];
-            putString("settings", "ui_theme_mode", newValue);
-            if ("dark".equals(newValue)) {
-                putBoolean("settings", "黑白", true);
-            } else if ("light".equals(newValue)) {
-                putBoolean("settings", "黑白", false);
-            }
-            updateSettingsItemText("ui_theme_mode", modes[which]);
-            qqToast(2, "主题已更改");
-            dialog.dismiss();
-        }
-    });
-    builder.setNegativeButton("取消", null);
-    AlertDialog alertDialog = builder.show();
-    applyUiTheme(activity, alertDialog, 0);
+    final String[] names = {"默认（推荐）", "跟随系统", "跟随模块", "强制浅色", "强制深色"};
+    final String[] values = {"default", "system", "module", "light", "dark"};
+    showChoiceDialogEx(activity, "主题模式", names, values, "ui_theme_mode", "ui_theme_mode", "default", 0, 2, "主题已更改", new Runnable() { public void run() {
+        String v = getString("settings", "ui_theme_mode", "default");
+        if ("dark".equals(v)) putBoolean("settings", "黑白", true);
+        else if ("light".equals(v)) putBoolean("settings", "黑白", false);
+    } });
 }
 
 void showBgTypeChoiceDialog(final Activity activity) {
-    if (activity == null) return;
-    final String[] types = {"纯色背景", "三色渐变", "图片背景"};
-    final String[] typeValues = {"color", "gradient", "image"};
-
-    String currentType = getString("settings", "ui_bg_type", "color");
-    int checkedItem = 0;
-    for (int i = 0; i < typeValues.length; i++) {
-        if (typeValues[i].equals(currentType)) {
-            checkedItem = i;
-            break;
-        }
-    }
-
-    AlertDialog.Builder builder = new AlertDialog.Builder(activity, isThemeDark(activity) ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-    builder.setTitle("背景类型");
-    builder.setSingleChoiceItems(types, checkedItem, new DialogInterface.OnClickListener() {
-        public void onClick(DialogInterface dialog, int which) {
-            putString("settings", "ui_bg_type", typeValues[which]);
-            updateSettingsItemText("ui_bg_type", types[which]);
-            qqToast(2, "背景类型已更改");
-            dialog.dismiss();
-            try {
-                Activity act2 = getSettingsCurrentActivity();
-                if (act2 != null) showSettingsMenu(act2, "设置", "背景样式", null);
-            } catch (Throwable ignore) {}
-        }
-    });
-    builder.setNegativeButton("取消", null);
-    AlertDialog alertDialog = builder.show();
-    applyUiTheme(activity, alertDialog, 0);
+    final String[] names = {"纯色背景", "三色渐变", "图片背景"};
+    final String[] values = {"color", "gradient", "image"};
+    showChoiceDialogEx(activity, "背景类型", names, values, "ui_bg_type", "ui_bg_type", "color", 0, 2, "背景类型已更改", new Runnable() { public void run() {
+        try { Activity act2 = getSettingsCurrentActivity(); if (act2 != null) showSettingsMenu(act2, "设置", "背景样式", null); } catch (Throwable ignore) {}
+    } });
 }
 
 void showPresetColorDialog(final Activity activity) {
@@ -2636,119 +2519,27 @@ void showPresetGradientDialog(final Activity activity) {
 }
 
 void showFontTypeChoiceDialog(final Activity activity) {
-    if (activity == null) return;
-    final String[] fonts = {"默认字体", "衬线体", "无衬线", "等宽", "粗体"};
-    final String[] fontValues = {"default", "serif", "sans", "monospace", "bold"};
-
-    String currentFont = getString("settings", "ui_font_type", "default");
-    int checkedItem = 0;
-    for (int i = 0; i < fontValues.length; i++) {
-        if (fontValues[i].equals(currentFont)) {
-            checkedItem = i;
-            break;
-        }
-    }
-
-    AlertDialog.Builder builder = new AlertDialog.Builder(activity, isThemeDark(activity) ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-    builder.setTitle("字体风格");
-    builder.setSingleChoiceItems(fonts, checkedItem, new DialogInterface.OnClickListener() {
-        public void onClick(DialogInterface dialog, int which) {
-            putString("settings", "ui_font_type", fontValues[which]);
-            updateSettingsItemText("ui_font_type", fonts[which]);
-            qqToast(2, "字体已更改");
-            dialog.dismiss();
-        }
-    });
-    builder.setNegativeButton("取消", null);
-    AlertDialog alertDialog = builder.show();
-    applyUiTheme(activity, alertDialog, 0);
+    final String[] names = {"默认字体", "衬线体", "无衬线", "等宽", "粗体"};
+    final String[] values = {"default", "serif", "sans", "monospace", "bold"};
+    showChoiceDialogEx(activity, "字体风格", names, values, "ui_font_type", "ui_font_type", "default", 0, 2, "字体已更改", null);
 }
 
 void showFontSizeChoiceDialog(final Activity activity) {
-    if (activity == null) return;
-    final String[] sizes = {"小 (0.85x)", "默认 (1.0x)", "中 (1.15x)", "大 (1.3x)"};
-    final String[] sizeValues = {"0.85", "1.0", "1.15", "1.3"};
-
-    String currentSize = getString("settings", "ui_font_size", "1.0");
-    int checkedItem = 1;
-    for (int i = 0; i < sizeValues.length; i++) {
-        if (sizeValues[i].equals(currentSize)) {
-            checkedItem = i;
-            break;
-        }
-    }
-
-    AlertDialog.Builder builder = new AlertDialog.Builder(activity, isThemeDark(activity) ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-    builder.setTitle("字体大小");
-    builder.setSingleChoiceItems(sizes, checkedItem, new DialogInterface.OnClickListener() {
-        public void onClick(DialogInterface dialog, int which) {
-            putString("settings", "ui_font_size", sizeValues[which]);
-            updateSettingsItemText("ui_font_size", sizes[which]);
-            qqToast(2, "字体大小已更改");
-            dialog.dismiss();
-        }
-    });
-    builder.setNegativeButton("取消", null);
-    AlertDialog alertDialog = builder.show();
-    applyUiTheme(activity, alertDialog, 0);
+    final String[] names = {"小 (0.85x)", "默认 (1.0x)", "中 (1.15x)", "大 (1.3x)"};
+    final String[] values = {"0.85", "1.0", "1.15", "1.3"};
+    showChoiceDialogEx(activity, "字体大小", names, values, "ui_font_size", "ui_font_size", "1.0", 1, 2, "字体大小已更改", null);
 }
 
 void showThreadPriorityChoiceDialog(final Activity activity) {
-    if (activity == null) return;
-    final String[] priorities = {"1 (最低)", "2", "3", "4", "5 (默认)", "6", "7", "8", "9", "10 (最高)"};
-    final String[] priorityNumbers = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"};
-
-    String currentPriority = getString("settings", "thread_pool_priority", "");
-    int checkedItem = 4;
-    for (int i = 0; i < priorityNumbers.length; i++) {
-        if (priorityNumbers[i].equals(currentPriority)) {
-            checkedItem = i;
-            break;
-        }
-    }
-
-    AlertDialog.Builder builder = new AlertDialog.Builder(activity, isThemeDark(activity) ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-    builder.setTitle("线程优先级");
-    builder.setSingleChoiceItems(priorities, checkedItem, new DialogInterface.OnClickListener() {
-        public void onClick(DialogInterface dialog, int which) {
-            putString("settings", "thread_pool_priority", priorityNumbers[which]);
-            updateSettingsItemText("thread_pool_priority", priorities[which]);
-            qqToast(2, "优先级已设置");
-            dialog.dismiss();
-        }
-    });
-    builder.setNegativeButton("取消", null);
-    AlertDialog alertDialog = builder.show();
-    applyUiTheme(activity, alertDialog, 0);
+    final String[] names = {"1 (最低)", "2", "3", "4", "5 (默认)", "6", "7", "8", "9", "10 (最高)"};
+    final String[] values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"};
+    showChoiceDialogEx(activity, "线程优先级", names, values, "thread_pool_priority", "thread_pool_priority", "", 4, 2, "优先级已设置", null);
 }
 
 void showRejectPolicyChoiceDialog(final Activity activity) {
-    if (activity == null) return;
-    final String[] policies = {"丢弃最旧任务 (默认)", "丢弃最新任务", "抛出异常", "调用者执行"};
-    final String[] policyValues = {"0", "1", "2", "3"};
-
-    String currentPolicy = getString("settings", "thread_pool_reject_policy", "0");
-    int checkedItem = 0;
-    for (int i = 0; i < policyValues.length; i++) {
-        if (policyValues[i].equals(currentPolicy)) {
-            checkedItem = i;
-            break;
-        }
-    }
-
-    AlertDialog.Builder builder = new AlertDialog.Builder(activity, isThemeDark(activity) ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-    builder.setTitle("任务满载策略");
-    builder.setSingleChoiceItems(policies, checkedItem, new DialogInterface.OnClickListener() {
-        public void onClick(DialogInterface dialog, int which) {
-            putString("settings", "thread_pool_reject_policy", policyValues[which]);
-            updateSettingsItemText("thread_pool_reject_policy", policies[which]);
-            qqToast(2, "策略已设置");
-            dialog.dismiss();
-        }
-    });
-    builder.setNegativeButton("取消", null);
-    AlertDialog alertDialog = builder.show();
-    applyUiTheme(activity, alertDialog, 0);
+    final String[] names = {"丢弃最旧任务 (默认)", "丢弃最新任务", "抛出异常", "调用者执行"};
+    final String[] values = {"0", "1", "2", "3"};
+    showChoiceDialogEx(activity, "任务满载策略", names, values, "thread_pool_reject_policy", "thread_pool_reject_policy", "0", 0, 2, "策略已设置", null);
 }
 
 void showGifSpeedPicker(final Activity activity) {
@@ -2832,7 +2623,7 @@ void showGifSpeedPicker(final Activity activity) {
                         long now = android.os.SystemClock.uptimeMillis();
                         if (!touching[0]) {
                             if (lastTick[0] != 0 && now - lastTick[0] < delay[0]) {
-                                h.postDelayed(this, 8);
+                                h.postDelayed(this, delay[0] - (now - lastTick[0]));
                                 return;
                             }
                             lastTick[0] = now;
