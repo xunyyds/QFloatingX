@@ -1,26 +1,28 @@
 {
-  "version": "2.4.4",
+  "version": "2.5.0",
   "versionType": "正式版",
   "updateType": "补丁",
-  "updateTime": "2026-09-11 20:40:11",
-  "changelog": "- 新增弹窗背景模糊，开关在基础模式（Android 12+）\n- 新增弹窗圆角可自定义调节\n- 背景颜色列表编辑器（弹窗纯色\/渐变与 Toast 共用），多色轮转、单色常驻\n- toast样式：默认 \/ 跟随主题 \/ 背景模糊（暂时有bug）\/ 渐变背景\n- toast  自定义：时长、前缀后缀、位置（底\/中\/顶\/自定义)\n- 双击消息弹窗：布局修复、预览按钮不再截断\n- 消息统计：开关关闭时不启动读文件\/写线程，无任何资源消耗\n- 系统在省电模式时自动暂停 悬浮窗GIF\n- 模拟定位等 hook 按标签实时卸载；开关支持实时控制\n- 取消\/重载操作将关闭设置页",
+  "updateTime": "2026-09-13 11:35:11",
+  "changelog": "- 修复热插拔线程停止失效、停止时并发修改崩溃的问题\n- 修复定位监听线程占用、只增不减泄漏的问题\n- 修复图片保存\/压缩并发回收导致的崩溃\n- 优化PB 解析部分方法\n- 清理死代码，精简脚本体积\n- 修复音频播放器作用域外引用、关弹窗不释放的问题\n- 修复消息统计偶现跨天不刷新的问题\n- 修复全体禁言进程被杀后倒计时无法结束导致不会自动关闭全体禁言的问题\n- 修复长按菜单偶现取成员信息判空缺失导致打不开的问题\n- 修复共享解释器跨线程并发时脚本串号的问题\n- 修复定时任务永远到达不了触发时间的问题\n- 修复功能管理弹窗暗色主题下文字与背景对比度问题\n- 精简 Keelive、去除冗余形参、统一剪贴板调用\n- 修复设置页搜索设置项时滚动高亮动画效果\n- 修复调色盘历史遗留问题（现在全模式可用）\n- log大小限制检测增加节流并移出onmsg回调，避免额外性能消耗\n- 优化输入框提示中的变量及链接的性能及获取速度\n- 优化背景图片时的资源占用\n- 优化空间操作中的防重复点赞逻辑为仅删除最旧记录\n- 优化部分列表类弹窗的额外性能消耗\n- 优化HTTP\/post超时防护与关闭时资源清理\n- 删除部分热路径日志，避免频繁写入\n- 大幅优化了性能问题，大幅减少了代码体积",
   "files": [
     "QFloatingX\/API\/ColorPicker.java",
     "QFloatingX\/API\/api3.java",
     "QFloatingX\/API\/uitools.java",
     "QFloatingX\/API\/Dialog.java",
     "QFloatingX\/API\/api5.java",
+    "QFloatingX\/API\/KeepAlive.java",
     "QFloatingX\/API\/api.java",
     "QFloatingX\/API\/api2.java",
     "QFloatingX\/API\/setwindow.java",
     "QFloatingX\/API\/api4.java",
     "QFloatingX\/API\/api9.java",
+    "QFloatingX\/API\/api6.java",
     "QFloatingX\/API\/api7.java",
     "QFloatingX\/API\/api8.java",
     "QFloatingX\/API\/function.java",
-    "QFloatingX\/main.java",
     "QFloatingX\/API\/import.java",
     "QFloatingX\/info.prop",
+    "QFloatingX\/main.java",
     "QFloatingX\/更新日志.txt"
   ]
 }
