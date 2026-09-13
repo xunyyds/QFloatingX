@@ -112,83 +112,51 @@ public String qzoneGet(String url, String cookie)
     buffer.delete(buffer.length() - 1, buffer.length());
     return buffer.toString();
 }
-String httpGet(String url, String cookie) {
-    traceLog("api_log","[httpGet] " + url);
+String coreHttp(String tag, String url, String cookie, String method, String contentType, String userAgent, String data, int timeoutMs) {
+    traceLog("api_log","[" + tag + "] " + url);
+    HttpURLConnection uc = null;
+    BufferedReader reader = null;
     try {
-        URLConnection uc = new URL(url).openConnection();
-        uc.setRequestProperty("Host", "h5.qzone.qq.com");
+        uc = (HttpURLConnection) new URL(url).openConnection();
+        uc.setDoInput(true);
+        uc.setRequestMethod(method);
+        if (contentType != null) uc.setRequestProperty("Content-Type", contentType);
+        if (userAgent != null) uc.setRequestProperty("user-agent", userAgent);
         if (cookie != null && !cookie.isEmpty()) uc.setRequestProperty("Cookie", cookie);
-        uc.setRequestProperty("user-agent", "Mozilla/5.0 (Linux; Android 12; V2055A Build/SP1A.210812.003; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/89.0.4389.72 MQQBrowser/6.2 TBS/046209 Mobile Safari/537.36 V1_AND_SQ_8.9.5_3176_YYB_D A_8090500 QQ/8.9.5.8845 NetType/WIFI WebP/0.3.0 Pixel/1080 StatusBarHeight/85 SimpleUISwitch/0 QQTheme/1000 InMagicWin/0 StudyMode/0 CurrentMode/0 CurrentFontScale/0.87 GlobalDensityScale/0.90000004 AppId/537129734");
-        uc.setConnectTimeout(10000);
-        uc.setReadTimeout(10000);
-        
-        BufferedReader reader = new BufferedReader(new InputStreamReader(uc.getInputStream(), "utf-8"));
+        uc.setConnectTimeout(timeoutMs); uc.setReadTimeout(timeoutMs);
+        if (data != null) {
+            uc.setDoOutput(true);
+            java.io.OutputStream os = uc.getOutputStream();
+            os.write(data.getBytes("UTF-8"));
+            os.flush();
+            os.close();
+        }
+        reader = new BufferedReader(new InputStreamReader(uc.getInputStream(), "utf-8"));
         StringBuilder sb = new StringBuilder();
         String line;
         while ((line = reader.readLine()) != null) sb.append(line).append("\n");
-        reader.close();
-        
         String result = sb.length() > 0 ? sb.substring(0, sb.length() - 1) : "";
-        traceLog("api_log","[httpGet] 成功，长度: " + result.length());
+        traceLog("api_log","[" + tag + "] 成功，长度: " + result.length());
         return result;
     } catch (Throwable e) {
-        traceLog("api_log","[httpGet] 异常: " + e.getMessage());
+        traceLog("api_log","[" + tag + "] 异常: " + e.getMessage());
         return "";
+    } finally {
+        try { if (reader != null) reader.close(); } catch (Throwable ignore) {}
+        try { if (uc != null) uc.disconnect(); } catch (Throwable ignore) {}
     }
+}
+
+String httpGet(String url, String cookie) {
+    return coreHttp("httpGet", url, cookie, "GET", null, "Mozilla/5.0 (Linux; Android 12; V2055A Build/SP1A.210812.003; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/89.0.4389.72 MQQBrowser/6.2 TBS/046209 Mobile Safari/537.36 V1_AND_SQ_8.9.5_3176_YYB_D A_8090500 QQ/8.9.5.8845 NetType/WIFI WebP/0.3.0 Pixel/1080 StatusBarHeight/85 SimpleUISwitch/0 QQTheme/1000 InMagicWin/0 StudyMode/0 CurrentMode/0 CurrentFontScale/0.87 GlobalDensityScale/0.90000004 AppId/537129734", null, 10000);
 }
 
 String httpPost(String url, String cookie, String data) {
-    traceLog("api_log","[httpPost] " + url);
-    try {
-        HttpURLConnection uc = (HttpURLConnection) new URL(url).openConnection();
-        uc.setDoInput(true); uc.setDoOutput(true); uc.setRequestMethod("POST");
-        uc.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
-        if (cookie != null && !cookie.isEmpty()) uc.setRequestProperty("Cookie", cookie);
-        uc.setConnectTimeout(20000); uc.setReadTimeout(20000);
-        
-        uc.getOutputStream().write(data.getBytes("UTF-8"));
-        uc.getOutputStream().flush(); uc.getOutputStream().close();
-        
-        BufferedReader reader = new BufferedReader(new InputStreamReader(uc.getInputStream(), "utf-8"));
-        StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = reader.readLine()) != null) sb.append(line).append("\n");
-        reader.close();
-        
-        String result = sb.length() > 0 ? sb.substring(0, sb.length() - 1) : "";
-        traceLog("api_log","[httpPost] 成功，长度: " + result.length());
-        return result;
-    } catch (Throwable e) {
-        traceLog("api_log","[httpPost] 异常: " + e.getMessage());
-        return "";
-    }
+    return coreHttp("httpPost", url, cookie, "POST", "application/x-www-form-urlencoded; charset=UTF-8", null, data, 20000);
 }
 
 String httpPostJson(String url, String cookie, String json) {
-    traceLog("api_log","[httpPostJson] " + url);
-    try {
-        HttpURLConnection uc = (HttpURLConnection) new URL(url).openConnection();
-        uc.setDoInput(true); uc.setDoOutput(true); uc.setRequestMethod("POST");
-        uc.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-        if (cookie != null && !cookie.isEmpty()) uc.setRequestProperty("Cookie", cookie);
-        uc.setConnectTimeout(20000); uc.setReadTimeout(20000);
-        
-        uc.getOutputStream().write(json.getBytes("UTF-8"));
-        uc.getOutputStream().flush(); uc.getOutputStream().close();
-        
-        BufferedReader reader = new BufferedReader(new InputStreamReader(uc.getInputStream(), "utf-8"));
-        StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = reader.readLine()) != null) sb.append(line).append("\n");
-        reader.close();
-        
-        String result = sb.length() > 0 ? sb.substring(0, sb.length() - 1) : "";
-        traceLog("api_log","[httpPostJson] 成功，长度: " + result.length());
-        return result;
-    } catch (Throwable e) {
-        traceLog("api_log","[httpPostJson] 异常: " + e.getMessage());
-        return "";
-    }
+    return coreHttp("httpPostJson", url, cookie, "POST", "application/json; charset=UTF-8", null, json, 20000);
 }
 public String httppost1(String urlPath, String cookie, String data)
 {
@@ -197,17 +165,18 @@ public String httppost1(String urlPath, String cookie, String data)
     try
     {
         URL url = new URL(urlPath);
-        uc = (HttpURLConnection) url.openConnection();
+        HttpURLConnection uc = (HttpURLConnection) url.openConnection();
         uc.setDoInput(true);
         uc.setDoOutput(true);
-        uc.setConnectTimeout(2000000);
-        uc.setReadTimeout(2000000);
+        uc.setConnectTimeout(15000);
+        uc.setReadTimeout(15000);
         uc.setRequestMethod("POST");
         uc.setRequestProperty("Content-Type", "application/json");
         uc.setRequestProperty("Cookie", cookie);
-        uc.getOutputStream().write(data.getBytes("UTF-8"));
-        uc.getOutputStream().flush();
-        uc.getOutputStream().close();
+        java.io.OutputStream os = uc.getOutputStream();
+        os.write(data.getBytes("UTF-8"));
+        os.flush();
+        os.close();
         isr = new InputStreamReader(uc.getInputStream(), "utf-8");
         BufferedReader reader = new BufferedReader(isr);
         String line;
@@ -425,62 +394,6 @@ boolean 上传头像(String path) {
 	}
 }
 
-public boolean uploadCover(String path) {
-	ITransFileController control = BaseApplicationImpl.getApplication().getRuntime().getRuntimeService(ITransFileController.class);
-	TransferRequest transferRequest = new TransferRequest();
-	transferRequest.mIsUp = true;
-	transferRequest.mLocalPath = path;
-	transferRequest.mFileType = 35;
-	boolean transferAsync = control.transferAsync(transferRequest);
-	return transferAsync;
-}
-public boolean uploadTroopAvatar(String qun, String path) {
-	ITransFileController control = BaseApplicationImpl.getApplication().getRuntime().getRuntimeService(ITransFileController.class);
-	TransferRequest transferRequest = new TransferRequest();
-	transferRequest.mIsUp = true;
-	transferRequest.mLocalPath = path;
-	transferRequest.mFileType = 24;
-	transferRequest.mPeerUin = qun;
-	boolean transferAsync = control.transferAsync(transferRequest);
-	return transferAsync;
-}
-import com.tencent.mobileqq.app.BaseActivity;
-import com.tencent.mobileqq.troop.avatar.TroopPhotoController;
-public boolean UploadTroopPhoto(String qun, String filepath) {
-	boolean a = false;
-	BaseActivity.sTopActivity.runOnUiThread(new Runnable() {
-		public void run() {
-			TroopAvatarActivity = new TroopAvatarWallEditActivity();
-			Bundle bundle = new Bundle();
-			bundle.putString("troopUin", qun);
-			bundle.putInt("type", 1);
-			TroopPhotoController troopPhotoController = new TroopPhotoController(context, TroopAvatarActivity, app, bundle);
-			String tt = QRoute.api(ITroopPhotoUtilsApi.class).getClipStr(0, 0, 0, 0);
-			a = troopPhotoController.E(filepath, tt);
-		}
-	});
-	return a;
-}
-//上传群封面
-import com.tencent.mobileqq.troop.avatar.TroopAvatarController;
-import com.tencent.mobileqq.troop.avatar.api.ITroopPhotoUtilsApi;
-import com.tencent.mobileqq.troop.activity.TroopAvatarWallEditActivity;
-TroopAvatarWallEditActivity TroopAvatarActivity;
-public boolean UploadTroopAvatar(String qun, String filepath) {
-	boolean a = false;
-	BaseActivity.sTopActivity.runOnUiThread(new Runnable() {
-		public void run() {
-			TroopAvatarActivity = new TroopAvatarWallEditActivity();
-			Bundle bundle = new Bundle();
-			bundle.putString("troopUin", qun);
-			bundle.putInt("type", 1);
-			TroopAvatarController troopAvatarController = new TroopAvatarController(context, TroopAvatarActivity, app, bundle);
-			String tt = QRoute.api(ITroopPhotoUtilsApi.class).getClipStr(0, 0, 0, 0);
-			a = troopAvatarController.E(filepath, tt);
-		}
-	});
-	return a;
-}
 
 //🥶🐔开发
 import com.tencent.mobileqq.profilecard.api.IProfileDataService;
@@ -529,291 +442,6 @@ public TroopInfo findTroopInfo(String qun) {
 	// Object app = BaseApplicationImpl.getApplication().getRuntime();
 	ITroopInfoService Info = app.getRuntimeService(ITroopInfoService.class);
 	return Info.findTroopInfo("" + qun);
-}
-public String getGroupNames(String qun)
-{
-    TroopInfo info=findTroopInfo(qun);
-    return info.troopname;
-}
-public String getUserName(String uin)
-{
-    try
-    {
-        Object card = GetCard(uin);
-        if(card == null||card.strNick==null)
-        {
-            return getUserNickName(uin);
-        }
-        else
-        {
-            return card.strNick;
-        }
-    }
-    catch(e)
-    {
-        return getUserNickName(uin);
-    }
-}
-public String getUserNickName(String uin)
-{
-    try {
-        String qzone = getPskey("qzone.qq.com");
-        long gtk = getGTK(qzone);
-        String cookie = "p_uin=o0" + myUin + ";skey=" + skey + ";p_skey=" + qzone;
-        String url = "https://r.qzone.qq.com/cgi-bin/user/cgi_personal_card?uin=" + uin + "&remark=0&g_tk=" + gtk;
-        String nm = httpget(url, cookie);
-        String nv = nm.replace("_Callback(", "");
-        String nan = nv.replace(");", "");
-        String boy = nan.replaceAll("\n", "");
-        JSONObject json1 = new JSONObject(boy);
-        String nickname = json1.get("nickname");
-        return nickname;
-    }
-    catch(e) {
-        return uin;
-    }
-}
-
-//图片类工具，由伊志平开发，由ᗜ×ᗜ适配本脚本并规范，不可直接搬运，因为适配性等未知问题
-
-// 从路径/URL加载Bitmap（网络/本地）
-Bitmap getbitmap(String path) {
-	InputStream stream = null;
-	try {
-		if (path.startsWith("http")) {
-			URL url1 = new URL(path);
-			HttpURLConnection urlc = url1.openConnection();
-			stream = urlc.getInputStream();
-			Bitmap bmp = BitmapFactory.decodeStream(stream).copy(Bitmap.Config.ARGB_8888, true);
-			return bmp;
-		} else {
-			stream = new FileInputStream(path);
-			Bitmap bmp = BitmapFactory.decodeStream(stream).copy(Bitmap.Config.ARGB_8888, true);
-			return bmp;
-		}
-	} catch (Throwable e) {
-		traceLog("api_log", "[getbitmap] 加载失败: " + e.getMessage());
-		Toast("图片加载错误: " + e.getMessage());
-		return Bitmap.createBitmap(800, 800, Bitmap.Config.ARGB_8888);
-	} finally {
-		if (stream != null) {
-			try {
-				stream.close();
-			} catch (Throwable closeE) {
-				traceLog("api_log", "[getbitmap] 流关闭失败: " + closeE.getMessage());
-			}
-		}
-	}
-}
-
-// 生成圆角Bitmap
-Bitmap getroundbmp(Bitmap bitmap, float roundPx) {
-	try {
-		Bitmap bmp = Bitmap.createBitmap(bitmap.getWidth(), bitmap.getHeight(), Bitmap.Config.ARGB_8888);
-		Canvas canvas = new Canvas(bmp);
-		Paint paint = new Paint();
-		Rect rect = new Rect(0, 0, bitmap.getWidth(), bitmap.getHeight());
-		RectF rectF = new RectF(rect);
-		paint.setAntiAlias(true);
-		canvas.drawRoundRect(rectF, roundPx, roundPx, paint);
-		paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC_IN));
-		canvas.drawBitmap(bitmap, rect, rect, paint);
-		return bmp;
-	} catch (Throwable e) {
-		traceLog("api_log", "[getroundbmp] 圆角处理失败: " + e.getMessage());
-		return bitmap;
-	}
-}
-
-// Bitmap保存到文件
-void bmptofile(Bitmap bmp, String path) {
-	FileOutputStream fs = null;
-	try {
-		if (bmp == null) throw new IllegalArgumentException("Bitmap为空");
-
-		File f = new File(path);
-		if (f.exists()) f.delete();
-		if (!f.getParentFile().exists()) f.getParentFile().mkdirs();
-
-		fs = new FileOutputStream(path);
-		bmp.compress(Bitmap.CompressFormat.PNG, 100, fs);
-		fs.flush();
-
-		traceLog("api_log", "[bmptofile] 图片已保存: " + path);
-	} catch (Throwable e) {
-		traceLog("api_log", "[bmptofile] 保存失败: " + e.getMessage());
-		Toast("保存失败: " + e.getMessage());
-	} finally {
-		if (fs != null) {
-			try {
-				fs.close();
-			} catch (Throwable closeE) {
-				traceLog("api_log", "[bmptofile] 文件流关闭失败: " + closeE.getMessage());
-			}
-		}
-	}
-}
-
-// URL下载图片（异步）
-void urltofile(final String url, final String path) {
-	// ThreadPool.execute(new Runnable() {
-	// public void run() {
-	try {
-		Bitmap bmp = getbitmap(url);
-		bmptofile(bmp, path);
-	} catch (Throwable e) {
-		traceLog("api_log", "[urltofile] 下载失败: " + e.getMessage());
-	}
-	// }
-	// });
-}
-
-// 缩放图片（异步）
-void fsdx(final String path1, final String path, final Object a, final Object b) {
-	ThreadPool.execute(new Runnable() {
-		public void run() {
-			try {
-				Bitmap bm1 = getbitmap(path1);
-				Matrix ma = new Matrix();
-				float w = ((Number) a).floatValue();
-				float h = ((Number) b).floatValue();
-				ma.postScale(w, h);
-				Bitmap bmp = Bitmap.createBitmap(bm1, 0, 0, bm1.getWidth(), bm1.getHeight(), ma, true);
-
-				String savePath = ("".equals(path) || path == null) ? path1 : path;
-				bmptofile(bmp, savePath);
-			} catch (Throwable e) {
-				traceLog("api_log", "[fsdx] 缩放失败: " + e.getMessage());
-			}
-		}
-	});
-}
-
-// 叠加图片（异步）
-void pinpic(final String path1, final String path2, final Object sw, final Object sh,
-	final Object x, final Object y, final Object yd, final String path) {
-	ThreadPool.execute(new Runnable() {
-		public void run() {
-			try {
-				Bitmap bm1 = getbitmap(path1);
-				Bitmap bm2 = getbitmap(path2);
-
-				float a = ((Number) sw).floatValue() * ((float) bm1.getWidth() / (float) bm2.getWidth());
-				float b = ((Number) sh).floatValue() * ((float) bm1.getHeight() / (float) bm2.getHeight());
-
-				Matrix ma = new Matrix();
-				if (((Number) sw).floatValue() > 998 || ((Number) sh).floatValue() > 998) {
-					float i = Math.min(a, b);
-					ma.postScale(i, i);
-				} else {
-					ma.postScale(a, b);
-				}
-
-				Bitmap zmp = Bitmap.createBitmap(bm2, 0, 0, bm2.getWidth(), bm2.getHeight(), ma, true);
-				float x1 = ((Number) x).floatValue() * bm1.getWidth() - 0.5f* zmp.getWidth();
-				float y1 = ((Number) y).floatValue() * bm1.getHeight() - 0.5f* zmp.getHeight();
-				Bitmap smp = getroundbmp(zmp, ((Number) yd).floatValue());
-
-				Canvas cas = new Canvas(bm1);
-				cas.drawBitmap(smp, x1, y1, null);
-
-				String savePath = ("".equals(path) || path == null) ? path1 : path;
-				bmptofile(bm1, savePath);
-			} catch (Throwable e) {
-				traceLog("api_log", "[fsdx] 叠加失败: " + e.getMessage());
-			}
-		}
-	});
-}
-
-// 写入文字（异步）
-void writetopic(final String path1, final String text, final String color,
-	final Object x, final Object y, final Object size, final String path) {
-	ThreadPool.execute(new Runnable() {
-		public void run() {
-			try {
-				Bitmap bmp = getbitmap(path1);
-				Canvas cas = new Canvas(bmp);
-				Paint pt = new Paint();
-				pt.setTextSize(((Number) size).floatValue());
-				pt.setTypeface(Typeface.MONOSPACE);
-				if (color != null && !"".equals(color)) {
-					pt.setColor(pc(color));
-				}
-
-				float x1 = ((Number) x).floatValue() * bmp.getWidth() - 0.5f* text.length() * ((Number) size).floatValue();
-				float y1 = ((Number) y).floatValue() * bmp.getHeight() + 0.5f* ((Number) size).floatValue();
-
-				cas.drawText(text, x1, y1, pt);
-
-				String savePath = ("".equals(path) || path == null) ? path1 : path;
-				bmptofile(bmp, savePath);
-			} catch (Throwable e) {
-				traceLog("api_log", "[fsdx] 文字写入失败: " + e.getMessage());
-			}
-		}
-	});
-}
-
-// 叠加QQ头像（异步）
-void pinqpic(final String path1, final String qq, final Object sw, final Object sh,
-	final Object x, final Object y, final Object yd, final String path) {
-	ThreadPool.execute(new Runnable() {
-		public void run() {
-			String qqUrl = "http://q1.qlogo.cn/g?b=qq&nk=" + qq + "&s=640";
-			pinpic(path1, qqUrl, sw, sh, x, y, yd, path);
-		}
-	});
-}
-
-//  JSON解析工具  开发者:如如 改进:荨宝（有人记得这个人吗，其实就是ᗜ×ᗜ哦，嘻嘻）
-//  必须配合org.json.JSONObject使用
-
-public String jiexi(org.json.JSONObject json, String tag) {
-	String result = "";
-	for (String str: json.keySet()) {
-		result += "\n" + jiexi(json.get(str), str, tag);
-	}
-	return result;
-}
-
-public String jiexi(org.json.JSONObject json, String name, String tag) {
-	String newTag = tag + "_" + name;
-	if (!name.equals("h")) name = "\"" + name + "\"";
-	String result = "\nJSONObject " + newTag + " = " + tag + ".getJSONObject(" + name + ");\n";
-	for (String str: json.keySet()) {
-		result += "\n" + jiexi(json.get(str), str, newTag);
-	}
-	return result;
-}
-
-public String jiexi(org.json.JSONArray json, String name, String tag) {
-	String newTag = tag + "_" + name;
-	if (!name.equals("h")) name = "\"" + name + "\"";
-	int length = json.length();
-	if (length > 0) return "\nJSONArray " + newTag + " = " + tag + ".getJSONArray(" + name + ");\nfor(int h = 0; h < " + newTag + ".length(); h++)\n{\n   " + jiexi(json.get(0), "h", newTag) + "\n}";
-	else return "//" + newTag + "没有数据\n";
-}
-
-public String jiexi(Object object, String name, String tag) {
-	String newTag = tag + "_" + name;
-	if (!name.equals("h")) name = "\"" + name + "\"";
-	if (object instanceof Integer) return "\nInteger " + newTag + " = " + tag + ".getInt(" + name + ");//→" + object;
-	else if (object instanceof Long) return "\nLong " + newTag + " = " + tag + ".getLong(" + name + ");//→" + object;
-	else if (object instanceof Double) return "\nDouble " + newTag + " = " + tag + ".getDouble(" + name + ");//→" + object;
-	else if (object instanceof Boolean) return "\nBoolean " + newTag + " = " + tag + ".getBoolean(" + name + ");//→" + object;
-	else if (object instanceof String) return "\nString " + newTag + " = " + tag + ".getString(" + name + ");//→\"" + object + "\"";
-	else return "\nObject " + newTag + " = " + tag + ".get(" + name + ");//→" + object;
-}
-
-boolean 判断文件(String files) {
-	File file = new File(files);
-	long totalBytes = file.length();
-	if (totalBytes == 0) {
-		return false;
-	} else {
-		return true;
-	}
 }
 public void 删除(String Path) {
 	File file = null;
@@ -1052,20 +680,8 @@ long getFolderSize(File folder) {
 }
 
 String getFormattedSize(long sizeInBytes) {
-	if (sizeInBytes <= 0) {
-		return "0KB";
-	}
-	java.text.DecimalFormat df = new java.text.DecimalFormat("0.###");
-	double size = sizeInBytes / 1024.0;
-	String unit = "KB";
-	if (size >= 1048576.0) {
-		size = size / 1048576.0;
-		unit = "GB";
-	} else if (size >= 1024.0) {
-		size = size / 1024.0;
-		unit = "MB";
-	}
-	return df.format(size) + unit;
+	if (sizeInBytes <= 0) return "0KB";
+	return formatSize(sizeInBytes);
 }
 String getFormattedSize(File folder) {
 	if (folder == null) {
@@ -1082,11 +698,7 @@ String getFormattedSize(File folder) {
 	}
 
 	try {
-		long sizeInBytes = getFolderSize(folder);
-		if (sizeInBytes == 0) {
-			return "0KB";
-		}
-		return getFormattedSize(sizeInBytes);
+		return getFormattedSize(getFolderSize(folder));
 	} catch (Exception e) {
 		traceLog("api_log", "[getFormattedSize] 格式化文件夹大小失败: " + folder.getName() + "    " + e);
 		return "计算失败";
@@ -1307,54 +919,6 @@ public void log大小限制(String Path) {
 	} catch (Exception e) {
 		traceLog("api_log", "[log大小限制] 处理log文件夹时出错: " + e);
 	}
-}
-
-public void setTips(String title, String message) {
-	Activity ThisActivity = getNowActivity();
-	ThisActivity.runOnUiThread(new Runnable() {
-		public void run() {
-			boolean isDark = isThemeDark(ThisActivity);
-
-			// TextView优化配置
-			TextView textView = new TextView(ThisActivity);
-			textView.setText(message);
-			textView.setTextSize(17);
-			textView.setTextColor(isDark ? pc("#FFEFEFEF") : pc("#FF000000"));
-			textView.setTextIsSelectable(true);
-			textView.setHorizontallyScrolling(false); // 禁用水平滚动，启用自动换行
-
-			//  ScrollView包裹解决滑动性能问题
-			ScrollView scrollView = new ScrollView(ThisActivity);
-			scrollView.setFillViewport(true);
-			scrollView.addView(textView);
-
-			// 布局容器：遵循宪章3.3节尺寸约束（最大360dp宽度，左右20dp边距）
-			LinearLayout layout = new LinearLayout(ThisActivity);
-			layout.setOrientation(LinearLayout.VERTICAL);
-			layout.setPadding(dp(20), dp(20), dp(20), dp(20)); // 20dp边距
-
-			// 设置布局参数：宽度360dp，高度自适应
-			LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(
-				dp转px(ThisActivity, 320), // 宽度320dp（360dp减去左右边距）
-				LinearLayout.LayoutParams.WRAP_CONTENT
-			);
-			layout.setLayoutParams(layoutParams);
-			layout.addView(scrollView);
-
-			// 创建并显示弹窗
-			AlertDialog.Builder builder = new AlertDialog.Builder(ThisActivity,
-				isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-
-			builder.setTitle(title)
-				.setView(layout)
-				.setNegativeButton("关闭", null);
-
-			AlertDialog dialog = builder.create();
-			dialog.show();
-            
-			applyUiTheme(ThisActivity, dialog, 0);
-		}
-	});
 }
 
 import java.security.MessageDigest;
@@ -1611,14 +1175,6 @@ public int dp(Activity activity, int d) {
 }
 public int dp(int d) {
 	return (int)(d * context.getResources().getDisplayMetrics().density);
-}
-int dp转px(Activity activity, int dp) {
-	try {
-		float density = activity.getResources().getDisplayMetrics().density;
-		return (int)(dp * density);
-	} catch (Exception e) {
-		return dp * 2;
-	}
 }
 int dp(Context context, float dpValue) {
 	final float scale = context.getResources().getDisplayMetrics().density;
@@ -2243,19 +1799,14 @@ private void xToast(String text) {
         if (boxSize[0] > 0 && boxSize[0] < maxW) maxW = boxSize[0];
         tv.setMaxWidth(maxW);
         tv.setMaxLines(8);
-        if (!getBoolean("settings", "toast_adaptive", true) && boxSize[0] > 0 && boxSize[1] > 0) {
+        boolean adaptive = getBoolean("settings", "toast_adaptive", true);
+        if (!adaptive && boxSize[0] > 0 && boxSize[1] > 0) {
             // 撑满框：文字填充才看得到
             root.addView(tv, new LinearLayout.LayoutParams(-1, -1));
         } else {
             root.addView(tv, new LinearLayout.LayoutParams(-2, -2));
         }
-        traceLog("api_log", "[xToast] style=" + style + " pos=" + posMode
-            + " maxW=" + maxW
-            + " adaptive=" + getBoolean("settings", "toast_adaptive", true)
-            + " textG=" + getString("settings", "toast_text_gravity", "center")
-            + " boxG=" + getString("settings", "toast_box_gravity", "center")
-            + " cx=" + getString("settings", "toast_custom_x", "0")
-            + " cy=" + getString("settings", "toast_custom_y", "0"));
+        traceLog("api_log", "[xToast] style=" + style + " pos=" + posMode + " maxW=" + maxW);
 
         AnimationSet showAnim = new AnimationSet(true);
         ScaleAnimation scaleShow = new ScaleAnimation(0.8f, 1.0f, 0.8f, 1.0f, Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF, 0.5f);
@@ -2326,6 +1877,8 @@ private void xToastBlur(Context ctx, String text) {
         if (posMode == null || posMode.isEmpty()) posMode = "bottom";
         int[] boxSize = new int[2];
         readCustomBoxSize(posMode, boxSize);
+        int maxW = act.getResources().getDisplayMetrics().widthPixels - dp(act, 48);
+        if (boxSize[0] > 0 && boxSize[0] < maxW) maxW = boxSize[0];
         traceLog("api_log", "[xToastBlur] start pos=" + posMode
             + " maxW=" + maxW
             + " textG=" + getString("settings", "toast_text_gravity", "center")
@@ -2336,8 +1889,6 @@ private void xToastBlur(Context ctx, String text) {
         tv.setTextSize(16);
         tv.setTextColor(isDark ? pc("#FFEFEFEF") : pc("#FF222222"));
         applyToastTextAlign(tv);
-        int maxW = act.getResources().getDisplayMetrics().widthPixels - dp(act, 48);
-        if (boxSize[0] > 0 && boxSize[0] < maxW) maxW = boxSize[0];
         tv.setMaxWidth(maxW);
         tv.setMaxLines(8);
         tv.setPadding(dp(20), dp(14), dp(20), dp(14));
@@ -2522,9 +2073,6 @@ void showScreenPointPicker(Activity a, final int initX, final int initY, final i
                     }
                 };
                 handle.setOnTouchListener(bodyTouch);
-                for (int i = 0; i < 8; i++) hs[i].setOnTouchListener(null);
-
-                final int[] modeRef = new int[1];
                 for (int i = 0; i < 8; i++) {
                     final int mode = i;
                     hs[i].setOnTouchListener(new View.OnTouchListener() {
@@ -2597,25 +2145,6 @@ void showScreenPointPicker(Activity a, final int initX, final int initY, final i
             } catch (Throwable e) { traceLog("api_log", "[showScreenPointPicker] 异常: " + e); }
         }
     });
-}
-
-boolean 应用状态() {
-    Activity activity = getNowActivity();
-    if (activity == null) activity = 最后Activity;
-    if (activity == null) return false;
-
-    ActivityManager activityManager = (ActivityManager) activity.getSystemService(Context.ACTIVITY_SERVICE);
-    if (activityManager == null) return false;
-
-    List<ActivityManager.RunningAppProcessInfo> processes = activityManager.getRunningAppProcesses();
-    if (processes == null) return false;
-
-    for (ActivityManager.RunningAppProcessInfo process : processes) {
-        if (process.processName.equals(currentPackageName)) {
-            return process.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND;
-        }
-    }
-    return false;
 }
 
 boolean updateMenuItemText(String oldName, String newName) {
@@ -2768,29 +2297,9 @@ void 卸载脚本() {
 
 	initThreadPool();
 
-	// ThreadPool.execute(new Runnable() {
-	// public void run() {
-	boolean isUIThread = "main".equals(Thread.currentThread().getName());
-
-	if (!isUIThread && getNowActivity() != null) {
-		final CountDownLatch 信号 = new CountDownLatch(1);
-		// new Handler(Looper.getMainLooper()).post(new Runnable() {
-			// public void run() {
-				// toast("测试");
-				try {
-					执行卸载核心逻辑();
-				} catch (Throwable e) { traceLog("api_log", "[卸载脚本] 异常: " + e); }
-				信号.countDown();
-			// }
-		// });
-		try {
-			信号.await(5, TimeUnit.SECONDS);
-		} catch (InterruptedException e) {}
-	} else {
+	try {
 		执行卸载核心逻辑();
-	}
-	// }
-	// });
+	} catch (Throwable e) { traceLog("api_log", "[卸载脚本] 异常: " + e); }
 	异步关闭线程池();
 }
 
@@ -3031,8 +2540,10 @@ boolean unzipFile(String zipPath, String destDir, ProgressCallback callback) {
     if (!destDirFile.exists()) {
         destDirFile.mkdirs();
     }
+    java.util.zip.ZipFile zip = null;
     try {
-        java.util.zip.ZipFile zip = new java.util.zip.ZipFile(zipFile);
+        String destCanonical = destDirFile.getCanonicalPath() + java.io.File.separator;
+        zip = new java.util.zip.ZipFile(zipFile);
         java.util.Enumeration entries = zip.entries();
         int totalEntry = 0;
         int currentEntry = 0;
@@ -3065,26 +2576,34 @@ boolean unzipFile(String zipPath, String destDir, ProgressCallback callback) {
             }
 
             java.io.File entryFile = new java.io.File(destDirFile, name);
+            if (!entryFile.getCanonicalPath().startsWith(destCanonical)) {
+                traceLog("api_log", "[unzipFile] 拒绝越界条目: " + name);
+                continue;
+            }
             if (entry.isDirectory()) {
                 entryFile.mkdirs();
                 continue;
             }
 
             entryFile.getParentFile().mkdirs();
-            java.io.InputStream zin = zip.getInputStream(entry);
-            java.io.FileOutputStream fout = new java.io.FileOutputStream(entryFile);
-            byte[] buf = new byte[4096];
-            int r;
-            while ((r = zin.read(buf)) != -1) fout.write(buf, 0, r);
-            fout.close();
-            zin.close();
+            java.io.InputStream zin = null;
+            java.io.FileOutputStream fout = null;
+            try {
+                zin = zip.getInputStream(entry);
+                fout = new java.io.FileOutputStream(entryFile);
+                byte[] buf = new byte[4096];
+                int r;
+                while ((r = zin.read(buf)) != -1) fout.write(buf, 0, r);
+            } finally {
+                try { if (zin != null) zin.close(); } catch (Throwable ignore) {}
+                try { if (fout != null) fout.close(); } catch (Throwable ignore) {}
+            }
 
             if (callback != null) {
                 callback.onProgress((int) ((currentEntry * 100) / totalEntry));
                 callback.onProgressTip("解压: " + name);
             }
         }
-        zip.close();
         success = true;
         if (callback != null) {
             callback.onProgress(100);
@@ -3094,6 +2613,8 @@ boolean unzipFile(String zipPath, String destDir, ProgressCallback callback) {
     } catch (Throwable e) {
         success = false;
         traceLog("api_log", "[unzipFile] 异常: " + e.getMessage());
+    } finally {
+        try { if (zip != null) zip.close(); } catch (Throwable ignore) {}
     }
     return success;
 }
@@ -3492,13 +3013,25 @@ void runQFXUpdateCheck(final boolean manual) {
                 }
 
                 JSONObject json = new JSONObject(jsonStr);
-                String count = "0";
-                try {
-                    String jsonStr2 = get("https://cn.apihz.cn/api/jisuan/jishuqi2.php?id=10013224&key=17e1755199ff8eebc2fd58bce20d950e&type=2&number=2");
-                    if (jsonStr2 != null && !jsonStr2.isEmpty()) {
-                        count = new JSONObject(jsonStr2).optString("number2", "0");
+                final String[] countHolder = new String[]{"0"};
+                final Object countLock = new Object();
+                Thread countThread = new Thread(new Runnable() {
+                    public void run() {
+                        try {
+                            String jsonStr2 = get("https://cn.apihz.cn/api/jisuan/jishuqi2.php?id=10013224&key=17e1755199ff8eebc2fd58bce20d950e&type=2&number=2");
+                            if (jsonStr2 != null && !jsonStr2.isEmpty()) {
+                                countHolder[0] = new JSONObject(jsonStr2).optString("number2", "0");
+                            }
+                        } catch (Throwable ignored2) { traceLog("api_log", "[runQFXUpdateCheck] 异常: " + ignored2); }
+                        synchronized (countLock) { countLock.notifyAll(); }
                     }
-                } catch (Throwable ignored2) { traceLog("api_log", "[runQFXUpdateCheck] 异常: " + ignored2); }
+                });
+                countThread.start();
+                String count;
+                synchronized (countLock) {
+                    try { countLock.wait(3000); } catch (Throwable waitIgnored) {}
+                }
+                count = countHolder[0];
 
                 String remoteVersion = json.optString("version", "0.0.0");
                 String versionType = json.optString("versionType", "正式版");
@@ -3736,7 +3269,7 @@ void 跳转到页面(String className) {
 }
 
 boolean isFilePickerHooked = false;
-java.util.HashMap filePickerTasks = new java.util.HashMap();
+java.util.concurrent.ConcurrentHashMap filePickerTasks = new java.util.concurrent.ConcurrentHashMap();
 
 interface FilePickerCallback {
     void onFilePicked(Activity activity, Uri uri, String fileName, String filePath);
@@ -3777,7 +3310,8 @@ void openFilePicker(Activity activity, int requestCode, String mimeType, String[
 
 void ensureFilePickerHook() {
     if (isFilePickerHooked) return;
-    isFilePickerHooked = true;
+    synchronized (this) {
+    if (isFilePickerHooked) return;
     try {
         Class activityClass = Class.forName("android.app.Activity");
         traceLog("api_log", "[hook] 注册中 dispatchActivityResult");
@@ -3795,6 +3329,8 @@ void ensureFilePickerHook() {
                 ThreadPool.execute(new Runnable() {
                     public void run() {
                         try {
+                            if (param.args == null || param.args.length < 4) return;
+                            if (!(param.args[1] instanceof Integer) || !(param.args[2] instanceof Integer)) return;
                             Activity act = (Activity) param.thisObject;
                             int rc = ((Integer) param.args[1]).intValue();
                             int resultCode = ((Integer) param.args[2]).intValue();
@@ -3853,8 +3389,11 @@ void ensureFilePickerHook() {
             }
         });
         traceLog("api_log", "[hook] dispatchActivityResult 已挂钩");
+        isFilePickerHooked = true;
     } catch (Throwable e) {
         traceLog("api_log", "[hook] 失败: " + e);
+        isFilePickerHooked = false;
+    }
     }
 }
 
