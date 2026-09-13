@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.nio.charset.StandardCharsets;
 import android.os.Bundle;
-import android.os.SystemClock;
 import com.tencent.qphone.base.remote.ToServiceMsg;
 import com.tencent.qphone.base.remote.FromServiceMsg;
 import mqq.app.NewIntent;
@@ -75,8 +74,9 @@ public class FunProtoData {
 
         CodedInputStream in = CodedInputStream.newInstance(b);
 
-        while (in.getBytesUntilLimit() > 0) {
+        while (true) {
             int tag = in.readTag();
+            if (tag == 0) break;
             int fieldNumber = tag >>> 3;
             int wireType = tag & 7;
 
@@ -89,15 +89,23 @@ public class FunProtoData {
                     break;
                 case 2:
                     byte[] subBytes = in.readByteArray();
-                    try {
-                        FunProtoData subData = new FunProtoData();
-                        subData.fromBytes(subBytes);
-                        putValue(fieldNumber, subData);
-                    } catch (Exception e) {
+                    boolean looksText = subBytes.length > 0;
+                    for (int ci = 0; ci < subBytes.length; ci++) {
+                        int cb = subBytes[ci] & 0xFF;
+                        if (cb < 0x09 || cb > 0x7E) { looksText = false; break; }
+                    }
+                    if (looksText) {
+                        putValue(fieldNumber, new String(subBytes, StandardCharsets.UTF_8));
+                    } else {
                         try {
-                            String decoded = new String(subBytes, StandardCharsets.UTF_8);
-                            putValue(fieldNumber, decoded);
-                        } catch (Exception e2) {
+                            FunProtoData subData = new FunProtoData();
+                            subData.fromBytes(subBytes);
+                            if (subData.values.isEmpty()) {
+                                putValue(fieldNumber, "hex->" + bytesToHex(subBytes));
+                            } else {
+                                putValue(fieldNumber, subData);
+                            }
+                        } catch (Exception e) {
                             putValue(fieldNumber, "hex->" + bytesToHex(subBytes));
                         }
                     }
@@ -183,13 +191,7 @@ public class FunProtoData {
     }
 
     private byte[] hexToBytes(String hex) {
-        int len = hex.length();
-        byte[] data = new byte[len / 2];
-        for (int i = 0; i < len; i += 2) {
-            data[i / 2] = (byte) ((Character.digit(hex.charAt(i), 16) << 4)
-                    + Character.digit(hex.charAt(i + 1), 16));
-        }
-        return data;
+        return PacketHelper.hexToBytes(hex);
     }
 
     public Object getFirstValue(int fieldNumber) {
@@ -231,13 +233,29 @@ public class PacketHelper {
         return sb.toString();
     }
 
+    public static String bytesToHexLimit(byte[] bytes, int maxBytes) {
+        if (bytes == null) return "";
+        int limit = bytes.length < maxBytes ? bytes.length : maxBytes;
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < limit; i++) {
+            String hex = Integer.toHexString(0xFF & bytes[i]);
+            if (hex.length() == 1) sb.append('0');
+            sb.append(hex);
+        }
+        if (limit < bytes.length) sb.append("...(共" + bytes.length + "字节)");
+        return sb.toString();
+    }
+
     public static byte[] hexToBytes(String hex) {
         if (hex == null || hex.isEmpty()) return new byte[0];
         int len = hex.length();
+        if ((len & 1) != 0) throw new IllegalArgumentException("hex 长度必须为偶数: " + len);
         byte[] data = new byte[len / 2];
         for (int i = 0; i < len; i += 2) {
-            data[i / 2] = (byte) ((Character.digit(hex.charAt(i), 16) << 4)
-                    + Character.digit(hex.charAt(i + 1), 16));
+            int hi = Character.digit(hex.charAt(i), 16);
+            int lo = Character.digit(hex.charAt(i + 1), 16);
+            if (hi < 0 || lo < 0) throw new IllegalArgumentException("非法 hex 字符位置: " + i);
+            data[i / 2] = (byte) ((hi << 4) + lo);
         }
         return data;
     }
@@ -299,6 +317,12 @@ public class PacketHelper {
 
     private static void logReceivedPB(String serviceCmd, byte[] data) {
         try {
+            boolean debugPB = false;
+            try { debugPB = getBoolean("settings", "pb_debug_log", false); } catch (Throwable ignore) {}
+            if (!debugPB) {
+                traceLog("api9_log", "[PB] " + serviceCmd + " " + data.length + "B");
+                return;
+            }
             FunProtoData proto = new FunProtoData();
             proto.fromBytes(data);
             JSONObject json = proto.toJSON();
@@ -309,7 +333,7 @@ public class PacketHelper {
                 .format(new java.util.Date())).append("\n");
             logContent.append("服务: ").append(serviceCmd).append("\n");
             logContent.append("数据长度: ").append(data.length).append(" 字节\n");
-            logContent.append("原始HEX: ").append(bytesToHex(data)).append("\n");
+            logContent.append("原始HEX: ").append(bytesToHexLimit(data, 256)).append("\n");
             logContent.append("解析JSON:\n").append(json.toString(2)).append("\n");
             logContent.append("================================\n");
 
@@ -539,14 +563,14 @@ void showTemplateSelectorDialog(Activity act, EditText etService, EditText etPB)
     
     LinearLayout card = new LinearLayout(act);
     card.setOrientation(LinearLayout.VERTICAL);
-    card.setBackground(roundRect(pc("#FFFFFF"), dp(act, 16)));
+    card.setBackground(roundRect(tc(act, "surface"), dp(act, 16)));
     card.setPadding(dp(act, 20), dp(act, 20), dp(act, 20), dp(act, 20));
     scroll.addView(card);
     
     TextView title = new TextView(act);
     title.setText("选择模板");
     title.setTextSize(17);
-    title.setTextColor(pc("#222222"));
+    title.setTextColor(tc(act, "on_surface"));
     title.setGravity(Gravity.CENTER);
     title.setPadding(0, 0, 0, dp(act, 20));
     card.addView(title);
@@ -580,7 +604,7 @@ void showTemplateSelectorDialog(Activity act, EditText etService, EditText etPB)
         TextView empty = new TextView(act);
         empty.setText("暂无保存的模板");
         empty.setTextSize(14);
-        empty.setTextColor(pc("#BBBBBB"));
+        empty.setTextColor(tc(act, "on_surface_variant"));
         empty.setGravity(Gravity.CENTER);
         empty.setPadding(0, dp(act, 40), 0, dp(act, 40));
         card.addView(empty);
@@ -590,7 +614,7 @@ void showTemplateSelectorDialog(Activity act, EditText etService, EditText etPB)
             String name = (String) e.getKey();
             String templateData = (String) e.getValue();
             
-            TextView templateItem = createButton(act, name, pc("#222222"), pc("#F7F8FA"), 14f, 8, 16, 12, false, 0, 0, null);
+            TextView templateItem = createButton(act, name, tc(act, "on_surface"), tc(act, "surface"), 14f, 8, 16, 12, false, 0, 0, null);
             templateItem.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
             card.addView(templateItem);
             
@@ -608,7 +632,7 @@ void showTemplateSelectorDialog(Activity act, EditText etService, EditText etPB)
         }
     }
     
-    TextView btnClose = createButton(act, "关闭", pc("#666666"), pc("#F7F8FA"), 14f, 8, 0, 20, false, 0, 0, null);
+    TextView btnClose = createButton(act, "关闭", tc(act, "on_surface_variant"), tc(act, "surface"), 14f, 8, 0, 20, false, 0, 0, null);
     card.addView(btnClose);
     btnClose.setOnClickListener(v -> dialog.dismiss());
     
@@ -617,6 +641,7 @@ void showTemplateSelectorDialog(Activity act, EditText etService, EditText etPB)
         dialog.getWindow().setLayout((int)(act.getResources().getDisplayMetrics().widthPixels * 0.85), -2);
     }
     dialog.show();
+    applyUiTheme(act, dialog, 0);
 }
 
 void showPreviewDialog(Activity act, String service, String pbData) {
@@ -635,40 +660,39 @@ void showPreviewDialog(Activity act, String service, String pbData) {
     
     LinearLayout card = new LinearLayout(act);
     card.setOrientation(LinearLayout.VERTICAL);
-    card.setBackground(roundRect(pc("#FFFFFF"), dp(act, 16)));
+    card.setBackground(roundRect(tc(act, "surface"), dp(act, 16)));
     card.setPadding(dp(act, 20), dp(act, 20), dp(act, 20), dp(act, 20));
     scroll.addView(card);
     
     TextView title = new TextView(act);
     title.setText("PB数据预览");
     title.setTextSize(17);
-    title.setTextColor(pc("#222222"));
+    title.setTextColor(tc(act, "on_surface"));
     title.setGravity(Gravity.CENTER);
     title.setPadding(0, 0, 0, dp(act, 20));
     card.addView(title);
     
-    card.addView(makeSubTitleCompact(act, "服务名", pc("#666666")));
+    card.addView(makeSubTitleCompact(act, "服务名", tc(act, "on_surface_variant")));
     TextView tvService = new TextView(act);
     tvService.setText(service.isEmpty() ? "MessageSvc.PbSendMsg (默认)" : service);
     tvService.setTextSize(13);
-    tvService.setTextColor(pc("#222222"));
+    tvService.setTextColor(tc(act, "on_surface"));
     tvService.setPadding(dp(act, 12), dp(act, 8), dp(act, 12), dp(act, 8));
-    tvService.setBackground(roundRect(pc("#F7F8FA"), dp(act, 6)));
+    tvService.setBackground(roundRect(tc(act, "surface"), dp(act, 6)));
     card.addView(tvService);
     
-    card.addView(makeSubTitleCompact(act, "PB数据 (JSON)", pc("#666666")));
+    card.addView(makeSubTitleCompact(act, "PB数据 (JSON)", tc(act, "on_surface_variant")));
     TextView tvPB = new TextView(act);
     tvPB.setText(pbData);
     tvPB.setTextSize(13);
-    tvPB.setTextColor(pc("#222222"));
+    tvPB.setTextColor(tc(act, "on_surface"));
     tvPB.setPadding(dp(act, 12), dp(act, 12), dp(act, 12), dp(act, 12));
-    tvPB.setBackground(roundRect(pc("#F7F8FA"), dp(act, 6)));
+    tvPB.setBackground(roundRect(tc(act, "surface"), dp(act, 6)));
     tvPB.setMinLines(6);
     card.addView(tvPB);
     
-    card.addView(makeSubTitleCompact(act, "编码预览", pc("#666666")));
+    card.addView(makeSubTitleCompact(act, "编码预览", tc(act, "on_surface_variant")));
     TextView tvEncoded = new TextView(act);
-    tvEncoded.setTextColor(tc(act, "on_surface"));
     try {
         JSONObject json = new JSONObject(pbData);
         FunProtoData proto = new FunProtoData();
@@ -679,12 +703,12 @@ void showPreviewDialog(Activity act, String service, String pbData) {
         tvEncoded.setText("解析失败: " + e.getMessage());
     }
     tvEncoded.setTextSize(11);
-    tvEncoded.setTextColor(pc("#666666"));
+    tvEncoded.setTextColor(tc(act, "on_surface_variant"));
     tvEncoded.setPadding(dp(act, 12), dp(act, 8), dp(act, 12), dp(act, 8));
-    tvEncoded.setBackground(roundRect(pc("#F7F8FA"), dp(act, 6)));
+    tvEncoded.setBackground(roundRect(tc(act, "surface"), dp(act, 6)));
     card.addView(tvEncoded);
     
-    TextView btnClose = createButton(act, "关闭", pc("#666666"), pc("#F7F8FA"), 14f, 8, 0, 20, false, 0, 0, null);
+    TextView btnClose = createButton(act, "关闭", tc(act, "on_surface_variant"), tc(act, "surface"), 14f, 8, 0, 20, false, 0, 0, null);
     card.addView(btnClose);
     btnClose.setOnClickListener(v -> dialog.dismiss());
     
@@ -693,6 +717,7 @@ void showPreviewDialog(Activity act, String service, String pbData) {
         dialog.getWindow().setLayout((int)(act.getResources().getDisplayMetrics().widthPixels * 0.85), -2);
     }
     dialog.show();
+    applyUiTheme(act, dialog, 0);
 }
 
 void sendSpecifiedFaceReply(Object data, int faceIndex) {
@@ -704,7 +729,9 @@ void sendSpecifiedFaceReply(Object data, int faceIndex) {
     String groupUin = String.valueOf(data.peerUin);
     long msgSeq = (long) data.data.msgSeq;
 
-    if (Long.parseLong(groupUin) <= 0 || msgSeq <= 0) {
+    long groupNum = 0;
+    try { groupNum = Long.parseLong(groupUin); } catch (Throwable ignored) { traceLog("api9_log", "[sendSpecifiedFaceReply] 异常: " + ignored); }
+    if (groupNum <= 0 || msgSeq <= 0) {
         qqToast(1, "群号或Seq无效");
         return;
     }
@@ -761,6 +788,7 @@ void randomFaceReply(Object data) {
 
 private List parseFaceConfig(String cfg) {
     List list = new ArrayList();
+    if (cfg == null) return list;
     cfg = cfg.trim();
     if (cfg.contains("~")) {
         String[] parts = cfg.split("~");
@@ -798,10 +826,9 @@ void showFaceReplyConfigDialog(Object data) {
         public void run() {
             try {
                 boolean isDark = isThemeDark(act);
-                int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
-                int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
-                int accentColor = isDark ? pc("#FF8AB4F8") : pc("#FF2196F3");
-                int inputBgColor = isDark ? pc("#1AFFFFFF") : pc("#0D000000");
+                int textColor = tc(act, "on_surface");
+                int subTextColor = tc(act, "on_surface_variant");
+                int accentColor = tc(act, "primary");
                 int borderColor = adjustAlpha(textColor, 0.3f);
                 int errorColor = pc("#FFE53935");
 
@@ -1037,10 +1064,6 @@ void showFaceReplyConfigDialog(Object data) {
     });
 }
 
-public void drawqunLuckyChar(String qun) {
-        qqToast(1, "空壳");
-}
-
 void showVoiceSendDialog(Object data) {
     Activity act = getNowActivity();
     if (act == null || act.isFinishing()) return;
@@ -1099,10 +1122,9 @@ void showVoiceSendDialog(Object data) {
         public void run() {
             try {
                 boolean isDark = isThemeDark(act);
-                int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
-                int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
-                int accentColor = isDark ? pc("#FF8AB4F8") : pc("#FF2196F3");
-                int inputBgColor = isDark ? pc("#1AFFFFFF") : pc("#0D000000");
+                int textColor = tc(act, "on_surface");
+                int subTextColor = tc(act, "on_surface_variant");
+                int accentColor = tc(act, "primary");
                 int borderColor = adjustAlpha(textColor, 0.3f);
 
                 LinearLayout root = new LinearLayout(act);
@@ -1232,9 +1254,9 @@ void showVoiceListDialog(final Activity act, final JSONArray voiceArray,
         public void run() {
             try {
                 boolean isDark = isThemeDark(act);
-                int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
-                int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
-                int accentColor = isDark ? pc("#FF8AB4F8") : pc("#FF2196F3");
+                int textColor = tc(act, "on_surface");
+                int subTextColor = tc(act, "on_surface_variant");
+                int accentColor = tc(act, "primary");
 
                 LinearLayout root = new LinearLayout(act);
                 root.setOrientation(LinearLayout.VERTICAL);
@@ -1398,13 +1420,13 @@ void showTrafficRedPacketDialog(Object data) {
             TextView tvTitle = new TextView(act);
             tvTitle.setText("正在偷取你们的流量");
             tvTitle.setTextSize(18);
-            tvTitle.setTextColor(isThemeDark(act) ? pc("#FFEFEFEF") : pc("#FF000000"));
+            tvTitle.setTextColor(tc(act, "on_surface"));
             tvTitle.setGravity(Gravity.CENTER);
             tvTitle.setPadding(0, 0, 0, dp(act, 16));
             card.addView(tvTitle);
 
             boolean dark = isThemeDark(act);
-            int subColor = dark ? pc("#99EFEFEF") : pc("#99000000");
+            int subColor = tc(act, "on_surface_variant");
 
             card.addView(makeSubTitleCompact(act, "外显链接", subColor));
             EditText et1 = makeInput(act, "", null);
@@ -1538,126 +1560,6 @@ void showTrafficRedPacketDialog(Object data) {
     });
 }
 
-void RecallMessage(Object data, long seq) {
-    if (data == null || data.data == null) {
-        qqToast(1, "数据无效");
-        return;
-    }
-
-    final int chatType = data.type;
-    final String peerUid;
-    final long msgId = data.data.msgId;
-
-    if (chatType == 2) { // 群聊
-        peerUid = String.valueOf(data.peerUin);
-    } else if (chatType == 1) { // 私聊
-        peerUid = (String) data.peerUid;
-    } else {
-        qqToast(1, "不支持的聊天类型");
-        return;
-    }
-
-    if (msgId == 0) {
-        qqToast(1, "消息ID无效");
-        return;
-    }
-
-    // 获取真实消息记录
-    fetchRealMsgRecord(msgId, chatType, peerUid, new MsgLoadedCallback() {
-        public void onLoaded(MsgData realData) {
-            if (realData == null || realData.data == null) {
-                qqToast(1, "获取消息数据失败");
-                return;
-            }
-
-            try {
-                String serviceCmd;
-                JSONObject json = new JSONObject();
-
-                if (chatType == 2) { // 群聊撤回
-
-                    if (groupUin <= 0 || msgSeq <= 0 || msgRandom <= 0) {
-                        qqToast(1, "群聊参数无效");
-                        return;
-                    }
-
-                    json.put("1", 1);
-                    json.put("2", groupUin);
-
-                    JSONObject field3 = new JSONObject();
-                    field3.put("1", msgSeq);
-                    field3.put("2", msgRandom);
-                    field3.put("3", 0);
-                    json.put("3", field3);
-
-                    JSONObject field4 = new JSONObject();
-                    field4.put("1", 0);
-                    json.put("4", field4);
-
-                    serviceCmd = "trpc.msg.msg_svc.MsgService.SsoGroupRecallMsg";
-
-                } else if (chatType == 2) { // 私聊撤回
-                    String peerUidStr = peerUid;
-                    long clientSeq = realData.data.clientSeq;
-                    long msgRandom = realData.data.msgRandom;
-                    long realMsgId = realData.data.msgId;
-                    long timestamp = realData.time * 1000L;
-                    long msgSeq = realData.data.msgSeq;
-
-                    if (peerUidStr == null || peerUidStr.isEmpty() || clientSeq <= 0 || msgRandom <= 0 ||
-                            realMsgId <= 0 || timestamp <= 0 || msgSeq <= 0) {
-                        qqToast(1, "私聊参数无效");
-                        return;
-                    }
-
-                    json.put("1", 1);
-                    json.put("2", Long.parseLong(peerUidStr));
-
-                    JSONObject field4 = new JSONObject();
-                    field4.put("1", clientSeq);
-                    field4.put("2", msgRandom);
-                    field4.put("3", realMsgId);
-                    field4.put("4", timestamp);
-                    field4.put("5", 0);
-                    field4.put("6", msgSeq+1);
-                    json.put("4", field4);
-
-                    JSONObject field5 = new JSONObject();
-                    field5.put("1", 0);
-                    field5.put("2", 0);
-                    json.put("5", field5);
-
-                    json.put("6", 0);
-
-                    serviceCmd = "trpc.msg.msg_svc.MsgService.SsoC2CRecallMsg";
-
-                } else {
-                    qqToast(1, "不支持的聊天类型");
-                    return;
-                }
-
-                traceLog("api9_log", "[RecallMessage] " + json.toString());
-
-                FunProtoData proto = new FunProtoData();
-                proto.fromJSON(json);
-                byte[] pbData = proto.toBytes();
-
-                PacketHelper.sendRequest(serviceCmd, pbData, new IReceiver() {
-                    public void onReceive(byte[] resp) {
-                        if (resp != null) {
-                            qqToast(2, "撤回成功");
-                        } else {
-                            qqToast(1, "撤回失败");
-                        }
-                    }
-                });
-
-            } catch (Exception e) {
-                qqToast(1, "发送异常: " + e.getMessage());
-            }
-        }
-    });
-}
 void setMsgEssence(Object data, boolean isEssence) {
     try {
         long groupUin = Long.parseLong(data.peerUid);
@@ -1911,10 +1813,9 @@ void showSuperFaceSendDialog(Object data) {
         public void run() {
             try {
                 boolean isDark = isThemeDark(act);
-                int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
-                int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
-                int accentColor = isDark ? pc("#FF8AB4F8") : pc("#FF2196F3");
-                int inputBgColor = isDark ? pc("#1AFFFFFF") : pc("#0D000000");
+                int textColor = tc(act, "on_surface");
+                int subTextColor = tc(act, "on_surface_variant");
+                int accentColor = tc(act, "primary");
                 int borderColor = adjustAlpha(textColor, 0.3f);
 
                 LinearLayout root = new LinearLayout(act);
