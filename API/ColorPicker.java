@@ -138,7 +138,8 @@ class ColorSeekBar extends LinearLayout {
 class MagnifierView extends View {
     private Paint paint; // 主画笔
     private Paint borderPaint; // 边框画笔
-    private Bitmap magnifiedBitmap; // 放大后的位图
+    private Paint crossPaint;
+    private Bitmap magnifiedBitmap; // 放大后的位图（固定 60x60，复用不重建）
     
     public MagnifierView(Context context) {
         super(context);
@@ -149,6 +150,10 @@ class MagnifierView extends View {
         borderPaint.setStyle(Paint.Style.STROKE);
         borderPaint.setStrokeWidth(4);
         borderPaint.setColor(pc("#FFFFFFFF"));
+        
+        crossPaint = new Paint();
+        crossPaint.setColor(pc("#FFFFFFFF"));
+        crossPaint.setStrokeWidth(2);
     }
     
     public void update(Bitmap source, int srcX, int srcY, int currentColor) {
@@ -161,14 +166,14 @@ class MagnifierView extends View {
                 return;
             }
             
-            if (magnifiedBitmap != null && !magnifiedBitmap.isRecycled()) {
-                magnifiedBitmap.recycle();
-            }
-            
             // 确保尺寸有效
             if (size <= 0 || scale <= 0) return;
             
-            magnifiedBitmap = Bitmap.createBitmap(size * 2, size * 2, Bitmap.Config.ARGB_8888);
+            if (magnifiedBitmap == null || magnifiedBitmap.isRecycled()) {
+                magnifiedBitmap = Bitmap.createBitmap(size * 2, size * 2, Bitmap.Config.ARGB_8888);
+            } else {
+                magnifiedBitmap.eraseColor(0);
+            }
             Canvas canvas = new Canvas(magnifiedBitmap);
             
             Rect srcRect = new Rect(
@@ -188,9 +193,6 @@ class MagnifierView extends View {
             canvas.drawBitmap(source, srcRect, new RectF(0, 0, size * 2, size * 2), paint);
             canvas.restore();
             
-            Paint crossPaint = new Paint();
-            crossPaint.setColor(pc("#FFFFFFFF"));
-            crossPaint.setStrokeWidth(2);
             int center = size * scale;
             canvas.drawLine(center, 0, center, size * 2 * scale, crossPaint);
             canvas.drawLine(0, center, size * 2 * scale, center, crossPaint);
@@ -281,7 +283,8 @@ Bitmap createHsvBitmap(int width, int height, int hue) {
         hueColors[4] = pc("#FF0000FF");
         hueColors[5] = pc("#FFFF00FF");
         hueColors[6] = pc("#FFFF0000");
-        Shader hueShader = new LinearGradient(0, 8, 0, height - 8, (int[]) hueColors, null, Shader.TileMode.CLAMP);
+        float[] huePositions = new float[]{0.0f, 0.1667f, 0.3333f, 0.5f, 0.6667f, 0.8333f, 1.0f};
+        Shader hueShader = new LinearGradient(0, 8, 0, height - 8, hueColors, huePositions, Shader.TileMode.CLAMP);
         p.setShader(hueShader);
         canvas.drawRect(hueLeft, 8, hueLeft + hueW, height - 8, p);
         int hueColor = hsvColor(hue, 1.0f, 1.0f);
@@ -323,6 +326,7 @@ View createHsvView(Activity activity, int initialColor, final OnColorChangedList
     layout.addView(hueCursor);
     final int[] svPos = {0, 0};
     final int[] huePos = {0};
+    final int[] lastHue = {(int)hsv[0]};
     svPos[0] = (int)(8 + svW * hsv[1] - dpx(activity, 8));
     svPos[1] = (int)(8 + (H - 16) * (1 - hsv[2]) - dpx(activity, 8));
     svParams.leftMargin = svPos[0];
@@ -342,8 +346,19 @@ View createHsvView(Activity activity, int initialColor, final OnColorChangedList
             y = y * scaleY;
             if (x >= hueLeft && x <= hueLeft + hueW) {
                 hsv[0] = Math.max(0, Math.min(360, (y - 8) / (H - 16) * 360));
-                Bitmap nb = createHsvBitmap(W, H, (int)hsv[0]);
-                if (nb != null) img.setImageBitmap(nb);
+                int hueInt = (int)hsv[0];
+                if (hueInt != lastHue[0]) {
+                    lastHue[0] = hueInt;
+                    Bitmap nb = createHsvBitmap(W, H, hueInt);
+                    if (nb != null) {
+                        Drawable prev = img.getDrawable();
+                        img.setImageBitmap(nb);
+                        if (prev instanceof android.graphics.drawable.BitmapDrawable) {
+                            Bitmap ob = ((android.graphics.drawable.BitmapDrawable) prev).getBitmap();
+                            if (ob != null && ob != nb && !ob.isRecycled()) ob.recycle();
+                        }
+                    }
+                }
                 huePos[0] = (int)(8 + (H - 16) * (hsv[0] / 360) - dpx(activity, 1.5f));
                 hueParams.topMargin = huePos[0];
                 hueCursor.setLayoutParams(hueParams);
@@ -374,7 +389,8 @@ Bitmap createColorWheelBitmap(int size) {
         int cy = size / 2;
         int r = size / 2 - 4;
         int[] colors = new int[]{ pc("#FFFF0000"), pc("#FFFFFF00"), pc("#FF00FF00"), pc("#FF00FFFF"), pc("#FF0000FF"), pc("#FFFF00FF"), pc("#FFFF0000") };
-        Shader sweep = new SweepGradient(cx, cy, colors, null);
+        float[] sweepPositions = new float[]{0.0f, 0.1667f, 0.3333f, 0.5f, 0.6667f, 0.8333f, 1.0f};
+        Shader sweep = new SweepGradient(cx, cy, colors, sweepPositions);
         p.setShader(sweep);
         canvas.drawCircle(cx, cy, r, p);
         Shader radial = new RadialGradient(cx, cy, r, pc("#FFFFFFFF"), pc("#00FFFFFF"), Shader.TileMode.CLAMP);
@@ -440,7 +456,8 @@ Bitmap createColorBarBitmap(int width, int height) {
         Canvas canvas = new Canvas(bmp);
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
         int[] colors = new int[]{ pc("#FFFF0000"), pc("#FFFFFF00"), pc("#FF00FF00"), pc("#FF00FFFF"), pc("#FF0000FF"), pc("#FFFF00FF"), pc("#FFFF0000") };
-        Shader shader = new LinearGradient(0, 0, 0, height, colors, null, Shader.TileMode.CLAMP);
+        float[] barPositions = new float[]{0.0f, 0.1667f, 0.3333f, 0.5f, 0.6667f, 0.8333f, 1.0f};
+        Shader shader = new LinearGradient(0, 0, 0, height, colors, barPositions, Shader.TileMode.CLAMP);
         p.setShader(shader);
         canvas.drawRect(0, 0, width, height, p);
         return bmp;
@@ -614,19 +631,12 @@ void showImagePickerDialog(final Activity activity, final OnColorPickedListener 
             return;
         }
         
-        BitmapFactory.Options opts = new BitmapFactory.Options();
-        opts.inSampleSize = 2;
-        final Bitmap bitmap = BitmapFactory.decodeFile(imgPath, opts);
-        
-        if (bitmap == null) {
-            Toast("无法加载图片");
-            return;
-        }
+        final Bitmap[] bmpHolder = new Bitmap[1];
+        final String decodePath = imgPath;
         
         // 图片视图 (限制最大高度；短屏取屏幕一半，保证底部确认栏不被裁掉)
         final ImageView imageView = new ImageView(activity);
         imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        imageView.setImageBitmap(bitmap);
         int imgHeight = (int) Math.min(dpx(activity, 400), activity.getResources().getDisplayMetrics().heightPixels * 0.5f);
         FrameLayout.LayoutParams imgParams = new FrameLayout.LayoutParams(-1, imgHeight);
         imgParams.gravity = Gravity.CENTER;
@@ -676,7 +686,8 @@ void showImagePickerDialog(final Activity activity, final OnColorPickedListener 
         
         imageView.setOnTouchListener(new View.OnTouchListener() {
             public boolean onTouch(View v, MotionEvent event) {
-                if (bitmap == null) return false;
+                Bitmap bitmap = bmpHolder[0];
+                if (bitmap == null || bitmap.isRecycled()) return false;
                 
                 try {
                     Matrix matrix = imageView.getImageMatrix();
@@ -733,6 +744,16 @@ void showImagePickerDialog(final Activity activity, final OnColorPickedListener 
             }
         });
         
+        dialog.setOnDismissListener(new android.content.DialogInterface.OnDismissListener() {
+            public void onDismiss(android.content.DialogInterface d) {
+                if (bmpHolder[0] != null && !bmpHolder[0].isRecycled()) {
+                    bmpHolder[0].recycle();
+                    bmpHolder[0] = null;
+                }
+                magnifier.setVisibility(View.GONE);
+            }
+        });
+        
         confirmBtn.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 try {
@@ -744,6 +765,28 @@ void showImagePickerDialog(final Activity activity, final OnColorPickedListener 
         });
         
         dialog.show();
+        
+        ThreadPool.execute(new Runnable() {
+            public void run() {
+                try {
+                    BitmapFactory.Options opts = new BitmapFactory.Options();
+                    opts.inSampleSize = 2;
+                    final Bitmap decoded = BitmapFactory.decodeFile(decodePath, opts);
+                    activity.runOnUiThread(new Runnable() {
+                        public void run() {
+                            if (decoded == null) {
+                                Toast("无法加载图片");
+                                return;
+                            }
+                            bmpHolder[0] = decoded;
+                            imageView.setImageBitmap(decoded);
+                        }
+                    });
+                } catch (Throwable t) {
+                    traceLog("colorpicker_log", "[showImagePickerDialog] 异步解码失败: " + t.getMessage());
+                }
+            }
+        });
 
     } catch (Exception e) { traceLog("colorpicker_log", "[showImagePickerDialog] " + e.getMessage()); }
 }
@@ -823,10 +866,9 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
         colorPreview.setBackgroundDrawable(previewBg);
         previewRow.addView(colorPreview);
         
-        final EditText hexInput = new EditText(activity);
+        final EditText hexInput = makeInput(activity, null, null);
         hexInput.setText(colorToHex(currentColor[0]));
         hexInput.setTextSize(16);
-        hexInput.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
         hexInput.setTypeface(Typeface.MONOSPACE);
         hexInput.setPadding(dpx(activity, 12), dpx(activity, 8), dpx(activity, 12), dpx(activity, 8));
         hexInput.setBackground(roundRect(pc(getSettingsThemeColor(activity, "surface")), dpx(activity, 8)));
@@ -839,10 +881,10 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
             public void afterTextChanged(android.text.Editable s) {
                 if (isUpdatingFromInput[0]) return;
                 String input = s.toString().trim();
-                traceLog("colorpicker_log", "[showColorPickerDialog] 输入框变化 input=" + input);
                 try {
                     if (input.startsWith("#") && (input.length() == 7 || input.length() == 9)) {
                         int newColor = pc(input);
+                        if (newColor == currentColor[0]) return;
                         currentColor[0] = newColor;
                         isUpdatingFromInput[0] = true;
                         updatePreview(colorPreview, hexInput, newColor);
@@ -979,7 +1021,6 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
         alphaSeek.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 if (fromUser) {
-                    traceLog("colorpicker_log", "[onProgressChanged] alphaSeek 进度=" + progress);
                     currentColor[0] = Color.argb(progress, 
                         Color.red(currentColor[0]), 
                         Color.green(currentColor[0]), 
@@ -1098,7 +1139,7 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
                 boolean cpDark = isThemeDark(activity);
                 int elevated = mixTowardElevated(pc(getSettingsThemeColor(activity, "background")), cpDark);
                 window.setBackgroundDrawable(roundRect(elevated, dpx(activity, 16)));
-                applyWindowRadius(activity, window);
+                clearWindowShadow(activity, window);
             }
         } catch (Exception e) { traceLog("colorpicker_log", "[showColorPickerDialog] " + e.getMessage()); }
         
@@ -1107,19 +1148,16 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
 
 void updatePreview(View preview, TextView hexText, int color) {
     try {
-        traceLog("colorpicker_log", "[updatePreview] 更新预览 color=" + colorToHex(color));
         preview.setBackgroundColor(color);
         String hex = colorToHex(color);
         String current = hexText.getText().toString();
         if (!current.equalsIgnoreCase(hex)) {
-            traceLog("colorpicker_log", "[updatePreview] 更新预览 setText=" + hex);
             hexText.setText(hex);
         }
     } catch (Exception e) { traceLog("colorpicker_log", "[updatePreview] 错误: " + e.getMessage()); }
 }
 void showModeContent(Activity activity, FrameLayout container, int mode, int initialColor, OnColorChangedListener listener) {
     container.removeAllViews();
-    traceLog("colorpicker_log", "[showModeContent] 显示模式内容 mode=" + mode + " initialColor=" + colorToHex(initialColor));
     
     View view = null;
     switch (mode) {

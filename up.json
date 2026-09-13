@@ -1,9 +1,9 @@
 {
-  "version": "2.4.3",
+  "version": "2.4.4",
   "versionType": "正式版",
   "updateType": "补丁",
-  "updateTime": "2026-09-10 10:56:36",
-  "changelog": "- 修复**消息统计弹窗打不开**的问题\n- 修复**定时任务到点不执行**的问题\n- 修复**调色盘打开崩溃**的问题\n- 修复 ** 时间选择器**单项输入模式异常的问题\n- 修复在安卓16版本以下bsh解析二维数组异常的问题\n- 重构**文件选择器**，用于更换背景\/图标 已适配安卓9+\n- 统一所有**弹窗主题样式**\n- 修复设置页**搜索跳转不高亮**、**历史记录点击不立即搜索**的问题\n- 双击消息菜单优化：**预览按钮只在有图片时显示**，按钮文字不再被腰斩\n- 黑白模式新增**跟随模块**模式\n- 设置页卡片**适配自定义图片背景**，避免美化变丑化\n- 长按消息菜单新增**发送日志**携带环境信息（无隐私泄露风险，可放心发送）\n- 重置所有设置移动到了设置页**\"其他\"**分类\n- 统一并优化所有**输入框样式**\n- 日志统一全部改为**中文+对应文件命名**\n- 精简代码，减小脚本体积\n- 修复若干已知bug 增加若干未知bug",
+  "updateTime": "2026-09-11 20:40:11",
+  "changelog": "- 新增弹窗背景模糊，开关在基础模式（Android 12+）\n- 新增弹窗圆角可自定义调节\n- 背景颜色列表编辑器（弹窗纯色\/渐变与 Toast 共用），多色轮转、单色常驻\n- toast样式：默认 \/ 跟随主题 \/ 背景模糊（暂时有bug）\/ 渐变背景\n- toast  自定义：时长、前缀后缀、位置（底\/中\/顶\/自定义)\n- 双击消息弹窗：布局修复、预览按钮不再截断\n- 消息统计：开关关闭时不启动读文件\/写线程，无任何资源消耗\n- 系统在省电模式时自动暂停 悬浮窗GIF\n- 模拟定位等 hook 按标签实时卸载；开关支持实时控制\n- 取消\/重载操作将关闭设置页",
   "files": [
     "QFloatingX\/API\/ColorPicker.java",
     "QFloatingX\/API\/api3.java",
@@ -15,12 +15,11 @@
     "QFloatingX\/API\/setwindow.java",
     "QFloatingX\/API\/api4.java",
     "QFloatingX\/API\/api9.java",
-    "QFloatingX\/API\/api6.java",
     "QFloatingX\/API\/api7.java",
     "QFloatingX\/API\/api8.java",
     "QFloatingX\/API\/function.java",
-    "QFloatingX\/API\/import.java",
     "QFloatingX\/main.java",
+    "QFloatingX\/API\/import.java",
     "QFloatingX\/info.prop",
     "QFloatingX\/更新日志.txt"
   ]
