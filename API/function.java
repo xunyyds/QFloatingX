@@ -46,8 +46,13 @@ import java.util.concurrent.TimeUnit;
 /** 全局运行线程映射表 // HashMap<String, Thread>: 存储功能名与对应的线程对象 */
 HashMap runningThreads = new HashMap();
 
+/** 停止令牌表 // ConcurrentHashMap<String, Object>: 记录每个功能当前任务的停止令牌，替换令牌即停止旧任务 */
+ConcurrentHashMap stopFlags = new ConcurrentHashMap();
+
 /** 循环状态标记表 // HashMap<String, Boolean>: 存储功能是否处于循环模式 */
 HashMap loopFlags = new HashMap();
+HashMap loadFlags = new HashMap();
+HashMap runFlags = new HashMap();
 
 /** 中央事件注册表 // HashMap<Integer, ArrayList<String>>: 存储事件类型ID与功能名列表的映射 */
 HashMap eventRegistry = new HashMap();
@@ -57,12 +62,13 @@ HashMap lastExecTime = new HashMap();
 
 /** 预处理配置缓存 // HashMap<String, HashMap>: 缓存预处理功能的具体配置（样式、尾巴等） */
 HashMap preProcConfig = new HashMap();
+boolean inPreproc = false;
 
 /** 逐字发送消息队列 // Queue<SendUnit>: 存储待发送的消息单元 */
 Queue sendMsgQueue = new ConcurrentLinkedQueue();
 
 /** 逐字发送是否正在处理 // boolean: 队列处理锁状态 */
-boolean isProcessingQueue = false;
+java.util.concurrent.atomic.AtomicBoolean isProcessingQueue = new java.util.concurrent.atomic.AtomicBoolean(false);
 
 /** 全局线程池 // ExecutorService: 用于执行异步任务 */
 // ExecutorService ThreadPool = Executors.newCachedThreadPool();
@@ -74,12 +80,6 @@ boolean isProcessingQueue = false;
 String currentPeerUin = "";
 /** 全局状态存储 - 当前聊天类型 // int: 记录最后一次活跃的聊天类型 */
 int currentChatType = 0;
-
-/** 待分割的完整文本 // String: 逐字发送时的源文本 */
-String splitBuffer = "";
-/** 当前分割位置 // int: 逐字发送的游标 */
-int splitPos = 0;
-/** 逐字发送锁 // boolean: 防止并发分割 */
 
 /** UI状态 - 是否正在添加/编辑中 // boolean: 控制弹窗状态 */
 boolean isAdding = false;
@@ -190,11 +190,22 @@ class HotPlugClassLoader {
         }
         
         long lastMod = f.lastModified();
-        String currentHash = getCodeHash(readCodeFile(funcName));
         Object cachedTime = timeStampCache.get(funcName);
         Object cachedHash = hashCache.get(funcName);
         
-        boolean needsCompile = (cachedTime == null || !modeCache.containsKey(funcName) || !currentHash.equals(cachedHash) || ((Long)cachedTime).longValue() != lastMod);
+        boolean timeMatched = (cachedTime != null && modeCache.containsKey(funcName) && ((Long)cachedTime).longValue() == lastMod);
+        boolean needsCompile = !timeMatched;
+        String currentHash = null;
+        if (needsCompile) {
+            currentHash = getCodeHash(readCodeFile(funcName));
+            cachedHash = hashCache.get(funcName);
+            // 时间戳变化但内容相同（如 touch 过）也复用编译结果
+            if (cachedHash != null && currentHash.equals(cachedHash) && modeCache.containsKey(funcName)) {
+                hashCache.put(funcName, currentHash);
+                timeStampCache.put(funcName, new Long(lastMod));
+                needsCompile = false;
+            }
+        }
         
         if (needsCompile) {
             hashCache.put(funcName, currentHash);
@@ -205,7 +216,7 @@ class HotPlugClassLoader {
                 if (code == null || code.trim().equals("")) return;
                 
                 boolean hasRunMethod = java.util.regex.Pattern.compile("void\\s+run\\s*\\(").matcher(code).find();
-                String hashStr = Math.abs(funcName.hashCode()) + "_" + System.currentTimeMillis();
+                String hashStr = String.valueOf(Math.abs(funcName.hashCode()));
                 
                 if (hasRunMethod) {
                     String safeName = "OBJ_" + funcName.replaceAll("[^a-zA-Z0-9]", "_") + "_" + hashStr;
@@ -277,6 +288,8 @@ class HotPlugClassLoader {
         objectCache.remove(funcName);
         directMethodCache.remove(funcName);
         modeCache.remove(funcName);
+        loadFlags.remove(funcName);
+        runFlags.remove(funcName);
     }
 }
 
@@ -404,6 +417,7 @@ void saveFunc(String n, String content, boolean isFile, boolean[] cb, boolean ha
         cfg.put("tail", preTail);
         cfg.put("rs", repeatSend);
         cfg.put("rc", repeatConcat);
+        cfg.put("grp", hasGrp);
         preProcConfig.put(n, cfg);
     } else {
         preProcConfig.remove(n);
@@ -482,6 +496,7 @@ HashMap getPreProcConfig(String n) {
         cfg.put("tail", jo.optString("tail"));
         cfg.put("rs", jo.optInt("rs"));
         cfg.put("rc", jo.optInt("rc"));
+        cfg.put("grp", jo.optBoolean("g"));
         return cfg;
     } catch (Throwable e) {
         return null;
@@ -493,8 +508,8 @@ HashMap getPreProcConfig(String n) {
  * 遍历所有功能，根据配置的 Callback 类型注册到 eventRegistry
  */
 void rebuildRegistry() {
-    eventRegistry.clear();
-    preProcConfig.clear();
+    HashMap newRegistry = new HashMap();
+    HashMap newPreProc = new HashMap();
     String[] fs = getAll();
     for (int i = 0; i < fs.length; i++) {
         String f = fs[i];
@@ -505,10 +520,10 @@ void rebuildRegistry() {
         for (int type = 1; type <= 7; type++) {
             if (m[type + 1].equals("1")) {
                 Integer key = new Integer(type);
-                if (!eventRegistry.containsKey(key)) {
-                    eventRegistry.put(key, new ArrayList());
+                if (!newRegistry.containsKey(key)) {
+                    newRegistry.put(key, new ArrayList());
                 }
-                ArrayList list = (ArrayList) eventRegistry.get(key);
+                ArrayList list = (ArrayList) newRegistry.get(key);
                 if (!list.contains(f)) list.add(f);
             }
         }
@@ -516,10 +531,12 @@ void rebuildRegistry() {
         if (m[8].equals("1")) {
             HashMap cfg = getPreProcConfig(f);
             if (cfg != null) {
-                preProcConfig.put(f, cfg);
+                newPreProc.put(f, cfg);
             }
         }
     }
+    eventRegistry = newRegistry;
+    preProcConfig = newPreProc;
 }
 
 /**
@@ -565,6 +582,7 @@ boolean hasCallback(boolean[] cb) {
 /** 设置加载开关 */
 void setLoad(String f, boolean on) { 
     putString("HotPlug", "load_" + f, on ? "1" : "0"); 
+    loadFlags.put(f, new Boolean(on));
     String[] m = getMeta(f);
     if (m != null && !hasCallback(new boolean[]{m[2].equals("1"), m[3].equals("1"), m[4].equals("1"), m[5].equals("1"), m[6].equals("1"), m[7].equals("1"), m[8].equals("1")})) {
         if (on) {
@@ -582,15 +600,28 @@ void setLoad(String f, boolean on) {
 }
 
 /** 获取加载状态 */
-boolean getLoad(String f) { return getString("HotPlug", "load_" + f, "0").equals("1"); }
+boolean getLoad(String f) {
+    Boolean b = (Boolean)loadFlags.get(f);
+    if (b != null) return b.booleanValue();
+    boolean v = getString("HotPlug", "load_" + f, "0").equals("1");
+    loadFlags.put(f, new Boolean(v));
+    return v;
+}
 
 /** 设置运行许可 */
 void setRun(String f, boolean on) { 
     putString("HotPlug", "run_" + f, on ? "1" : "0"); 
+    runFlags.put(f, new Boolean(on));
 }
 
 /** 获取运行状态 */
-boolean getRun(String f) { return getString("HotPlug", "run_" + f, "0").equals("1"); }
+boolean getRun(String f) {
+    Boolean b = (Boolean)runFlags.get(f);
+    if (b != null) return b.booleanValue();
+    boolean v = getString("HotPlug", "run_" + f, "0").equals("1");
+    runFlags.put(f, new Boolean(v));
+    return v;
+}
 
 /** 设置群限开关 */
 void setGrp(String f, String g, boolean on) { 
@@ -619,17 +650,13 @@ boolean getLoop(String f) {
  * @param cfg String: 定时配置字符串
  * @return long: 下次执行的毫秒时间戳
  */
-long getNextScheduleTime(String cfg) {
+long getNextScheduleTime(String cfg, long notBefore) {
     if (cfg == null || cfg.equals("")) return 0;
     try {
         String raw = cfg.trim();
         if (!raw.contains(" ")) {
             String num = raw.replaceAll("[^0-9]", "");
             if (num.length() >= 4) {
-                Calendar target = Calendar.getInstance();
-                target.set(Calendar.SECOND, 0);
-                target.set(Calendar.MILLISECOND, 0);
-                
                 int h, m, s;
                 if (num.length() >= 6) {
                      h = Integer.parseInt(num.substring(0, 2));
@@ -640,17 +667,12 @@ long getNextScheduleTime(String cfg) {
                      m = Integer.parseInt(num.substring(2, 4));
                      s = 0;
                 }
-                
+                Calendar target = Calendar.getInstance();
                 target.set(Calendar.HOUR_OF_DAY, h);
                 target.set(Calendar.MINUTE, m);
                 target.set(Calendar.SECOND, s);
                 target.set(Calendar.MILLISECOND, 0);
-                
-                Calendar now = Calendar.getInstance();
-                now.add(Calendar.SECOND, -5);
-                now.set(Calendar.SECOND, 0);
-                now.set(Calendar.MILLISECOND, 0);
-                if (target.before(now)) {
+                while (target.getTimeInMillis() <= notBefore) {
                     target.add(Calendar.DAY_OF_YEAR, 1);
                 }
                 return target.getTimeInMillis();
@@ -658,25 +680,18 @@ long getNextScheduleTime(String cfg) {
         }
 
         String[] parts = raw.split("\\s+");
-        Calendar now = Calendar.getInstance();
-        now.add(Calendar.SECOND, -5);
-        now.set(Calendar.SECOND, 0);
-        now.set(Calendar.MILLISECOND, 0);
-        Calendar target = Calendar.getInstance();
-        target.set(Calendar.SECOND, 0);
-        target.set(Calendar.MILLISECOND, 0);
-        
         if (parts.length >= 3) {
             int h = Integer.parseInt(parts[parts.length-3]);
             int m = Integer.parseInt(parts[parts.length-2]);
             int s = Integer.parseInt(parts[parts.length-1]);
+            Calendar target = Calendar.getInstance();
             target.set(Calendar.HOUR_OF_DAY, h);
             target.set(Calendar.MINUTE, m);
             target.set(Calendar.SECOND, s);
             target.set(Calendar.MILLISECOND, 0);
             
             if (parts.length == 3) {
-                if (target.before(now)) {
+                while (target.getTimeInMillis() <= notBefore) {
                     target.add(Calendar.DAY_OF_YEAR, 1);
                 }
             } else if (parts.length == 4) {
@@ -684,13 +699,13 @@ long getNextScheduleTime(String cfg) {
                 if (flag.startsWith("w")) {
                     int dayOfWeek = Integer.parseInt(flag.substring(1));
                     target.set(Calendar.DAY_OF_WEEK, dayOfWeek);
-                    if (target.before(now)) {
+                    while (target.getTimeInMillis() <= notBefore) {
                         target.add(Calendar.WEEK_OF_YEAR, 1);
                     }
                 } else {
                     int dayOfMonth = Integer.parseInt(flag);
                     target.set(Calendar.DAY_OF_MONTH, dayOfMonth);
-                    if (target.before(now)) {
+                    while (target.getTimeInMillis() <= notBefore) {
                         target.add(Calendar.MONTH, 1);
                     }
                 }
@@ -701,15 +716,6 @@ long getNextScheduleTime(String cfg) {
     } catch (Throwable e) {
         return 0;
     }
-}
-
-/**
- * 格式化倒计时
- * @param ms long: 毫秒数
- * @return String: 友好的时间描述
- */
-String formatCountdown(long ms) {
-    return formatRemainingTimeMs(ms);
 }
 
 /**
@@ -772,6 +778,8 @@ void startIndepThread(final String func, final long interval, final int maxCount
     }
     
     loopFlags.put(func, new Boolean(getLoop(func)));
+    final Object stopToken = new Object();
+    stopFlags.put(func, stopToken);
     
     final Runnable task = new Runnable() {
         public void run() {
@@ -782,8 +790,9 @@ void startIndepThread(final String func, final long interval, final int maxCount
             boolean isScheduled = (meta != null && meta[11] != null && !meta[11].equals(""));
             boolean isLooping = getLoop(func);
             boolean runOnce = !isScheduled && !isLooping;
+            long lastFireTime = System.currentTimeMillis();
 
-            while (!Thread.interrupted()) {
+            while (!Thread.interrupted() && stopFlags.get(func) == stopToken) {
                 try {
                     if (!getLoad(func)) {
                         traceLog("function_log", "[停止] " + func + " 总开关关闭");
@@ -800,28 +809,24 @@ void startIndepThread(final String func, final long interval, final int maxCount
                         break;
                     }
                     
+                    long scheduledTarget = 0;
                     if (isScheduled) {
-                        long now = System.currentTimeMillis();
-                        long nextTime = getNextScheduleTime(meta[11]);
+                        scheduledTarget = getNextScheduleTime(meta[11], lastFireTime);
                         
-                        if (nextTime <= 0) {
+                        if (scheduledTarget <= 0) {
                             traceLog("function_log", "[计划] " + func + " 定时配置无效，立即执行一次");
                             runOnce = true;
                         } else {
-                            long waitTime = nextTime - now;
-                            if (waitTime > 1000) {
+                            long waitTime = scheduledTarget - System.currentTimeMillis();
+                            if (waitTime > 0) {
                                 traceLog("function_log", "[计划] " + func + " 等待: " + (waitTime/1000) + "秒");
-                                
-                                long blocks = waitTime / 2000;
-                                long remain = waitTime % 2000;
-                                
-                                for(long i=0; i<blocks; i++) {
-                                    if (Thread.interrupted() || !getLoad(func)) throw new InterruptedException();
-                                    Thread.sleep(2000);
+                                long deadline = scheduledTarget;
+                                while (!Thread.interrupted()) {
+                                    long remain = deadline - System.currentTimeMillis();
+                                    if (remain <= 0) break;
+                                    Thread.sleep(remain > 500 ? 500 : remain);
+                                    if (stopFlags.get(func) != stopToken) break;
                                 }
-                                if(remain > 0) Thread.sleep(remain);
-                            } else {
-                                traceLog("function_log", "[计划] " + func + " 已到点，立即执行");
                             }
                         }
                         
@@ -835,6 +840,7 @@ void startIndepThread(final String func, final long interval, final int maxCount
                     
                     String code = readCodeFile(func);
                     if (!code.equals("")) {
+                        synchronized (this.interpreter) {
                         this.interpreter.set("qq", myUin);
                         this.interpreter.set("pluginPath", pluginPath);
                         this.interpreter.set("this", this);
@@ -846,13 +852,14 @@ void startIndepThread(final String func, final long interval, final int maxCount
                         lastExecTime.put(func, System.currentTimeMillis());
                         
                         traceLog("function_log", "[执行] " + func + " 第" + executedCount + "次");
+                        }
+                    }
+                    
+                    if (isScheduled && scheduledTarget > 0) {
+                        lastFireTime = scheduledTarget;
                     }
                     
                     if (runOnce) break; 
-                    
-                    if (isScheduled) {
-                        Thread.sleep(2000); 
-                    }
                     
                 } catch (InterruptedException e) {
                     break;
@@ -862,7 +869,10 @@ void startIndepThread(final String func, final long interval, final int maxCount
                 }
             }
             traceLog("function_log", "[结束] " + func);
-            runningThreads.remove(func);
+            if (stopFlags.get(func) == stopToken) {
+                stopFlags.remove(func);
+                runningThreads.remove(func);
+            }
         }
     };
     
@@ -874,6 +884,7 @@ void startIndepThread(final String func, final long interval, final int maxCount
 
 /** 停止线程 */
 void stopThread(String func) {
+    stopFlags.remove(func);
     Thread t = (Thread)runningThreads.get(func);
     if (t != null) { 
         t.interrupt(); 
@@ -884,15 +895,17 @@ void stopThread(String func) {
 
 /** 停止所有线程 */
 void stopAllThreads() {
-    Iterator it = runningThreads.keySet().iterator();
-    while (it.hasNext()) {
-        Thread t = (Thread)runningThreads.get((String)it.next());
+    List stopFuncs = new ArrayList(runningThreads.keySet());
+    for (int i = 0; i < stopFuncs.size(); i++) {
+        String f = (String)stopFuncs.get(i);
+        stopFlags.remove(f);
+        Thread t = (Thread)runningThreads.get(f);
         if (t != null) {
             t.interrupt();
             try { t.join(1000); } catch (Throwable e) { traceLog("function_log", "[stopAllThreads] 异常: " + e); }
         }
-    runningThreads.clear();
     }
+    runningThreads.clear();
 }
 
 /**
@@ -926,8 +939,9 @@ void execFunc(String func, Object data, int type) {
             currentGroupId = gid;
         }
         
-        String code = readCodeFile(func);
-        if (code.equals("")) return;
+        File codeFile = new File(getDir() + "/" + func + ".java");
+        if (!codeFile.exists() || codeFile.length() == 0) return;
+        synchronized (this.interpreter) {
             this.interpreter.unset("msg");
             this.interpreter.unset("time");
             this.interpreter.unset("operator");
@@ -976,6 +990,7 @@ void execFunc(String func, Object data, int type) {
             this.interpreter.set("qq", myUin);
         }
         scriptLoader.loadAndExecute(func, this.interpreter);
+        }
         lastExecTime.put(func, System.currentTimeMillis());
     } catch (Throwable e) {
         traceLog("function_log", "[execFunc]" + func + ":" + e);
@@ -1147,7 +1162,7 @@ EditText addCodeInput(Activity a, LinearLayout parent, String code, boolean isFi
     TextView tipFile = new TextView(a);
     tipFile.setText("/q/f/x.java   勾选后在输入框中输入文件路径,要确保路径正确");
     tipFile.setTextSize(9);
-    tipFile.setTextColor(pc("#999999"));
+    tipFile.setTextColor(tc(a, "on_surface_variant"));
     tipFile.setPadding(dp(a, 6), 0, 0, 0);
     rowFile.addView(tipFile);
 
@@ -1180,7 +1195,7 @@ void addPresetRows(Activity a, LinearLayout parent, final EditText et) {
     TextView pt = new TextView(a);
     pt.setText("快捷填入:");
     pt.setTextSize(10);
-    pt.setTextColor(pc("#888888"));
+    pt.setTextColor(tc(a, "on_surface_variant"));
     pt.setPadding(0, dp(a, 4), 0, 0);
     parent.addView(pt);
     
@@ -1237,7 +1252,7 @@ TextView[] addChipRows(Activity a, LinearLayout parent, final boolean[] cks, fin
     TextView tipsHeader = new TextView(a);
     tipsHeader.setText("回调详情:");
     tipsHeader.setTextSize(11);
-    tipsHeader.setTextColor(pc("#666666"));
+    tipsHeader.setTextColor(tc(a, "on_surface_variant"));
     tipsHeader.setPadding(0, dp(a, 10), 0, dp(a, 6));
     parent.addView(tipsHeader);
     
@@ -1254,7 +1269,7 @@ TextView[] addChipRows(Activity a, LinearLayout parent, final boolean[] cks, fin
     TextView sub = new TextView(a);
     sub.setText("挂载回调(多选):");
     sub.setTextSize(11);
-    sub.setTextColor(pc("#666666"));
+    sub.setTextColor(tc(a, "on_surface_variant"));
     sub.setPadding(0, dp(a, 10), 0, dp(a, 6));
     parent.addView(sub);
     
@@ -1401,7 +1416,7 @@ void addPreprocRow(Activity a, LinearLayout parent, FormComponents fc, int preTy
     TextView styleTitle = new TextView(a);
     styleTitle.setText("选择样式效果:");
     styleTitle.setTextSize(11);
-    styleTitle.setTextColor(pc("#666666"));
+    styleTitle.setTextColor(tc(a, "on_surface_variant"));
     styleTitle.setPadding(0, 0, 0, dp(a, 6));
     container.addView(styleTitle);
     
@@ -1479,7 +1494,7 @@ void addPreprocRow(Activity a, LinearLayout parent, FormComponents fc, int preTy
     TextView detailedTips = new TextView(a);
     detailedTips.setText("提示：选中样式后，每个字符后会自动添加对应装饰");
     detailedTips.setTextSize(9);
-    detailedTips.setTextColor(pc("#888888"));
+    detailedTips.setTextColor(tc(a, "on_surface_variant"));
     detailedTips.setPadding(dp(a, 4), dp(a, 4), dp(a, 4), dp(a, 8));
     detailedTips.setLineSpacing(dp(a, 2), 1.0f);
     container.addView(detailedTips);
@@ -1492,14 +1507,14 @@ void addPreprocRow(Activity a, LinearLayout parent, FormComponents fc, int preTy
     TextView tailTitle = new TextView(a);
     tailTitle.setText("小尾巴(前缀 msg 后缀)");
     tailTitle.setTextSize(11);
-    tailTitle.setTextColor(pc("#666666"));
+    tailTitle.setTextColor(tc(a, "on_surface_variant"));
     tailTitle.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 2.0f));
     titleRow.addView(tailTitle);
     
     TextView sendTitle = new TextView(a);
     sendTitle.setText("连发");
     sendTitle.setTextSize(11);
-    sendTitle.setTextColor(pc("#666666"));
+    sendTitle.setTextColor(tc(a, "on_surface_variant"));
     sendTitle.setGravity(Gravity.CENTER);
     sendTitle.setLayoutParams(new LinearLayout.LayoutParams(dp(a, 50), -2));
     titleRow.addView(sendTitle);
@@ -1511,7 +1526,7 @@ void addPreprocRow(Activity a, LinearLayout parent, FormComponents fc, int preTy
     TextView concatTitle = new TextView(a);
     concatTitle.setText("拼接");
     concatTitle.setTextSize(11);
-    concatTitle.setTextColor(pc("#666666"));
+    concatTitle.setTextColor(tc(a, "on_surface_variant"));
     concatTitle.setGravity(Gravity.CENTER);
     concatTitle.setLayoutParams(new LinearLayout.LayoutParams(dp(a, 50), -2));
     titleRow.addView(concatTitle);
@@ -1592,7 +1607,7 @@ FormComponents addLoopRow(Activity a, LinearLayout parent, boolean isLoop, long 
     TextView lblInterval = new TextView(a);
     lblInterval.setText("间隔(毫秒)");
     lblInterval.setTextSize(10);
-    lblInterval.setTextColor(pc("#888888"));
+    lblInterval.setTextColor(tc(a, "on_surface_variant"));
     leftCol.addView(lblInterval);
     
     fc.etInterval = makeInput(a, "5000", null);
@@ -1611,7 +1626,7 @@ FormComponents addLoopRow(Activity a, LinearLayout parent, boolean isLoop, long 
     TextView lblCount = new TextView(a);
     lblCount.setText("次数(0=无限)");
     lblCount.setTextSize(10);
-    lblCount.setTextColor(pc("#888888"));
+    lblCount.setTextColor(tc(a, "on_surface_variant"));
     rightCol.addView(lblCount);
     
     fc.etCount = makeInput(a, "0", null);
@@ -1639,7 +1654,7 @@ EditText addTimeRow(Activity a, LinearLayout parent, String timeVal) {
     TextView lblTime = new TextView(a);
     lblTime.setText("定时(可选):");
     lblTime.setTextSize(11);
-    lblTime.setTextColor(pc("#666666"));
+    lblTime.setTextColor(tc(a, "on_surface_variant"));
     lblTime.setPadding(0, dp(a, 10), 0, dp(a, 4));
     parent.addView(lblTime);
     
@@ -2300,10 +2315,10 @@ void showEdit(Activity a, final String func, final String gid, final String gn) 
                 }
                 boolean hasCb = false;
                 for (int i = 0; i < 7; i++) {
-                    cks[i] = (chips[i].getCurrentTextColor() == Color.WHITE);
+                    cks[i] = Boolean.TRUE.equals(chips[i].getTag());
                     if (cks[i]) hasCb = true;
                 }
-                cks[7] = (chips[7].getCurrentTextColor() == Color.WHITE);
+                cks[7] = Boolean.TRUE.equals(chips[7].getTag());
                 
                 long intervalVal = 0;
                 int countVal = 0;
@@ -2321,7 +2336,7 @@ void showEdit(Activity a, final String func, final String gid, final String gn) 
                 
                 if (cks[6] && fc.preTypeChips != null) {
                     for (int i = 0; i < 50; i++) {
-                        if (i < fc.preTypeChips.length && fc.preTypeChips[i].getCurrentTextColor() == Color.WHITE) {
+                        if (i < fc.preTypeChips.length && Boolean.TRUE.equals(fc.preTypeChips[i].getTag())) {
                             preTypeVal = i;
                             break;
                         }
@@ -2340,7 +2355,7 @@ void showEdit(Activity a, final String func, final String gid, final String gn) 
                 saveFunc(newName, ct, isFileState[0], 
                     new boolean[]{cks[0], cks[1], cks[2], cks[3], cks[4], cks[5], cks[6]}, 
                     cks[7], rawTime, intervalVal, 
-                    fc.chipLoop.getCurrentTextColor() == Color.WHITE, countVal, preTypeVal, preTailVal, repeatSendVal, repeatConcatVal);
+                    Boolean.TRUE.equals(fc.chipLoop.getTag()), countVal, preTypeVal, preTailVal, repeatSendVal, repeatConcatVal);
                 
                 toast("已保存");
                 isAdding = false;
@@ -2457,7 +2472,7 @@ public void showHotPlugMain(int ft, String gid, String uname) {
 
                 final LinearLayout editorContainer = new LinearLayout(a);
                 editorContainer.setOrientation(LinearLayout.VERTICAL);
-                editorContainer.setBackground(roundRect(pc("#F0F7FF"), dp(a, 8)));
+                editorContainer.setBackground(roundRect(tc(a, "primary_container"), dp(a, 8)));
                 editorContainer.setPadding(dp(a, 12), dp(a, 12), dp(a, 12), dp(a, 12));
                 editorContainer.setVisibility(View.GONE);
                 editorContainer.setAlpha(0f);
@@ -2529,7 +2544,7 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                 cd.addView(btnAdd, cd.indexOfChild(lst), btnAddLp);
 
                 View ln = new View(a);
-                ln.setBackgroundColor(pc("#EEEEEE"));
+                ln.setBackgroundColor(tc(a, "outline"));
                 ln.setLayoutParams(new LinearLayout.LayoutParams(-1, dp(a, 1)));
                 ((LinearLayout.LayoutParams) ln.getLayoutParams()).setMargins(0, dp(a, 10), 0, dp(a, 10));
                 cd.addView(ln, cd.indexOfChild(lst));
@@ -2621,7 +2636,7 @@ public void showHotPlugMain(int ft, String gid, String uname) {
 
                         if (cks[6] && fc.preTypeChips != null) {
                             for (int i = 0; i < 50; i++) {
-                                if (i < fc.preTypeChips.length && fc.preTypeChips[i].getCurrentTextColor() == Color.WHITE) {
+                                if (i < fc.preTypeChips.length && Boolean.TRUE.equals(fc.preTypeChips[i].getTag())) {
                                     preTypeVal = i;
                                     break;
                                 }
@@ -2638,7 +2653,7 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                         String rawTime = etTime.getText().toString().trim();
 
                         try {
-                            saveFunc(n, c, isFileState[0], new boolean[]{cks[0], cks[1], cks[2], cks[3], cks[4], cks[5], cks[6]}, cks[7], rawTime, intervalVal, fc.chipLoop.getCurrentTextColor() == Color.WHITE, countVal, preTypeVal, preTailVal, repeatSendVal, repeatConcatVal);
+                            saveFunc(n, c, isFileState[0], new boolean[]{cks[0], cks[1], cks[2], cks[3], cks[4], cks[5], cks[6]}, cks[7], rawTime, intervalVal, Boolean.TRUE.equals(fc.chipLoop.getTag()), countVal, preTypeVal, preTailVal, repeatSendVal, repeatConcatVal);
                             toast("已添加:" + n);
                             editorContainer.animate().scaleY(0.8f).alpha(0f).setDuration(300).withEndAction(new Runnable() {
                                 public void run() {
@@ -2693,7 +2708,7 @@ public void showHotPlugMain(int ft, String gid, String uname) {
                                 cks[i] = false;
                                 if (i < 7) setChip(chips[i], false);
                             }
-                            if (fc.chipLoop.getCurrentTextColor() == Color.WHITE) {
+                            if (Boolean.TRUE.equals(fc.chipLoop.getTag())) {
                                 fc.chipLoop.performClick();
                             }
                             fc.etInterval.setText("5000");
@@ -2818,7 +2833,7 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
 
         final LinearLayout content = new LinearLayout(a);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setBackground(makeFeedbackBg(pc("#F8F9FA"), adjustColor(pc("#F8F9FA"), 0.85f), dp(a, 8)));
+        content.setBackground(makeFeedbackBg(tc(a, "surface"), adjustColor(tc(a, "surface"), 0.85f), dp(a, 8)));
         
         LinearLayout.LayoutParams contentParams = new LinearLayout.LayoutParams(visibleContentWidth, LinearLayout.LayoutParams.WRAP_CONTENT);
         contentParams.setMargins(0, 0, dp(a, 1), 0); 
@@ -2850,7 +2865,7 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
         final TextView tv = new TextView(a);
         tv.setText("📦 " + f);
         tv.setTextSize(14);
-        tv.setTextColor(pc("#222222"));
+        tv.setTextColor(tc(a, "on_surface"));
         tv.setSingleLine(true);
         tv.setClickable(false);
         titleScroll.addView(tv);
@@ -2890,12 +2905,12 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
         if (!hasAnyCallback && mainOn[0]) {
             String infoText = "";
             if (isScheduled) {
-                long nextTime = getNextScheduleTime(timeCfg);
                 long now = System.currentTimeMillis();
+                long nextTime = getNextScheduleTime(timeCfg, now);
                 if (nextTime > 0) {
                     long countdown = nextTime - now;
                     if (countdown < 0) infoText = "⏰ " + formatSchedule(timeCfg) + " (计算中)";
-                    else infoText = "⏰ " + formatSchedule(timeCfg) + " (剩" + formatCountdown(countdown) + ")";
+                    else infoText = "⏰ " + formatSchedule(timeCfg) + " (剩" + formatRemainingTimeMs(countdown) + ")";
                 } else infoText = "⏰ " + formatSchedule(timeCfg) + " (配置无效)";
             } else if (isLoop) {
                 infoText = "🔁 " + interval + "ms ×" + (loopCount == 0 ? "∞" : loopCount);
@@ -2919,11 +2934,11 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
         content.addView(exp);
 
         View dlv = new View(a);
-        dlv.setBackgroundColor(pc("#E0E0E0"));
+        dlv.setBackgroundColor(tc(a, "outline"));
         dlv.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(a, 1)));
         exp.addView(dlv);
 
-        TextView btnTestExp = createButton(a, "▶ 测试执行", tc(a, "primary"), pc("#E8EEFF"), 12f, 6, 0, 8, false, 0, 0, null);
+        TextView btnTestExp = createButton(a, "▶ 测试执行", tc(a, "primary"), tc(a, "primary_container"), 12f, 6, 0, 8, false, 0, 0, null);
         btnTestExp.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 testCode(f, null, f);
@@ -2937,7 +2952,7 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
         if (hasAnyCallback) {
             LinearLayout rRun = new LinearLayout(a); rRun.setOrientation(LinearLayout.HORIZONTAL); rRun.setGravity(Gravity.CENTER_VERTICAL); rRun.setPadding(0, dp(a, 8), 0, 0); exp.addView(rRun);
             TextView l = new TextView(a); l.setText("运行开关"); l.setTextSize(13); l.setTextColor(tc(a, "on_surface_variant")); l.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f)); rRun.addView(l);
-            TextView state = new TextView(a); state.setText("主开关统管"); state.setTextSize(11); state.setTextColor(pc("#999999")); rRun.addView(state);
+            TextView state = new TextView(a); state.setText("主开关统管"); state.setTextSize(11); state.setTextColor(tc(a, "on_surface_variant")); rRun.addView(state);
         } else {
              LinearLayout rRun = new LinearLayout(a); rRun.setOrientation(LinearLayout.HORIZONTAL); rRun.setGravity(Gravity.CENTER_VERTICAL); rRun.setPadding(0, dp(a, 8), 0, 0); exp.addView(rRun);
              TextView l = new TextView(a); l.setText("允许运行"); l.setTextSize(13); l.setTextColor(tc(a, "on_surface_variant")); l.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f)); rRun.addView(l);
@@ -2963,7 +2978,7 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
         itemWrapper.setOrientation(LinearLayout.VERTICAL);
         itemWrapper.addView(slideView);
         View itemDivider = new View(a);
-        itemDivider.setBackgroundColor(pc("#EEEEEE"));
+        itemDivider.setBackgroundColor(tc(a, "outline"));
         LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(-1, 1);
         dividerParams.bottomMargin = dp(a, 4);
         itemWrapper.addView(itemDivider, dividerParams);
@@ -3255,8 +3270,7 @@ void addToSendQueue(String uin, String msg, int type) {
  * 处理发送队列 - 优化线程安全与异常兜底，修复队列卡死问题
  */
 void processSendQueue() {
-    if (isProcessingQueue) return;
-    isProcessingQueue = true;
+    if (!isProcessingQueue.compareAndSet(false, true)) return;
     
     ThreadPool.execute(new Runnable() {
         public void run() {
@@ -3273,7 +3287,7 @@ void processSendQueue() {
                     }
                 }
             } finally {
-                isProcessingQueue = false;
+                isProcessingQueue.set(false);
             }
         }
     });
@@ -3335,6 +3349,8 @@ String getMsgSplit(String m) {
  */
 String getMsg(String m){
     if(m == null || m.isEmpty()) return m;
+    if (inPreproc) return m;
+    inPreproc = true;
     
     try{
         Integer key = new Integer(7);
@@ -3343,77 +3359,75 @@ String getMsg(String m){
             if (list != null && list.size() > 0) {
                 for (int i = 0; i < list.size(); i++) {
                     String func = (String)list.get(i);
+                    HashMap cfg = (HashMap)preProcConfig.get(func);
+                    if (cfg == null) continue;
                     if (!getRun(func)) continue;
                     
-                    String[] meta = getMeta(func);
-                    if (meta != null && meta[9].equals("1")) { // Grp is index 9
+                    if (Boolean.TRUE.equals(cfg.get("grp"))) {
                         if (currentPeerUin == null || currentPeerUin.isEmpty()) continue;
                         if (!getGrp(func, currentPeerUin)) continue;
                     }
                     
-                    HashMap cfg = (HashMap)preProcConfig.get(func);
-                    if (cfg != null) {
-                        int type = (Integer)cfg.get("type");
-                        String tail = (String)cfg.get("tail");
-                        int repeatSend = 0;
-                        int repeatConcat = 0;
-                        try {
-                            repeatSend = (Integer)cfg.get("rs");
-                            repeatConcat = (Integer)cfg.get("rc");
-                        } catch (Throwable e) { traceLog("function_log", "[getMsg] 异常: " + e); }
+                    int type = (Integer)cfg.get("type");
+                    String tail = (String)cfg.get("tail");
+                    int repeatSend = 0;
+                    int repeatConcat = 0;
+                    try {
+                        repeatSend = (Integer)cfg.get("rs");
+                        repeatConcat = (Integer)cfg.get("rc");
+                    } catch (Throwable e) { traceLog("function_log", "[getMsg] 异常: " + e); }
+                    
+                    String result = m;
+                    
+                    try {
+                        Object[] eventData = new Object[3];
+                        eventData[0] = currentPeerUin; 
+                        eventData[1] = currentChatType; 
+                        eventData[2] = m; 
                         
-                        String result = m;
-                        
-                        try {
-                            Object[] eventData = new Object[3];
-                            eventData[0] = currentPeerUin; 
-                            eventData[1] = currentChatType; 
-                            eventData[2] = m; 
-                            
-                            dispatchEvent(eventData, 7);
-                        } catch (Throwable e) {
-                            traceLog("function_log", "[getMsg] dispatchEvent异常: " + e);
-                        }
-                        
-                        if (type == 1) { // Split is 1
-                            return getMsgSplit(m);
-                        } else if (type > 1) {
-                            result = applyPreprocess(m, type);
-                        }
-                        
-                        if (repeatConcat > 1) {
-                            StringBuilder sb = new StringBuilder();
-                            for (int k = 0; k < repeatConcat; k++) {
-                                sb.append(result);
-                            }
-                            result = sb.toString();
-                        }
-                        
-                        if (tail != null && !tail.trim().isEmpty()) {
-                            if (tail.contains("msg")) {
-                                String[] parts = tail.split("msg", 2);
-                                if (parts.length == 2) {
-                                    result = parts[0].trim() + result + parts[1].trim();
-                                } else if (parts.length == 1) {
-                                    if (tail.trim().startsWith("msg")) {
-                                        result = result + parts[0].trim();
-                                    } else {
-                                        result = parts[0].trim() + result;
-                                    }
-                                }
-                            } else {
-                                result = result + tail;
-                            }
-                        }
-                        
-                        if (repeatSend > 1 && currentPeerUin != null && !currentPeerUin.isEmpty() && currentChatType > 0) {
-                            for (int k = 1; k < repeatSend; k++) {
-                                addToSendQueue(currentPeerUin, result, currentChatType);
-                            }
-                        }
-                        
-                        return result;
+                        dispatchEvent(eventData, 7);
+                    } catch (Throwable e) {
+                        traceLog("function_log", "[getMsg] dispatchEvent异常: " + e);
                     }
+                    
+                    if (type == 1) { // Split is 1
+                        return getMsgSplit(m);
+                    } else if (type > 1) {
+                        result = applyPreprocess(m, type);
+                    }
+                    
+                    if (repeatConcat > 1) {
+                        StringBuilder sb = new StringBuilder();
+                        for (int k = 0; k < repeatConcat; k++) {
+                            sb.append(result);
+                        }
+                        result = sb.toString();
+                    }
+                    
+                    if (tail != null && !tail.trim().isEmpty()) {
+                        if (tail.contains("msg")) {
+                            String[] parts = tail.split("msg", 2);
+                            if (parts.length == 2) {
+                                result = parts[0].trim() + result + parts[1].trim();
+                            } else if (parts.length == 1) {
+                                if (tail.trim().startsWith("msg")) {
+                                    result = result + parts[0].trim();
+                                } else {
+                                    result = parts[0].trim() + result;
+                                }
+                            }
+                        } else {
+                            result = result + tail;
+                        }
+                    }
+                    
+                    if (repeatSend > 1 && currentPeerUin != null && !currentPeerUin.isEmpty() && currentChatType > 0) {
+                        for (int k = 1; k < repeatSend; k++) {
+                            addToSendQueue(currentPeerUin, result, currentChatType);
+                        }
+                    }
+                    
+                    return result;
                 }
             }
         }
@@ -3423,17 +3437,9 @@ String getMsg(String m){
     }catch(Throwable e){
         traceLog("function_log", "[getMsg]" + e);
         return m;
+    } finally {
+        inPreproc = false;
     }
-}
-
-/**
- * 提取下一个发送单元
- * @return String: 下一个字符或表情单元
- */
-String extractNextSegment(){
-    String seg = extractSegmentAt(splitBuffer, splitPos);
-    splitPos += seg.length();
-    return seg;
 }
 
 /**
