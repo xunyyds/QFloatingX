@@ -5,8 +5,11 @@ private volatile boolean isDialogShowing = false;
 // 原功能重放标记，用于回旋镖逻辑
 private volatile boolean isReplayingClick = false;
 
-// 图片内存缓存 (Url -> Bitmap)
-private final HashMap picimageCache = new HashMap();
+private final Pattern PIC_PATTERN = Pattern.compile("\\[pic=(.*?)\\]");
+
+// 图片内存缓存 (Url -> Bitmap) — P1-13: 跨线程安全 + 上限 60 防 OOM
+private final java.util.concurrent.ConcurrentHashMap picimageCache = new java.util.concurrent.ConcurrentHashMap();
+private static final int PIC_CACHE_MAX = 60;
 
 // 原始特殊文本集合 (用于精准渲染 @ 和表情)
 private final HashSet validSpecialTexts = new HashSet();
@@ -14,16 +17,27 @@ private final HashSet validSpecialTexts = new HashSet();
 // 滑动菜单状态池 [0:Popup, 1:Slider, 2:Centers, 4:TextViews, 5:BaseInfo, 7:UpdateRunnable, 8:Root]
 private final Object[] WHEEL_STATE = new Object[10];
 
+private final String[] rkeyCache = new String[]{"", ""};
+private final long[] rkeyCacheTime = new long[]{0L, 0L};
+
 String getFullPicUrl(String url, int chatType) {
     if (url == null || url.isEmpty()) return "";
     if (url.startsWith("http")) return url;
     String domain = "https://multimedia.nt.qq.com.cn";
     if (!url.startsWith("/")) url = "/" + url;
+    int cacheIdx = (chatType == 1) ? 0 : 1;
     String rkey = "";
-    try {
-        rkey = (chatType == 1) ? OnGetRKey.INSTANCE.getFriendRkey() : OnGetRKey.INSTANCE.getGroupRkey();
-    } catch (Throwable t) {
-        traceLog("api5_log","[getFullPicUrl] RKey获取失败: " + t.getMessage());
+    long nowR = System.currentTimeMillis();
+    if (rkeyCacheTime[cacheIdx] != 0L && nowR - rkeyCacheTime[cacheIdx] < 60000L) {
+        rkey = rkeyCache[cacheIdx];
+    } else {
+        try {
+            rkey = (chatType == 1) ? OnGetRKey.INSTANCE.getFriendRkey() : OnGetRKey.INSTANCE.getGroupRkey();
+        } catch (Throwable t) {
+            traceLog("api5_log","[getFullPicUrl] RKey获取失败: " + t.getMessage());
+        }
+        rkeyCache[cacheIdx] = rkey;
+        rkeyCacheTime[cacheIdx] = nowR;
     }
     return domain + url + rkey;
 }
@@ -32,13 +46,6 @@ interface MsgLoadedCallback {
     void onLoaded(MsgData msgData);
 }
 
-import com.tencent.qqnt.kernel.api.ab;
-public void setMsgUnread(String targetUin) {
-    int chatType = isFriend(targetUin) ? 2 : 1;
-    String uid = chatType == 1 ? getUidFromUin(targetUin) : targetUin;
-    Contact contact = new Contact(chatType, uid, "");
-    QRoute.api(ab.class).setMarkUnreadFlag(contact, true);
-}
 void fetchRealMsgRecord(final long msgId, final int chatType, final String peerUid, final MsgLoadedCallback callback) {
     ThreadPool.execute(new Runnable() {
         public void run() {
@@ -125,8 +132,7 @@ void parseTextToElements(String text, ArrayList sendElements, MsgRecord original
         }
     }
 
-    Pattern p = Pattern.compile("\\[pic=(.*?)\\]");
-    Matcher m = p.matcher(text);
+    Matcher m = PIC_PATTERN.matcher(text);
     int lastEnd = 0;
     while (m.find()) {
         String sub = text.substring(lastEnd, m.start());
@@ -158,106 +164,71 @@ void doSendOrRepeat(final MsgData data, final String newText) {
     doMultiSend(data, newText, 1);
 }
 
+boolean sendOneInternal(MsgData data, String newText) {
+	MsgRecord originalRecord = data.data;
+	if (newText == null && !isTextOnlyMsg(originalRecord.elements)) {
+		forwardViaServer(originalRecord, String.valueOf(originalRecord.peerUin));
+		return true;
+	}
+	final ArrayList sendElements = new ArrayList();
+	if (newText != null) {
+		parseTextToElements(newText, sendElements, originalRecord, data.type);
+	} else {
+		if (originalRecord.elements != null) sendElements.addAll(originalRecord.elements);
+	}
+	IMsgService msgService = (IMsgService) QRoute.api(IMsgService.class);
+	if (msgService == null) return false;
+	String targetUid = originalRecord.peerUid;
+	if (targetUid == null || targetUid.isEmpty()) {
+		if (originalRecord.chatType == 2) targetUid = String.valueOf(originalRecord.peerUin);
+		else targetUid = FriendTool.INSTANCE.getUidFromUin(String.valueOf(originalRecord.peerUin));
+	}
+	msgService.sendMsg(new Contact(originalRecord.chatType, targetUid, ""), sendElements, null);
+	return true;
+}
+
 void doMultiSend(final MsgData data, final String newText, final int count) {
-    ThreadPool.execute(new Runnable() {
-        public void run() {
-            try {
-                if (data == null || data.data == null) return;
-                MsgRecord originalRecord = data.data;
-
-                if (newText == null && !isTextOnlyMsg(originalRecord.elements)) {
-                    String targetUin = String.valueOf(originalRecord.peerUin);
-                    for (int i = 0; i < count; i++) {
-                        forwardViaServer(originalRecord, targetUin);
-                    }
-                    final String tips = "转发" + (count > 1 ? " x" + count : "") + " 完成";
-                    uiHandler.post(new Runnable() { public void run() { Toast(tips); } });
-                    return;
-                }
-
-                final ArrayList sendElements = new ArrayList();
-
-                if (newText != null) {
-                    parseTextToElements(newText, sendElements, originalRecord, data.type);
-                } else {
-                    if (originalRecord.elements != null) sendElements.addAll(originalRecord.elements);
-                }
-
-                IMsgService msgService = (IMsgService) QRoute.api(IMsgService.class);
-                if (msgService == null) return;
-
-                String targetUid = originalRecord.peerUid;
-                if (targetUid == null || targetUid.isEmpty()) {
-                    if (originalRecord.chatType == 2) targetUid = String.valueOf(originalRecord.peerUin);
-                    else targetUid = FriendTool.INSTANCE.getUidFromUin(String.valueOf(originalRecord.peerUin));
-                }
-
-                Contact contact = new Contact(originalRecord.chatType, targetUid, "");
-                for (int i = 0; i < count; i++) {
-                    msgService.sendMsg(contact, sendElements, null);
-                }
-                final String tips = (newText != null ? "发送" : "复读") + (count > 1 ? " x" + count : "") + " 完成";
-                uiHandler.post(new Runnable() { public void run() { Toast(tips); } });
-            } catch (final Throwable e) {
-                uiHandler.post(new Runnable() { public void run() { Toast("失败: " + e.getMessage()); } });
-            }
-        }
-    });
+	ThreadPool.execute(new Runnable() {
+		public void run() {
+			try {
+				if (data == null || data.data == null) return;
+				for (int i = 0; i < count; i++) sendOneInternal(data, newText);
+				final String tips = (newText != null ? "发送" : "复读") + (count > 1 ? " x" + count : "") + " 完成";
+				Toast(tips);
+			} catch (final Throwable e) {
+				Toast("失败: " + e.getMessage());
+			}
+		}
+	});
 }
 
 void doMultiSendWithDelay(final MsgData data, final String newText, final int count, final int delayMs) {
-    if (count <= 0 || data == null) return;
-    final int[] sent = {0};
-
-    final Runnable[] chain = new Runnable[1];
-    chain[0] = new Runnable() {
-        public void run() {
-            if (sent[0] >= count) {
-                final String tips = (newText != null ? "发送" : "复读")
-                        + " x" + count + " 完成";
-                uiHandler.post(new Runnable() { public void run() { Toast(tips); } });
-                return;
-            }
-            // 在线程池内执行实际发送，避免主线程网络操作        
-            final int idx = sent[0];
-            ThreadPool.execute(new Runnable() {
-                public void run() {
-                    try {
-                        MsgRecord originalRecord = data.data;
-                        if (newText == null && !isTextOnlyMsg(originalRecord.elements)) {
-                            String targetUin = String.valueOf(originalRecord.peerUin);
-                            forwardViaServer(originalRecord, targetUin);
-                        } else {
-                            final ArrayList sendElements = new ArrayList();
-                            if (newText != null) {
-                                parseTextToElements(newText, sendElements, originalRecord, data.type);
-                            } else {
-                                if (originalRecord.elements != null) sendElements.addAll(originalRecord.elements);
-                            }
-                            IMsgService msgService = (IMsgService) QRoute.api(IMsgService.class);
-                            if (msgService != null) {
-                                String targetUid = originalRecord.peerUid;
-                                if (targetUid == null || targetUid.isEmpty()) {
-                                    if (originalRecord.chatType == 2) targetUid = String.valueOf(originalRecord.peerUin);
-                                    else targetUid = FriendTool.INSTANCE.getUidFromUin(String.valueOf(originalRecord.peerUin));
-                                }
-                                Contact contact = new Contact(originalRecord.chatType, targetUid, "");
-                                msgService.sendMsg(contact, sendElements, null);
-                            }
-                        }
-                    } catch (Throwable ignored) { traceLog("api5_log", "[doMultiSendWithDelay] 异常: " + ignored); }
-                    // 发送完成后，主线程调度下一条                 
-                       uiHandler.postDelayed(new Runnable() {
-                        public void run() {
-                            sent[0]++;
-                            chain[0].run();
-                        }
-                    },delayMs);
-                }
-            });
-        }
-    };
-    chain[0].run();
+	if (count <= 0 || data == null) return;
+	final int[] sent = {0};
+	final Runnable[] chain = new Runnable[1];
+	chain[0] = new Runnable() {
+		public void run() {
+			if (sent[0] >= count) {
+				final String tips = (newText != null ? "发送" : "复读") + " x" + count + " 完成";
+				Toast(tips);
+				return;
+			}
+			ThreadPool.execute(new Runnable() {
+				public void run() {
+					try {
+						sendOneInternal(data, newText);
+					} catch (Throwable ignored) { traceLog("api5_log", "[doMultiSendWithDelay] 异常: " + ignored); }
+					uiHandler.postDelayed(new Runnable() {
+						public void run() {
+							sent[0]++;
+							chain[0].run();
+						}
+					}, delayMs);
+				}
+			});
+		}
+	};
+	chain[0].run();
 }
 
  /*
@@ -269,20 +240,34 @@ void downloadImage(final String url, final Runnable callback) {
         return; }
     ThreadPool.execute(new Runnable() {
         public void run() {
+            InputStream is = null;
             try {
                 URL u = new URL(url);
-                InputStream is = u.openStream();
+                java.net.URLConnection conn = u.openConnection();
+                conn.setConnectTimeout(10000);
+                conn.setReadTimeout(15000);
+                is = conn.getInputStream();
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                byte[] buf = new byte[1024];
+                byte[] buf = new byte[4096];
                 int len;
                 while ((len = is.read(buf)) != -1) baos.write(buf, 0, len);
-                is.close();
                 Bitmap bmp = BitmapFactory.decodeByteArray(baos.toByteArray(), 0, baos.size());
                 if (bmp != null) {
+                    if (picimageCache.size() >= PIC_CACHE_MAX) {
+                        java.util.Iterator evictIt = picimageCache.keySet().iterator();
+                        int evictCount = 0;
+                        while (evictIt.hasNext() && evictCount < 15) {
+                            evictIt.remove();
+                            evictCount++;
+                        }
+                    }
                     picimageCache.put(url, bmp);
                     if (callback != null) uiHandler.post(callback);
                 }
             } catch (Throwable t) { traceLog("api5_log", "[downloadImage] 异常: " + t); }
+            finally {
+                if (is != null) try { is.close(); } catch (Throwable ignore) {}
+            }
         }
     });
 }
@@ -308,8 +293,7 @@ void applySpans(final EditText et, final boolean forceImage) {
         }
     }
 
-    Pattern pPic = Pattern.compile("\\[pic=(.*?)\\]");
-    Matcher mPic = pPic.matcher(text);
+    Matcher mPic = PIC_PATTERN.matcher(text);
     while (mPic.find()) {
         final String url = mPic.group(1);
         final int start = mPic.start();
