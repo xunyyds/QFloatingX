@@ -36,7 +36,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 
-static WeakHashMap<View, Long> viewAnimationDurations = new WeakHashMap<>();
 
 import android.content.res.Configuration;
 boolean isThemeDark(Activity activity) {
@@ -77,22 +76,6 @@ private Drawable createRippleBg(Context ctx, int bgColor, int radius) {
     content.setColor(bgColor);
     content.setCornerRadius(dp(ctx, radius));
     return new RippleDrawable(ColorStateList.valueOf(pc("#1A000000")), content, content);
-}
-
-private StateListDrawable createInputBg(Context ctx, int surfaceVariant, int outline, int primary) {
-    int r = dp(ctx, 12);
-    GradientDrawable normal = new GradientDrawable();
-    normal.setColor(surfaceVariant);
-    normal.setCornerRadius(r);
-    normal.setStroke(dp(ctx, 1), outline);
-    GradientDrawable focused = new GradientDrawable();
-    focused.setColor(surfaceVariant);
-    focused.setCornerRadius(r);
-    focused.setStroke(dp(ctx, 2), primary);
-    StateListDrawable sld = new StateListDrawable();
-    sld.addState(new int[]{android.R.attr.state_focused}, focused);
-    sld.addState(new int[0], normal);
-    return sld;
 }
 
 StateListDrawable makeFeedbackBg(int normalColor, int pressedColor, int r) {
@@ -193,6 +176,7 @@ TextView makeChip(Activity a, String t, boolean s, int type) {
     }
     
     v.setBackground(makeFeedbackBg(normalColor, pressedColor, dp(a, 50)));
+    v.setTag(new Boolean(s));
     return v;
 }
 
@@ -201,6 +185,7 @@ void setChip(TextView v, boolean s) {
     int pressedColor = s ? pc("#2E5BC7") : pc("#D6D6D6");
     v.setTextColor(s ? Color.WHITE : pc("#666666"));
     v.setBackground(makeFeedbackBg(normalColor, pressedColor, dp(v.getContext(), 50)));
+    v.setTag(new Boolean(s));
 }
 
 void setChipWithType(TextView v, boolean s, int type) {
@@ -214,6 +199,7 @@ void setChipWithType(TextView v, boolean s, int type) {
     }
     v.setTextColor(s ? Color.WHITE : pc("#666666"));
     v.setBackground(makeFeedbackBg(normalColor, pressedColor, dp(v.getContext(), 50)));
+    v.setTag(new Boolean(s));
 }
 
 TextView makePresetChip(Activity a, String t, int textColor) {
@@ -287,207 +273,6 @@ void animateTextColor(final TextView textView, int fromColor, int toColor, long 
 
 void animateTextColor(TextView textView, int fromColor, int toColor) {
     animateTextColor(textView, fromColor, toColor, 250L);
-}
-
-void animateBackgroundColor(final View view, int fromColor, int toColor, long duration) {
-    if (view == null || view != null && Boolean.TRUE.equals(view.getTag("skip_animation"))) {
-        if (view != null) {
-            view.setBackgroundColor(toColor);
-        }
-        return;
-    }
-    
-    if (Looper.myLooper() != Looper.getMainLooper()) {
-        final int finalToColor = toColor;
-        final long finalDuration = duration;
-        new Handler(Looper.getMainLooper()).post(new Runnable() {
-            public void run() {
-                animateBackgroundColor(view, fromColor, finalToColor, finalDuration);
-            }
-        });
-        return;
-    }
-    
-    ValueAnimator colorAnim = ValueAnimator.ofObject(new ArgbEvaluator(), fromColor, toColor);
-    colorAnim.setDuration(duration);
-    colorAnim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-        public void onAnimationUpdate(ValueAnimator animator) {
-            try {
-                view.setBackgroundColor((Integer) animator.getAnimatedValue());
-            } catch (Throwable e) { traceLog("uitools_log", "[onAnimationUpdate] 异常: " + e); }
-        }
-    });
-    colorAnim.start();
-}
-
-void animateBackgroundColor(View view, int fromColor, int toColor) {
-    animateBackgroundColor(view, fromColor, toColor, 300L);
-}
-
-void animateBackgroundDrawable(final View view, final Drawable newDrawable, long duration) {
-    if (view == null) return;
-    
-    if (Looper.myLooper() != Looper.getMainLooper()) {
-        final long finalDuration = duration;
-        new Handler(Looper.getMainLooper()).post(new Runnable() {
-            public void run() {
-                animateBackgroundDrawable(view, newDrawable, finalDuration);
-            }
-        });
-        return;
-    }
-    
-    if (view != null && Boolean.TRUE.equals(view.getTag("skip_animation"))) {
-        view.setBackground(newDrawable);
-        return;
-    }
-    
-    Drawable currentBg = view.getBackground();
-    
-    if (currentBg != null && newDrawable != null) {
-        TransitionDrawable transition = new TransitionDrawable(new Drawable[]{
-            currentBg,
-            newDrawable
-        });
-        view.setBackground(transition);
-        transition.startTransition((int) duration);
-    } else {
-        view.setBackground(newDrawable);
-    }
-}
-
-void animateBackgroundDrawable(View view, Drawable newDrawable) {
-    animateBackgroundDrawable(view, newDrawable, 300L);
-}
-
-void animateFadeIn(final View view, long duration) {
-    if (view == null) return;
-    
-    if (Looper.myLooper() != Looper.getMainLooper()) {
-        final long finalDuration = duration;
-        new Handler(Looper.getMainLooper()).post(new Runnable() {
-            public void run() {
-                animateFadeIn(view, finalDuration);
-            }
-        });
-        return;
-    }
-    
-    if (view != null && Boolean.TRUE.equals(view.getTag("skip_animation"))) {
-        view.setAlpha(1f);
-        return;
-    }
-    
-    view.setAlpha(0f);
-    view.animate()
-        .alpha(1f)
-        .setDuration(duration)
-        .setListener(null)
-        .start();
-}
-
-void animateFadeOut(final View view, long duration) {
-    if (view == null) return;
-    
-    if (Looper.myLooper() != Looper.getMainLooper()) {
-        final long finalDuration = duration;
-        new Handler(Looper.getMainLooper()).post(new Runnable() {
-            public void run() {
-                animateFadeOut(view, finalDuration);
-            }
-        });
-        return;
-    }
-    
-    if (view != null && Boolean.TRUE.equals(view.getTag("skip_animation"))) {
-        view.setAlpha(0f);
-        return;
-    }
-    
-    view.animate()
-        .alpha(0f)
-        .setDuration(duration)
-        .setListener(null)
-        .start();
-}
-
-void animateScaleIn(final View view, long duration) {
-    if (view == null) return;
-    
-    if (Looper.myLooper() != Looper.getMainLooper()) {
-        final long finalDuration = duration;
-        new Handler(Looper.getMainLooper()).post(new Runnable() {
-            public void run() {
-                animateScaleIn(view, finalDuration);
-            }
-        });
-        return;
-    }
-    
-    if (view != null && Boolean.TRUE.equals(view.getTag("skip_animation"))) {
-        view.setScaleX(1f);
-        view.setScaleY(1f);
-        return;
-    }
-    
-    view.setScaleX(0.8f);
-    view.setScaleY(0.8f);
-    view.animate()
-        .scaleX(1f)
-        .scaleY(1f)
-        .setDuration(duration)
-        .setListener(null)
-        .start();
-}
-
-void animateFadeScaleIn(final View view, long duration) {
-    if (view == null) return;
-    
-    if (Looper.myLooper() != Looper.getMainLooper()) {
-        final long finalDuration = duration;
-        new Handler(Looper.getMainLooper()).post(new Runnable() {
-            public void run() {
-                animateFadeScaleIn(view, finalDuration);
-            }
-        });
-        return;
-    }
-    
-    if (view != null && Boolean.TRUE.equals(view.getTag("skip_animation"))) {
-        view.setAlpha(1f);
-        view.setScaleX(1f);
-        view.setScaleY(1f);
-        return;
-    }
-    
-    view.setAlpha(0f);
-    view.setScaleX(0.9f);
-    view.setScaleY(0.9f);
-    view.animate()
-        .alpha(1f)
-        .scaleX(1f)
-        .scaleY(1f)
-        .setDuration(duration)
-        .setListener(null)
-        .start();
-}
-
-void animateFadeInSequence(final List views, long duration, long delayBetween) {
-    if (views == null || views.isEmpty()) return;
-    
-    new Handler(Looper.getMainLooper()).post(new Runnable() {
-        public void run() {
-            for (int i = 0; i < views.size(); i++) {
-                final View view = (View) views.get(i);
-                final int index = i;
-                new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-                    public void run() {
-                        animateFadeIn(view, duration);
-                    }
-                }, index * delayBetween);
-            }
-        }
-    });
 }
 
 String getExtensionFromMimeType(String mimeType) {
@@ -744,7 +529,15 @@ void showEditDialog(final Activity activity, final Bitmap origin, final String s
                         Bitmap cur = (Bitmap)history.get(idx[0]);
                         Bitmap next = Bitmap.createBitmap(cur, 0, 0, cur.getWidth(), cur.getHeight(), m, true);
                         while (history.size() > idx[0] + 1) history.remove(history.size() - 1);
-                        history.add(next); idx[0]++; preview.setImageBitmap(getCompressedPreview(next, quality[0]));
+                        history.add(next); idx[0]++;
+                        while (history.size() > 12) {
+                            Bitmap dropped = (Bitmap) history.remove(0);
+                            idx[0]--;
+                            if (dropped != null && !dropped.isRecycled() && idx[0] >= 0 && dropped != history.get(idx[0])) {
+                                dropped.recycle();
+                            }
+                        }
+                        preview.setImageBitmap(getCompressedPreview(next, quality[0]));
                     } else if (action.equals("裁剪")) {
                         crop.setVisibility(crop.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
                     } else if (action.startsWith("质量")) {
@@ -761,8 +554,7 @@ void showEditDialog(final Activity activity, final Bitmap origin, final String s
                             int nh = Math.min(res.getHeight() - ny, r.height());
                             if (nw > 10 && nh > 10) res = Bitmap.createBitmap(res, nx, ny, nw, nh);
                         }
-                        performSave(activity, res, savePath, quality[0]);
-                        dialog.dismiss();
+                        performSave(activity, res, savePath, quality[0], dialog);
                     }
                 }
             });
@@ -790,7 +582,7 @@ void showEditDialog(final Activity activity, final Bitmap origin, final String s
     }
 }
 
-void performSave(final Activity activity, final Bitmap b, final String p, final int q) {
+void performSave(final Activity activity, final Bitmap b, final String p, final int q, final Dialog dlg) {
     ThreadPool.execute(new Runnable() {
         public void run() {
             try {
@@ -799,9 +591,10 @@ void performSave(final Activity activity, final Bitmap b, final String p, final 
                 b.compress(Bitmap.CompressFormat.JPEG, q, o);
                 o.flush(); o.close();
                 traceLog("uitools_log", "[保存] 成功 p=" + p);
-                activity.runOnUiThread(new Runnable() { public void run() { Toast("保存成功 (" + q + "%)"); 刷新悬浮窗(); } });
+                activity.runOnUiThread(new Runnable() { public void run() { Toast("保存成功 (" + q + "%)"); 刷新悬浮窗(); if (dlg != null) dlg.dismiss(); } });
             } catch (Throwable e) {
                 traceLog("uitools_log", "[保存] 失败 p=" + p + " " + e);
+                activity.runOnUiThread(new Runnable() { public void run() { if (dlg != null) dlg.dismiss(); } });
             }
         }
     });
@@ -892,8 +685,9 @@ public Bitmap fastblur(Bitmap bmp, int radius) {
     int smallH = Math.max(1, h / (radius + 1));
     Bitmap small = Bitmap.createScaledBitmap(bmp, smallW, smallH, true);
     
-    int[] pixels = new int[smallW * smallH];
-    small.getPixels(pixels, 0, smallW, 0, 0, smallW, smallH);
+    int[] src = new int[smallW * smallH];
+    int[] dst = new int[smallW * smallH];
+    small.getPixels(src, 0, smallW, 0, 0, smallW, smallH);
     
     for (int i = 0; i < 3; i++) {
         for (int y = 0; y < smallH; y++) {
@@ -904,7 +698,7 @@ public Bitmap fastblur(Bitmap bmp, int radius) {
                         int ny = y + dy;
                         int nx = x + dx;
                         if (ny >= 0 && ny < smallH && nx >= 0 && nx < smallW) {
-                            int pixel = pixels[ny * smallW + nx];
+                            int pixel = src[ny * smallW + nx];
                             r += Color.red(pixel);
                             g += Color.green(pixel);
                             b += Color.blue(pixel);
@@ -913,12 +707,15 @@ public Bitmap fastblur(Bitmap bmp, int radius) {
                         }
                     }
                 }
-                pixels[y * smallW + x] = Color.argb(a / count, r / count, g / count, b / count);
+                dst[y * smallW + x] = Color.argb(a / count, r / count, g / count, b / count);
             }
         }
+        int[] tmp = src;
+        src = dst;
+        dst = tmp;
     }
     
-    small.setPixels(pixels, 0, smallW, 0, 0, smallW, smallH);
+    small.setPixels(src, 0, smallW, 0, 0, smallW, smallH);
     
     Bitmap result = Bitmap.createScaledBitmap(small, w, h, true);
     if (small != result && !small.isRecycled()) {
@@ -926,23 +723,6 @@ public Bitmap fastblur(Bitmap bmp, int radius) {
     }
     
     return result;
-}
-
-public Bitmap resizeBitmap(Bitmap original, int maxSize) {
-    if (original == null || original.isRecycled()) return null;
-    
-    int width = original.getWidth();
-    int height = original.getHeight();
-    
-    if (width <= maxSize && height <= maxSize) {
-        return original;
-    }
-    
-    float scale = Math.min((float) maxSize / width, (float) maxSize / height);
-    int newWidth = Math.round(width * scale);
-    int newHeight = Math.round(height * scale);
-    
-    return Bitmap.createScaledBitmap(original, newWidth, newHeight, true);
 }
 
 public Bitmap centerCropBitmap(Bitmap source, int targetWidth, int targetHeight) {
@@ -1019,28 +799,6 @@ Bitmap smartScaleBitmap(Bitmap source, int targetW, int targetH) {
     }
 }
 
-Bitmap scaleToFitBitmap(Bitmap source, int targetW, int targetH) {
-    if (source == null || source.isRecycled()) return null;
-    
-    try {
-        int sourceW = source.getWidth();
-        int sourceH = source.getHeight();
-        
-        float scale = Math.min((float) targetW / sourceW, (float) targetH / sourceH);
-        int scaledW = Math.round(sourceW * scale);
-        int scaledH = Math.round(sourceH * scale);
-        
-        return Bitmap.createScaledBitmap(source, scaledW, scaledH, true);
-        
-    } catch (Exception e) {
-        return source;
-    }
-}
-
-Bitmap smartCenterCropBitmap(Bitmap source, int targetW, int targetH) {
-    return smartScaleBitmap(source, targetW, targetH);
-}
-
 String generateCacheKey(String imgPath, int blurRadius, int overlayAlpha, boolean isDark, int targetW, int targetH) {
     File f = new File(imgPath);
     long lastMod = f.exists() ? f.lastModified() : 0;
@@ -1082,26 +840,6 @@ Drawable findSimilarCache(String baseKey, int targetW, int targetH) {
     return null;
 }
 
-boolean checkAndCleanupMemoryIfNeeded() {
-    Runtime runtime = Runtime.getRuntime();
-    long maxMemory = runtime.maxMemory();
-    long totalMemory = runtime.totalMemory();
-    long freeMemory = runtime.freeMemory();
-    long usedMemory = totalMemory - freeMemory;
-    
-    float usedRatio = (float) usedMemory / maxMemory;
-    
-    if (usedRatio > 0.85f) {
-        if (!cacheOrder.isEmpty()) {
-            String oldestKey = (String) cacheOrder.keySet().iterator().next();
-            removeFromCache(oldestKey);
-            return true;
-        }
-    }
-    
-    return false;
-}
-
 static class CacheEntry {
     Drawable drawable;
     long createdTime;
@@ -1131,9 +869,7 @@ static ConcurrentHashMap imageCache = new ConcurrentHashMap();
 static LinkedHashMap cacheOrder = new LinkedHashMap(10, 0.75f, true);
 static Drawable globalCachedDrawable = null;
 static String globalCachedParams = "";
-private static final Object BG_LOCK = new Object();
-private static volatile boolean isBgLoading = false;
-private static volatile boolean isDialogShowing = false;
+
 static WeakHashMap scaledViews = new WeakHashMap();
 static final int MAX_CACHE_SIZE = 10;
 
@@ -1227,75 +963,6 @@ void unloadBackgroundCache() {
     scaledViews.clear();
     globalCachedDrawable = null;
     globalCachedParams = "";
-}
-
-void forceUnloadAllCache() {
-    unloadBackgroundCache();
-}
-
-public Object[] createSwitchViewWithState(Context ctx, boolean initVal) {
-    FrameLayout swContainer = new FrameLayout(ctx);
-    int swW = dp(ctx, 48);
-    int swH = dp(ctx, 28);
-    FrameLayout.LayoutParams containerLp = new FrameLayout.LayoutParams(swW, swH);
-    swContainer.setLayoutParams(containerLp);
-
-    ColorStateList rippleColor = ColorStateList.valueOf(pc("#33000000"));
-    RippleDrawable ripple = new RippleDrawable(rippleColor, null, null);
-    swContainer.setBackground(ripple);
-
-    swContainer.setClickable(true);
-    swContainer.setFocusable(true);
-
-    View track = new View(ctx);
-    FrameLayout.LayoutParams trackLp = new FrameLayout.LayoutParams(-1, -1);
-    track.setLayoutParams(trackLp);
-    GradientDrawable trackBg = new GradientDrawable();
-    trackBg.setCornerRadius(dp(ctx, 14));
-    track.setBackground(trackBg);
-    swContainer.addView(track);
-
-    View thumb = new View(ctx);
-    int thumbSize = dp(ctx, 24);
-    int margin = dp(ctx, 2);
-    FrameLayout.LayoutParams thumbLp = new FrameLayout.LayoutParams(thumbSize, thumbSize);
-    thumbLp.gravity = Gravity.CENTER_VERTICAL | Gravity.LEFT;
-    thumbLp.setMargins(margin, 0, margin, 0);
-    thumb.setLayoutParams(thumbLp);
-
-    GradientDrawable thumbBg = new GradientDrawable();
-    thumbBg.setColor(Color.WHITE);
-    thumbBg.setCornerRadius(dp(ctx, 12));
-    thumb.setBackground(thumbBg);
-    swContainer.addView(thumb);
-
-    final boolean[] state = new boolean[]{initVal};
-    final View finalThumb = thumb;
-    final GradientDrawable finalTrackBg = trackBg;
-
-    final Runnable updateUI = new Runnable() {
-        public void run() {
-            boolean isOn = state[0];
-            finalTrackBg.setColor(isOn ? pc("#34C759") : pc("#E5E5E5"));
-            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) finalThumb.getLayoutParams();
-            lp.gravity = Gravity.CENTER_VERTICAL | (isOn ? Gravity.RIGHT : Gravity.LEFT);
-            finalThumb.setLayoutParams(lp);
-            finalThumb.invalidate();
-            track.invalidate();
-        }
-    };
-
-    updateUI.run();
-
-    swContainer.setOnClickListener(new View.OnClickListener() {
-        public void onClick(View v) {
-            state[0] = !state[0];
-            updateUI.run();
-            traceLog("uitools_log", "[onClick] 自定义开关点击，新状态: " + state[0]);
-        }
-    });
-
-    return new Object[]{swContainer, state};
 }
 
 boolean isValidGradientString(String gradientStr) {
@@ -1491,19 +1158,6 @@ void executeApplyTheme(final Activity activity, final android.app.Dialog dialog,
             }, 100);
         }
         
-        String rawBgColor2 = getString("settings", isDark ? "ui_bg_color_dark" : "ui_bg_color_light", 
-            isDark ? "#FF1E1E1E" : "#FFFFFFFF");
-        String validBgColor = isValidHexColor(rawBgColor2) ? rawBgColor2 : (isDark ? "#FF1E1E1E" : "#FFFFFFFF");
-        if ("gradient".equals(bgType)) {
-            boolean isValidGrad = isValidGradientString(bgGradient);
-            if (isValidGrad) {
-                applyGradientBackground(activity, window, bgGradient, validBgColor, isDark);
-            } else {
-                applyFallbackBg(activity, window, validBgColor, isDark);
-            }
-        } else {
-            applyFallbackBg(activity, window, validBgColor, isDark);
-        }
         }
         
         if ((skip & 4) == 0) {
@@ -1547,176 +1201,12 @@ void applyDrawableWithTransition(final Activity activity, final Window window, f
                 window.setBackgroundDrawable(transitionDrawable);
                 transitionDrawable.startTransition(300);
                 
-                applyWindowRadius(activity, window);
+                clearWindowShadow(activity, window);
                 applyWindowBlurBehind(window);
                 
             } catch (Throwable e) {
                 window.setBackgroundDrawable(newDrawable);
             }
-        }
-    });
-}
-
-void applyImageBackgroundFast(final Activity activity, final Window window, 
-                             final String imgPath, final int blurRadius, 
-                             final int overlayAlpha, final boolean isDark,
-                             final int dialogW, final int dialogH) {
-    try {
-        File f = new File(imgPath);
-        boolean exists = f.exists();
-        
-        if (!exists) {
-            applyFallbackBg(activity, window, isDark ? "#FF1E1E1E" : "#FFFFFFFF", isDark);
-            return;
-        }
-        
-        applyFallbackBg(activity, window, isDark ? "#FF1E1E1E" : "#FFFFFFFF", isDark);
-        
-        final int finalW = dialogW > 0 ? dialogW : 814;
-        final int finalH = dialogH > 0 ? dialogH : 806;
-        
-        ThreadPool.execute(new Runnable() {
-            public void run() {
-                loadImageOptimized(activity, window, imgPath, blurRadius, overlayAlpha, isDark, finalW, finalH);
-            }
-        });
-        
-    } catch (Throwable e) {
-        applyFallbackBg(activity, window, isDark ? "#FF1E1E1E" : "#FFFFFFFF", isDark);
-    }
-}
-
-void loadImageOptimized(final Activity activity, final Window window, 
-                       final String imgPath, final int blurRadius, 
-                       final int overlayAlpha, final boolean isDark,
-                       final int preWidth, final int preHeight) {
-    
-    int targetW = preWidth;
-    int targetH = preHeight;
-    
-    try {
-        String baseKey = generateBaseCacheKey(imgPath, blurRadius, overlayAlpha, isDark);
-        Drawable cached = findSimilarCache(baseKey, targetW, targetH);
-        if (cached != null) {
-            applyDrawableWithoutTextRecalc(activity, window, cached);
-            synchronized (BG_LOCK) { isBgLoading = false; }
-            return;
-        }
-        
-        BitmapFactory.Options opts = new BitmapFactory.Options();
-        opts.inSampleSize = 2;
-        opts.inPreferredConfig = Bitmap.Config.ARGB_8888;
-        opts.inJustDecodeBounds = false;
-        
-        Bitmap origin = BitmapFactory.decodeFile(imgPath, opts);
-        if (origin == null) {
-            throw new Exception("图片解码失败");
-        }
-        
-        int sourceW = origin.getWidth();
-        int sourceH = origin.getHeight();
-        
-        if (origin.getConfig() != Bitmap.Config.ARGB_8888) {
-            Bitmap argb8888 = origin.copy(Bitmap.Config.ARGB_8888, false);
-            if (origin != argb8888) {
-                origin.recycle();
-            }
-            origin = argb8888;
-        }
-        
-        Bitmap scaled = centerCropBitmap(origin, targetW, targetH);
-        
-        if (scaled == null) {
-            scaled = smartScaleBitmap(origin, targetW, targetH);
-        }
-        if (scaled == null) {
-            scaled = Bitmap.createScaledBitmap(origin, targetW, targetH, true);
-        }
-        
-        if (scaled != null) {
-            if (scaled.getConfig() != Bitmap.Config.ARGB_8888) {
-                Bitmap argb8888 = scaled.copy(Bitmap.Config.ARGB_8888, false);
-                if (scaled != origin) {
-                    scaled.recycle();
-                }
-                scaled = argb8888;
-            }
-        }
-        
-        Bitmap finalBitmap = scaled;
-        if (blurRadius > 0 && scaled.getWidth() > 200) {
-            Bitmap outBmp = Bitmap.createBitmap(scaled.getWidth(), scaled.getHeight(), Bitmap.Config.ARGB_8888);
-            finalBitmap = blurBitmap(activity, scaled, outBmp, blurRadius);
-            if (outBmp != finalBitmap && scaled != outBmp && !scaled.isRecycled()) {
-                scaled.recycle();
-            }
-        }
-        
-        int maskColor = isDark ? Color.BLACK : Color.WHITE;
-        ColorDrawable mask = new ColorDrawable(Color.argb(overlayAlpha, 
-            Color.red(maskColor), Color.green(maskColor), Color.blue(maskColor)));
-        BitmapDrawable bd = new BitmapDrawable(activity.getResources(), finalBitmap);
-        LayerDrawable ld = new LayerDrawable(new Drawable[]{bd, mask});
-        
-        String cacheKey = generateCacheKey(imgPath, blurRadius, overlayAlpha, isDark, targetW, targetH);
-        putToCache(ld, cacheKey, targetW, targetH);
-        
-        applyDrawableWithoutTextRecalc(activity, window, ld);
-        
-        if (origin != scaled && !origin.isRecycled()) {
-            origin.recycle();
-        }
-        
-    } catch (Throwable e) { traceLog("uitools_log", "[applyDrawableWithTransition] 异常: " + e); }
-    finally {
-        synchronized (BG_LOCK) {
-            isBgLoading = false;
-        }
-    }
-}
-
-void applyDrawableWithoutTextRecalc(final Activity activity, final Window window, final Drawable drawable) {
-    final View decorView = window != null ? window.getDecorView() : null;
-    
-    activity.runOnUiThread(new Runnable() {
-        public void run() {
-            try {
-                if (window == null || drawable == null) {
-                    return;
-                }
-                
-                int w = decorView != null ? decorView.getWidth() : 0;
-                int h = decorView != null ? decorView.getHeight() : 0;
-                
-                if (w > 0 && h > 0) {
-                    drawable.setBounds(0, 0, w, h);
-                }
-                
-                window.setBackgroundDrawable(drawable);
-                applyWindowRadius(activity, window);
-                applyWindowBlurBehind(window);
-                
-            } catch (Throwable e) {
-                e.printStackTrace();
-            }
-        }
-    });
-}
-
-void finalizeTextStyle(final Activity activity, final View decorView, final boolean isDark, final boolean forceDark) {
-    activity.runOnUiThread(new Runnable() {
-        public void run() {
-            try {
-                int textColor = forceDark ? pc("#FFEFEFEF") : pc("#FF333333");
-                currentTextColor = textColor;
-                currentIsDark = forceDark;
-                
-                Typeface tf = getCustomTypeface(getString("settings", "ui_font_type", "default"));
-                float fSize = 1.0f;
-                try { fSize = Float.parseFloat(getString("settings", "ui_font_size", "1.0")); } catch (Throwable e) { traceLog("uitools_log", "[finalizeTextStyle] 异常: " + e); }
-                final float fontSizeScale = fSize;
-                updateViewStylesRecursively(decorView, textColor, tf, fontSizeScale);
-            } catch (Throwable e) { traceLog("uitools_log", "[finalizeTextStyle] 异常: " + e); }
         }
     });
 }
@@ -1758,14 +1248,6 @@ void applyDialogSize(final Activity activity, final Window window) {
         window.setAttributes(params);
         
     } catch (Throwable e) { traceLog("uitools_log", "[applyDialogSize] 异常: " + e); }
-}
-
-boolean isDrawableTransparent(Drawable drawable) {
-    if (drawable == null) return true;
-    if (drawable instanceof ColorDrawable) {
-        return ((ColorDrawable) drawable).getAlpha() < 10;
-    }
-    return false;
 }
 
 // applyUiSeekBar 仅保留 3 参版本
@@ -1814,7 +1296,7 @@ int getUiCornerDp() {
     return v;
 }
 
-void applyWindowRadius(final Activity activity, final Window window) {
+void clearWindowShadow(final Activity activity, final Window window) {
     try {
         if (window == null) return;
         View decor = window.getDecorView();
@@ -1824,7 +1306,7 @@ void applyWindowRadius(final Activity activity, final Window window) {
             decor.setOutlineSpotShadowColor(Color.TRANSPARENT);
             decor.setOutlineAmbientShadowColor(Color.TRANSPARENT);
         }
-    } catch (Throwable e) { traceLog("uitools_log", "[applyWindowRadius] 异常: " + e); }
+    } catch (Throwable e) { traceLog("uitools_log", "[clearWindowShadow] 异常: " + e); }
 }
 
 void applyGradientBackground(Activity activity, Window window, String gradientStr, String fallbackColor, boolean isDark) {
@@ -1897,7 +1379,7 @@ void applyWindowBlurBehind(Window window) {
 void applyDrawableToWindow(Window window, Drawable drawable, Activity activity, boolean isDark) {
     try {
         window.setBackgroundDrawable(drawable);
-        applyWindowRadius(activity, window);
+        clearWindowShadow(activity, window);
         applyWindowBlurBehind(window);
     } catch(Throwable e) {
         try {
@@ -1908,30 +1390,29 @@ void applyDrawableToWindow(Window window, Drawable drawable, Activity activity, 
     }
 }
 
+private final int[][] DARK_DEFAULT_COLORS = {
+    {0, 0, 0},
+    {34, 34, 34},
+    {51, 51, 51},
+    {66, 66, 66},
+    {102, 102, 102},
+    {128, 128, 128}
+};
+private final int[][] LIGHT_DEFAULT_COLORS = {
+    {255, 255, 255},
+    {239, 239, 239},
+    {245, 245, 245},
+    {238, 238, 238},
+    {221, 221, 221},
+    {204, 204, 204}
+};
+
 boolean isDefaultTextColor(int color) {
     int r = Color.red(color);
     int g = Color.green(color);
     int b = Color.blue(color);
     
-    int[][] darkDefaultColors = {
-        {0, 0, 0},
-        {34, 34, 34},
-        {51, 51, 51},
-        {66, 66, 66},
-        {102, 102, 102},
-        {128, 128, 128}
-    };
-    
-    int[][] lightDefaultColors = {
-        {255, 255, 255},
-        {239, 239, 239},
-        {245, 245, 245},
-        {238, 238, 238},
-        {221, 221, 221},
-        {204, 204, 204}
-    };
-    
-    for (int[] defColor : darkDefaultColors) {
+    for (int[] defColor : DARK_DEFAULT_COLORS) {
         if (Math.abs(r - defColor[0]) <= 15 && 
             Math.abs(g - defColor[1]) <= 15 && 
             Math.abs(b - defColor[2]) <= 15) {
@@ -1939,7 +1420,7 @@ boolean isDefaultTextColor(int color) {
         }
     }
     
-    for (int[] defColor : lightDefaultColors) {
+    for (int[] defColor : LIGHT_DEFAULT_COLORS) {
         if (Math.abs(r - defColor[0]) <= 15 && 
             Math.abs(g - defColor[1]) <= 15 && 
             Math.abs(b - defColor[2]) <= 15) {
@@ -1958,12 +1439,6 @@ boolean isDefaultTextColor(int color) {
 
 // isUserCustomColor 已删除（无调用）
 
-
-boolean isColorSimilar(int color1, int color2, int tolerance) {
-    return Math.abs(Color.red(color1) - Color.red(color2)) <= tolerance &&
-           Math.abs(Color.green(color1) - Color.green(color2)) <= tolerance &&
-           Math.abs(Color.blue(color1) - Color.blue(color2)) <= tolerance;
-}
 
 void updateViewStylesRecursively(View view, int textColor, Typeface tf, float fontSizeScale) {
     if (view == null) return;
@@ -2049,114 +1524,6 @@ void copyToClipboard(Activity activity, String text) {
     } catch (Throwable e) { traceLog("uitools_log", "[copyToClipboard] 异常: " + e); }
 }
 
-void addSectionHeader(Activity activity, LinearLayout parent, String text, int color) {
-    TextView tv = new TextView(activity);
-    tv.setText(text); tv.setTextSize(13); tv.setTextColor(color);
-    tv.setPadding(dp(activity, 4), dp(activity, 10), 0, dp(activity, 6));
-    parent.addView(tv);
-}
-
-LinearLayout createCardGroup(Activity activity, int color, int radius) {
-    LinearLayout card = new LinearLayout(activity);
-    card.setOrientation(LinearLayout.VERTICAL);
-    int padding = dp(activity, 6);
-    card.setPadding(padding, padding, padding, padding);
-    
-    GradientDrawable bg = new GradientDrawable();
-    bg.setColor(darkenColor(color, 0.02f));
-    bg.setCornerRadius(dp(activity, radius));
-    card.setBackgroundDrawable(bg);
-    card.setClipToOutline(true);
-    return card;
-}
-
-void addClickableItem(Activity activity, LinearLayout parent, String title, String sub, int titleColor, int cardColor, boolean isLast, View.OnClickListener onClick) {
-    LinearLayout item = new LinearLayout(activity);
-    item.setOrientation(LinearLayout.HORIZONTAL);
-    item.setGravity(Gravity.CENTER_VERTICAL);
-    item.setPadding(dp(activity, 16), dp(activity, 14), dp(activity, 16), dp(activity, 14));
-    
-    int itemColor = lightenColor(cardColor, 0.35f);
-    GradientDrawable itemBg = new GradientDrawable();
-    itemBg.setColor(itemColor);
-    itemBg.setCornerRadius(dp(activity, 8));
-    item.setBackgroundDrawable(itemBg);
-    item.setOnClickListener(onClick);
-    
-    LinearLayout textLayout = new LinearLayout(activity);
-    textLayout.setOrientation(LinearLayout.VERTICAL);
-    TextView t1 = new TextView(activity); t1.setText(title); t1.setTextSize(16); t1.setTextColor(titleColor);
-    textLayout.addView(t1);
-    TextView t2 = new TextView(activity); t2.setText(sub); t2.setTextSize(12); t2.setTextColor(titleColor); t2.setAlpha(0.6f);
-    textLayout.addView(t2);
-    
-    item.addView(textLayout, new LinearLayout.LayoutParams(0, -2, 1.0f));
-    TextView arrow = new TextView(activity); arrow.setText(">"); arrow.setTextSize(20); arrow.setTextColor(titleColor); arrow.setAlpha(0.4f);
-    item.addView(arrow);
-    
-    parent.addView(item);
-    
-    if (!isLast) {
-        View space = new View(activity);
-        space.setBackgroundColor(Color.TRANSPARENT);
-        LinearLayout.LayoutParams spaceParams = new LinearLayout.LayoutParams(-1, dp(activity, 4));
-        spaceParams.leftMargin = dp(activity, 6);
-        spaceParams.rightMargin = dp(activity, 6);
-        parent.addView(space, spaceParams);
-    }
-}
-
-void addInputItem(Activity activity, LinearLayout parent, String title, String value, String hint, int titleColor, int cardColor, String saveKey, String defaultValue) {
-    LinearLayout item = new LinearLayout(activity);
-    item.setOrientation(LinearLayout.VERTICAL);
-    item.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
-    
-    int itemColor = lightenColor(cardColor, 0.35f);
-    GradientDrawable itemBg = new GradientDrawable();
-    itemBg.setColor(itemColor);
-    itemBg.setCornerRadius(dp(activity, 8));
-    item.setBackgroundDrawable(itemBg);
-    
-    TextView t1 = new TextView(activity); t1.setText(title); t1.setTextSize(14); t1.setTextColor(titleColor);
-    item.addView(t1);
-
-    final EditText input = new EditText(activity);
-    String displayValue = value;
-    if (value == null || value.trim().isEmpty()) {
-        if (defaultValue != null) {
-            displayValue = defaultValue;
-            input.setHint(hint);
-            input.setTextColor(Color.GRAY);
-        } else {
-            input.setHint(hint);
-        }
-    }
-    input.setText(displayValue);
-    input.setTextSize(14);
-    input.setHintTextColor(Color.GRAY);
-    input.setBackgroundColor(Color.TRANSPARENT);
-    input.setPadding(0, dp(activity, 8), 0, dp(activity, 8));
-
-    input.addTextChangedListener(new android.text.TextWatcher() {
-        public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-        public void onTextChanged(CharSequence s, int start, int before, int count) {}
-        public void afterTextChanged(android.text.Editable s) {
-            String val = s.toString().trim();
-            putString("settings", saveKey, val);
-        }
-    });
-
-    item.addView(input);
-    parent.addView(item);
-    
-    View space = new View(activity);
-    space.setBackgroundColor(Color.TRANSPARENT);
-    LinearLayout.LayoutParams spaceParams = new LinearLayout.LayoutParams(-1, dp(activity, 4));
-    spaceParams.leftMargin = dp(activity, 6);
-    spaceParams.rightMargin = dp(activity, 6);
-    parent.addView(space, spaceParams);
-}
-
 int lightenColor(int color, float factor) {
     int r = Color.red(color);
     int g = Color.green(color);
@@ -2183,97 +1550,12 @@ int darkenColor(int color, float factor) {
     return Color.argb(a, Math.max(0, r), Math.max(0, g), Math.max(0, b));
 }
 
-void addInputItem(Activity activity, LinearLayout parent, String title, String value, String hint, int titleColor, String saveKey, String defaultValue) {
-    int cardColor = pc("#FFF5F5F5");
-    addInputItem(activity, parent, title, value, hint, titleColor, cardColor, saveKey, defaultValue);
-}
-
-void addInputItem(Activity activity, LinearLayout parent, String title, String value, String hint, int titleColor, String saveKey) {
-    addInputItem(activity, parent, title, value, hint, titleColor, saveKey, null);
-}
-
-public Switch createSwitch(Context activity, String str, boolean state, int size, float weight) {
-    Switch switch1 = new Switch(activity);
-    switch1.setText(str);
-    switch1.setTextColor(pc("#4CA1AF"));
-    switch1.setChecked(state);
-    
-    switch1.setScaleX(3.2f);
-    switch1.setScaleY(3.2f);
-    
-    if(size > 0) switch1.setTextSize(size);
-    
-    if(weight > 0) {
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, weight);
-        params.leftMargin = dp(activity, 8);
-        params.rightMargin = dp(activity, 8);
-        switch1.setLayoutParams(params);
-    }
-    
-    return switch1;
-}
-
-CheckBox createCheckBox(Activity activity, String text, boolean checked, int textSizeDp, int textColor) {
-    CheckBox checkBox = new CheckBox(activity);
-    checkBox.setText(text);
-    checkBox.setChecked(checked);
-    if (textSizeDp > 0) checkBox.setTextSize(textSizeDp);
-    
-    LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-        LinearLayout.LayoutParams.MATCH_PARENT,
-        LinearLayout.LayoutParams.WRAP_CONTENT
-    );
-    params.topMargin = dp(activity, 4);
-    params.bottomMargin = dp(activity, 4);
-    checkBox.setLayoutParams(params);
-    
-    int padding = dp(activity, 16);
-    checkBox.setPadding(padding, padding, padding, padding);
-    
-    checkBox.setTextColor(textColor);
-    
-    checkBox.setButtonTintList(android.content.res.ColorStateList.valueOf(textColor));
-    
-    return checkBox;
-}
-
-void addDivider(Activity activity, LinearLayout parent, int color) {
-    View v = new View(activity); v.setBackgroundColor(color);
-    LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, 1); lp.leftMargin = dp(activity, 16);
-    parent.addView(v, lp);
-}
-
 StateListDrawable getSelectableBg(Activity activity) {
     android.graphics.drawable.StateListDrawable res = new android.graphics.drawable.StateListDrawable();
     res.setExitFadeDuration(300);
     res.addState(new int[]{android.R.attr.state_pressed}, new android.graphics.drawable.ColorDrawable(pc("#1A000000")));
     res.addState(new int[0], new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
     return res;
-}
-
-private float getMaxRefreshRate(Context context) {
-    try {
-        WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
-        if (wm == null) return 60f;
-        Display display = wm.getDefaultDisplay();
-        if (display == null) return 60f;
-
-        if (android.os.Build.VERSION.SDK_INT >= 23) {
-            Display.Mode[] modes = display.getSupportedModes();
-            float max = 0f;
-            for (int i = 0; i < modes.length; i++) {
-                float r = modes[i].getRefreshRate();
-                if (r > max) {
-                    max = r;
-                }
-            }
-            return max > 0f ? max : display.getRefreshRate();
-        } else {
-            return display.getRefreshRate();
-        }
-    } catch (Throwable t) {
-        return 60f;
-    }
 }
 
 int dpx(Context ctx, float d) {
