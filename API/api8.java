@@ -1,7 +1,7 @@
 //此空间api由冷雨开发  点赞/评论由ᗜ×ᗜ改进并适配新版 使用请留名
-private final HashSet doneTasks = new HashSet();
+private final java.util.concurrent.CopyOnWriteArraySet doneTasks = new java.util.concurrent.CopyOnWriteArraySet();
 private volatile boolean isServiceRunning = false;
-private final HashSet blackList = new HashSet();
+private final java.util.concurrent.CopyOnWriteArraySet blackList = new java.util.concurrent.CopyOnWriteArraySet();
 
 private void loadDoneTasks() {
     String savedStr = getString("qzone_cfg", "qzone_done_tasks_str", "");
@@ -17,7 +17,16 @@ private void loadDoneTasks() {
 }
 
 private void saveDoneTasks() {
-    if (doneTasks.size() > 100) doneTasks.clear();
+    if (doneTasks.size() > 100) {
+        java.util.List oldest = new ArrayList();
+        java.util.Iterator trimIt = doneTasks.iterator();
+        int trimCount = 0;
+        while (trimIt.hasNext() && trimCount < 20) {
+            oldest.add(trimIt.next());
+            trimCount++;
+        }
+        doneTasks.removeAll(oldest);
+    }
     StringBuffer sb = new StringBuffer();
     java.util.Iterator it = doneTasks.iterator();
     while (it.hasNext()) {
@@ -47,13 +56,6 @@ private void saveBlackList() {
         sb.append((String) it.next());
     }
     putString("qzone_cfg", "blacklist", sb.toString());
-}
-
-private String jsonGet(String json, String key) {
-    try {
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("\"" + key + "\":\"([^\"]+)\"").matcher(json);
-        return m.find() ? m.group(1) : "";
-    } catch (Throwable e) { return ""; }
 }
 
 private int jsonGetInt(String json, String key) {
