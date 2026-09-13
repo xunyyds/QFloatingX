@@ -65,13 +65,6 @@ String get总内部存储(Activity context) {
     } catch (Exception e) { return "未知"; }
 }
 
-public String getIPAddress() {
-    try {
-        InetAddress localHost = InetAddress.getLocalHost();
-        return localHost.getHostAddress();
-    } catch (Exception e) { return e.getMessage(); }
-}
-
 public int getCPURunningNum() {
     return Runtime.getRuntime().availableProcessors();
 }
@@ -319,12 +312,18 @@ void add开关状态卡片(Activity context, LinearLayout parent, boolean isDark
         boolean floatWindowState = getBoolean("settings", "开关", false);
         boolean mockLocationState = getBoolean("模拟定位开关", "模拟定位开关", false);
         boolean 输入框t开关 = getBoolean("输入框", "输入框开关", false);
-        
+        boolean msgStatsOn = getBoolean("settings", "消息统计开关", true);
+        boolean dblClickOn = getBoolean("settings", "双击消息开关", true);
+        boolean keepAliveOn = getBoolean("settings", "后台保活", false);
+
         StringBuilder content = new StringBuilder();
         content.append("悬浮窗: #").append(floatWindowState ? "开启" : "关闭").append("#\n");
         content.append("模拟定位: #").append(mockLocationState ? "开启" : "关闭").append("#\n");
-        content.append("输入框提示: #").append(输入框t开关 ? "开启" : "关闭").append("#");
-        
+        content.append("输入框提示: #").append(输入框t开关 ? "开启" : "关闭").append("#\n");
+        content.append("消息统计: #").append(msgStatsOn ? "开启" : "关闭").append("#\n");
+        content.append("双击消息: #").append(dblClickOn ? "开启" : "关闭").append("#\n");
+        content.append("后台保活: #").append(keepAliveOn ? "开启" : "关闭").append("#");
+
         parent.addView(createTSCard(context, " 开关状态", content.toString(), isDark));
     } catch (Exception e) {
         parent.addView(createTSCard(context, " 开关状态", "错误: " + e.getMessage(), isDark));
@@ -333,17 +332,19 @@ void add开关状态卡片(Activity context, LinearLayout parent, boolean isDark
 
 void add监控卡片(Activity context, LinearLayout parent, boolean isDark) {
     try {
+        boolean msgStatsOn = getBoolean("settings", "消息统计开关", true);
         int queueSize = getBatchQueueSize();
         boolean threadRunning = isWriteThreadRunning();
         int pendingKeys = getPendingWriteKeysCount();
         String 线程info = getThreadPoolInfo();
-        
+
         StringBuilder content = new StringBuilder();
-        content.append("消息统计队列: #").append(queueSize).append("# 条\n");
-        content.append(线程info).append("\n");
-        content.append("写入线程: #").append(threadRunning ? "✅运行中" : "❌已休眠").append("#\n");
-        content.append("待写入键: #").append(pendingKeys).append("# 个");
-        
+        content.append("统计总开关: #").append(msgStatsOn ? "开" : "关（线程已停）").append("#\n");
+        content.append("消息队列: #").append(queueSize).append("# 条待处理\n");
+        content.append("写入线程: #").append(threadRunning ? "运行中" : "休眠").append("#\n");
+        content.append("待写入键: #").append(pendingKeys).append("# 个\n");
+        content.append(线程info);
+
         parent.addView(createTSCard(context, " 线程监控", content.toString(), isDark));
     } catch (Exception e) {
         parent.addView(createTSCard(context, " 线程监控", "错误: " + e.getMessage(), isDark));
@@ -388,15 +389,43 @@ void add模块信息卡片(Activity context, LinearLayout parent, boolean isDark
     }
 }
 
+private volatile long scriptSizeCacheTime = 0L;
+private volatile String scriptSizeCacheVal = null;
+
 void add脚本信息卡片(Activity context, LinearLayout parent, boolean isDark) {
     try {
         long time = System.currentTimeMillis();
-        String versionCode = readprop(pluginPath+"/info.prop","versionCode");
-        String pluginName = readprop(pluginPath + "/info.prop", "pluginName");
-        String scriptId = readprop(pluginPath + "/info.prop", "id");
-        String scriptauthor = readprop(pluginPath + "/info.prop", "author");
+        String versionCode = "", pluginName = "", scriptId = "", scriptauthor = "";
+        try {
+            FileReader propFr = new FileReader(pluginPath + "/info.prop");
+            StringBuilder propSb = new StringBuilder();
+            char[] propBuf = new char[512];
+            int propLen;
+            while ((propLen = propFr.read(propBuf)) != -1) propSb.append(propBuf, 0, propLen);
+            propFr.close();
+            String[] propLines = propSb.toString().split("\\n");
+            for (int i = 0; i < propLines.length; i++) {
+                String line = propLines[i].trim();
+                int eq = line.indexOf('=');
+                if (eq <= 0) continue;
+                String k = line.substring(0, eq).trim();
+                String v = line.substring(eq + 1).trim();
+                if (k.equals("versionCode")) versionCode = v;
+                else if (k.equals("pluginName")) pluginName = v;
+                else if (k.equals("id")) scriptId = v;
+                else if (k.equals("author")) scriptauthor = v;
+            }
+        } catch (Throwable propErr) { traceLog("api6_log", "[脚本信息] 读prop失败: " + propErr); }
         File folder = new File(pluginPath);
-        String formattedSize = getFormattedSize(folder);
+        String formattedSize;
+        long nowSize = System.currentTimeMillis();
+        if (scriptSizeCacheVal != null && nowSize - scriptSizeCacheTime < 30000L) {
+            formattedSize = scriptSizeCacheVal;
+        } else {
+            formattedSize = getFormattedSize(folder);
+            scriptSizeCacheVal = formattedSize;
+            scriptSizeCacheTime = nowSize;
+        }
         StringBuilder content = new StringBuilder();
         content.append("运行脚本: #").append(pluginName).append("(").append(versionCode).append(")#\n");
         content.append("脚本ID: #").append(scriptId).append("#\n");
