@@ -44,7 +44,6 @@ private static final Hashtable OP_STATS = new Hashtable();
 private static final Vector CHANGED_KEYS = new Vector();
 private static final Vector messageBatchQueue = new Vector();
 private static final Hashtable cardExpandStatus = new Hashtable();
-volatile long TOTAL_MSG_SEQ_MAX = 0L;
 
 // 时间范围常量（仅 api3 使用）：0今日 1昨日 2本周 3本月 4自定义
 private volatile int currentTimeRange = 0;
@@ -52,30 +51,48 @@ private String customDateStr = null;
 
 private volatile String todayDateStr = getTodayDateStr();
 
-private synchronized long atomicIncrement(String key) {
-    Long current = (Long) OP_STATS.get(key);
-    long newValue = (current != null ? current.longValue() + 1 : 1);
-    OP_STATS.put(key, Long.valueOf(newValue));
-    addChangedKey(key);
-    return newValue;
+private final Pattern LINK_PATTERN = Pattern.compile("##(.*?)##");
+private final Pattern VAR_PATTERN = Pattern.compile("#(.*?)#");
+
+private final Hashtable linkCache = new Hashtable();
+private final Hashtable linkCacheTime = new Hashtable();
+
+private volatile long lastLogCheckTime = 0L;
+private volatile int logMsgCounter = 0;
+private volatile boolean logCheckRunning = false;
+
+private long atomicIncrement(String key) {
+    synchronized (writeLock) {
+        Long current = (Long) OP_STATS.get(key);
+        long newValue = (current != null ? current.longValue() + 1 : 1);
+        OP_STATS.put(key, Long.valueOf(newValue));
+        addChangedKey(key);
+        return newValue;
+    }
 }
 
-private synchronized long atomicAdd(String key, long delta) {
-    Long current = (Long) OP_STATS.get(key);
-    long newValue = (current != null ? current.longValue() + delta : delta);
-    OP_STATS.put(key, Long.valueOf(newValue));
-    addChangedKey(key);
-    return newValue;
+private long atomicAdd(String key, long delta) {
+    synchronized (writeLock) {
+        Long current = (Long) OP_STATS.get(key);
+        long newValue = (current != null ? current.longValue() + delta : delta);
+        OP_STATS.put(key, Long.valueOf(newValue));
+        addChangedKey(key);
+        return newValue;
+    }
 }
 
-private synchronized long atomicGet(String key) {
-    Long value = (Long) OP_STATS.get(key);
-    return value != null ? value.longValue() : 0L;
+private long atomicGet(String key) {
+    synchronized (writeLock) {
+        Long value = (Long) OP_STATS.get(key);
+        return value != null ? value.longValue() : 0L;
+    }
 }
 
-private synchronized void addChangedKey(String key) {
-    if (!CHANGED_KEYS.contains(key)) {
-        CHANGED_KEYS.add(key);
+private void addChangedKey(String key) {
+    synchronized (writeLock) {
+        if (!CHANGED_KEYS.contains(key)) {
+            CHANGED_KEYS.add(key);
+        }
     }
 }
 
@@ -95,6 +112,7 @@ private void startWriteThread() {
     ThreadPool.execute(new Runnable() {
         public void run() {
             traceLog("api3_log", "[startWriteThread] 后台写入任务启动（懒调用模式）");
+            long lastWriteTime = 0L;
             while (writeThreadRunning) {
                 try {
                     synchronized(writeLock) {
@@ -105,7 +123,18 @@ private void startWriteThread() {
                             processBatch();
                         }
                     }
-                    writeStats();
+                    int pendingKeys = CHANGED_KEYS.size();
+                    long nowW = System.currentTimeMillis();
+                    if (pendingKeys > 0) {
+                        if (nowW - lastWriteTime >= 30000L || pendingKeys > 100) {
+                            writeStats();
+                            lastWriteTime = System.currentTimeMillis();
+                        } else {
+                            synchronized(writeLock) {
+                                writeLock.wait(30000L - (nowW - lastWriteTime));
+                            }
+                        }
+                    }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     traceLog("api3_log", "[startWriteThread] 任务被中断，退出");
@@ -338,7 +367,6 @@ private boolean parseStatsFile(File file) {
             long value = statsJson.optLong(key, 0L);
             OP_STATS.put(key, new Long(value));
         }
-        TOTAL_MSG_SEQ_MAX = atomicGet("totalReceive");
         traceLog("api3_log", "[parseStatsFile] 解析完成，加载键数量: " + OP_STATS.size());
         return true;
     } catch (Exception e) {
@@ -360,7 +388,6 @@ private void initEmptyStats() {
             OP_STATS.put("total" + type, new Long(0L));
             traceLog("api3_log", "[initEmptyStats] 初始化total" + type);
         }
-        TOTAL_MSG_SEQ_MAX = 0L;
         traceLog("api3_log", "[initEmptyStats] 初始化结束");
     }
 }
@@ -508,7 +535,20 @@ public void onMsg(Object data) {
 
     
     try { dispatchEvent(data, 1); 
-        log大小限制(logPath);
+        checkTodayReset();
+        logMsgCounter++;
+        long nowMs = System.currentTimeMillis();
+        if (!logCheckRunning && (nowMs - lastLogCheckTime > 60000L || logMsgCounter >= 200)) {
+            lastLogCheckTime = nowMs;
+            logMsgCounter = 0;
+            logCheckRunning = true;
+            ThreadPool.execute(new Runnable() {
+                public void run() {
+                    try { log大小限制(logPath); } catch (Throwable t) { traceLog("api3_log", "[log检查]" + t); }
+                    logCheckRunning = false;
+                }
+            });
+        }
         } catch (Throwable e) { traceLog("api3_log", "[onMsg]" + e); }
 
     if (!getBoolean("settings", "消息统计开关", true)) return;
@@ -536,7 +576,7 @@ private void writeStats() {
     }
 
     if (keysToWrite != null && !keysToWrite.isEmpty()) {
-        writeFullStatsInternal(keysToWrite);
+        writeFullStatsInternal();
         
         synchronized(writeLock) {
             CHANGED_KEYS.removeAll(keysToWrite);
@@ -548,11 +588,11 @@ private void writeStats() {
 private void writeFullStats() {
     traceLog("api3_log", "[writeFullStats] 用户触发强制全量持久化");
     synchronized(writeLock) {
-        writeFullStatsInternal(new Vector());
+        writeFullStatsInternal();
     }
 }
 
-private void writeFullStatsInternal(Vector triggeredKeys) {
+private void writeFullStatsInternal() {
     JSONObject statsJson = new JSONObject();
     Iterator iterator = OP_STATS.entrySet().iterator();
     while (iterator.hasNext()) {
@@ -594,13 +634,6 @@ private void writeFullStatsInternal(Vector triggeredKeys) {
 
         if (mainFile.exists() && mainFile.length() > 0) {
             traceLog("api3_log", "[writeFullStatsInternal] 文件写入完成: " + mainFile.getName() + " 大小=" + mainFile.length() + "字节");
-            
-            String verifyContent = 读(mainFile.getAbsolutePath());
-            if (verifyContent != null && verifyContent.contains("totalSend") && verifyContent.contains("totalReceive")) {
-                traceLog("api3_log", "[writeFullStatsInternal] 文件完整性验证通过");
-            } else {
-                traceLog("api3_log", "[writeFullStatsInternal] 文件完整性验证失败！");
-            }
         } else {
             traceLog("api3_log", "[writeFullStatsInternal] 文件不存在或大小为0！");
         }
@@ -641,7 +674,10 @@ private void recalculateTotalStats() {
     traceLog("api3_log", "[recalculateTotalStats] 重新计算结束");
 }
 
+private volatile long lastBackupTime = 0L;
+
 private void createSingleBackup() {
+    if (System.currentTimeMillis() - lastBackupTime < 600000L) return;
     File mainFile = new File(statsConfigPath());
     if (!mainFile.exists() || mainFile.length() == 0) return;
     
@@ -650,6 +686,7 @@ private void createSingleBackup() {
     
     try {
         java.nio.file.Files.copy(mainFile.toPath(), backupFile.toPath());
+        lastBackupTime = System.currentTimeMillis();
         traceLog("api3_log", "[createSingleBackup] 备份文件已创建");
     } catch (Exception e) {
         traceLog("api3_log", "[createSingleBackup] 备份失败: " + e.getMessage());
@@ -675,7 +712,6 @@ private void triggerUIUpdate() {
         msgHandle.removeCallbacksAndMessages(null);
         msgHandle.postDelayed(new Runnable() {
             public void run() {
-                traceLog("api3_log", "[triggerUIUpdate] 防抖延迟刷新");
                 updateUIImmediately();
             }
         }, 150);
@@ -683,12 +719,10 @@ private void triggerUIUpdate() {
     }
     lastUIUpdateTime = currentTime;
     
-    traceLog("api3_log", "[triggerUIUpdate] 触发UI刷新");
     msgHandle.post(new Runnable() {
         public void run() {
             try {
                 updateUIImmediately();
-                traceLog("api3_log", "[triggerUIUpdate] UI刷新成功");
             } catch (Throwable e) {
                 traceLog("api3_log", "[triggerUIUpdate] UI更新失败: " + e.getMessage());
                 traceLog("api3_log","[triggerUIUpdate]" + e);
@@ -765,7 +799,6 @@ private void updateCachedTextView(String tag, String text) {
     }
     if (!text.equals(tv.getText().toString())) {
         tv.setText(text);
-        traceLog("api3_log", "[updateCachedTextView] 更新Tag=" + tag + " 文本=" + text);
     }
 }
 
@@ -1559,7 +1592,6 @@ private void resetTotalStats(final Activity activity) {
                         addChangedKey("total" + type);
                         traceLog("api3_log", "[resetTotalStats] 初始化total" + type);
                     }
-                    TOTAL_MSG_SEQ_MAX = 0L;
                     traceLog("api3_log", "[resetTotalStats] 数据清空并初始化");
                     writeStats();
                 }
@@ -1848,7 +1880,9 @@ Map getAllVariablesMap(Object scriptScope) {
             Object valObj = entry.getValue();
             String valueStr = (valObj != null) ? String.valueOf(valObj) : "0";
             
-            map.put(key, valueStr);
+            if (!key.startsWith("date_") || key.startsWith(todayPrefix)) {
+                map.put(key, valueStr);
+            }
 
             if (key.startsWith(todayPrefix)) {
                 String suffix = key.substring(todayPrefix.length());
@@ -1929,8 +1963,7 @@ String 替换变量占位符(String template, Object scriptScope) {
     String result = template;
 
     try {
-        Pattern linkPattern = Pattern.compile("##(.*?)##");
-        Matcher linkMatcher = linkPattern.matcher(result);
+        Matcher linkMatcher = LINK_PATTERN.matcher(result);
         StringBuilder linkSb = new StringBuilder();
         int lastIdx = 0;
         while (linkMatcher.find()) {
@@ -1941,16 +1974,24 @@ String 替换变量占位符(String template, Object scriptScope) {
             } else {
                 String linkValue = null;
                 try {
-                    Future future = ThreadPool.submit(new Callable() {
-                        public Object call() throws Exception {
-                            return get(linkName);
+                    Long cacheTs = (Long) linkCacheTime.get(linkName);
+                    if (cacheTs != null && System.currentTimeMillis() - cacheTs.longValue() < 60000L) {
+                        linkValue = (String) linkCache.get(linkName);
+                    } else {
+                        Future future = ThreadPool.submit(new Callable() {
+                            public Object call() throws Exception {
+                                return get(linkName);
+                            }
+                        });
+                        linkValue = (String) future.get(500, TimeUnit.MILLISECONDS);
+                        if (linkValue == null || linkValue.trim().isEmpty() || "null".equals(linkValue)) {
+                            linkValue = null;
                         }
-                    });
-                    linkValue = (String) future.get(500, TimeUnit.MILLISECONDS);
-                    if (linkValue == null || linkValue.trim().isEmpty() || "null".equals(linkValue)) {
-                        linkValue = null;
+                        linkCache.put(linkName, linkValue != null ? linkValue : "");
+                        linkCacheTime.put(linkName, Long.valueOf(System.currentTimeMillis()));
                     }
                 } catch (Throwable e) { traceLog("api3_log", "[替换变量占位符] 异常: " + e); }
+                if (linkValue == null || linkValue.isEmpty()) linkValue = null;
                 linkSb.append(linkValue != null ? linkValue : "访问链接失败了哦～");
             }
             lastIdx = linkMatcher.end();
@@ -1960,8 +2001,7 @@ String 替换变量占位符(String template, Object scriptScope) {
     } catch (Throwable e) { traceLog("api3_log", "[替换变量占位符] 异常: " + e); }
 
     try {
-        Pattern varPattern = Pattern.compile("#(.*?)#");
-        Matcher varMatcher = varPattern.matcher(result);
+        Matcher varMatcher = VAR_PATTERN.matcher(result);
         StringBuilder varSb = new StringBuilder();
         int lastIdx = 0;
         while (varMatcher.find()) {
