@@ -47,6 +47,7 @@ private static class GifImageView extends ImageView {
     private long movieStart = 0; // 动画起始时间
     private boolean isAnimating = false; // 是否正在动画
     private boolean lastSetMovieSuccess = false; // 记录最后一次 setMovie 是否成功（用于判断缓存是否可用）
+    private int cachedDelay = 100;
 
     public GifImageView(Context context) {
         super(context);
@@ -58,6 +59,9 @@ private static class GifImageView extends ImageView {
         this.movieStart = 0;
         this.isAnimating = (movie != null);
         this.lastSetMovieSuccess = (movie != null);
+        try { this.cachedDelay = Integer.parseInt(getString("settings", "gifDelay", "100")); } catch (Throwable e) { this.cachedDelay = 100; }
+        if (this.cachedDelay < 10) this.cachedDelay = 10;
+        if (this.cachedDelay > 500) this.cachedDelay = 500;
         setWillNotDraw(false);
         invalidate();
     }
@@ -71,6 +75,7 @@ private static class GifImageView extends ImageView {
     
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
+        stopAnimation();
     }
     
     protected void onDraw(Canvas canvas) {
@@ -88,10 +93,7 @@ private static class GifImageView extends ImageView {
                 if (dur == 0) {
                     dur = 100;
                 }
-                int delay = 100;
-                try { delay = Integer.parseInt(getString("settings", "gifDelay", "100")); } catch (Throwable e) { delay = 100; }
-                if (delay < 10) delay = 10;
-                if (delay > 500) delay = 500;
+                int delay = cachedDelay;
                 long elapsed = now - movieStart;
                 int time = (int) ((elapsed * 100L / delay) % dur);
                 movie.setTime(time);
@@ -145,15 +147,11 @@ private int 获取悬浮窗大小(Activity activity) {
     }
 }
 
-private int 获取悬浮窗尺寸(Activity activity) {
-    return 获取悬浮窗大小(activity);
-}
-
 private int 获取关闭区域大小(Activity activity) {
     if (activity == null) {
         return 240;
     }
-    String value = getString("settings", "关闭区域图标大小", String.valueOf(DEFAULT_CLOSE_RANGE_SIZE_DP));
+    String value = getString("settings", "关闭区域大小", String.valueOf(DEFAULT_CLOSE_RANGE_SIZE_DP));
     try {
         if (value == null || value.trim().isEmpty()) {
             value = String.valueOf(DEFAULT_CLOSE_RANGE_SIZE_DP);
@@ -661,7 +659,7 @@ void 隐藏关闭区域(final Activity activity) {
     });
 }
 
-void 更新关闭区域状态(Activity activity, int floatX, int floatY) {
+void 更新关闭区域状态(Activity activity, int floatX, int floatY, int cachedIconSize) {
     if (closeRangeView == null || !isDragging) {
         return;
     }
@@ -671,7 +669,7 @@ void 更新关闭区域状态(Activity activity, int floatX, int floatY) {
         int closeCenterX = closeRangePos[0] + closeRangeView.getWidth() / 2;
         int closeCenterY = closeRangePos[1] + closeRangeView.getHeight() / 2;
 
-        int iconSize = 获取悬浮窗大小(activity);
+        int iconSize = cachedIconSize;
         int floatCenterX = floatX + iconSize / 2;
         int floatCenterY = floatY + iconSize / 2;
 
@@ -738,7 +736,7 @@ void 设置窗口参数(Activity activity) {
     } else {
         type = WindowManager.LayoutParams.TYPE_PHONE;
     }
-    int windowSize = 获取悬浮窗尺寸(activity);
+    int windowSize = 获取悬浮窗大小(activity);
     if (windowSize <= 0) {
         windowSize = (int) (DEFAULT_ICON_SIZE_DP * activity.getResources().getDisplayMetrics().density);
     }
@@ -798,6 +796,7 @@ void 创建悬浮窗视图(final Activity activity) {
 
         悬浮窗状态 = STATE_CREATED;
     } catch (Exception e) {
+        traceLog("api4_log", "[创建悬浮窗视图] 异常: " + e);
         销毁悬浮窗资源();
     }
 }
@@ -823,6 +822,7 @@ void 添加到窗口管理器(Activity activity) {
         悬浮窗显示状态 = true;
         允许触摸 = true;
     } catch (Exception e) {
+        traceLog("api4_log", "[添加到窗口管理器] 异常: " + e);
         悬浮窗状态 = STATE_CREATED;
     }
 }
@@ -865,6 +865,8 @@ void 设置触摸事件(final Activity activity) {
     }
     final float moveThreshold = 获取移动阈值(activity);
     final long longClickThreshold = 获取长按关闭阈值();
+    final int dragSensitivity = 获取拖拽灵敏度();
+    final int floatWindowSize = 获取悬浮窗大小(activity);
 
     if (fadeRunnable == null) {
         fadeRunnable = new Runnable() {
@@ -944,7 +946,7 @@ void 设置触摸事件(final Activity activity) {
                         }
 
                         if (isDragging) {
-                            int sensitivity = 获取拖拽灵敏度();
+                            int sensitivity = dragSensitivity;
                             int baseMoveX = (int) (event.getRawX() - touchOffsetX - params.x);
                             int baseMoveY = (int) (event.getRawY() - touchOffsetY - params.y);
 
@@ -953,7 +955,7 @@ void 设置触摸事件(final Activity activity) {
 
                             int screenWidth = wm.getDefaultDisplay().getWidth();
                             int screenHeight = wm.getDefaultDisplay().getHeight();
-                            int size = 获取悬浮窗大小(activity);
+                            int size = floatWindowSize;
 
                             newX = Math.max(0, Math.min(newX, screenWidth - size));
                             newY = Math.max(0, Math.min(newY, screenHeight - size));
@@ -961,9 +963,8 @@ void 设置触摸事件(final Activity activity) {
                             params.x = newX;
                             params.y = newY;
                             wm.updateViewLayout(floatingView, params);
-                            保存悬浮窗位置(activity);
 
-                            更新关闭区域状态(activity, newX, newY);
+                            更新关闭区域状态(activity, newX, newY, floatWindowSize);
                         }
 
                         if (iconImageView != null) {
@@ -984,6 +985,7 @@ void 设置触摸事件(final Activity activity) {
 
                         if (isDragging) {
                             isDragging = false;
+                            保存悬浮窗位置(activity);
                             if (isInCloseRange) {
                                 Toast("已关闭悬浮窗");
                                 停止悬浮窗(activity);
