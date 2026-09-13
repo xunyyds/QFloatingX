@@ -6,18 +6,6 @@ import java.util.stream.Collectors;
 import android.os.Handler;
 import android.os.Looper;
 
-String extractValue(String pair, String prefix) {
-    try {
-        String value = pair.substring(prefix.length()).trim();
-        if (value.startsWith("=")) value = value.substring(1).trim();
-        if (value.startsWith("'") && value.endsWith("'") && value.length() >= 2)
-            value = value.substring(1, value.length() - 1);
-        return "null".equals(value) ? "未设置" : value;
-    } catch (Throwable e) {
-        return "获取失败";
-    }
-}
-
 String convertRole(String role) {
     if ("OWNER".equals(role)) return "群主";
     if ("ADMIN".equals(role)) return "管理员";
@@ -39,7 +27,7 @@ String getGagStatus(String timestamp) {
         long ts = Long.parseLong(timestamp);
         long currentTime = System.currentTimeMillis() / 1000;
         if (ts == 0) return "未禁言";
-        if (ts > 4102358400L) return "永久禁言";
+        if (ts > 4102358400L) return "永久禁言"; // 2100-01-01 UTC：服务端以远期时间戳表示永久
         if (ts > currentTime) return "禁言中，剩余: " + formatRemainingTime(ts - currentTime);
         return "未禁言";
     } catch (Throwable e) {
@@ -194,10 +182,16 @@ void showShutUpDialog(Activity activity, String qun, String uin, String nickName
                 TextView confirm = createButton(activity, "确定", isDark ? pc("#FF8AB4F8") : pc("#FF2196F3"), Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 confirm.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
-                        int seconds = parseDurationToSeconds(input.getText().toString());
+                        final int seconds = parseDurationToSeconds(input.getText().toString());
                         if (ref[0] != null) ref[0].dismiss();
-                        shutUp(qun, uin, seconds);
-                        Toast(seconds == 0 ? "已解除禁言" : "禁言设置成功: " + formatRemainingTime(seconds));
+                        ThreadPool.execute(new Runnable() {
+                            public void run() {
+                                try {
+                                    shutUp(qun, uin, seconds);
+                                    Toast(seconds == 0 ? "已解除禁言" : "禁言设置成功: " + formatRemainingTime(seconds));
+                                } catch (Throwable t) { traceLog("dialog_log", "[shutUp] 异常: " + t); Toast("禁言操作失败"); }
+                            }
+                        });
                         vibrate(activity, 32);
                     }
                 });
@@ -276,7 +270,11 @@ public void showMuteAllDialog(Activity activity, String qun) {
                 TextView unmute = createButton(activity, "解禁", pc("#81C784"), Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 unmute.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
-                        try { shutUpAll(qun, false); Toast("已解除全体禁言"); } catch (Throwable t) { traceLog("dialog_log", "[onClick] 异常: " + t); }
+                        ThreadPool.execute(new Runnable() {
+                            public void run() {
+                                try { shutUpAll(qun, false); clearMuteAllRecord(qun); Toast("已解除全体禁言"); } catch (Throwable t) { traceLog("dialog_log", "[onClick] 异常: " + t); }
+                            }
+                        });
                         if (ref[0] != null) ref[0].dismiss();
                     }
                 });
@@ -284,30 +282,39 @@ public void showMuteAllDialog(Activity activity, String qun) {
                 TextView confirm = createButton(activity, "确定", isDark ? pc("#FF8AB4F8") : pc("#FF2196F3"), Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 confirm.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
-                        long totalSec = parseDurationToSeconds(input.getText().toString());
+                        final long totalSec = parseDurationToSeconds(input.getText().toString());
                         
                         if (ref[0] != null) ref[0].dismiss();
                         
-                        if (totalSec > 0) {
-                            try {
-                                shutUpAll(qun, true);
-                                Toast("已开启全体禁言: " + formatRemainingTime(totalSec));
-                                final Handler handler = new Handler(Looper.getMainLooper());
-                                handler.postDelayed(new Runnable() {
-                                    public void run() {
-                                        try {
-                                            shutUpAll(qun, false);
-                                            Toast("全体禁言已自动解除");
-                                        } catch (Throwable t) { traceLog("dialog_log", "[onClick] 异常: " + t); }
-                                    }
-                                }, totalSec * 1000L);
-                            } catch (Throwable t) { Toast("操作失败"); }
-                        } else {
-                            try {
-                                shutUpAll(qun, true);
-                                Toast("已开启全体禁言");
-                            } catch (Throwable t) { Toast("操作失败"); }
-                        }
+                        ThreadPool.execute(new Runnable() {
+                            public void run() {
+                                if (totalSec > 0) {
+                                    try {
+                                        shutUpAll(qun, true);
+                                        saveMuteAllRecord(qun, System.currentTimeMillis() + totalSec * 1000L);
+                                        Toast("已开启全体禁言: " + formatRemainingTime(totalSec));
+                                        final Handler handler = new Handler(Looper.getMainLooper());
+                                        handler.postDelayed(new Runnable() {
+                                            public void run() {
+                                                ThreadPool.execute(new Runnable() {
+                                                    public void run() {
+                                                        try {
+                                                            shutUpAll(qun, false);
+                                                            Toast("全体禁言已自动解除");
+                                                        } catch (Throwable t) { traceLog("dialog_log", "[onClick] 异常: " + t); }
+                                                    }
+                                                });
+                                            }
+                                        }, totalSec * 1000L);
+                                    } catch (Throwable t) { Toast("操作失败"); }
+                                } else {
+                                    try {
+                                        shutUpAll(qun, true);
+                                        Toast("已开启全体禁言");
+                                    } catch (Throwable t) { Toast("操作失败"); }
+                                }
+                            }
+                        });
                     }
                 });
 
@@ -324,6 +331,53 @@ public void showMuteAllDialog(Activity activity, String qun) {
             } catch (Throwable t) { traceLog("dialog_log", "[onClick] 异常: " + t); }
         }
     });
+}
+
+void saveMuteAllRecord(String qun, long expireMs) {
+    try {
+        JSONObject obj = getMuteAllRecords();
+        obj.put(qun, expireMs);
+        putString("settings", "muteall_records", obj.toString());
+    } catch (Throwable t) { traceLog("dialog_log", "[saveMuteAllRecord] " + t); }
+}
+
+void clearMuteAllRecord(String qun) {
+    try {
+        JSONObject obj = getMuteAllRecords();
+        obj.remove(qun);
+        putString("settings", "muteall_records", obj.toString());
+    } catch (Throwable t) { traceLog("dialog_log", "[clearMuteAllRecord] " + t); }
+}
+
+JSONObject getMuteAllRecords() {
+    try {
+        String s = getString("settings", "muteall_records", "");
+        if (s != null && !s.isEmpty()) return new JSONObject(s);
+    } catch (Throwable t) { traceLog("dialog_log", "[getMuteAllRecords] " + t); }
+    return new JSONObject();
+}
+
+void checkMuteAllExpiry() {
+    try {
+        String s = getString("settings", "muteall_records", "");
+        if (s == null || s.isEmpty()) return;
+        JSONObject obj = new JSONObject(s);
+        long now = System.currentTimeMillis();
+        boolean changed = false;
+        java.util.Iterator it = obj.keys();
+        java.util.List expired = new ArrayList();
+        while (it.hasNext()) {
+            String qun = (String)it.next();
+            if (obj.getLong(qun) <= now) expired.add(qun);
+        }
+        for (int i = 0; i < expired.size(); i++) {
+            String qun = (String)expired.get(i);
+            try { shutUpAll(qun, false); traceLog("dialog_log", "[checkMuteAllExpiry] 到期自动解禁: " + qun); } catch (Throwable t) {}
+            obj.remove(qun);
+            changed = true;
+        }
+        if (changed) putString("settings", "muteall_records", obj.toString());
+    } catch (Throwable t) { traceLog("dialog_log", "[checkMuteAllExpiry] " + t); }
 }
 
 public void showZanDialog(Activity activity, String targetUin) {
@@ -930,10 +984,8 @@ public void showExpandedResultDialog(Activity activity, String content, boolean 
                 TextView copyBtn = createButton(activity, "复制全部", isDark ? pc("#FF8AB4F8") : pc("#FF2196F3"), Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 copyBtn.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
-                        try {
-                            ClipboardManager cb = (ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
-                            if (cb != null) { cb.setText(content != null ? content : ""); Toast("已复制到剪贴板"); }
-                        } catch (Throwable e) { Toast("复制失败"); }
+                        copyToClipboard(activity, content != null ? content : "");
+                        Toast("已复制到剪贴板");
                     }
                 });
 
@@ -1327,11 +1379,8 @@ void showCopyConfirmDialog(Activity act, String title, String text, boolean isDa
                 copyAll.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         try {
-                            ClipboardManager cb = (ClipboardManager) act.getSystemService(Context.CLIPBOARD_SERVICE);
-                            if (cb != null) {
-                                cb.setPrimaryClip(ClipData.newPlainText("text", finalText));
-                                qqToast(2, "已复制到剪贴板");
-                            }
+                            copyToClipboard(act, finalText);
+                            qqToast(2, "已复制到剪贴板");
                             if (ref[0] != null) ref[0].dismiss();
                         } catch (Throwable e) { Toast("复制失败: " + e.getMessage()); }
                     }
@@ -1613,7 +1662,7 @@ void showGroupInfoDialog(Activity activity, String groupUin, boolean isDark) {
                     }
                 });
             } catch (Throwable e) {
-                uiHandler.post(new Runnable() { public void run() { Toast("获取群信息失败"); } });
+                Toast("获取群信息失败");
             }
         }
     });
@@ -1635,7 +1684,7 @@ void showMemberInfoDialog(Activity activity, String peerUin, String userUin, int
                         member = getMemberInfo(peerUin, userUin);
                         troopInfo = findTroopInfo(peerUin);
                     }
-                    friend = GetCard(userUin);
+                    friend = card;
                 } catch (Throwable ignored) { traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + ignored); }
 
                 sb.append("QQ: ").append(userUin).append("\n");
@@ -1807,11 +1856,7 @@ private void executeDownloadAndUpload(final String url, final String fileName,
         public void run() {
             final String savePath = pluginPath + "/cache/" + fileName;
             traceLog("dialog_log", "[executeDownloadAndUpload] 开始下载: " + url);
-            uiHandler.post(new Runnable() {
-                public void run() {
-                    Toast(startMsg);
-                }
-            });
+            Toast(startMsg);
 
             boolean downloadOk = downloadFile(url, savePath, new ProgressCallback() {
                 public void onProgress(int progress) {
@@ -1824,20 +1869,12 @@ private void executeDownloadAndUpload(final String url, final String fileName,
 
             if (!downloadOk) {
                 traceLog("dialog_log", "[executeDownloadAndUpload] 下载失败: " + url);
-                uiHandler.post(new Runnable() {
-                    public void run() {
-                        Toast("下载失败");
-                    }
-                });
+                Toast("下载失败");
                 return;
             }
 
             traceLog("dialog_log", "[executeDownloadAndUpload] 下载完成，准备上传: " + savePath);
-            uiHandler.post(new Runnable() {
-                public void run() {
-                    Toast("正在上传，请稍候...");
-                }
-            });
+            Toast("正在上传，请稍候...");
 
             uiHandler.post(new Runnable() {
                 public void run() {
@@ -2071,9 +2108,7 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
                                 if ("复制URL".equals(name)) {
                                     String url = postUrlEt.getText().toString();
                                     if (!url.isEmpty()) {
-                                        android.content.ClipboardManager clipboard = (android.content.ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
-                                        android.content.ClipData clip = android.content.ClipData.newPlainText("URL", url);
-                                        clipboard.setPrimaryClip(clip);
+                                        copyToClipboard(activity, url);
                                         Toast("URL已复制");
                                     } else {
                                         Toast("URL为空");
@@ -2081,9 +2116,7 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
                                 } else if ("复制数据".equals(name)) {
                                     String data = postDataEt.getText().toString();
                                     if (!data.isEmpty()) {
-                                        android.content.ClipboardManager clipboard = (android.content.ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
-                                        android.content.ClipData clip = android.content.ClipData.newPlainText("POST数据", data);
-                                        clipboard.setPrimaryClip(clip);
+                                        copyToClipboard(activity, data);
                                         Toast("数据已复制");
                                     } else {
                                         Toast("数据为空");
@@ -2205,40 +2238,49 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
                             }
                             if (!url.startsWith("http")) url = "https://" + url;
 
-                            try {
-                                Object skeyObj = getSkey();
-                                String skey = skeyObj != null ? String.valueOf(skeyObj) : "";
-                                if (skey.isEmpty()) throw new Exception("skey为空");
+                            ThreadPool.execute(new Runnable() {
+                                public void run() {
+                                    try {
+                                        Object skeyObj = getSkey();
+                                        final String skey = skeyObj != null ? String.valueOf(skeyObj) : "";
+                                        if (skey.isEmpty()) throw new Exception("skey为空");
 
-                                Object pskeyObj = getPskey(domainEt.getText().toString().trim());
-                                String pskey = pskeyObj != null ? String.valueOf(pskeyObj) : "";
-                                if (pskey.isEmpty()) throw new Exception("p_skey为空");
+                                        Object pskeyObj = getPskey(domainEt.getText().toString().trim());
+                                        final String pskey = pskeyObj != null ? String.valueOf(pskeyObj) : "";
+                                        if (pskey.isEmpty()) throw new Exception("p_skey为空");
 
-                                String cookie = "p_skey=" + pskey +
-                                        "; skey=" + skey +
-                                        "; uin=o" +qq +" p_uin=o" +qq ;
+                                        final String cookie = "p_skey=" + pskey +
+                                                "; skey=" + skey +
+                                                "; uin=o" +qq +" p_uin=o" +qq ;
 
-                                String result = httpPost(url, cookie, data);
+                                        final String result = httpPost(url, cookie, data);
 
-                                String display = "POST完整返回：\n\n" + (result.isEmpty() ? "(无返回内容)" : result);
-                                currentResultText[0] = display;
+                                        activity.runOnUiThread(new Runnable() {
+                                            public void run() {
+                                                try {
+                                                    String display = "POST完整返回：\n\n" + (result.isEmpty() ? "(无返回内容)" : result);
+                                                    currentResultText[0] = display;
 
-                                resultBody.removeAllViews();
-                                TextView tv = new TextView(activity);
-                                tv.setText(display);
-                                tv.setTextSize(13);
-                                tv.setTextColor(isDark ? pc("#99EFEFEF") : pc("#99000000"));
-                                tv.setPadding(dp(activity, 8), dp(activity, 8), dp(activity, 8), dp(activity, 8));
-                                tv.setTextIsSelectable(true);
-                                resultBody.addView(tv);
+                                                    resultBody.removeAllViews();
+                                                    TextView tv = new TextView(activity);
+                                                    tv.setText(display);
+                                                    tv.setTextSize(13);
+                                                    tv.setTextColor(isDark ? pc("#99EFEFEF") : pc("#99000000"));
+                                                    tv.setPadding(dp(activity, 8), dp(activity, 8), dp(activity, 8), dp(activity, 8));
+                                                    tv.setTextIsSelectable(true);
+                                                    resultBody.addView(tv);
 
-                                resultScroll.setVisibility(View.VISIBLE);
-                                arrowD.setDirection(true);
-                                arrowIv.setImageDrawable(arrowD);
-
-                            } catch (Throwable e) {
-                                Toast("POST失败: " + e.getMessage());
-                            }
+                                                    resultScroll.setVisibility(View.VISIBLE);
+                                                    arrowD.setDirection(true);
+                                                    arrowIv.setImageDrawable(arrowD);
+                                                } catch (Throwable uiErr) { traceLog("dialog_log", "[httpPost] UI回填异常: " + uiErr); }
+                                            }
+                                        });
+                                    } catch (Throwable e) {
+                                        Toast("POST失败: " + e.getMessage());
+                                    }
+                                }
+                            });
                         }
                     }
                 });
@@ -2260,7 +2302,7 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
 
 class AudioBtnAdder {
     View createAudioPlayer(Activity activity, final MediaPlayer[] player, int textColor, int inputBgColor, int borderColor,
-                           final Handler uiHandler, final Runnable[] updateProgressTaskRef) {
+                           final Handler uiHandler, final Runnable[] updateProgressTaskRef, final String audioUrl) {
         LinearLayout container = new LinearLayout(activity);
         container.setOrientation(LinearLayout.VERTICAL);
         container.setPadding(0, dp(activity, 8), 0, dp(activity, 8));
@@ -2342,7 +2384,7 @@ class AudioBtnAdder {
                     if (player[0] == null) {
                         try {
                             player[0] = new MediaPlayer();
-                            player[0].setDataSource(finalUrl); // 注意 finalUrl 需要在此作用域内可访问
+                            player[0].setDataSource(audioUrl);
                             player[0].prepareAsync();
                             player[0].setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
                                 public void onPrepared(MediaPlayer mp) {
@@ -2487,7 +2529,7 @@ public void showExtractAudioDialog(Activity activity, Object data) {
                             AudioBtnAdder adder = new AudioBtnAdder();
                             final View audioControlView;
                             if (!finalUrl.isEmpty()) {
-                                audioControlView = adder.createAudioPlayer(activity, player, textColor, inputBgColor, borderColor, uiHandler, updateProgressTask);
+                                audioControlView = adder.createAudioPlayer(activity, player, textColor, inputBgColor, borderColor, uiHandler, updateProgressTask, finalUrl);
                             } else {
                                 audioControlView = new View(activity); // 空占位
                             }
@@ -2537,14 +2579,14 @@ public void showExtractAudioDialog(Activity activity, Object data) {
                                                     if (success) {
                                                         Object contact = data.contact;
                                                         sendPtt(contact, savePath);
-                                                        uiHandler.post(new Runnable() { public void run() { Toast("语音发送成功"); } });
+                                                        Toast("语音发送成功");
                                                     } else {
-                                                        uiHandler.post(new Runnable() { public void run() { Toast("下载失败"); } });
+                                                        Toast("下载失败");
                                                     }
                                                 } catch (TimeoutException e) {
-                                                    uiHandler.post(new Runnable() { public void run() { Toast("下载超时"); } });
+                                                    Toast("下载超时");
                                                 } catch (Throwable t) {
-                                                    uiHandler.post(new Runnable() { public void run() { Toast("语音发送失败"); } });
+                                                    Toast("语音发送失败");
                                                 }
                                             }
                                         });
@@ -2595,7 +2637,7 @@ public void showExtractAudioDialog(Activity activity, Object data) {
                     }
                 });
             } catch(Throwable e) {
-                uiHandler.post(new Runnable() { public void run() { Toast("提取音频异常"); } });
+                Toast("提取音频异常");
             }
         }
     });
@@ -3188,8 +3230,12 @@ public void 长按消息菜单(Activity activity, Object data) {
     final Object finalAtList = atList;
     final int finalMsgtype = msgtype;
     final String finalNickName = nickName;
-    final Object qqmember = getMemberInfo(finalPeerUin, qq);
-    final String role = qqmember.role;
+    String roleTmp = "MEMBER";
+    try {
+        Object qqmember = getMemberInfo(finalPeerUin, qq);
+        if (qqmember != null && qqmember.role != null) roleTmp = qqmember.role;
+    } catch (Throwable t) { traceLog("dialog_log", "[长按菜单] 获取成员角色失败: " + t); }
+    final String role = roleTmp;
     addMenuItem(menuItems, "消息操作", "复制内容", new Runnable() { public void run() { showCopyConfirmDialog(activity, "消息内容", finalQuntext, isDark); } });
     addMenuItem(menuItems, "消息操作", "复读加一", new Runnable() { public void run() { 复读(data); } });
     addMenuItem(menuItems, "消息操作", "撤回消息", new Runnable() { public void run() { recallMsg(finalChatType, finalPeerUin, finalMsgid); qqToast(2, "撤回操作已执行"); } });
@@ -3232,43 +3278,52 @@ public void 长按消息菜单(Activity activity, Object data) {
     addMenuItem(menuItems, "工具", "好友列表", new Runnable() { public void run() { showFriendListDialog(activity, isDark); } });
     addMenuItem(menuItems, "工具", "发送日志", new Runnable() { public void run() {
         Toast("正在打包日志...");
-        new Thread(new Runnable() { public void run() {
+        ThreadPool.execute(new Runnable() { public void run() {
             try {
                 File logDir = new File(pluginPath + "/Log");
                 String zipPath = null;
                 if (logDir.exists() && logDir.isDirectory()) {
                     java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss");
                     zipPath = pluginPath + "/" + sdf.format(new java.util.Date()) + "-Log.zip";
-                    java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(new java.io.FileOutputStream(zipPath));
-                    String envInfo = "";
-                    try { envInfo = String.valueOf(me.yxp.qfun.utils.log.LogUtils.INSTANCE.getEnvironmentInfo()); }
-                    catch (Throwable e2) { envInfo = "获取环境信息异常: " + e2; }
-                    zos.putNextEntry(new java.util.zip.ZipEntry("info.txt"));
-                    zos.write(envInfo.getBytes("UTF-8"));
-                    zos.closeEntry();
-                    File[] logs = logDir.listFiles();
-                    if (logs != null) {
-                        for (int i = 0; i < logs.length; i++) {
-                            File f = logs[i];
-                            if (f == null || !f.isFile()) continue;
-                            zos.putNextEntry(new java.util.zip.ZipEntry("log/" + f.getName()));
-                            java.io.FileInputStream fis = new java.io.FileInputStream(f);
-                            byte[] buf = new byte[8192];
-                            int len;
-                            while ((len = fis.read(buf)) > 0) zos.write(buf, 0, len);
-                            fis.close();
-                            zos.closeEntry();
+                    java.util.zip.ZipOutputStream zos = null;
+                    try {
+                        zos = new java.util.zip.ZipOutputStream(new java.io.FileOutputStream(zipPath));
+                        String envInfo = "";
+                        try { envInfo = String.valueOf(me.yxp.qfun.utils.log.LogUtils.INSTANCE.getEnvironmentInfo()); }
+                        catch (Throwable e2) { envInfo = "获取环境信息异常: " + e2; }
+                        zos.putNextEntry(new java.util.zip.ZipEntry("info.txt"));
+                        zos.write(envInfo.getBytes("UTF-8"));
+                        zos.closeEntry();
+                        File[] logs = logDir.listFiles();
+                        if (logs != null) {
+                            for (int i = 0; i < logs.length; i++) {
+                                File f = logs[i];
+                                if (f == null || !f.isFile()) continue;
+                                zos.putNextEntry(new java.util.zip.ZipEntry("log/" + f.getName()));
+                                java.io.FileInputStream fis = null;
+                                try {
+                                    fis = new java.io.FileInputStream(f);
+                                    byte[] buf = new byte[8192];
+                                    int len;
+                                    while ((len = fis.read(buf)) != -1) zos.write(buf, 0, len);
+                                } finally {
+                                    try { if (fis != null) fis.close(); } catch (Throwable ignore) {}
+                                }
+                                zos.closeEntry();
+                            }
                         }
+                    } finally {
+                        try { if (zos != null) zos.close(); } catch (Throwable ignore) {}
                     }
-                    zos.close();
                 }
                 if (zipPath == null) { Toast("日志打包失败"); return; }
                 Toast("日志已打包，正在发送...");
                 sendFile(finalPeerUin, zipPath, finalChatType);
                 Toast("日志已发送");
+                final String delPath = zipPath;
                 uiHandler.postDelayed(new Runnable() {
                     public void run() {
-                        try { new File(zipPath).delete(); }
+                        try { new File(delPath).delete(); }
                         catch (Throwable e3) { traceLog("dialog_log", "[长按消息菜单] 删除日志zip异常: " + e3); }
                     }
                 }, 180000);
@@ -3276,7 +3331,7 @@ public void 长按消息菜单(Activity activity, Object data) {
                 traceLog("dialog_log", "[长按消息菜单] 发送日志异常: " + e);
                 Toast("发送日志异常: " + e.getMessage());
             }
-        } }).start();
+        } });
     }});
 
     addMenuItem(menuItems, "其他", "克隆头像", new Runnable() { public void run() { handleCloneAvatar(finalUserUin); } });
@@ -3627,920 +3682,269 @@ public void 长按消息菜单(Activity activity, Object data) {
     }
 }
 
+View buildSimpleListItem(Activity activity, Object[] itemData, int listMode, int textColor, int subTextColor, int borderColor, String groupUin, boolean isDark) {
+	String uin = (String) itemData[0];
+	String name = (String) itemData[1];
+	String sub = (String) itemData[2];
+	boolean horizontal = (listMode == 1 || listMode == 3);
+
+	LinearLayout item = new LinearLayout(activity);
+	item.setOrientation(horizontal ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
+	item.setPadding(dp(activity, 10), dp(activity, 10), dp(activity, 10), dp(activity, 10));
+	item.setClickable(true);
+	if (horizontal) item.setGravity(Gravity.CENTER_VERTICAL);
+
+	final GradientDrawable itemBg = new GradientDrawable();
+	itemBg.setCornerRadius(dp(activity, 10));
+	itemBg.setColor(Color.TRANSPARENT);
+	itemBg.setStroke(dp(activity, 1), borderColor);
+	item.setBackground(itemBg);
+
+	TextView nameView = new TextView(activity);
+	nameView.setText(listMode <= 1 ? name + "(" + uin + ")" : name);
+	nameView.setTextSize(14);
+	nameView.setTextColor(textColor);
+	if (horizontal) nameView.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
+	item.addView(nameView);
+
+	TextView subView = new TextView(activity);
+	subView.setText(sub);
+	subView.setTextSize(12);
+	subView.setTextColor(subTextColor);
+	item.addView(subView);
+
+	item.setOnTouchListener(new View.OnTouchListener() {
+		public boolean onTouch(View v, MotionEvent event) {
+			switch (event.getAction()) {
+				case MotionEvent.ACTION_DOWN: itemBg.setColor(borderColor); item.setBackground(itemBg); return true;
+				case MotionEvent.ACTION_UP: itemBg.setColor(Color.TRANSPARENT); item.setBackground(itemBg); v.performClick(); return true;
+				case MotionEvent.ACTION_CANCEL: itemBg.setColor(Color.TRANSPARENT); item.setBackground(itemBg); return true;
+			}
+			return false;
+		}
+	});
+	final String finalUin = uin;
+	final String finalName = name;
+	item.setOnClickListener(new View.OnClickListener() {
+		public void onClick(View v) {
+			if (listMode == 0) showShutUpDialog(activity, groupUin, finalUin, finalName);
+			else if (listMode == 1) showMemberInfoDialog(activity, groupUin, finalUin, 2);
+			else if (listMode == 2) showGroupInfoDialog(activity, finalUin, isDark);
+			else showMemberInfoDialog(activity, finalUin, finalUin, 1);
+		}
+	});
+
+	LinearLayout.LayoutParams itemParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+	itemParams.setMargins(0, 0, 0, dp(activity, listMode == 0 ? 8 : 6));
+	item.setLayoutParams(itemParams);
+	return item;
+}
+
+void showSimpleListDialog(Activity activity, String title, int listMode, String groupUin, boolean isDark) {
+	if (activity == null || activity.isFinishing()) return;
+	final int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
+	final int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
+	final int borderColor = adjustAlpha(textColor, 0.3f);
+	final String emptyText = listMode == 0 ? "当前群无禁言成员" : listMode == 1 ? "当前群无成员" : listMode == 2 ? "暂无群聊" : "暂无好友";
+	final String countUnit = listMode == 2 ? "个" : "人";
+
+	activity.runOnUiThread(new Runnable() {
+		public void run() {
+			try {
+				LinearLayout root = new LinearLayout(activity);
+				root.setOrientation(LinearLayout.VERTICAL);
+				root.setPadding(dp(activity, 16), dp(activity, 20), dp(activity, 16), dp(activity, 16));
+
+				final TextView titleView = new TextView(activity);
+				titleView.setText(title);
+				titleView.setTextSize(18);
+				titleView.setTypeface(null, Typeface.BOLD);
+				titleView.setTextColor(textColor);
+				titleView.setPadding(0, 0, 0, dp(activity, 12));
+				root.addView(titleView);
+
+				LinearLayout listContainer = new LinearLayout(activity);
+				listContainer.setOrientation(LinearLayout.VERTICAL);
+
+				final LinearLayout loading = createModernLoading(activity, isDark);
+				listContainer.addView(loading);
+
+				ScrollView scroll = new ScrollView(activity);
+				LinearLayout.LayoutParams scrollParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 350));
+				scrollParams.setMargins(0, 0, 0, dp(activity, 12));
+				scroll.setLayoutParams(scrollParams);
+				scroll.addView(listContainer);
+				root.addView(scroll);
+
+				final AlertDialog[] ref = new AlertDialog[1];
+				TextView closeBtn = createButton(activity, "关闭", isDark ? pc("#FF8AB4F8") : pc("#FF2196F3"), Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
+				closeBtn.setOnClickListener(new View.OnClickListener() {
+					public void onClick(View v) {
+						if (ref[0] != null) ref[0].dismiss();
+					}
+				});
+				LinearLayout btnBox = new LinearLayout(activity);
+				btnBox.setOrientation(LinearLayout.HORIZONTAL);
+				btnBox.setGravity(Gravity.RIGHT);
+				btnBox.addView(closeBtn);
+				root.addView(btnBox);
+
+				AlertDialog.Builder builder = new AlertDialog.Builder(activity, isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
+				builder.setView(root);
+				ref[0] = builder.create();
+				ref[0].show();
+				applyUiTheme(activity, ref[0], 0);
+
+				ThreadPool.execute(new Runnable() {
+					public void run() {
+						try {
+							final List allItems = new ArrayList();
+							if (listMode == 0) {
+								Object prohibitList = getProhibitList(groupUin);
+								if (prohibitList != null && ((List) prohibitList).size() > 0) {
+									for (int i = 0; i < ((List) prohibitList).size(); i++) {
+										Object f = ((List) prohibitList).get(i);
+										String uin = "";
+										String name = "";
+										String status = "未知";
+										try {
+											uin = String.valueOf(f.user);
+											name = String.valueOf(f.userName);
+											status = getGagStatus(String.valueOf(f.endTime));
+										} catch (Throwable t) { traceLog("dialog_log", "[showSimpleListDialog] 异常: " + t); }
+										allItems.add(new Object[]{uin, name, status});
+									}
+								}
+							} else if (listMode == 1) {
+								Object members = getGroupMemberList(groupUin);
+								if (members != null && ((List) members).size() > 0) {
+									for (int i = 0; i < ((List) members).size(); i++) {
+										Object m = ((List) members).get(i);
+										String uin = "";
+										String name = "";
+										String role = "未知";
+										try {
+											uin = String.valueOf(m.uin);
+											name = String.valueOf(m.uinName);
+											role = convertRole(String.valueOf(m.role));
+										} catch (Throwable t) { traceLog("dialog_log", "[showSimpleListDialog] 异常: " + t); }
+										allItems.add(new Object[]{uin, name, role});
+									}
+								}
+							} else if (listMode == 2) {
+								Object groups = getGroupList();
+								if (groups != null && ((List) groups).size() > 0) {
+									for (int i = 0; i < ((List) groups).size(); i++) {
+										Object g = ((List) groups).get(i);
+										String guin = "";
+										String gname = "";
+										try {
+											guin = String.valueOf(g.group);
+											gname = String.valueOf(g.groupName);
+										} catch (Throwable t) { traceLog("dialog_log", "[showSimpleListDialog] 异常: " + t); }
+										allItems.add(new Object[]{guin, gname, "群号: " + guin});
+									}
+								}
+							} else {
+								Object friends = getAllFriend();
+								if (friends != null && ((List) friends).size() > 0) {
+									for (int i = 0; i < ((List) friends).size(); i++) {
+										Object f = ((List) friends).get(i);
+										String uin = "";
+										String name = "";
+										String remark = "";
+										try {
+											uin = f.uin;
+											name = f.name;
+											remark = f.remark;
+										} catch (Throwable t) { traceLog("dialog_log", "[showSimpleListDialog] 异常: " + t); }
+										String displayName = (remark != null && !remark.isEmpty() && !remark.equals("null")) ? remark + "(" + name + ")" : name;
+										allItems.add(new Object[]{uin, displayName, uin});
+									}
+								}
+							}
+							
+							activity.runOnUiThread(new Runnable() {
+								public void run() {
+									if (allItems.isEmpty()) {
+										listContainer.removeView(loading);
+										TextView emptyView = new TextView(activity);
+										emptyView.setText(emptyText);
+										emptyView.setTextSize(14);
+										emptyView.setTextColor(subTextColor);
+										emptyView.setGravity(Gravity.CENTER);
+										emptyView.setPadding(dp(activity, 20), dp(activity, 40), dp(activity, 20), dp(activity, 40));
+										listContainer.addView(emptyView);
+									} else {
+										titleView.setText(title + " (" + allItems.size() + countUnit + ")");
+										listContainer.removeView(loading);
+										
+										final int batchSize = 100;
+										int firstBatch = Math.min(batchSize, allItems.size());
+										
+										for (int i = 0; i < firstBatch; i++) {
+											listContainer.addView(buildSimpleListItem(activity, (Object[]) allItems.get(i), listMode, textColor, subTextColor, borderColor, groupUin, isDark));
+										}
+										
+										if (allItems.size() > batchSize) {
+											final int[] currentIdx = {batchSize};
+											final Object[] batchLock = new Object[1]; batchLock[0] = new Object();
+											ThreadPool.execute(new Runnable() {
+												public void run() {
+													while (currentIdx[0] < allItems.size()) {
+														if (ref[0] == null || !ref[0].isShowing()) break;
+														final int start = currentIdx[0];
+														final int end = Math.min(currentIdx[0] + batchSize, allItems.size());
+														
+														activity.runOnUiThread(new Runnable() {
+															public void run() {
+																if (ref[0] == null || !ref[0].isShowing()) {
+																	synchronized (batchLock[0]) { currentIdx[0] = end; batchLock[0].notifyAll(); }
+																	return;
+																}
+																for (int i = start; i < end; i++) {
+																	listContainer.addView(buildSimpleListItem(activity, (Object[]) allItems.get(i), listMode, textColor, subTextColor, borderColor, groupUin, isDark));
+																}
+																synchronized (batchLock[0]) { currentIdx[0] = end; batchLock[0].notifyAll(); }
+															}
+														});
+														
+														synchronized (batchLock[0]) {
+															if (currentIdx[0] < end) {
+																try { batchLock[0].wait(3000); } catch (Throwable waitIgnored) {}
+															}
+														}
+													}
+												}
+											});
+										}
+									}
+								}
+							});
+						} catch (Throwable e) {
+							Toast("获取" + title + "失败: " + e.getMessage());
+						}
+					}
+				});
+			} catch (Throwable e) { Toast("显示失败"); }
+		}
+	});
+}
+
 void showProhibitListDialog(Activity activity, String groupUin, boolean isDark) {
-    if (activity == null || activity.isFinishing()) return;
-    int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
-    int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
-    int borderColor = adjustAlpha(textColor, 0.3f);
-
-    activity.runOnUiThread(new Runnable() {
-        public void run() {
-            try {
-                LinearLayout root = new LinearLayout(activity);
-                root.setOrientation(LinearLayout.VERTICAL);
-                root.setPadding(dp(activity, 16), dp(activity, 20), dp(activity, 16), dp(activity, 16));
-
-                final TextView titleView = new TextView(activity);
-                titleView.setText("禁言列表");
-                titleView.setTextSize(18);
-                titleView.setTypeface(null, Typeface.BOLD);
-                titleView.setTextColor(textColor);
-                titleView.setPadding(0, 0, 0, dp(activity, 12));
-                root.addView(titleView);
-
-                LinearLayout listContainer = new LinearLayout(activity);
-                listContainer.setOrientation(LinearLayout.VERTICAL);
-
-                final LinearLayout loading = createModernLoading(activity, isDark);
-                listContainer.addView(loading);
-
-                ScrollView scrollView = new ScrollView(activity);
-                LinearLayout.LayoutParams scrollParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-                scrollParams.setMargins(0, 0, 0, dp(activity, 12));
-                scrollView.setLayoutParams(scrollParams);
-                scrollView.addView(listContainer);
-                root.addView(scrollView);
-
-                final AlertDialog[] ref = new AlertDialog[1];
-                TextView closeBtn = createButton(activity, "关闭", isDark ? pc("#FF8AB4F8") : pc("#FF2196F3"), Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
-                closeBtn.setOnClickListener(new View.OnClickListener() {
-                    public void onClick(View v) {
-                        if (ref[0] != null) ref[0].dismiss();
-                    }
-                });
-                LinearLayout btnBox = new LinearLayout(activity);
-                btnBox.setOrientation(LinearLayout.HORIZONTAL);
-                btnBox.setGravity(Gravity.RIGHT);
-                btnBox.addView(closeBtn);
-                root.addView(btnBox);
-
-                AlertDialog.Builder builder = new AlertDialog.Builder(activity, isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-                builder.setView(root);
-                ref[0] = builder.create();
-                ref[0].show();
-                applyUiTheme(activity, ref[0], 0);
-
-                ThreadPool.execute(new Runnable() {
-                    public void run() {
-                        try {
-                            Object prohibitList = getProhibitList(groupUin);
-                            final List allItems = new ArrayList();
-                            
-                            if (prohibitList != null && ((List) prohibitList).size() > 0) {
-                                for (int i = 0; i < ((List) prohibitList).size(); i++) {
-                                    Object f = ((List) prohibitList).get(i);
-                                    String uin = "";
-                                    String name = "";
-                                    String status = "未知";
-                                    try {
-                                        uin = String.valueOf(f.user);
-                                        name = String.valueOf(f.userName);
-                                        status = getGagStatus(String.valueOf(f.endTime));
-                                    } catch (Throwable t) { traceLog("dialog_log", "[showProhibitListDialog] 异常: " + t); }
-                                    allItems.add(new Object[]{uin, name, status});
-                                }
-                            }
-                            
-                            activity.runOnUiThread(new Runnable() {
-                                public void run() {
-                                    if (allItems.isEmpty()) {
-                                        listContainer.removeView(loading);
-                                        TextView emptyView = new TextView(activity);
-                                        emptyView.setText("当前群无禁言成员");
-                                        emptyView.setTextSize(14);
-                                        emptyView.setTextColor(subTextColor);
-                                        emptyView.setGravity(Gravity.CENTER);
-                                        emptyView.setPadding(dp(activity, 20), dp(activity, 40), dp(activity, 20), dp(activity, 40));
-                                        listContainer.addView(emptyView);
-                                    } else {
-                                        titleView.setText("禁言列表 (" + allItems.size() + "人)");
-                                        listContainer.removeView(loading);
-                                        
-                                        // 流式加载：先加载前100个并立即显示
-                                        final int batchSize = 100;
-                                        int firstBatch = Math.min(batchSize, allItems.size());
-                                        
-                                        for (int i = 0; i < firstBatch; i++) {
-                                            Object[] itemData = (Object[]) allItems.get(i);
-                                            String uin = (String) itemData[0];
-                                            String name = (String) itemData[1];
-                                            String status = (String) itemData[2];
-
-                                            LinearLayout item = new LinearLayout(activity);
-                                            item.setOrientation(LinearLayout.VERTICAL);
-                                            item.setPadding(dp(activity, 10), dp(activity, 10), dp(activity, 10), dp(activity, 10));
-                                            item.setClickable(true);
-                                            
-                                            final GradientDrawable itemBg = new GradientDrawable();
-                                            itemBg.setCornerRadius(dp(activity, 10));
-                                            itemBg.setColor(Color.TRANSPARENT);
-                                            itemBg.setStroke(dp(activity, 1), borderColor);
-                                            item.setBackground(itemBg);
-
-                                            TextView nameView = new TextView(activity);
-                                            nameView.setText(name + "(" + uin + ")");
-                                            nameView.setTextSize(14);
-                                            nameView.setTextColor(textColor);
-                                            item.addView(nameView);
-
-                                            TextView statusView = new TextView(activity);
-                                            statusView.setText(status);
-                                            statusView.setTextSize(12);
-                                            statusView.setTextColor(subTextColor);
-                                            item.addView(statusView);
-
-                                            item.setOnTouchListener(new View.OnTouchListener() {
-                                                public boolean onTouch(View v, MotionEvent event) {
-                                                    switch (event.getAction()) {
-                                                        case MotionEvent.ACTION_DOWN: itemBg.setColor(borderColor); item.setBackground(itemBg); return true;
-                                                        case MotionEvent.ACTION_UP: itemBg.setColor(Color.TRANSPARENT); item.setBackground(itemBg); v.performClick(); return true;
-                                                        case MotionEvent.ACTION_CANCEL: itemBg.setColor(Color.TRANSPARENT); item.setBackground(itemBg); return true;
-                                                    }
-                                                    return false;
-                                                }
-                                            });
-                                            final String finalUin = uin;
-                                            final String finalName = name;
-                                            item.setOnClickListener(new View.OnClickListener() {
-                                                public void onClick(View v) {
-                                                    showShutUpDialog(activity, groupUin, finalUin, finalName);
-                                                }
-                                            });
-
-                                            LinearLayout.LayoutParams itemParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-                                            itemParams.setMargins(0, 0, 0, dp(activity, 8));
-                                            item.setLayoutParams(itemParams);
-                                            listContainer.addView(item);
-                                        }
-                                        
-                                        // 如果还有剩余，异步后台加载
-                                        if (allItems.size() > batchSize) {
-                                            final int[] currentIdx = {batchSize};
-                                            ThreadPool.execute(new Runnable() {
-                                                public void run() {
-                                                    while (currentIdx[0] < allItems.size()) {
-                                                        final int start = currentIdx[0];
-                                                        final int end = Math.min(currentIdx[0] + batchSize, allItems.size());
-                                                        
-                                                        activity.runOnUiThread(new Runnable() {
-                                                            public void run() {
-                                                                for (int i = start; i < end; i++) {
-                                                                    Object[] itemData = (Object[]) allItems.get(i);
-                                                                    String uin = (String) itemData[0];
-                                                                    String name = (String) itemData[1];
-                                                                    String status = (String) itemData[2];
-
-                                                                    LinearLayout item = new LinearLayout(activity);
-                                                                    item.setOrientation(LinearLayout.VERTICAL);
-                                                                    item.setPadding(dp(activity, 10), dp(activity, 10), dp(activity, 10), dp(activity, 10));
-                                                                    item.setClickable(true);
-                                                                    
-                                                                    final GradientDrawable itemBg = new GradientDrawable();
-                                                                    itemBg.setCornerRadius(dp(activity, 10));
-                                                                    itemBg.setColor(Color.TRANSPARENT);
-                                                                    itemBg.setStroke(dp(activity, 1), borderColor);
-                                                                    item.setBackground(itemBg);
-
-                                                                    TextView nameView = new TextView(activity);
-                                                                    nameView.setText(name + "(" + uin + ")");
-                                                                    nameView.setTextSize(14);
-                                                                    nameView.setTextColor(textColor);
-                                                                    item.addView(nameView);
-
-                                                                    TextView statusView = new TextView(activity);
-                                                                    statusView.setText(status);
-                                                                    statusView.setTextSize(12);
-                                                                    statusView.setTextColor(subTextColor);
-                                                                    item.addView(statusView);
-
-                                                                    item.setOnTouchListener(new View.OnTouchListener() {
-                                                                        public boolean onTouch(View v, MotionEvent event) {
-                                                                            switch (event.getAction()) {
-                                                                                case MotionEvent.ACTION_DOWN: itemBg.setColor(borderColor); item.setBackground(itemBg); return true;
-                                                                                case MotionEvent.ACTION_UP: itemBg.setColor(Color.TRANSPARENT); item.setBackground(itemBg); v.performClick(); return true;
-                                                                                case MotionEvent.ACTION_CANCEL: itemBg.setColor(Color.TRANSPARENT); item.setBackground(itemBg); return true;
-                                                                            }
-                                                                            return false;
-                                                                        }
-                                                                    });
-                                                                    final String finalUin = uin;
-                                                                    final String finalName = name;
-                                                                    item.setOnClickListener(new View.OnClickListener() {
-                                                                        public void onClick(View v) {
-                                                                            showShutUpDialog(activity, groupUin, finalUin, finalName);
-                                                                        }
-                                                                    });
-
-                                                                    LinearLayout.LayoutParams itemParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-                                                                    itemParams.setMargins(0, 0, 0, dp(activity, 8));
-                                                                    item.setLayoutParams(itemParams);
-                                                                    listContainer.addView(item);
-                                                                }
-                                                            }
-                                                        });
-                                                        
-                                                        currentIdx[0] = end;
-                                                    }
-                                                }
-                                            });
-                                        }
-                                    }
-                                }
-                            });
-                        } catch (Throwable e) {
-                            uiHandler.post(new Runnable() { public void run() { Toast("获取禁言列表失败: " + e.getMessage()); } });
-                        }
-                    }
-                });
-            } catch (Throwable e) { Toast("显示失败"); }
-        }
-    });
+	showSimpleListDialog(activity, "禁言列表", 0, groupUin, isDark);
 }
 
 void showGroupMemberListDialog(Activity activity, String groupUin, boolean isDark) {
-    if (activity == null || activity.isFinishing()) return;
-    int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
-    int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
-    int borderColor = adjustAlpha(textColor, 0.3f);
-
-    activity.runOnUiThread(new Runnable() {
-        public void run() {
-            try {
-                LinearLayout root = new LinearLayout(activity);
-                root.setOrientation(LinearLayout.VERTICAL);
-                root.setPadding(dp(activity, 16), dp(activity, 20), dp(activity, 16), dp(activity, 16));
-
-                final TextView titleView = new TextView(activity);
-                titleView.setText("群成员列表");
-                titleView.setTextSize(18);
-                titleView.setTypeface(null, Typeface.BOLD);
-                titleView.setTextColor(textColor);
-                titleView.setPadding(0, 0, 0, dp(activity, 12));
-                root.addView(titleView);
-
-                LinearLayout listContainer = new LinearLayout(activity);
-                listContainer.setOrientation(LinearLayout.VERTICAL);
-
-                final LinearLayout loading = createModernLoading(activity, isDark);
-                listContainer.addView(loading);
-
-                ScrollView scroll = new ScrollView(activity);
-                LinearLayout.LayoutParams scrollParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 350));
-                scrollParams.setMargins(0, 0, 0, dp(activity, 12));
-                scroll.setLayoutParams(scrollParams);
-                scroll.addView(listContainer);
-                root.addView(scroll);
-
-                final AlertDialog[] ref = new AlertDialog[1];
-                TextView closeBtn = createButton(activity, "关闭", isDark ? pc("#FF8AB4F8") : pc("#FF2196F3"), Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
-                closeBtn.setOnClickListener(new View.OnClickListener() {
-                    public void onClick(View v) {
-                        if (ref[0] != null) ref[0].dismiss();
-                    }
-                });
-                LinearLayout btnBox = new LinearLayout(activity);
-                btnBox.setOrientation(LinearLayout.HORIZONTAL);
-                btnBox.setGravity(Gravity.RIGHT);
-                btnBox.addView(closeBtn);
-                root.addView(btnBox);
-
-                AlertDialog.Builder builder = new AlertDialog.Builder(activity, isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-                builder.setView(root);
-                ref[0] = builder.create();
-                ref[0].show();
-                applyUiTheme(activity, ref[0], 0);
-
-                ThreadPool.execute(new Runnable() {
-                    public void run() {
-                        try {
-                            Object members = getGroupMemberList(groupUin);
-                            final List allItems = new ArrayList();
-                            
-                            if (members != null && ((List) members).size() > 0) {
-                                for (int i = 0; i < ((List) members).size(); i++) {
-                                    Object m = ((List) members).get(i);
-                                    String uin = "";
-                                    String name = "";
-                                    String role = "未知";
-                                    try {
-                                        uin = String.valueOf(m.uin);
-                                        name = String.valueOf(m.uinName);
-                                        role = convertRole(String.valueOf(m.role));
-                                    } catch (Throwable t) { traceLog("dialog_log", "[showGroupMemberListDialog] 异常: " + t); }
-                                    allItems.add(new Object[]{uin, name, role});
-                                }
-                            }
-                            
-                            activity.runOnUiThread(new Runnable() {
-                                public void run() {
-                                    if (allItems.isEmpty()) {
-                                        listContainer.removeView(loading);
-                                        TextView emptyView = new TextView(activity);
-                                        emptyView.setText("当前群无成员");
-                                        emptyView.setTextSize(14);
-                                        emptyView.setTextColor(subTextColor);
-                                        emptyView.setGravity(Gravity.CENTER);
-                                        emptyView.setPadding(dp(activity, 20), dp(activity, 40), dp(activity, 20), dp(activity, 40));
-                                        listContainer.addView(emptyView);
-                                    } else {
-                                        titleView.setText("群成员列表 (" + allItems.size() + "人)");
-                                        listContainer.removeView(loading);
-                                        
-                                        final int batchSize = 100;
-                                        int firstBatch = Math.min(batchSize, allItems.size());
-                                        
-                                        for (int i = 0; i < firstBatch; i++) {
-                                            Object[] itemData = (Object[]) allItems.get(i);
-                                            String uin = (String) itemData[0];
-                                            String name = (String) itemData[1];
-                                            String role = (String) itemData[2];
-
-                                            LinearLayout item = new LinearLayout(activity);
-                                            item.setOrientation(LinearLayout.HORIZONTAL);
-                                            item.setPadding(dp(activity, 10), dp(activity, 10), dp(activity, 10), dp(activity, 10));
-                                            item.setClickable(true);
-                                            item.setGravity(Gravity.CENTER_VERTICAL);
-                                            
-                                            final GradientDrawable itemBg = new GradientDrawable();
-                                            itemBg.setCornerRadius(dp(activity, 10));
-                                            itemBg.setColor(Color.TRANSPARENT);
-                                            itemBg.setStroke(dp(activity, 1), borderColor);
-                                            item.setBackground(itemBg);
-
-                                            TextView nameView = new TextView(activity);
-                                            nameView.setText(name + "(" + uin + ")");
-                                            nameView.setTextSize(14);
-                                            nameView.setTextColor(textColor);
-                                            nameView.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
-                                            item.addView(nameView);
-
-                                            TextView roleView = new TextView(activity);
-                                            roleView.setText(role);
-                                            roleView.setTextSize(12);
-                                            roleView.setTextColor(subTextColor);
-                                            item.addView(roleView);
-
-                                            item.setOnTouchListener(new View.OnTouchListener() {
-                                                public boolean onTouch(View v, MotionEvent event) {
-                                                    switch (event.getAction()) {
-                                                        case MotionEvent.ACTION_DOWN: itemBg.setColor(borderColor); item.setBackground(itemBg); return true;
-                                                        case MotionEvent.ACTION_UP: itemBg.setColor(Color.TRANSPARENT); item.setBackground(itemBg); v.performClick(); return true;
-                                                        case MotionEvent.ACTION_CANCEL: itemBg.setColor(Color.TRANSPARENT); item.setBackground(itemBg); return true;
-                                                    }
-                                                    return false;
-                                                }
-                                            });
-                                            final String finalUin = uin;
-                                            item.setOnClickListener(new View.OnClickListener() {
-                                                public void onClick(View v) {
-                                                    showMemberInfoDialog(activity, groupUin, finalUin, 2);
-                                                }
-                                            });
-
-                                            LinearLayout.LayoutParams itemParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-                                            itemParams.setMargins(0, 0, 0, dp(activity, 6));
-                                            item.setLayoutParams(itemParams);
-                                            listContainer.addView(item);
-                                        }
-                                        
-                                        if (allItems.size() > batchSize) {
-                                            final int[] currentIdx = {batchSize};
-                                            ThreadPool.execute(new Runnable() {
-                                                public void run() {
-                                                    while (currentIdx[0] < allItems.size()) {
-                                                        final int start = currentIdx[0];
-                                                        final int end = Math.min(currentIdx[0] + batchSize, allItems.size());
-                                                        
-                                                        activity.runOnUiThread(new Runnable() {
-                                                            public void run() {
-                                                                for (int i = start; i < end; i++) {
-                                                                    Object[] itemData = (Object[]) allItems.get(i);
-                                                                    String uin = (String) itemData[0];
-                                                                    String name = (String) itemData[1];
-                                                                    String role = (String) itemData[2];
-
-                                                                    LinearLayout item = new LinearLayout(activity);
-                                                                    item.setOrientation(LinearLayout.HORIZONTAL);
-                                                                    item.setPadding(dp(activity, 10), dp(activity, 10), dp(activity, 10), dp(activity, 10));
-                                                                    item.setClickable(true);
-                                                                    item.setGravity(Gravity.CENTER_VERTICAL);
-                                                                    
-                                                                    final GradientDrawable itemBg = new GradientDrawable();
-                                                                    itemBg.setCornerRadius(dp(activity, 10));
-                                                                    itemBg.setColor(Color.TRANSPARENT);
-                                                                    itemBg.setStroke(dp(activity, 1), borderColor);
-                                                                    item.setBackground(itemBg);
-
-                                                                    TextView nameView = new TextView(activity);
-                                                                    nameView.setText(name + "(" + uin + ")");
-                                                                    nameView.setTextSize(14);
-                                                                    nameView.setTextColor(textColor);
-                                                                    nameView.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
-                                                                    item.addView(nameView);
-
-                                                                    TextView roleView = new TextView(activity);
-                                                                    roleView.setText(role);
-                                                                    roleView.setTextSize(12);
-                                                                    roleView.setTextColor(subTextColor);
-                                                                    item.addView(roleView);
-
-                                                                    item.setOnTouchListener(new View.OnTouchListener() {
-                                                                        public boolean onTouch(View v, MotionEvent event) {
-                                                                            switch (event.getAction()) {
-                                                                                case MotionEvent.ACTION_DOWN: itemBg.setColor(borderColor); item.setBackground(itemBg); return true;
-                                                                                case MotionEvent.ACTION_UP: itemBg.setColor(Color.TRANSPARENT); item.setBackground(itemBg); v.performClick(); return true;
-                                                                                case MotionEvent.ACTION_CANCEL: itemBg.setColor(Color.TRANSPARENT); item.setBackground(itemBg); return true;
-                                                                            }
-                                                                            return false;
-                                                                        }
-                                                                    });
-                                                                    final String finalUin = uin;
-                                                                    item.setOnClickListener(new View.OnClickListener() {
-                                                                        public void onClick(View v) {
-                                                                            showMemberInfoDialog(activity, groupUin, finalUin, 2);
-                                                                        }
-                                                                    });
-
-                                                                    LinearLayout.LayoutParams itemParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-                                                                    itemParams.setMargins(0, 0, 0, dp(activity, 6));
-                                                                    item.setLayoutParams(itemParams);
-                                                                    listContainer.addView(item);
-                                                                }
-                                                            }
-                                                        });
-                                                        
-                                                        currentIdx[0] = end;
-                                                    }
-                                                }
-                                            });
-                                        }
-                                    }
-                                }
-                            });
-                        } catch (Throwable e) {
-                            uiHandler.post(new Runnable() { public void run() { Toast("获取群成员列表失败: " + e.getMessage()); } });
-                        }
-                    }
-                });
-            } catch (Throwable e) { Toast("显示失败"); }
-        }
-    });
+	showSimpleListDialog(activity, "群成员列表", 1, groupUin, isDark);
 }
 
 void showGroupListDialog(Activity activity, boolean isDark) {
-    if (activity == null || activity.isFinishing()) return;
-    int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
-    int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
-    int borderColor = adjustAlpha(textColor, 0.3f);
-
-    activity.runOnUiThread(new Runnable() {
-        public void run() {
-            try {
-                LinearLayout root = new LinearLayout(activity);
-                root.setOrientation(LinearLayout.VERTICAL);
-                root.setPadding(dp(activity, 16), dp(activity, 20), dp(activity, 16), dp(activity, 16));
-
-                final TextView titleView = new TextView(activity);
-                titleView.setText("我的群列表");
-                titleView.setTextSize(18);
-                titleView.setTypeface(null, Typeface.BOLD);
-                titleView.setTextColor(textColor);
-                titleView.setPadding(0, 0, 0, dp(activity, 12));
-                root.addView(titleView);
-
-                LinearLayout listContainer = new LinearLayout(activity);
-                listContainer.setOrientation(LinearLayout.VERTICAL);
-
-                final LinearLayout loading = createModernLoading(activity, isDark);
-                listContainer.addView(loading);
-
-                ScrollView scroll = new ScrollView(activity);
-                LinearLayout.LayoutParams scrollParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 350));
-                scrollParams.setMargins(0, 0, 0, dp(activity, 12));
-                scroll.setLayoutParams(scrollParams);
-                scroll.addView(listContainer);
-                root.addView(scroll);
-
-                final AlertDialog[] ref = new AlertDialog[1];
-                TextView closeBtn = createButton(activity, "关闭", isDark ? pc("#FF8AB4F8") : pc("#FF2196F3"), Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
-                closeBtn.setOnClickListener(new View.OnClickListener() {
-                    public void onClick(View v) {
-                        if (ref[0] != null) ref[0].dismiss();
-                    }
-                });
-                LinearLayout btnBox = new LinearLayout(activity);
-                btnBox.setOrientation(LinearLayout.HORIZONTAL);
-                btnBox.setGravity(Gravity.RIGHT);
-                btnBox.addView(closeBtn);
-                root.addView(btnBox);
-
-                AlertDialog.Builder builder = new AlertDialog.Builder(activity, isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-                builder.setView(root);
-                ref[0] = builder.create();
-                ref[0].show();
-                applyUiTheme(activity, ref[0], 0);
-
-                ThreadPool.execute(new Runnable() {
-                    public void run() {
-                        try {
-                            Object groups = getGroupList();
-                            final List allItems = new ArrayList();
-                            
-                            if (groups != null && ((List) groups).size() > 0) {
-                                for (int i = 0; i < ((List) groups).size(); i++) {
-                                    Object g = ((List) groups).get(i);
-                                    String groupUin = "";
-                                    String groupName = "";
-                                    try {
-                                        groupUin = String.valueOf(g.group);
-                                        groupName = String.valueOf(g.groupName);
-                                    } catch (Throwable t) { traceLog("dialog_log", "[showGroupListDialog] 异常: " + t); }
-                                    allItems.add(new Object[]{groupUin, groupName});
-                                }
-                            }
-                            
-                            activity.runOnUiThread(new Runnable() {
-                                public void run() {
-                                    if (allItems.isEmpty()) {
-                                        listContainer.removeView(loading);
-                                        TextView emptyView = new TextView(activity);
-                                        emptyView.setText("暂无群聊");
-                                        emptyView.setTextSize(14);
-                                        emptyView.setTextColor(subTextColor);
-                                        emptyView.setGravity(Gravity.CENTER);
-                                        emptyView.setPadding(dp(activity, 20), dp(activity, 40), dp(activity, 20), dp(activity, 40));
-                                        listContainer.addView(emptyView);
-                                    } else {
-                                        titleView.setText("我的群列表 (" + allItems.size() + "个)");
-                                        listContainer.removeView(loading);
-                                        
-                                        final int batchSize = 100;
-                                        int firstBatch = Math.min(batchSize, allItems.size());
-                                        
-                                        for (int i = 0; i < firstBatch; i++) {
-                                            Object[] itemData = (Object[]) allItems.get(i);
-                                            String groupUin = (String) itemData[0];
-                                            String groupName = (String) itemData[1];
-
-                                            LinearLayout item = new LinearLayout(activity);
-                                            item.setOrientation(LinearLayout.VERTICAL);
-                                            item.setPadding(dp(activity, 10), dp(activity, 10), dp(activity, 10), dp(activity, 10));
-                                            item.setClickable(true);
-                                            
-                                            final GradientDrawable itemBg = new GradientDrawable();
-                                            itemBg.setCornerRadius(dp(activity, 10));
-                                            itemBg.setColor(Color.TRANSPARENT);
-                                            itemBg.setStroke(dp(activity, 1), borderColor);
-                                            item.setBackground(itemBg);
-
-                                            TextView nameView = new TextView(activity);
-                                            nameView.setText(groupName);
-                                            nameView.setTextSize(14);
-                                            nameView.setTextColor(textColor);
-                                            item.addView(nameView);
-
-                                            TextView uinView = new TextView(activity);
-                                            uinView.setText("群号: " + groupUin);
-                                            uinView.setTextSize(12);
-                                            uinView.setTextColor(subTextColor);
-                                            item.addView(uinView);
-
-                                            item.setOnTouchListener(new View.OnTouchListener() {
-                                                public boolean onTouch(View v, MotionEvent event) {
-                                                    switch (event.getAction()) {
-                                                        case MotionEvent.ACTION_DOWN: itemBg.setColor(borderColor); item.setBackground(itemBg); return true;
-                                                        case MotionEvent.ACTION_UP: itemBg.setColor(Color.TRANSPARENT); item.setBackground(itemBg); v.performClick(); return true;
-                                                        case MotionEvent.ACTION_CANCEL: itemBg.setColor(Color.TRANSPARENT); item.setBackground(itemBg); return true;
-                                                    }
-                                                    return false;
-                                                }
-                                            });
-                                            final String finalGroupUin = groupUin;
-                                            item.setOnClickListener(new View.OnClickListener() {
-                                                public void onClick(View v) {
-                                                    showGroupInfoDialog(activity, finalGroupUin, isDark);
-                                                }
-                                            });
-
-                                            LinearLayout.LayoutParams itemParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-                                            itemParams.setMargins(0, 0, 0, dp(activity, 6));
-                                            item.setLayoutParams(itemParams);
-                                            listContainer.addView(item);
-                                        }
-                                        
-                                        if (allItems.size() > batchSize) {
-                                            final int[] currentIdx = {batchSize};
-                                            ThreadPool.execute(new Runnable() {
-                                                public void run() {
-                                                    while (currentIdx[0] < allItems.size()) {
-                                                        final int start = currentIdx[0];
-                                                        final int end = Math.min(currentIdx[0] + batchSize, allItems.size());
-                                                        
-                                                        activity.runOnUiThread(new Runnable() {
-                                                            public void run() {
-                                                                for (int i = start; i < end; i++) {
-                                                                    Object[] itemData = (Object[]) allItems.get(i);
-                                                                    String groupUin = (String) itemData[0];
-                                                                    String groupName = (String) itemData[1];
-
-                                                                    LinearLayout item = new LinearLayout(activity);
-                                                                    item.setOrientation(LinearLayout.VERTICAL);
-                                                                    item.setPadding(dp(activity, 10), dp(activity, 10), dp(activity, 10), dp(activity, 10));
-                                                                    item.setClickable(true);
-                                                                    
-                                                                    final GradientDrawable itemBg = new GradientDrawable();
-                                                                    itemBg.setCornerRadius(dp(activity, 10));
-                                                                    itemBg.setColor(Color.TRANSPARENT);
-                                                                    itemBg.setStroke(dp(activity, 1), borderColor);
-                                                                    item.setBackground(itemBg);
-
-                                                                    TextView nameView = new TextView(activity);
-                                                                    nameView.setText(groupName);
-                                                                    nameView.setTextSize(14);
-                                                                    nameView.setTextColor(textColor);
-                                                                    item.addView(nameView);
-
-                                                                    TextView uinView = new TextView(activity);
-                                                                    uinView.setText("群号: " + groupUin);
-                                                                    uinView.setTextSize(12);
-                                                                    uinView.setTextColor(subTextColor);
-                                                                    item.addView(uinView);
-
-                                                                    item.setOnTouchListener(new View.OnTouchListener() {
-                                                                        public boolean onTouch(View v, MotionEvent event) {
-                                                                            switch (event.getAction()) {
-                                                                                case MotionEvent.ACTION_DOWN: itemBg.setColor(borderColor); item.setBackground(itemBg); return true;
-                                                                                case MotionEvent.ACTION_UP: itemBg.setColor(Color.TRANSPARENT); item.setBackground(itemBg); v.performClick(); return true;
-                                                                                case MotionEvent.ACTION_CANCEL: itemBg.setColor(Color.TRANSPARENT); item.setBackground(itemBg); return true;
-                                                                            }
-                                                                            return false;
-                                                                        }
-                                                                    });
-                                                                    final String finalGroupUin = groupUin;
-                                                                    item.setOnClickListener(new View.OnClickListener() {
-                                                                        public void onClick(View v) {
-                                                                            showGroupInfoDialog(activity, finalGroupUin, isDark);
-                                                                        }
-                                                                    });
-
-                                                                    LinearLayout.LayoutParams itemParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-                                                                    itemParams.setMargins(0, 0, 0, dp(activity, 6));
-                                                                    item.setLayoutParams(itemParams);
-                                                                    listContainer.addView(item);
-                                                                }
-                                                            }
-                                                        });
-                                                        
-                                                        currentIdx[0] = end;
-                                                    }
-                                                }
-                                            });
-                                        }
-                                    }
-                                }
-                            });
-                        } catch (Throwable e) {
-                            uiHandler.post(new Runnable() { public void run() { Toast("获取群列表失败: " + e.getMessage()); } });
-                        }
-                    }
-                });
-            } catch (Throwable e) { Toast("显示失败"); }
-        }
-    });
+	showSimpleListDialog(activity, "我的群列表", 2, null, isDark);
 }
 
 void showFriendListDialog(Activity activity, boolean isDark) {
-    if (activity == null || activity.isFinishing()) return;
-    int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
-    int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
-    int borderColor = adjustAlpha(textColor, 0.3f);
-
-    activity.runOnUiThread(new Runnable() {
-        public void run() {
-            try {
-                LinearLayout root = new LinearLayout(activity);
-                root.setOrientation(LinearLayout.VERTICAL);
-                root.setPadding(dp(activity, 16), dp(activity, 20), dp(activity, 16), dp(activity, 16));
-
-                final TextView titleView = new TextView(activity);
-                titleView.setText("我的好友列表");
-                titleView.setTextSize(18);
-                titleView.setTypeface(null, Typeface.BOLD);
-                titleView.setTextColor(textColor);
-                titleView.setPadding(0, 0, 0, dp(activity, 12));
-                root.addView(titleView);
-
-                LinearLayout listContainer = new LinearLayout(activity);
-                listContainer.setOrientation(LinearLayout.VERTICAL);
-
-                final LinearLayout loading = createModernLoading(activity, isDark);
-                listContainer.addView(loading);
-
-                ScrollView scroll = new ScrollView(activity);
-                LinearLayout.LayoutParams scrollParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 350));
-                scrollParams.setMargins(0, 0, 0, dp(activity, 12));
-                scroll.setLayoutParams(scrollParams);
-                scroll.addView(listContainer);
-                root.addView(scroll);
-
-                final AlertDialog[] ref = new AlertDialog[1];
-                TextView closeBtn = createButton(activity, "关闭", isDark ? pc("#FF8AB4F8") : pc("#FF2196F3"), Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
-                closeBtn.setOnClickListener(new View.OnClickListener() {
-                    public void onClick(View v) {
-                        if (ref[0] != null) ref[0].dismiss();
-                    }
-                });
-                LinearLayout btnBox = new LinearLayout(activity);
-                btnBox.setOrientation(LinearLayout.HORIZONTAL);
-                btnBox.setGravity(Gravity.RIGHT);
-                btnBox.addView(closeBtn);
-                root.addView(btnBox);
-
-                AlertDialog.Builder builder = new AlertDialog.Builder(activity, isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-                builder.setView(root);
-                ref[0] = builder.create();
-                ref[0].show();
-                applyUiTheme(activity, ref[0], 0);
-
-                ThreadPool.execute(new Runnable() {
-                    public void run() {
-                        try {
-                            Object friends = getAllFriend();
-                            final List allItems = new ArrayList();
-                            
-                            if (friends != null && ((List) friends).size() > 0) {
-                                for (int i = 0; i < ((List) friends).size(); i++) {
-                                    Object f = ((List) friends).get(i);
-                                    String uin = "";
-                                    String name = "";
-                                    String remark = "";
-                                    try {
-                                        uin = f.uin;
-                                        name = f.name;
-                                        remark = f.remark;
-                                    } catch (Throwable t) { traceLog("dialog_log", "[showFriendListDialog] 异常: " + t); }
-                                    allItems.add(new Object[]{uin, name, remark});
-                                }
-                            }
-                            
-                            activity.runOnUiThread(new Runnable() {
-                                public void run() {
-                                    if (allItems.isEmpty()) {
-                                        listContainer.removeView(loading);
-                                        TextView emptyView = new TextView(activity);
-                                        emptyView.setText("暂无好友");
-                                        emptyView.setTextSize(14);
-                                        emptyView.setTextColor(subTextColor);
-                                        emptyView.setGravity(Gravity.CENTER);
-                                        emptyView.setPadding(dp(activity, 20), dp(activity, 40), dp(activity, 20), dp(activity, 40));
-                                        listContainer.addView(emptyView);
-                                    } else {
-                                        titleView.setText("我的好友列表 (" + allItems.size() + "人)");
-                                        listContainer.removeView(loading);
-                                        
-                                        final int batchSize = 100;
-                                        int firstBatch = Math.min(batchSize, allItems.size());
-                                        
-                                        for (int i = 0; i < firstBatch; i++) {
-                                            Object[] itemData = (Object[]) allItems.get(i);
-                                            String uin = (String) itemData[0];
-                                            String name = (String) itemData[1];
-                                            String remark = (String) itemData[2];
-                                            String displayName = (remark != null && !remark.isEmpty() && !remark.equals("null")) 
-                                                ? remark + "(" + name + ")" : name;
-
-                                            LinearLayout item = new LinearLayout(activity);
-                                            item.setOrientation(LinearLayout.HORIZONTAL);
-                                            item.setPadding(dp(activity, 10), dp(activity, 10), dp(activity, 10), dp(activity, 10));
-                                            item.setClickable(true);
-                                            item.setGravity(Gravity.CENTER_VERTICAL);
-                                            
-                                            final GradientDrawable itemBg = new GradientDrawable();
-                                            itemBg.setCornerRadius(dp(activity, 10));
-                                            itemBg.setColor(Color.TRANSPARENT);
-                                            itemBg.setStroke(dp(activity, 1), borderColor);
-                                            item.setBackground(itemBg);
-
-                                            TextView nameView = new TextView(activity);
-                                            nameView.setText(displayName);
-                                            nameView.setTextSize(14);
-                                            nameView.setTextColor(textColor);
-                                            nameView.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
-                                            item.addView(nameView);
-
-                                            TextView uinView = new TextView(activity);
-                                            uinView.setText(uin);
-                                            uinView.setTextSize(12);
-                                            uinView.setTextColor(subTextColor);
-                                            item.addView(uinView);
-
-                                            item.setOnTouchListener(new View.OnTouchListener() {
-                                                public boolean onTouch(View v, MotionEvent event) {
-                                                    switch (event.getAction()) {
-                                                        case MotionEvent.ACTION_DOWN: itemBg.setColor(borderColor); item.setBackground(itemBg); return true;
-                                                        case MotionEvent.ACTION_UP: itemBg.setColor(Color.TRANSPARENT); item.setBackground(itemBg); v.performClick(); return true;
-                                                        case MotionEvent.ACTION_CANCEL: itemBg.setColor(Color.TRANSPARENT); item.setBackground(itemBg); return true;
-                                                    }
-                                                    return false;
-                                                }
-                                            });
-                                            final String finalUin = uin;
-                                            item.setOnClickListener(new View.OnClickListener() {
-                                                public void onClick(View v) {
-                                                    showMemberInfoDialog(activity, finalUin, finalUin, 1);
-                                                }
-                                            });
-
-                                            LinearLayout.LayoutParams itemParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-                                            itemParams.setMargins(0, 0, 0, dp(activity, 6));
-                                            item.setLayoutParams(itemParams);
-                                            listContainer.addView(item);
-                                        }
-                                        
-                                        if (allItems.size() > batchSize) {
-                                            final int[] currentIdx = {batchSize};
-                                            ThreadPool.execute(new Runnable() {
-                                                public void run() {
-                                                    while (currentIdx[0] < allItems.size()) {
-                                                        final int start = currentIdx[0];
-                                                        final int end = Math.min(currentIdx[0] + batchSize, allItems.size());
-                                                        
-                                                        activity.runOnUiThread(new Runnable() {
-                                                            public void run() {
-                                                                for (int i = start; i < end; i++) {
-                                                                    Object[] itemData = (Object[]) allItems.get(i);
-                                                                    String uin = (String) itemData[0];
-                                                                    String name = (String) itemData[1];
-                                                                    String remark = (String) itemData[2];
-                                                                    String displayName = (remark != null && !remark.isEmpty() && !remark.equals("null")) 
-                                                                        ? remark + "(" + name + ")" : name;
-
-                                                                    LinearLayout item = new LinearLayout(activity);
-                                                                    item.setOrientation(LinearLayout.HORIZONTAL);
-                                                                    item.setPadding(dp(activity, 10), dp(activity, 10), dp(activity, 10), dp(activity, 10));
-                                                                    item.setClickable(true);
-                                                                    item.setGravity(Gravity.CENTER_VERTICAL);
-                                                                    
-                                                                    final GradientDrawable itemBg = new GradientDrawable();
-                                                                    itemBg.setCornerRadius(dp(activity, 10));
-                                                                    itemBg.setColor(Color.TRANSPARENT);
-                                                                    itemBg.setStroke(dp(activity, 1), borderColor);
-                                                                    item.setBackground(itemBg);
-
-                                                                    TextView nameView = new TextView(activity);
-                                                                    nameView.setText(displayName);
-                                                                    nameView.setTextSize(14);
-                                                                    nameView.setTextColor(textColor);
-                                                                    nameView.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
-                                                                    item.addView(nameView);
-
-                                                                    TextView uinView = new TextView(activity);
-                                                                    uinView.setText(uin);
-                                                                    uinView.setTextSize(12);
-                                                                    uinView.setTextColor(subTextColor);
-                                                                    item.addView(uinView);
-
-                                                                    item.setOnTouchListener(new View.OnTouchListener() {
-                                                                        public boolean onTouch(View v, MotionEvent event) {
-                                                                            switch (event.getAction()) {
-                                                                                case MotionEvent.ACTION_DOWN: itemBg.setColor(borderColor); item.setBackground(itemBg); return true;
-                                                                                case MotionEvent.ACTION_UP: itemBg.setColor(Color.TRANSPARENT); item.setBackground(itemBg); v.performClick(); return true;
-                                                                                case MotionEvent.ACTION_CANCEL: itemBg.setColor(Color.TRANSPARENT); item.setBackground(itemBg); return true;
-                                                                            }
-                                                                            return false;
-                                                                        }
-                                                                    });
-                                                                    final String finalUin = uin;
-                                                                    item.setOnClickListener(new View.OnClickListener() {
-                                                                        public void onClick(View v) {
-                                                                            showMemberInfoDialog(activity, finalUin, finalUin, 1);
-                                                                        }
-                                                                    });
-
-                                                                    LinearLayout.LayoutParams itemParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-                                                                    itemParams.setMargins(0, 0, 0, dp(activity, 6));
-                                                                    item.setLayoutParams(itemParams);
-                                                                    listContainer.addView(item);
-                                                                }
-                                                            }
-                                                        });
-                                                        
-                                                        currentIdx[0] = end;
-                                                    }
-                                                }
-                                            });
-                                        }
-                                    }
-                                }
-                            });
-                        } catch (Throwable e) {
-                            uiHandler.post(new Runnable() { public void run() { Toast("获取好友列表失败: " + e.getMessage()); } });
-                        }
-                    }
-                });
-            } catch (Throwable e) { Toast("显示失败"); }
-        }
-    });
+	showSimpleListDialog(activity, "我的好友列表", 3, null, isDark);
 }
 
 //非常花里胡哨的tips弹窗
@@ -5332,27 +4736,21 @@ int parseDurationToSeconds(String input) {
     return seconds;
 }
 
-/**
- * 格式化时间显示
- * @param raw String: 原始时间串
- * @return String: 格式化后的时间串
- */
-String formatTimeDisplay(String raw) {
-    if (raw == null || raw.equals("")) return "";
-    String n = raw.replaceAll("[^0-9]", "");
-    if (n.length() < 4) return raw;
-    while (n.length() < 10) n = "0" + n;
-    int d = Integer.parseInt(n.substring(0, 2));
-    int h = Integer.parseInt(n.substring(2, 4));
-    int min = Integer.parseInt(n.substring(4, 6));
-    int s = Integer.parseInt(n.substring(6, 8));
-    int ms = Integer.parseInt(n.substring(8, 10));
-    StringBuilder sb = new StringBuilder();
-    if (d > 0) sb.append(d).append(":");
-    if (h > 0 || sb.length() > 0) sb.append(h).append(":");
-    if (min > 0 || sb.length() > 0) sb.append(min).append(":");
-    sb.append(s).append(":").append(ms);
-    return sb.toString();
+int timeValToSec(String val) {
+	try {
+		String n = val.replaceAll("[^0-9]", "");
+		while (n.length() < 10) n = "0" + n;
+		return Integer.parseInt(n.substring(0, 2)) * 86400 + Integer.parseInt(n.substring(2, 4)) * 3600 + Integer.parseInt(n.substring(4, 6)) * 60 + Integer.parseInt(n.substring(6, 8));
+	} catch (Throwable e) { traceLog("dialog_log", "[timeValToSec] 异常: " + e); return 0; }
+}
+
+String secToTimeVal(int sec) {
+	int d = sec / 86400;
+	int h = (sec % 86400) / 3600;
+	int m = (sec % 3600) / 60;
+	int sc = sec % 60;
+	if (d > 30) d = 30;
+	return (d < 10 ? "0" + d : "" + d) + (h < 10 ? "0" + h : "" + h) + (m < 10 ? "0" + m : "" + m) + (sc < 10 ? "0" + sc : "" + sc) + "00";
 }
 
 /**
@@ -5415,25 +4813,14 @@ void showTimePicker(Activity a, final EditText target, final String title) {
                         container.removeAllViews();
                         if (mode[0] == 0) {
                             EditText e = makeInput(a, "输入秒数(如3600=1小时)", null);
-                            int initSec = 0;
-                            try {
-                                String n = val[0].replaceAll("[^0-9]", "");
-                                while (n.length() < 10) n = "0" + n;
-                                initSec = Integer.parseInt(n.substring(0,2))*86400 + Integer.parseInt(n.substring(2,4))*3600 + Integer.parseInt(n.substring(4,6))*60 + Integer.parseInt(n.substring(6,8));
-                            } catch (Throwable e1) { traceLog("dialog_log", "[showTimePicker] 异常: " + e1); }
+                            int initSec = timeValToSec(val[0]);
                             e.setText(String.valueOf(initSec));
                             e.addTextChangedListener(new android.text.TextWatcher() {
                                 public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
                                 public void onTextChanged(CharSequence s, int start, int before, int count) {}
                                 public void afterTextChanged(android.text.Editable s) {
                                     try {
-                                        int sec = Integer.parseInt(s.toString().replaceAll("[^0-9]", ""));
-                                        int d = sec / 86400;
-                                        int h = (sec % 86400) / 3600;
-                                        int m = (sec % 3600) / 60;
-                                        int sc = sec % 60;
-                                        if (d > 30) d = 30;
-                                        val[0] = (d < 10 ? "0" + d : "" + d) + (h < 10 ? "0" + h : "" + h) + (m < 10 ? "0" + m : "" + m) + (sc < 10 ? "0" + sc : "" + sc) + "00";
+                                        val[0] = secToTimeVal(Integer.parseInt(s.toString().replaceAll("[^0-9]", "")));
                                     } catch (Throwable e) { traceLog("dialog_log", "[showTimePicker] 异常: " + e); }
                                 }
                             });
@@ -5481,23 +4868,14 @@ void showTimePicker(Activity a, final EditText target, final String title) {
                         } else if (mode[0] == 2) {
                             EditText e = makeInput(a, "输入秒数(如3600=1小时)", null);
                             e.setInputType(InputType.TYPE_CLASS_NUMBER);
-                            int initSec2 = 0;
-                            try {
-                                String n2 = val[0].replaceAll("[^0-9]", "");
-                                while (n2.length() < 10) n2 = "0" + n2;
-                                initSec2 = Integer.parseInt(n2.substring(0,2))*86400 + Integer.parseInt(n2.substring(2,4))*3600 + Integer.parseInt(n2.substring(4,6))*60 + Integer.parseInt(n2.substring(6,8));
-                            } catch (Throwable e2) { traceLog("dialog_log", "[onValueChange] 异常: " + e2); }
+                            int initSec2 = timeValToSec(val[0]);
                             e.setText(String.valueOf(initSec2));
                             e.addTextChangedListener(new android.text.TextWatcher() {
                                 public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
                                 public void onTextChanged(CharSequence s, int start, int before, int count) {}
                                 public void afterTextChanged(android.text.Editable s) {
                                     try {
-                                        int sec = Integer.parseInt(s.toString());
-                                        int h = sec / 3600;
-                                        int m = (sec % 3600) / 60;
-                                        int sc = sec % 60;
-                                        val[0] = "00" + (h < 10 ? "0" + h : "" + h) + (m < 10 ? "0" + m : "" + m) + (sc < 10 ? "0" + sc : "" + sc) + "00";
+                                        val[0] = secToTimeVal(Integer.parseInt(s.toString().replaceAll("[^0-9]", "")));
                                     } catch (Throwable e) { traceLog("dialog_log", "[onValueChange] 异常: " + e); }
                                 }
                             });
@@ -5590,13 +4968,7 @@ void showTimePicker(Activity a, final EditText target, final String title) {
                                 }
                                 val[0] = (vs[0] < 10 ? "0" + vs[0] : "" + vs[0]) + (vs[1] < 10 ? "0" + vs[1] : "" + vs[1]) + (vs[2] < 10 ? "0" + vs[2] : "" + vs[2]) + (vs[3] < 10 ? "0" + vs[3] : "" + vs[3]) + (vs[4] < 10 ? "0" + vs[4] : "" + vs[4]);
                             }
-                            String n = val[0].replaceAll("[^0-9]", "");
-                            while (n.length() < 10) n = "0" + n;
-                            int days = Integer.parseInt(n.substring(0, 2));
-                            int hours = Integer.parseInt(n.substring(2, 4));
-                            int mins = Integer.parseInt(n.substring(4, 6));
-                            int secs = Integer.parseInt(n.substring(6, 8));
-                            int totalSeconds = days * 86400 + hours * 3600 + mins * 60 + secs;
+                            int totalSeconds = timeValToSec(val[0]);
                             traceLog("dialog_log", "[showTimePicker] 确定点击, mode=" + mode[0] + ", val=" + val[0] + ", seconds=" + totalSeconds + ", targetNull=" + (target == null));
                             target.setText(String.valueOf(totalSeconds));
                             animateDialogOut(d, null);
