@@ -3,7 +3,6 @@ import android.content.Intent;
 import android.net.Uri;
 import android.view.View;
 import android.view.Gravity;
-import android.view.ViewGroup;
 import android.view.MotionEvent;
 import android.view.ContextMenu;
 import android.view.MenuItem;
@@ -15,14 +14,10 @@ import android.view.KeyEvent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
-import android.graphics.RenderEffect; // Android 12+
-import android.graphics.Shader;       // Android 12+
 import android.os.Build;
 import android.widget.LinearLayout;
 import android.widget.FrameLayout;
-import android.widget.GridLayout;
 import android.widget.TextView;
-import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.EditText;
@@ -34,10 +29,8 @@ import android.webkit.WebViewClient;
 import android.webkit.WebChromeClient;
 import android.webkit.URLUtil;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.util.HashSet;
-import java.util.ArrayList;
 
 // 引入基类
 import me.yxp.qfun.activity.BaseComposeActivity;
@@ -308,8 +301,9 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
             public void onLoadResource(WebView view, String url) {
                 try {
                     String lower = url.toLowerCase();
-                    if (lower.matches(".*\\.(mp3|mp4|m3u8|avi|flv|mov|mkv).*") || 
-                        lower.contains(".mp4?") || lower.contains("googlevideo")) {
+                    if (lower.contains(".mp3") || lower.contains(".mp4") || lower.contains(".m3u8") ||
+                        lower.contains(".avi") || lower.contains(".flv") || lower.contains(".mov") ||
+                        lower.contains(".mkv") || lower.contains("googlevideo")) {
                         if (!sniffedResources.contains(url)) {
                             sniffedResources.add(url);
                             traceLog("api7_log", "[onLoadResource] 嗅探到资源: " + url);
@@ -531,12 +525,18 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                     try {
                         String fileName = URLUtil.guessFileName(url, null, null);
                         File target = new File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), fileName);
-                        java.io.InputStream in = new java.net.URL(url).openStream();
-                        FileOutputStream fos = new FileOutputStream(target);
-                        byte[] buf = new byte[4096];
-                        int len;
-                        while((len=in.read(buf))>0) fos.write(buf,0,len);
-                        in.close(); fos.close();
+                        java.io.InputStream in = null;
+                        FileOutputStream fos = null;
+                        try {
+                            in = new java.net.URL(url).openStream();
+                            fos = new FileOutputStream(target);
+                            byte[] buf = new byte[4096];
+                            int len;
+                            while((len=in.read(buf))!=-1) fos.write(buf,0,len);
+                        } finally {
+                            try { if (in != null) in.close(); } catch (Throwable ignore) {}
+                            try { if (fos != null) fos.close(); } catch (Throwable ignore) {}
+                        }
                         Toast("已保存");
                     } catch(Exception e) {
                         Toast("下载失败");
@@ -913,13 +913,20 @@ private File getUniqueFile(File file) {
 
 private void saveUriToFile(final Activity activity, Uri uri, File target) {
     try {
-        java.io.InputStream is = activity.getContentResolver().openInputStream(uri);
-        java.io.FileOutputStream fos = new java.io.FileOutputStream(target);
-        byte[] b = new byte[8192];
-        int l;
-        while ((l = is.read(b)) != -1) fos.write(b, 0, l);
-        fos.flush(); is.close(); fos.close();
-        
+        java.io.InputStream is = null;
+        java.io.FileOutputStream fos = null;
+        try {
+            is = activity.getContentResolver().openInputStream(uri);
+            fos = new java.io.FileOutputStream(target);
+            byte[] b = new byte[8192];
+            int l;
+            while ((l = is.read(b)) != -1) fos.write(b, 0, l);
+            fos.flush();
+        } finally {
+            try { if (is != null) is.close(); } catch (Throwable ignore) {}
+            try { if (fos != null) fos.close(); } catch (Throwable ignore) {}
+        }
+
         final String path = target.getAbsolutePath();
         activity.runOnUiThread(new Runnable() { 
             public void run() { 
@@ -951,14 +958,11 @@ private void showHtmlOptionDialog(final Activity activity) {
                 mainLayout.addView(titleView);
                 
                 // URL 输入框
-                final EditText urlInput = new EditText(activity);
-                urlInput.setHint("输入网址或 HTML 代码 (回车打开)");
+                final EditText urlInput = makeInput(activity, "输入网址或 HTML 代码 (回车打开)", null);
                 urlInput.setSingleLine(true);
                 urlInput.setImeOptions(EditorInfo.IME_ACTION_GO);
                 urlInput.setBackground(null);
                 urlInput.setPadding(0, dp(activity, 12), 0, dp(activity, 12));
-                urlInput.setTextColor(tc(activity, "on_surface"));
-                urlInput.setHintTextColor(tc(activity, "on_surface_variant"));
                 
                 View line = new View(activity);
                 line.setBackgroundColor(tc(activity, "primary"));
