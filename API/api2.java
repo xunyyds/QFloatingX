@@ -4,6 +4,7 @@ private List activeListeners = new ArrayList();
 private final java.util.Map listenerDispatchers = new java.util.concurrent.ConcurrentHashMap();
 private volatile boolean locationHooked = false;
 private volatile boolean locationGetterHooked = false;
+private volatile boolean locationDispatchRunning = false;
 
 public void 模拟定位开关() {
     Activity activity = getNowActivity();
@@ -343,6 +344,15 @@ private void hookLocation() {
                             param.setResult(null);
                         }
                     });
+                } else if ("removeUpdates".equals(name)) {
+                    hook("mock_location", method, new XC_MethodHook() {
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            for (int j = 0; j < param.args.length; j++) {
+                                Object arg = param.args[j];
+                                if (arg instanceof LocationListener) removeActiveListener((LocationListener) arg);
+                            }
+                        }
+                    });
                 }
             } catch (Throwable e) {}
         }
@@ -356,6 +366,7 @@ void setMockLocationEnabled(boolean on) {
 }
 
 void 关模拟定位() {
+    stopLocationUpdates();
     Activity a = getNowActivity();
     if (a == null) a = 最后Activity;
     if (a != null) {
@@ -386,21 +397,39 @@ void 开模拟定位() {
 }
 
 private void startLocationUpdates() {
-    ThreadPool.execute(new Runnable() {
-        public void run() {
-            while (true) {
-                try {
-                    Thread.sleep(1000);
-                    synchronized (activeListeners) {
-                        for (int i = 0; i < activeListeners.size(); i++) {
-                            LocationListener listener = (LocationListener) activeListeners.get(i);
-                            dispatchLocationToListener(listener, createFreshLocation(LocationManager.GPS_PROVIDER));
-                        }
-                    }
-                } catch (InterruptedException e) {
-                    break;
-                } catch (Exception e) {}
+    if (locationDispatchRunning) return;
+    locationDispatchRunning = true;
+    positionHandler.postDelayed(new Runnable() {
+        public void run() { dispatchTick(); }
+    }, 1000);
+}
+
+private void dispatchTick() {
+    if (!locationDispatchRunning) return;
+    try {
+        synchronized (activeListeners) {
+            for (int i = 0; i < activeListeners.size(); i++) {
+                LocationListener listener = (LocationListener) activeListeners.get(i);
+                dispatchLocationToListener(listener, createFreshLocation(LocationManager.GPS_PROVIDER));
             }
         }
-    });
+    } catch (Exception e) {}
+    positionHandler.postDelayed(new Runnable() {
+        public void run() { dispatchTick(); }
+    }, 1000);
+}
+
+private void stopLocationUpdates() {
+    locationDispatchRunning = false;
+    positionHandler.removeCallbacksAndMessages(null);
+}
+
+private void removeActiveListener(LocationListener listener) {
+    if (listener == null) return;
+    synchronized (activeListeners) {
+        for (int i = activeListeners.size() - 1; i >= 0; i--) {
+            if (activeListeners.get(i) == listener) activeListeners.remove(i);
+        }
+    }
+    listenerDispatchers.remove(listener);
 }
