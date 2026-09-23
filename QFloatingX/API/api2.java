@@ -93,11 +93,12 @@ private Method findMethodByCount(Class cls, String name, int paramCount) {
     return null;
 }
 
-private void hookLocationGetters() {
-    if (locationGetterHooked) return;
+private boolean hookLocationGetters() {
+    if (locationGetterHooked) return true;
     locationGetterHooked = true;
     Method[] methods;
-    try { methods = Location.class.getDeclaredMethods(); } catch (Throwable e) { return; }
+    try { methods = Location.class.getDeclaredMethods(); } catch (Throwable e) { locationGetterHooked = false; return false; }
+    boolean any = false;
     for (int i = 0; i < methods.length; i++) {
         final Method m = methods[i];
         final String mn = m.getName();
@@ -111,6 +112,7 @@ private void hookLocationGetters() {
                         param.setResult(fakeLocation.getLatitude());
                     }
                 });
+                any = true;
             } else if ("getLongitude".equals(mn)) {
                 hook("mock_location", m, new XC_MethodHook() {
                     protected void afterHookedMethod(MethodHookParam param) {
@@ -152,15 +154,18 @@ private void hookLocationGetters() {
                         param.setResult(false);
                     }
                 });
+                any = true;
             }
         } catch (Throwable e) {}
     }
+    return any;
 }
 
-private void hookLocation() {
-    if (locationHooked) return;
+private boolean hookLocation() {
+    if (locationHooked) return true;
     locationHooked = true;
     Class cls = LocationManager.class;
+    boolean any = false;
 
     Method m;
     m = findMethodByCount(cls, "getLastLocation", 0);
@@ -171,6 +176,7 @@ private void hookLocation() {
                 param.setResult(createFreshLocation(LocationManager.GPS_PROVIDER));
             }
         });
+        any = true;
     } catch (Throwable e) {}
 
     m = findMethodByCount(cls, "getLastKnownLocation", 1);
@@ -181,6 +187,7 @@ private void hookLocation() {
                 param.setResult(createFreshLocation(String.valueOf(param.args[0])));
             }
         });
+        any = true;
     } catch (Throwable e) {}
 
     m = findMethodByCount(cls, "getProvider", 1);
@@ -354,9 +361,11 @@ private void hookLocation() {
                         }
                     });
                 }
+                any = true;
             } catch (Throwable e) {}
         }
     } catch (Throwable e) {}
+    return any;
 }
 
 void setMockLocationEnabled(boolean on) {
@@ -388,10 +397,19 @@ void 开模拟定位() {
             if (!getBoolean("模拟定位开关", "模拟定位开关", false)) return;
             try {
                 initFakeLocation();
-                hookLocationGetters();
-                hookLocation();
+                boolean okGetter = hookLocationGetters();
+                boolean okLoc = hookLocation();
+                if (!okGetter || !okLoc) {
+                    Activity failAct = getNowActivity();
+                    if (failAct == null) failAct = 最后Activity;
+                    showApiProtectGuide(failAct);
+                }
                 startLocationUpdates();
-            } catch (Throwable t) {}
+            } catch (Throwable t) {
+                Activity failAct = getNowActivity();
+                if (failAct == null) failAct = 最后Activity;
+                showApiProtectGuide(failAct);
+            }
         }
     }, 2000);
 }
