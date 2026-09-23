@@ -312,8 +312,8 @@ void add开关状态卡片(Activity context, LinearLayout parent, boolean isDark
         boolean floatWindowState = getBoolean("settings", "开关", false);
         boolean mockLocationState = getBoolean("模拟定位开关", "模拟定位开关", false);
         boolean 输入框t开关 = getBoolean("输入框", "输入框开关", false);
-        boolean msgStatsOn = getBoolean("settings", "消息统计开关", true);
-        boolean dblClickOn = getBoolean("settings", "双击消息开关", true);
+        boolean msgStatsOn = getBoolean("settings", "消息统计开关", false);
+        boolean dblClickOn = getBoolean("settings", "双击消息开关", false);
         boolean keepAliveOn = getBoolean("settings", "后台保活", false);
 
         StringBuilder content = new StringBuilder();
@@ -332,7 +332,7 @@ void add开关状态卡片(Activity context, LinearLayout parent, boolean isDark
 
 void add监控卡片(Activity context, LinearLayout parent, boolean isDark) {
     try {
-        boolean msgStatsOn = getBoolean("settings", "消息统计开关", true);
+        boolean msgStatsOn = getBoolean("settings", "消息统计开关", false);
         int queueSize = getBatchQueueSize();
         boolean threadRunning = isWriteThreadRunning();
         int pendingKeys = getPendingWriteKeysCount();
