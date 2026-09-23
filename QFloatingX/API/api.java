@@ -1182,7 +1182,7 @@ int dp(Context context, float dpValue) {
 }
 
 void vibrate(Activity activity, int milliseconds) {
-    if (!getBoolean("settings", "振动反馈", true)) {
+    if (!getBoolean("settings", "振动反馈", false)) {
         return;
     }
 	if (activity == null) activity = getNowActivity();
@@ -1343,6 +1343,27 @@ private void startDialogDismissAnimation(View view, DialogInterface dialog) {
 	view.startAnimation(set);
 }
 
+void showApiProtectGuide(final Activity activity) {
+    if (activity == null || activity.isFinishing()) return;
+    activity.runOnUiThread(new Runnable() {
+        public void run() {
+            try {
+                AlertDialog.Builder builder = new AlertDialog.Builder(activity,
+                    isThemeDark(activity) ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
+                builder.setTitle("需要关闭 API 调用保护");
+                builder.setMessage("未能找到 hook所需的类或方法。\n请打开 LSPosed（LSP）管理器，关闭「API 调用保护」后重试\n");
+                builder.setPositiveButton("知道了", null);
+                builder.setCancelable(true);
+                AlertDialog dlg = builder.create();
+                dlg.show();
+                applyUiTheme(activity, dlg, 0);
+            } catch (Throwable e) {
+                traceLog("api_log", "[showApiProtectGuide] 异常: " + e);
+            }
+        }
+    });
+}
+
 private void showReOrUnDialog(final Activity activity) {
     activity.runOnUiThread(new Runnable() {
         public void run() {
@@ -1403,8 +1424,9 @@ private void showReOrUnDialog(final Activity activity) {
                     public void onClick(View v) {
                         try {
                             vibrate(activity, 50);
-                            取消加载脚本();
+                            try { cleanupAllDialogs(); } catch (Throwable ignore) {}
                             dialog.dismiss();
+                            取消加载脚本();
                         } catch (Throwable e) {
                             try { cleanupAllDialogs(); } catch (Throwable ignore) {}
                             traceLog("api_log", "[showReOrUnDialog] 取消加载脚本按钮异常: " + e.getMessage());
@@ -1416,8 +1438,9 @@ private void showReOrUnDialog(final Activity activity) {
                     public void onClick(View v) {
                         try {
                             vibrate(activity, 50);
-                            重新加载脚本();
+                            try { cleanupAllDialogs(); } catch (Throwable ignore) {}
                             dialog.dismiss();
+                            重新加载脚本();
                         } catch (Throwable e) {
                             try { cleanupAllDialogs(); } catch (Throwable ignore) {}
                             traceLog("api_log", "[showReOrUnDialog] 重新加载脚本按钮异常: " + e.getMessage());
@@ -1616,7 +1639,7 @@ private View wrapToastInBox(Context ctx, View bubble, int boxW, int boxH) {
     FrameLayout box = new FrameLayout(ctx);
     box.setClickable(false);
     box.setFocusable(false);
-    boolean adaptive = getBoolean("settings", "toast_adaptive", true);
+    boolean adaptive = getBoolean("settings", "toast_adaptive", false);
     int boxG = parseToastBoxGravity();
     FrameLayout.LayoutParams blp;
     if (adaptive) {
@@ -1770,12 +1793,12 @@ private void xToast(String text) {
                 bg.setColor(pc(isDark ? "#D9333333" : "#F2E0E0E0"));
             }
         } else {
-            // default：纯色背景支持轮换（1色常驻），空列表用内置默认
-            int[] barr = parseColorCsv(getString("settings", "toast_bg_solid_list", ""), true);
+            // default：纯色背景支持轮换（1色常驻）；未自定义=白底
+            int[] barr = parseColorCsv(getString("settings", "toast_bg_solid_list", ""), false);
             if (barr != null && barr.length > 0) {
                 bg.setColor(pickFrom(barr));
             } else {
-                bg.setColor(pc(isDark ? "#D9333333" : "#8CE0E0E0"));
+                bg.setColor(pc("#FFFFFFFF"));
             }
         }
         bg.setCornerRadius(dp(getUiCornerDp()));
@@ -1790,8 +1813,10 @@ private void xToast(String text) {
             Activity ta = ctx instanceof Activity ? (Activity) ctx : getNowActivity();
             textColor = (ta != null) ? tc(ta, "primary") : pc("#FF2196F3");
         } else {
-            int[] tarr = parseColorCsv(getString("settings", "toast_color_list", ""), true);
-            textColor = pickFrom(tarr);
+            // default：未自定义=黑字；已配置则轮换
+            int[] tarr = parseColorCsv(getString("settings", "toast_color_list", ""), false);
+            if (tarr != null && tarr.length > 0) textColor = pickFrom(tarr);
+            else textColor = pc("#FF000000");
         }
         tv.setTextColor(textColor);
         applyToastTextAlign(tv);
@@ -1799,7 +1824,7 @@ private void xToast(String text) {
         if (boxSize[0] > 0 && boxSize[0] < maxW) maxW = boxSize[0];
         tv.setMaxWidth(maxW);
         tv.setMaxLines(8);
-        boolean adaptive = getBoolean("settings", "toast_adaptive", true);
+        boolean adaptive = getBoolean("settings", "toast_adaptive", false);
         if (!adaptive && boxSize[0] > 0 && boxSize[1] > 0) {
             // 撑满框：文字填充才看得到
             root.addView(tv, new LinearLayout.LayoutParams(-1, -1));
@@ -3323,7 +3348,10 @@ void ensureFilePickerHook() {
         paramTypes[4] = String.class;
         java.lang.reflect.Method target = getCachedMethod(activityClass, "dispatchActivityResult", paramTypes);
         traceLog("api_log", "[hook] 目标=" + (target != null ? "found" : "NULL"));
-        if (target == null) return;
+        if (target == null) {
+            showApiProtectGuide(getNowActivity());
+            return;
+        }
         XposedBridge.hookMethod(target, new XC_MethodHook() {
             protected void afterHookedMethod(XC_MethodHook.MethodHookParam param) {
                 ThreadPool.execute(new Runnable() {
@@ -3393,6 +3421,7 @@ void ensureFilePickerHook() {
     } catch (Throwable e) {
         traceLog("api_log", "[hook] 失败: " + e);
         isFilePickerHooked = false;
+        showApiProtectGuide(getNowActivity());
     }
     }
 }
