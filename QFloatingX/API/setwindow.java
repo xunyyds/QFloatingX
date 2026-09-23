@@ -1225,7 +1225,7 @@ void buildFullSettingsIndex(Activity activity) {
     addIndexItem("item_basic_mode", "基础模式", "主题、弹窗大小、振动反馈", "设置", null, "界面", "click");
     addIndexItem("item_bg_icon", "背景样式", "背景类型、颜色、图片", "设置", null, "界面", "click");
     addIndexItem("item_font_style", "字体样式", "字体风格、大小、颜色", "设置", null, "界面", "click");
-    addIndexItem("item_toast_hint", "开关吐司提示", "开关和配置你的相关吐司提示", "设置", null, "提示", "click");
+    addIndexItem("item_toast_hint", "toast设置", "开关和配置你的相关吐司提示", "设置", null, "提示", "click");
     addIndexItem("item_thread_pool", "线程池", "优先级、队列、策略", "设置", null, "其他", "click");
     addIndexItem("item_float_window", "悬浮窗设置", "图标、大小、灵敏度", "设置", null, "其他", "click");
     addIndexItem("item_debug", "调试", "预览、重置", "设置", null, "其他", "click");
@@ -1254,6 +1254,7 @@ void buildFullSettingsIndex(Activity activity) {
 
     addIndexItem("加载提示", "加载提示", "开启后在脚本加载时显示提示", "设置", "提示", "提示", "switch");
     addIndexItem("加载通知", "加载通知", "开启后在脚本加载时发送通知提示", "设置", "提示", "提示", "switch");
+    addIndexItem("常驻通知", "常驻通知", "后台常驻「运行中」通知", "设置", "提示", "提示", "switch");
     addIndexItem("Toast样式_样式", "Toast样式", "默认/跟随主题/实时模糊", "设置", "提示", "提示", "choice");
     addIndexItem("Toast样式_文字轮换颜色", "文字轮换颜色", "列表增删，空则默认", "设置", "提示", "提示", "click");
     addIndexItem("Toast样式_渐变背景颜色", "渐变背景颜色", "渐变样式用", "设置", "提示", "提示", "click");
@@ -1322,20 +1323,19 @@ void buildLevel1MenuContent(Activity activity) {
     addSettingsItemSwitchWithKey("开关", "输入框提示", "item_input_hint", "输入框", "输入框开关", null, inputHintState, null);
     boolean KeepAlive = getBoolean("settings", "后台保活", false);
     addSettingsItemSwitchWithKey("开关", "后台保活", "item_KeepAlive", "settings", "后台保活", null, KeepAlive, null);
-    boolean msgStatsState = getBoolean("settings", "消息统计开关", true);
+    boolean msgStatsState = getBoolean("settings", "消息统计开关", false);
     addSettingsItemSwitchWithKey("开关", "消息统计", "item_msg_stats_switch", "settings", "消息统计开关", null, msgStatsState, new Runnable() { public void run() {
-        boolean on = !getBoolean("settings", "消息统计开关", true);
-        putBoolean("settings", "消息统计开关", on);
+        // createSettingsSwitchView 已 putBoolean，此处只做副作用
+        boolean on = getBoolean("settings", "消息统计开关", false);
         try {
             if (on) startWriteThread();
             else stopWriteThread();
         } catch (Throwable e) { traceLog("setwindow_log", "[消息统计开关] 异常: " + e); }
         Toast(on ? "消息统计已开启" : "消息统计已关闭");
     }});
-    boolean doubleClickMsgState = getBoolean("settings", "双击消息开关", true);
+    boolean doubleClickMsgState = getBoolean("settings", "双击消息开关", false);
     addSettingsItemSwitchWithKey("开关", "双击消息", "item_double_click_switch", "settings", "双击消息开关", null, doubleClickMsgState, new Runnable() { public void run() {
-        boolean on = !getBoolean("settings", "双击消息开关", true);
-        putBoolean("settings", "双击消息开关", on);
+        boolean on = getBoolean("settings", "双击消息开关", false);
         Toast(on ? "双击消息已开启" : "双击消息已关闭");
     }});
 
@@ -1427,7 +1427,7 @@ void buildLevel2MenuContent(Activity activity, String level1Title) {
         }});
 
         addSettingsCategory("提示", "");
-        addSettingsItemClickWithKey("提示", "开关吐司提示", "开关和配置你的相关吐司提示", "item_toast_hint", new Runnable() { public void run() {
+        addSettingsItemClickWithKey("提示", "toast设置", "开关和配置你的相关吐司提示", "item_toast_hint", new Runnable() { public void run() {
             Activity act = getSettingsCurrentActivity();
             if (act != null) {
                 showSettingsMenu(act, "设置", "提示", null);
@@ -1481,7 +1481,7 @@ void buildLevel3MenuContent(Activity activity, String level1Title, String level2
             }});
             addSettingsInputItem("基础模式", "弹窗宽度", "默认最大260dp", "ui_dialog_width", "如: 280", "", null);
             addSettingsInputItem("基础模式", "弹窗高度", "自适应内容", "ui_dialog_height", "如: 400", "", null);
-            boolean vibrationFeedbackState = getBoolean("settings", "振动反馈", true);
+            boolean vibrationFeedbackState = getBoolean("settings", "振动反馈", false);
             addSettingsSwitchItem("基础模式", "振动反馈", null, "振动反馈", vibrationFeedbackState, null);
             boolean bgBlurState = getBoolean("settings", "背景模糊", false);
             addSettingsSwitchItem("基础模式", "背景模糊", "系统模糊窗体后方内容(Android 12+)", "背景模糊", bgBlurState, null);
@@ -1599,6 +1599,8 @@ void buildLevel3MenuContent(Activity activity, String level1Title, String level2
             addSettingsSwitchItem("提示", "加载提示", "开启后在脚本加载时显示提示", "加载提示", toastSwitchState, null);
             boolean NoticeSwitchState = getBoolean("settings", "加载通知", false);
             addSettingsSwitchItem("提示", "加载通知", "开启后在脚本加载时发送通知提示", "加载通知", NoticeSwitchState, null);
+            boolean keepNotifyState = getBoolean("settings", "常驻通知", false);
+            addSettingsSwitchItem("提示", "常驻通知", "后台常驻「运行中」通知", "常驻通知", keepNotifyState, null);
 
             addSettingsCategory("Toast样式", null);
             addSettingsItemChoiceWithKey("Toast样式", "样式", "Toast样式_样式", "toast_style", (("theme".equals(getString("settings", "toast_style", "default")) ? "跟随主题色" : "blur".equals(getString("settings", "toast_style", "default")) ? "实时模糊(仅Toast区)" : "gradient".equals(getString("settings", "toast_style", "default")) ? "渐变背景" : "默认")), new Runnable() { public void run() {
@@ -1674,7 +1676,7 @@ void buildLevel3MenuContent(Activity activity, String level1Title, String level2
                         }
                     });
                 }});
-                boolean adaptiveOn = getBoolean("settings", "toast_adaptive", true);
+                boolean adaptiveOn = getBoolean("settings", "toast_adaptive", false);
                 addSettingsSwitchItem("Toast位置", "自适应", "开：气泡贴合内容+框内位置；关：气泡撑满框+文字填充", "toast_adaptive", adaptiveOn, new Runnable() { public void run() {
                     try {
                         Activity act2 = getSettingsCurrentActivity();
@@ -1816,7 +1818,7 @@ int resetAllSettingsToDefault() {
             "thread_pool_name_prefix", "thread_pool_reject_policy", "悬浮窗大小",
             "关闭区域图标大小", "关闭区域大小", "拖拽灵敏度", "长按关闭阈值", "移动阈值",
             "背景模糊", "iconAlpha", "ui_corner_dp", "log_delete_threshold", "gifDelay",
-            "加载提示", "加载通知", "toast_style", "toast_pos", "toast_box_gravity",
+            "加载提示", "加载通知", "常驻通知", "toast_style", "toast_pos", "toast_box_gravity",
             "toast_text_gravity", "toast_duration", "toast_adaptive", "toast_prefix",
             "toast_suffix", "toast_color_list", "toast_bg_solid_list", "toast_bg_color_list",
             "黑白"
