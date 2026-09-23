@@ -1156,13 +1156,15 @@ void initdoublemsg() {
     if (execStartActivity == null) execStartActivity = getCachedMethod(Instrumentation.class, "execStartActivity", sig7);
     if (execStartActivity == null) {
         traceLog("api5_log", "[initdoublemsg] 安装失败: execStartActivity方法未找到");
-        Toast("Hook加载失败: execStartActivity方法未找到");
+        Activity failAct = getNowActivity();
+        if (failAct == null) failAct = 最后Activity;
+        showApiProtectGuide(failAct);
         return;
     }
     try {
         hookloveList.add(XposedBridge.hookMethod(execStartActivity, new XC_MethodHook() {
             protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) {
-                if (!getBoolean("settings", "双击消息开关", true)) return;
+                if (!getBoolean("settings", "双击消息开关", false)) return;
                 if (isReplayingClick) return;
                 Object[] args = param.args;
                 if (args == null) return;
@@ -1213,7 +1215,9 @@ void initdoublemsg() {
         }));
     } catch (Throwable t) {
         traceLog("api5_log", "[initdoublemsg] 安装失败: " + t.getMessage());
-        Toast("Hook加载失败: " + t.getMessage());
+        Activity failAct = getNowActivity();
+        if (failAct == null) failAct = 最后Activity;
+        showApiProtectGuide(failAct);
     }
 }
 
