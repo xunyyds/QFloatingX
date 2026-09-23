@@ -425,8 +425,14 @@ void saveFunc(String n, String content, boolean isFile, boolean[] cb, boolean ha
     
     if (!hasCallback(cb)) {
         stopThread(n);
+        // 允许运行状态持久化，保存时不再强制改写；仅新建独立任务且尚未写过 run 时默认放开
+        String runRaw = getString("HotPlug", "run_" + n, "");
+        if (runRaw.equals("")) {
+            boolean needRun = (timeVal != null && !timeVal.trim().equals("")) || isLoop || interval > 0;
+            if (needRun) setRun(n, true);
+        }
         if (getLoad(n)) {
-            startIndepThread(n, interval, loopCount); 
+            startIndepThread(n, interval, loopCount);
         }
     }
     traceLog("function_log", "[saveFunc]" + n);
@@ -593,6 +599,9 @@ void setLoad(String f, boolean on) {
                 count = Integer.parseInt(m[14]); // res[14] is count
             } catch (Throwable e) { traceLog("function_log", "[setLoad] 异常: " + e); }
             startIndepThread(f, interval, count);
+            // 打开加载时若从未写过 run 键则默认允许运行；已有用户选择则保持
+            String runRaw = getString("HotPlug", "run_" + f, "");
+            if (runRaw.equals("")) setRun(f, true);
         } else {
             stopThread(f);
         }
@@ -646,69 +655,94 @@ boolean getLoop(String f) {
 
 
 /**
- * 获取下一次执行时间戳
+ * 获取下一次执行时间戳（根格式取用现算）
+ * 根格式: d:HH:mm:ss 每日 | w:N:HH:mm:ss 每周(1=周日) | m:D:HH:mm:ss 每月 | i:HH:mm:ss 间隔
+ * 兼容旧格式: HH mm ss / wN HH mm ss / D HH mm ss
  * @param cfg String: 定时配置字符串
- * @return long: 下次执行的毫秒时间戳
+ * @param notBefore long: 严格晚于该时刻
+ * @return long: 下次执行的毫秒时间戳，无效返回 0
  */
 long getNextScheduleTime(String cfg, long notBefore) {
     if (cfg == null || cfg.equals("")) return 0;
     try {
         String raw = cfg.trim();
-        if (!raw.contains(" ")) {
-            String num = raw.replaceAll("[^0-9]", "");
-            if (num.length() >= 4) {
-                int h, m, s;
-                if (num.length() >= 6) {
-                     h = Integer.parseInt(num.substring(0, 2));
-                     m = Integer.parseInt(num.substring(2, 4));
-                     s = Integer.parseInt(num.substring(4, 6));
-                } else {
-                     h = Integer.parseInt(num.substring(0, 2));
-                     m = Integer.parseInt(num.substring(2, 4));
-                     s = 0;
-                }
-                Calendar target = Calendar.getInstance();
-                target.set(Calendar.HOUR_OF_DAY, h);
-                target.set(Calendar.MINUTE, m);
-                target.set(Calendar.SECOND, s);
-                target.set(Calendar.MILLISECOND, 0);
-                while (target.getTimeInMillis() <= notBefore) {
-                    target.add(Calendar.DAY_OF_YEAR, 1);
-                }
-                return target.getTimeInMillis();
-            }
+        if (raw.equals("")) return 0;
+        String mode = "";
+        String[] toks = null;
+        if (raw.indexOf(":") > 0 && raw.indexOf(" ") < 0) {
+            toks = raw.split(":");
+            if (toks.length < 2) return 0;
+            mode = toks[0].toLowerCase();
+        } else {
+            String[] parts = raw.split("\\s+");
+            if (parts.length >= 4 && parts[0].toLowerCase().startsWith("w")) {
+                mode = "w";
+                toks = new String[]{"w", parts[0].substring(1), parts[1], parts[2], parts[3]};
+            } else if (parts.length >= 4) {
+                mode = "m";
+                toks = new String[]{"m", parts[0], parts[1], parts[2], parts[3]};
+            } else if (parts.length >= 3) {
+                mode = "d";
+                toks = new String[]{"d", parts[0], parts[1], parts[2]};
+            } else if (!raw.contains(" ")) {
+                String num = raw.replaceAll("[^0-9]", "");
+                if (num.length() >= 4) {
+                    String hh = num.substring(0, 2);
+                    String mm = num.substring(2, 4);
+                    String ss = num.length() >= 6 ? num.substring(4, 6) : "0";
+                    mode = "d";
+                    toks = new String[]{"d", hh, mm, ss};
+                } else return 0;
+            } else return 0;
         }
-
-        String[] parts = raw.split("\\s+");
-        if (parts.length >= 3) {
-            int h = Integer.parseInt(parts[parts.length-3]);
-            int m = Integer.parseInt(parts[parts.length-2]);
-            int s = Integer.parseInt(parts[parts.length-1]);
+        int h = 0, mi = 0, s = 0;
+        if (mode.equals("d")) {
+            if (toks.length < 4) return 0;
+            h = Integer.parseInt(toks[1]);
+            mi = Integer.parseInt(toks[2]);
+            s = Integer.parseInt(toks[3]);
             Calendar target = Calendar.getInstance();
             target.set(Calendar.HOUR_OF_DAY, h);
-            target.set(Calendar.MINUTE, m);
+            target.set(Calendar.MINUTE, mi);
             target.set(Calendar.SECOND, s);
             target.set(Calendar.MILLISECOND, 0);
-            
-            if (parts.length == 3) {
-                while (target.getTimeInMillis() <= notBefore) {
-                    target.add(Calendar.DAY_OF_YEAR, 1);
-                }
-            } else if (parts.length == 4) {
-                String flag = parts[0].toLowerCase();
-                if (flag.startsWith("w")) {
-                    int dayOfWeek = Integer.parseInt(flag.substring(1));
-                    target.set(Calendar.DAY_OF_WEEK, dayOfWeek);
-                    while (target.getTimeInMillis() <= notBefore) {
-                        target.add(Calendar.WEEK_OF_YEAR, 1);
-                    }
-                } else {
-                    int dayOfMonth = Integer.parseInt(flag);
-                    target.set(Calendar.DAY_OF_MONTH, dayOfMonth);
-                    while (target.getTimeInMillis() <= notBefore) {
-                        target.add(Calendar.MONTH, 1);
-                    }
-                }
+            while (target.getTimeInMillis() <= notBefore) {
+                target.add(Calendar.DAY_OF_YEAR, 1);
+            }
+            return target.getTimeInMillis();
+        }
+        if (mode.equals("i")) {
+            if (toks.length < 4) return 0;
+            h = Integer.parseInt(toks[1]);
+            mi = Integer.parseInt(toks[2]);
+            s = Integer.parseInt(toks[3]);
+            long span = h * 3600000L + mi * 60000L + s * 1000L;
+            if (span <= 0) return 0;
+            return notBefore + span;
+        }
+        if (toks.length < 5) return 0;
+        int day = Integer.parseInt(toks[1]);
+        h = Integer.parseInt(toks[2]);
+        mi = Integer.parseInt(toks[3]);
+        s = Integer.parseInt(toks[4]);
+        Calendar target = Calendar.getInstance();
+        target.set(Calendar.HOUR_OF_DAY, h);
+        target.set(Calendar.MINUTE, mi);
+        target.set(Calendar.SECOND, s);
+        target.set(Calendar.MILLISECOND, 0);
+        if (mode.equals("w")) {
+            if (day < 1 || day > 7) return 0;
+            target.set(Calendar.DAY_OF_WEEK, day);
+            while (target.getTimeInMillis() <= notBefore) {
+                target.add(Calendar.WEEK_OF_YEAR, 1);
+            }
+            return target.getTimeInMillis();
+        }
+        if (mode.equals("m")) {
+            if (day < 1 || day > 31) return 0;
+            target.set(Calendar.DAY_OF_MONTH, day);
+            while (target.getTimeInMillis() <= notBefore) {
+                target.add(Calendar.MONTH, 1);
             }
             return target.getTimeInMillis();
         }
@@ -719,7 +753,7 @@ long getNextScheduleTime(String cfg, long notBefore) {
 }
 
 /**
- * 格式化日程配置
+ * 格式化日程配置（根格式取用现算）
  * @param cfg String: 配置字符串
  * @return String: 人类可读的描述
  */
@@ -727,37 +761,52 @@ String formatSchedule(String cfg) {
     if (cfg == null || cfg.equals("")) return "";
     try {
         String raw = cfg.trim();
-        if (!raw.contains(" ")) {
-            String num = raw.replaceAll("[^0-9]", "");
-            if (num.length() >= 4) {
-                 int h, m, s;
-                 if (num.length() >= 6) {
-                     h = Integer.parseInt(num.substring(0, 2));
-                     m = Integer.parseInt(num.substring(2, 4));
-                     s = Integer.parseInt(num.substring(4, 6));
-                 } else {
-                     h = Integer.parseInt(num.substring(0, 2));
-                     m = Integer.parseInt(num.substring(2, 4));
-                     s = 0;
-                 }
-                 return "每日 " + h + ":" + m + ":" + s;
-            }
+        if (raw.equals("")) return "";
+        String mode = "";
+        String[] toks = null;
+        if (raw.indexOf(":") > 0 && raw.indexOf(" ") < 0) {
+            toks = raw.split(":");
+            if (toks.length < 2) return cfg;
+            mode = toks[0].toLowerCase();
+        } else {
+            String[] parts = raw.split("\\s+");
+            if (parts.length >= 4 && parts[0].toLowerCase().startsWith("w")) {
+                mode = "w";
+                toks = new String[]{"w", parts[0].substring(1), parts[1], parts[2], parts[3]};
+            } else if (parts.length >= 4) {
+                mode = "m";
+                toks = new String[]{"m", parts[0], parts[1], parts[2], parts[3]};
+            } else if (parts.length >= 3) {
+                mode = "d";
+                toks = new String[]{"d", parts[0], parts[1], parts[2]};
+            } else if (!raw.contains(" ")) {
+                String num = raw.replaceAll("[^0-9]", "");
+                if (num.length() >= 4) {
+                    String hh = num.substring(0, 2);
+                    String mm = num.substring(2, 4);
+                    String ss = num.length() >= 6 ? num.substring(4, 6) : "0";
+                    mode = "d";
+                    toks = new String[]{"d", hh, mm, ss};
+                } else return cfg;
+            } else return cfg;
         }
-        
-        String[] parts = raw.split("\\s+");
-        if (parts.length == 3) {
-            return "每日 " + parts[0] + ":" + parts[1] + ":" + parts[2];
-        } else if (parts.length == 4) {
-            String flag = parts[0].toLowerCase();
-            String time = parts[1] + ":" + parts[2] + ":" + parts[3];
-            if (flag.startsWith("w")) {
-                String[] weekDays = {"", "周日", "周一", "周二", "周三", "周四", "周五", "周六"};
-                int day = Integer.parseInt(flag.substring(1));
-                if (day >= 1 && day <= 7) return "每周" + weekDays[day] + " " + time;
-                else return "每周" + day + " " + time;
-            } else {
-                return "每月" + flag + "日 " + time;
-            }
+        String time = "";
+        if (mode.equals("d") && toks.length >= 4) {
+            return "每日 " + toks[1] + ":" + toks[2] + ":" + toks[3];
+        }
+        if (mode.equals("i") && toks.length >= 4) {
+            return "每隔 " + toks[1] + ":" + toks[2] + ":" + toks[3];
+        }
+        if (toks.length < 5) return cfg;
+        time = toks[2] + ":" + toks[3] + ":" + toks[4];
+        if (mode.equals("w")) {
+            String[] weekDays = {"", "周日", "周一", "周二", "周三", "周四", "周五", "周六"};
+            int day = Integer.parseInt(toks[1]);
+            if (day >= 1 && day <= 7) return "每周" + weekDays[day] + " " + time;
+            return "每周" + toks[1] + " " + time;
+        }
+        if (mode.equals("m")) {
+            return "每月" + toks[1] + "日 " + time;
         }
     } catch (Throwable e) { traceLog("function_log", "[formatSchedule] 异常: " + e); }
     return cfg;
@@ -1774,7 +1823,31 @@ void showSchedulePicker(Activity a, final EditText target) {
                 modeRow.addView(modeBtn);
                 
                 String currentValue = target.getText().toString().trim();
-                final String[] currentParts = currentValue.split("\\s+");
+                String modeTmp = "";
+                String[] toksTmp = new String[0];
+                if (currentValue.indexOf(":") > 0 && currentValue.indexOf(" ") < 0) {
+                    toksTmp = currentValue.split(":");
+                    if (toksTmp.length >= 2) modeTmp = toksTmp[0].toLowerCase();
+                } else if (currentValue.trim().length() > 0) {
+                    String[] ptmp = currentValue.split("\\s+");
+                    if (ptmp.length >= 4 && ptmp[0].toLowerCase().startsWith("w")) {
+                        modeTmp = "w";
+                        toksTmp = new String[]{"w", ptmp[0].substring(1), ptmp[1], ptmp[2], ptmp[3]};
+                    } else if (ptmp.length >= 4) {
+                        modeTmp = "m";
+                        toksTmp = new String[]{"m", ptmp[0], ptmp[1], ptmp[2], ptmp[3]};
+                    } else if (ptmp.length >= 3) {
+                        modeTmp = "d";
+                        toksTmp = new String[]{"d", ptmp[0], ptmp[1], ptmp[2]};
+                    }
+                }
+                if ("w".equals(modeTmp)) currentMode[0] = 1;
+                else if ("m".equals(modeTmp)) currentMode[0] = 2;
+                else if ("i".equals(modeTmp)) currentMode[0] = 3;
+                else currentMode[0] = 0;
+                modeBtn.setText(" 切换模式: " + modeNames[currentMode[0]]);
+                final String parseMode = modeTmp;
+                final String[] parseToks = toksTmp;
                 
                 final Runnable rebuildUI = new Runnable() {
                     public void run() {
@@ -1823,11 +1896,11 @@ void showSchedulePicker(Activity a, final EditText target) {
                             secondInput.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
                             timeRow.addView(secondInput);
                             
-                            if (currentParts.length >= 3) {
+                            if ("d".equals(parseMode) && parseToks.length >= 4) {
                                 try {
-                                    hourInput.setText(currentParts[0]);
-                                    minuteInput.setText(currentParts[1]);
-                                    secondInput.setText(currentParts[2]);
+                                    hourInput.setText(parseToks[1]);
+                                    minuteInput.setText(parseToks[2]);
+                                    secondInput.setText(parseToks[3]);
                                 } catch (Throwable e) { traceLog("function_log", "[showSchedulePicker] 异常: " + e); }
                             } else {
                                 hourInput.setText("12");
@@ -1891,15 +1964,15 @@ void showSchedulePicker(Activity a, final EditText target) {
                             secondInput.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
                             timeRow.addView(secondInput);
                             
-                            if (currentParts.length >= 4 && currentParts[0].startsWith("w")) {
+                            if ("w".equals(parseMode) && parseToks.length >= 5) {
                                 try {
-                                    int day = Integer.parseInt(currentParts[0].substring(1));
+                                    int day = Integer.parseInt(parseToks[1]);
                                     if (day >= 1 && day <= 7) {
                                         daySpinner.setSelection(day - 1);
                                     }
-                                    hourInput.setText(currentParts[1]);
-                                    minuteInput.setText(currentParts[2]);
-                                    secondInput.setText(currentParts[3]);
+                                    hourInput.setText(parseToks[2]);
+                                    minuteInput.setText(parseToks[3]);
+                                    secondInput.setText(parseToks[4]);
                                 } catch (Throwable e) { traceLog("function_log", "[showSchedulePicker] 异常: " + e); }
                             } else {
                                 daySpinner.setSelection(0);
@@ -1961,12 +2034,12 @@ void showSchedulePicker(Activity a, final EditText target) {
                             secondInput.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
                             timeRow.addView(secondInput);
                             
-                            if (currentParts.length >= 4) {
+                            if ("m".equals(parseMode) && parseToks.length >= 5) {
                                 try {
-                                    dayInput.setText(currentParts[0]);
-                                    hourInput.setText(currentParts[1]);
-                                    minuteInput.setText(currentParts[2]);
-                                    secondInput.setText(currentParts[3]);
+                                    dayInput.setText(parseToks[1]);
+                                    hourInput.setText(parseToks[2]);
+                                    minuteInput.setText(parseToks[3]);
+                                    secondInput.setText(parseToks[4]);
                                 } catch (Throwable e) { traceLog("function_log", "[showSchedulePicker] 异常: " + e); }
                             } else {
                                 dayInput.setText("1");
@@ -2018,11 +2091,11 @@ void showSchedulePicker(Activity a, final EditText target) {
                             secondInput.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
                             intervalRow.addView(secondInput);
                             
-                            if (currentParts.length >= 3) {
+                            if ("i".equals(parseMode) && parseToks.length >= 4) {
                                 try {
-                                    hourInput.setText(currentParts[0]);
-                                    minuteInput.setText(currentParts[1]);
-                                    secondInput.setText(currentParts[2]);
+                                    hourInput.setText(parseToks[1]);
+                                    minuteInput.setText(parseToks[2]);
+                                    secondInput.setText(parseToks[3]);
                                 } catch (Throwable e) { traceLog("function_log", "[showSchedulePicker] 异常: " + e); }
                             } else {
                                 hourInput.setText("01");
@@ -2068,78 +2141,78 @@ void showSchedulePicker(Activity a, final EditText target) {
                     public void onClick(View v) {
                         StringBuilder result = new StringBuilder();
                         
-                        if (currentMode[0] == 0) { 
+                        if (currentMode[0] == 0) {
                             LinearLayout timeRow = (LinearLayout)container.getChildAt(1);
                             EditText hourInput = (EditText)timeRow.getChildAt(0);
                             EditText minuteInput = (EditText)timeRow.getChildAt(2);
                             EditText secondInput = (EditText)timeRow.getChildAt(4);
-                            
+
                             String hour = hourInput.getText().toString().trim();
                             String minute = minuteInput.getText().toString().trim();
                             String second = secondInput.getText().toString().trim();
-                            
+
                             if (hour.isEmpty()) hour = "12";
                             if (minute.isEmpty()) minute = "00";
                             if (second.isEmpty()) second = "00";
-                            
-                            result.append(hour).append(" ").append(minute).append(" ").append(second);
-                            
-                        } else if (currentMode[0] == 1) { 
+
+                            result.append("d:").append(hour).append(":").append(minute).append(":").append(second);
+
+                        } else if (currentMode[0] == 1) {
                             LinearLayout weekRow = (LinearLayout)container.getChildAt(1);
                             Spinner daySpinner = (Spinner)weekRow.getChildAt(0);
                             LinearLayout timeRow = (LinearLayout)weekRow.getChildAt(1);
                             EditText hourInput = (EditText)timeRow.getChildAt(0);
                             EditText minuteInput = (EditText)timeRow.getChildAt(2);
                             EditText secondInput = (EditText)timeRow.getChildAt(4);
-                            
+
                             int dayIndex = daySpinner.getSelectedItemPosition() + 1;
                             String hour = hourInput.getText().toString().trim();
                             String minute = minuteInput.getText().toString().trim();
                             String second = secondInput.getText().toString().trim();
-                            
+
                             if (hour.isEmpty()) hour = "12";
                             if (minute.isEmpty()) minute = "00";
                             if (second.isEmpty()) second = "00";
-                            
-                            result.append("w").append(dayIndex).append(" ")
-                                  .append(hour).append(" ").append(minute).append(" ").append(second);
-                            
-                        } else if (currentMode[0] == 2) { 
+
+                            result.append("w:").append(dayIndex).append(":")
+                                  .append(hour).append(":").append(minute).append(":").append(second);
+
+                        } else if (currentMode[0] == 2) {
                             LinearLayout monthRow = (LinearLayout)container.getChildAt(1);
                             EditText dayInput = (EditText)monthRow.getChildAt(0);
                             LinearLayout timeRow = (LinearLayout)monthRow.getChildAt(1);
                             EditText hourInput = (EditText)timeRow.getChildAt(0);
                             EditText minuteInput = (EditText)timeRow.getChildAt(2);
                             EditText secondInput = (EditText)timeRow.getChildAt(4);
-                            
+
                             String day = dayInput.getText().toString().trim();
                             String hour = hourInput.getText().toString().trim();
                             String minute = minuteInput.getText().toString().trim();
                             String second = secondInput.getText().toString().trim();
-                            
+
                             if (day.isEmpty()) day = "1";
                             if (hour.isEmpty()) hour = "00";
                             if (minute.isEmpty()) minute = "00";
                             if (second.isEmpty()) second = "00";
-                            
-                            result.append(day).append(" ")
-                                  .append(hour).append(" ").append(minute).append(" ").append(second);
-                            
-                        } else if (currentMode[0] == 3) { 
+
+                            result.append("m:").append(day).append(":")
+                                  .append(hour).append(":").append(minute).append(":").append(second);
+
+                        } else if (currentMode[0] == 3) {
                             LinearLayout intervalRow = (LinearLayout)container.getChildAt(1);
                             EditText hourInput = (EditText)intervalRow.getChildAt(0);
                             EditText minuteInput = (EditText)intervalRow.getChildAt(2);
                             EditText secondInput = (EditText)intervalRow.getChildAt(4);
-                            
+
                             String hour = hourInput.getText().toString().trim();
                             String minute = minuteInput.getText().toString().trim();
                             String second = secondInput.getText().toString().trim();
-                            
+
                             if (hour.isEmpty()) hour = "01";
                             if (minute.isEmpty()) minute = "00";
                             if (second.isEmpty()) second = "00";
-                            
-                            result.append(hour).append(" ").append(minute).append(" ").append(second);
+
+                            result.append("i:").append(hour).append(":").append(minute).append(":").append(second);
                         }
                         
                         target.setText(result.toString());
