@@ -1070,6 +1070,9 @@ public void 悬浮窗开关(int chatType, String peerUin, String name) {
                     }
                 }
                 if (开关状态) {
+                    if (!Hook已调用) {
+                        try { Hook生命周期(); } catch (Throwable ignore) {}
+                    }
                     启动悬浮窗(finalActivity);
                 } else {
                     停止悬浮窗(finalActivity);
