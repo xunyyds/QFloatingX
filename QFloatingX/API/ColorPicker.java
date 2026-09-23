@@ -1195,7 +1195,11 @@ String getDefaultRotColorList() {
 /** 读颜色列表，空则回退默认 */
 String loadRotColorList(String key) {
     String s = getString("settings", key, "");
-    if (s == null || s.trim().isEmpty()) return getDefaultRotColorList();
+    if (s == null || s.trim().isEmpty()) {
+        if ("toast_color_list".equals(key)) return "#FF000000";
+        if ("toast_bg_solid_list".equals(key)) return "#FFFFFFFF";
+        return getDefaultRotColorList();
+    }
     return s;
 }
 
