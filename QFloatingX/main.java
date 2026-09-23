@@ -407,6 +407,14 @@ void unhookAll() {
 void Hook生命周期() {
     try {
         String hostPkg = HostInfo.INSTANCE.getPackageName();
+        Method resumeM = getCachedMethod(Activity.class, "onResume", new Class[0]);
+        Method pauseM = getCachedMethod(Activity.class, "onPause", new Class[0]);
+        if (resumeM == null || pauseM == null) {
+            Activity failAct = getNowActivity();
+            if (failAct == null) failAct = 最后Activity;
+            showApiProtectGuide(failAct);
+            return;
+        }
 
         hook(Activity.class, "onResume", new Class[0], new XC_MethodHook() {
             protected void afterHookedMethod(MethodHookParam param) {
@@ -439,6 +447,9 @@ void Hook生命周期() {
 
     } catch (Exception e) {
         traceLog("main_log", "[Hook生命周期] Hook生命周期异常: " + e);
+        Activity failAct = getNowActivity();
+        if (failAct == null) failAct = 最后Activity;
+        showApiProtectGuide(failAct);
     }
 }
 
