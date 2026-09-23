@@ -2,7 +2,7 @@
   "version": "2.5.1",
   "versionType": "测试版",
   "updateType": "补丁",
-  "updateTime": "2026-09-24 06:41:30",
+  "updateTime": "2026-09-24 06:54:28",
   "changelog": "- Toast默认样式改为**白底黑字**\n- 取消\/重载操作现在会**关闭设置界面**\n- 修复**定时任务不触发**的问题\n- hook\/反射找不到类时弹出引导（关闭LSP的API调用保护）",
   "files": [
     "QFloatingX\/API\/ColorPicker.java",
