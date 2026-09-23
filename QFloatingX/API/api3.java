@@ -393,7 +393,7 @@ private void initEmptyStats() {
 }
 
 public void initStats() {
-    if (!getBoolean("settings", "消息统计开关", true)) {
+    if (!getBoolean("settings", "消息统计开关", false)) {
         traceLog("api3_log", "[initStats] 消息统计开关关闭，跳过初始化");
         return;
     }
@@ -551,7 +551,7 @@ public void onMsg(Object data) {
         }
         } catch (Throwable e) { traceLog("api3_log", "[onMsg]" + e); }
 
-    if (!getBoolean("settings", "消息统计开关", true)) return;
+    if (!getBoolean("settings", "消息统计开关", false)) return;
 
     synchronized(writeLock) {
         messageBatchQueue.add(data);
