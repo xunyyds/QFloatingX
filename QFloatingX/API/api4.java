@@ -1030,19 +1030,11 @@ void 处理图标点击(Activity activity) {
     activity.runOnUiThread(new Runnable() {
         public void run() {
             try {
-                if (SettingsState.settingsSearchDialog != null
-                    && SettingsState.settingsSearchDialog.isShowing()) {
+                if (isSettingsActivityOpen()) {
                     return;
                 }
-                if (SettingsState.settingsDialogStack != null
-                    && !SettingsState.settingsDialogStack.isEmpty()) {
-                    Dialog top = (Dialog) SettingsState.settingsDialogStack.get(SettingsState.settingsDialogStack.size() - 1);
-                    if (top != null && top.isShowing()) {
-                        return;
-                    }
-                }
                 vibrate(activity, 48);
-                showSettingsMenu(activity, null, null, null);
+                launchSettingsActivity(activity, 0, "", "");
             } catch (Exception e) {
                 traceLog("api4_log", "[处理图标点击] 菜单弹窗异常: " + e.getMessage());
             }
@@ -1063,12 +1055,7 @@ public void 悬浮窗开关(int chatType, String peerUin, String name) {
                 boolean 开关状态 = !getBoolean("settings", "开关", false);
                 putBoolean("settings", "开关", 开关状态);
                 vibrate(finalActivity, 48);
-                String newName = 开关状态 ? "关闭悬浮窗" : "开启悬浮窗";
-                if (!updateMenuItemText("开/关悬浮窗", newName)) {
-                    if (!updateMenuItemText("开启悬浮窗", newName)) {
-                        updateMenuItemText("关闭悬浮窗", newName);
-                    }
-                }
+                applyFloatWindowMenuText();
                 if (开关状态) {
                     if (!Hook已调用) {
                         try { Hook生命周期(); } catch (Throwable ignore) {}
