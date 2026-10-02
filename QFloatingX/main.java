@@ -459,8 +459,9 @@ void 后台初始化() {
     try {
         ensureResourceAvailable();
         addItem("开/关悬浮窗", "悬浮窗开关");
+        addItem("设置", "openSetting");
         addItem("Java脚本", "openPlugin");
-        addItem("设置页面", "openSetting");
+        applyFloatWindowMenuText();
         traceLog("main_log", "[后台初始化] add项添加完成");
         开模拟定位();
         checkMuteAllExpiry();
