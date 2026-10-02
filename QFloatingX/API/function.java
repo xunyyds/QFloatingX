@@ -1,14 +1,4 @@
-/*
- * 热插拔系统核心脚本 (HotPlug Kernel)
- * 
- * 【系统架构说明】
- * 1. 线程层: 负责独立线程的生命周期管理(启动/停止/休眠)。
- * 2. IO层: JSON元数据存储与脚本文件读写。
- * 3. 逻辑层: Load(总闸)/Run(运行)/Grp(群限)/Loop(循环) 四级开关控制。
- * 4. 交互层: 基于Android原生View构建的动态UI，复用表单组件。
- * 5. 事件层: 基于Registry的高效事件分发机制。
- * 
- */
+
 
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
@@ -43,81 +33,57 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-/** 全局运行线程映射表 // HashMap<String, Thread>: 存储功能名与对应的线程对象 */
 HashMap runningThreads = new HashMap();
 
-/** 停止令牌表 // ConcurrentHashMap<String, Object>: 记录每个功能当前任务的停止令牌，替换令牌即停止旧任务 */
 ConcurrentHashMap stopFlags = new ConcurrentHashMap();
 
-/** 循环状态标记表 // HashMap<String, Boolean>: 存储功能是否处于循环模式 */
 HashMap loopFlags = new HashMap();
 HashMap loadFlags = new HashMap();
 HashMap runFlags = new HashMap();
 
-/** 中央事件注册表 // HashMap<Integer, ArrayList<String>>: 存储事件类型ID与功能名列表的映射 */
 HashMap eventRegistry = new HashMap();
 
-/** 功能执行时间戳缓存 // HashMap<String, Long>: 存储功能最后一次执行的时间 */
 HashMap lastExecTime = new HashMap();
 
-/** 预处理配置缓存 // HashMap<String, HashMap>: 缓存预处理功能的具体配置（样式、尾巴等） */
 HashMap preProcConfig = new HashMap();
 boolean inPreproc = false;
 
-/** 逐字发送消息队列 // Queue<SendUnit>: 存储待发送的消息单元 */
 Queue sendMsgQueue = new ConcurrentLinkedQueue();
 
-/** 逐字发送是否正在处理 // boolean: 队列处理锁状态 */
 java.util.concurrent.atomic.AtomicBoolean isProcessingQueue = new java.util.concurrent.atomic.AtomicBoolean(false);
 
-/** 全局线程池 // ExecutorService: 用于执行异步任务 */
-// ExecutorService ThreadPool = Executors.newCachedThreadPool();
-
-/** 当前发送目标信息 // String: 当前聊天对象的QQ号或群号 */
-/** 当前目标类型 // int: 1=私聊, 2=群聊 */
-
-/** 全局状态存储 - 当前聊天对象 // String: 记录最后一次活跃的聊天对象Uin */
 String currentPeerUin = "";
-/** 全局状态存储 - 当前聊天类型 // int: 记录最后一次活跃的聊天类型 */
+
 int currentChatType = 0;
 
-/** UI状态 - 是否正在添加/编辑中 // boolean: 控制弹窗状态 */
 boolean isAdding = false;
 
-/** 
- * 表单组件容器
- * 用于在 create 和 edit 之间复用 UI 元素的引用
- */
 class FormComponents {
-    EditText etName;        // EditText: 功能名称输入框
-    EditText etCode;        // EditText: 代码内容输入框
-    TextView chipFile;      // TextView: 文件模式切换按钮
-    TextView[] chips;       // TextView[]: 回调类型选择按钮数组
-    TextView chipLoop;      // TextView: 循环开关按钮
-    EditText etInterval;    // EditText: 循环间隔输入框
-    EditText etCount;       // EditText: 循环次数输入框
-    EditText etTime;        // EditText: 定时时间输入框
-    LinearLayout loopSettings; // LinearLayout: 循环设置区域容器
+    EditText etName;        
+    EditText etCode;        
+    TextView chipFile;      
+    TextView[] chips;       
+    TextView chipLoop;      
+    EditText etInterval;    
+    EditText etCount;       
+    EditText etTime;        
+    LinearLayout loopSettings; 
     
-    // 预处理相关组件
-    LinearLayout preprocContainer; // LinearLayout: 预处理设置区域
-    TextView chipPreType;   // TextView: 存储当前选中样式的Tag
-    EditText etPreTail;     // EditText: 小尾巴输入框
-    TextView[] preTypeChips; // TextView[]: 预处理样式选择按钮数组
-    EditText etRepeatSend;  // EditText: 重复发送次数输入框
-    EditText etRepeatConcat;// EditText: 重复拼接次数输入框
-    TextView dynamicTips;   // TextView: 动态提示文本区域
-    TextView prePreview;    // TextView: 预处理效果预览区域
+    
+    LinearLayout preprocContainer; 
+    TextView chipPreType;   
+    EditText etPreTail;     
+    TextView[] preTypeChips; 
+    EditText etRepeatSend;  
+    EditText etRepeatConcat;
+    TextView dynamicTips;   
+    TextView prePreview;    
 }
 
-/** 
- * 消息发送单元
- * 用于队列存储单条待发送消息
- */
 class SendUnit {
-    String uin; // String: 目标对象
-    String msg; // String: 消息内容
-    int type;   // int: 消息类型
+    String uin; 
+    String msg; 
+    int type;   
     
     SendUnit(String uin, String msg, int type) {
         this.uin = uin;
@@ -126,29 +92,21 @@ class SendUnit {
     }
 }
 
-/**
- * 热插拔类加载器
- * 负责脚本的哈希校验、编译缓存与反射执行
- */
 class HotPlugClassLoader {
-    ConcurrentHashMap objectCache = new ConcurrentHashMap(); // Cache: 脚本对象实例缓存
-    ConcurrentHashMap directMethodCache = new ConcurrentHashMap(); // Cache: 脚本方法名缓存
-    ConcurrentHashMap modeCache = new ConcurrentHashMap(); // Cache: 执行模式缓存 (1=对象, 2=脚本)
-    ConcurrentHashMap timeStampCache = new ConcurrentHashMap(); // Cache: 文件修改时间戳缓存
-    ConcurrentHashMap hashCache = new ConcurrentHashMap(); // Cache: 代码内容MD5缓存
+    ConcurrentHashMap objectCache = new ConcurrentHashMap(); 
+    ConcurrentHashMap directMethodCache = new ConcurrentHashMap(); 
+    ConcurrentHashMap modeCache = new ConcurrentHashMap(); 
+    ConcurrentHashMap timeStampCache = new ConcurrentHashMap(); 
+    ConcurrentHashMap hashCache = new ConcurrentHashMap(); 
     
-    boolean interpreterInitialized = false; // boolean: 解释器初始化状态
+    boolean interpreterInitialized = false; 
     
-    // 注入白名单变量
+    
     final String[] SYNC_VARS = {
         "qun", "uin", "msg", "msgId", "msgType", "type", "data", "operator", "time", "paiType", "qq", "pluginPath", "this", "scriptLoader"
     };
 
-    /**
-     * 计算代码内容的 MD5 哈希
-     * @param code String: 源代码内容
-     * @return String: MD5哈希字符串
-     */
+    
     String getCodeHash(String code) {
         if (code == null || code.length() == 0) return "";
         try {
@@ -162,11 +120,7 @@ class HotPlugClassLoader {
         }
     }
 
-    /**
-     * 通过反射获取 BeanShell This 对象的 NameSpace
-     * @param scriptObj bsh.This: 脚本对象
-     * @return bsh.NameSpace: 命名空间对象
-     */
+    
     bsh.NameSpace getObjNameSpace(bsh.This scriptObj) {
         try {
             java.lang.reflect.Method m = scriptObj.getClass().getMethod("getNameSpace", new Class[0]);
@@ -177,11 +131,7 @@ class HotPlugClassLoader {
         }
     }
 
-    /**
-     * 加载并执行指定功能脚本
-     * @param funcName String: 功能名称（文件名）
-     * @param interpreter bsh.Interpreter: 解释器实例
-     */
+    
     void loadAndExecute(String funcName, bsh.Interpreter interpreter) {
         File f = new File(getDir() + "/" + funcName + ".java");
         if (!f.exists()) {
@@ -199,7 +149,7 @@ class HotPlugClassLoader {
         if (needsCompile) {
             currentHash = getCodeHash(readCodeFile(funcName));
             cachedHash = hashCache.get(funcName);
-            // 时间戳变化但内容相同（如 touch 过）也复用编译结果
+            
             if (cachedHash != null && currentHash.equals(cachedHash) && modeCache.containsKey(funcName)) {
                 hashCache.put(funcName, currentHash);
                 timeStampCache.put(funcName, new Long(lastMod));
@@ -278,10 +228,7 @@ class HotPlugClassLoader {
         }
     }
     
-    /**
-     * 清除指定功能的缓存
-     * @param funcName String: 功能名称
-     */
+    
     void remove(String funcName) {
         timeStampCache.remove(funcName);
         hashCache.remove(funcName);
@@ -293,13 +240,8 @@ class HotPlugClassLoader {
     }
 }
 
-/** 全局实例 // HotPlugClassLoader: 脚本加载器单例 */
 HotPlugClassLoader scriptLoader = new HotPlugClassLoader();
 
-/**
- * 获取脚本存储目录
- * @return String: 目录路径
- */
 String getDir() {
     String d = pluginPath + "/HotPlug/Funcs";
     try {
@@ -309,11 +251,6 @@ String getDir() {
     return d;
 }
 
-/**
- * 读取本地代码文件
- * @param name String: 文件名（不含后缀）
- * @return String: 文件内容
- */
 String readCodeFile(String name) {
     try {
         File f = new File(getDir() + "/" + name + ".java");
@@ -326,11 +263,6 @@ String readCodeFile(String name) {
     } catch (Throwable e) { return ""; }
 }
 
-/**
- * 读取外部文件内容
- * @param p String: 绝对路径
- * @return String: 文件内容
- */
 String readExtFile(String p) {
     try {
         File f = new File(p);
@@ -343,25 +275,6 @@ String readExtFile(String p) {
     } catch (Throwable e) { return ""; }
 }
 
-/**
- * 保存功能配置及代码
- * 对应 getMeta 的索引映射：
- * n=0, f=1, cb=2-8, g=9, p=10, t=11, i=12, l=13, c=14, pt=15, tail=16, rs=17, rc=18
- * 
- * @param n String: 功能名
- * @param content String: 代码或路径
- * @param isFile boolean: 是否为文件引用
- * @param cb boolean[]: 回调开关数组
- * @param hasGrp boolean: 是否启用群限
- * @param timeVal String: 定时配置字符串
- * @param interval long: 循环间隔
- * @param isLoop boolean: 是否循环
- * @param loopCount int: 循环次数
- * @param preType int: 预处理样式类型
- * @param preTail String: 预处理小尾巴
- * @param repeatSend int: 重复发送次数
- * @param repeatConcat int: 重复拼接次数
- */
 void saveFunc(String n, String content, boolean isFile, boolean[] cb, boolean hasGrp, String timeVal, long interval, boolean isLoop, int loopCount, int preType, String preTail, int repeatSend, int repeatConcat) {
     String code;
     if (isFile) {
@@ -396,7 +309,7 @@ void saveFunc(String n, String content, boolean isFile, boolean[] cb, boolean ha
         jo.put("i", interval);   
         jo.put("l", isLoop);     
         jo.put("c", loopCount);  
-        jo.put("pt", preType);   // preType (0~49)
+        jo.put("pt", preType);   
         jo.put("tail", preTail == null ? "" : preTail); 
         jo.put("rs", repeatSend);    
         jo.put("rc", repeatConcat);  
@@ -425,7 +338,7 @@ void saveFunc(String n, String content, boolean isFile, boolean[] cb, boolean ha
     
     if (!hasCallback(cb)) {
         stopThread(n);
-        // 允许运行状态持久化，保存时不再强制改写；仅新建独立任务且尚未写过 run 时默认放开
+        
         String runRaw = getString("HotPlug", "run_" + n, "");
         if (runRaw.equals("")) {
             boolean needRun = (timeVal != null && !timeVal.trim().equals("")) || isLoop || interval > 0;
@@ -438,13 +351,6 @@ void saveFunc(String n, String content, boolean isFile, boolean[] cb, boolean ha
     traceLog("function_log", "[saveFunc]" + n);
 }
 
-/**
- * 获取元数据并转换为数组格式 (String[20])
- * 索引映射:
- * 0:Name, 1:IsFile, 2-8:CBs, 9:Grp, 10:Path, 11:Time, 12:Interval, 13:IsLoop, 14:Count, 15:Pt, 16:Tail, 17:Rs, 18:Rc
- * @param n String: 功能名
- * @return String[]: 元数据数组
- */
 String[] getMeta(String n) {
     String m = getString("HotPlug", "meta_" + n, "");
     if (m.equals("")) return null;
@@ -487,11 +393,6 @@ String[] getMeta(String n) {
     }
 }
 
-/**
- * 获取完整预处理配置
- * @param n String: 功能名
- * @return HashMap: 配置Map
- */
 HashMap getPreProcConfig(String n) {
     String m = getString("HotPlug", "meta_" + n, "");
     if (m.equals("")) return null;
@@ -509,10 +410,6 @@ HashMap getPreProcConfig(String n) {
     }
 }
 
-/**
- * 重建事件注册表
- * 遍历所有功能，根据配置的 Callback 类型注册到 eventRegistry
- */
 void rebuildRegistry() {
     HashMap newRegistry = new HashMap();
     HashMap newPreProc = new HashMap();
@@ -545,10 +442,6 @@ void rebuildRegistry() {
     preProcConfig = newPreProc;
 }
 
-/**
- * 获取所有功能列表
- * @return String[]: 功能名数组
- */
 String[] getAll() {
     String l = getString("HotPlug", "list", "");
     if (l.equals("")) return new String[0];
@@ -556,10 +449,6 @@ String[] getAll() {
     return l.split(",");
 }
 
-/**
- * 删除功能
- * @param n String: 功能名
- */
 void delFunc(String n) {
     stopThread(n); 
     try {
@@ -575,17 +464,11 @@ void delFunc(String n) {
     rebuildRegistry();
 }
 
-/**
- * 检查是否有回调配置
- * @param cb boolean[]: 回调开关数组
- * @return boolean: 是否存在任一回调
- */
 boolean hasCallback(boolean[] cb) {
     for (int i = 0; i < cb.length && i < 7; i++) if (cb[i]) return true;
     return false;
 }
 
-/** 设置加载开关 */
 void setLoad(String f, boolean on) { 
     putString("HotPlug", "load_" + f, on ? "1" : "0"); 
     loadFlags.put(f, new Boolean(on));
@@ -595,11 +478,11 @@ void setLoad(String f, boolean on) {
             long interval = 0;
             int count = 0;
             try {
-                interval = Long.parseLong(m[12]); // res[12] is interval
-                count = Integer.parseInt(m[14]); // res[14] is count
+                interval = Long.parseLong(m[12]); 
+                count = Integer.parseInt(m[14]); 
             } catch (Throwable e) { traceLog("function_log", "[setLoad] 异常: " + e); }
             startIndepThread(f, interval, count);
-            // 打开加载时若从未写过 run 键则默认允许运行；已有用户选择则保持
+            
             String runRaw = getString("HotPlug", "run_" + f, "");
             if (runRaw.equals("")) setRun(f, true);
         } else {
@@ -608,7 +491,6 @@ void setLoad(String f, boolean on) {
     }
 }
 
-/** 获取加载状态 */
 boolean getLoad(String f) {
     Boolean b = (Boolean)loadFlags.get(f);
     if (b != null) return b.booleanValue();
@@ -617,13 +499,11 @@ boolean getLoad(String f) {
     return v;
 }
 
-/** 设置运行许可 */
 void setRun(String f, boolean on) { 
     putString("HotPlug", "run_" + f, on ? "1" : "0"); 
     runFlags.put(f, new Boolean(on));
 }
 
-/** 获取运行状态 */
 boolean getRun(String f) {
     Boolean b = (Boolean)runFlags.get(f);
     if (b != null) return b.booleanValue();
@@ -632,36 +512,23 @@ boolean getRun(String f) {
     return v;
 }
 
-/** 设置群限开关 */
 void setGrp(String f, String g, boolean on) { 
     putString("HotPlug", "grp_" + f + "_" + g, on ? "1" : "0"); 
 }
 
-/** 获取群限状态 */
 boolean getGrp(String f, String g) { return getString("HotPlug", "grp_" + f + "_" + g, "0").equals("1"); }
 
-/** 设置循环开关 */
 void setLoop(String f, boolean on) { 
     putString("HotPlug", "loop_" + f, on ? "1" : "0");
     loopFlags.put(f, new Boolean(on)); 
 }
 
-/** 获取循环状态 */
 boolean getLoop(String f) { 
     Boolean b = (Boolean)loopFlags.get(f);
     if (b != null) return b.booleanValue();
     return getString("HotPlug", "loop_" + f, "0").equals("1");
 }
 
-
-/**
- * 获取下一次执行时间戳（根格式取用现算）
- * 根格式: d:HH:mm:ss 每日 | w:N:HH:mm:ss 每周(1=周日) | m:D:HH:mm:ss 每月 | i:HH:mm:ss 间隔
- * 兼容旧格式: HH mm ss / wN HH mm ss / D HH mm ss
- * @param cfg String: 定时配置字符串
- * @param notBefore long: 严格晚于该时刻
- * @return long: 下次执行的毫秒时间戳，无效返回 0
- */
 long getNextScheduleTime(String cfg, long notBefore) {
     if (cfg == null || cfg.equals("")) return 0;
     try {
@@ -752,11 +619,6 @@ long getNextScheduleTime(String cfg, long notBefore) {
     }
 }
 
-/**
- * 格式化日程配置（根格式取用现算）
- * @param cfg String: 配置字符串
- * @return String: 人类可读的描述
- */
 String formatSchedule(String cfg) {
     if (cfg == null || cfg.equals("")) return "";
     try {
@@ -812,13 +674,85 @@ String formatSchedule(String cfg) {
     return cfg;
 }
 
-/**
- * 启动独立执行线程
- * 负责定时任务、循环任务和单次初始化任务的调度
- * @param func String: 功能名
- * @param interval long: 循环间隔
- * @param maxCount int: 最大执行次数
- */
+long getPrevScheduleTime(String cfg, long notAfter, long lastRecorded) {
+    if (cfg == null || cfg.equals("")) return 0;
+    try {
+        String raw = cfg.trim();
+        if (raw.equals("")) return 0;
+        String mode = "";
+        String[] toks = null;
+        if (raw.indexOf(":") > 0 && raw.indexOf(" ") < 0) {
+            toks = raw.split(":");
+            if (toks.length < 2) return 0;
+            mode = toks[0].toLowerCase();
+        } else {
+            String[] parts = raw.split("\\s+");
+            if (parts.length >= 4 && parts[0].toLowerCase().startsWith("w")) {
+                mode = "w";
+                toks = new String[]{"w", parts[0].substring(1), parts[1], parts[2], parts[3]};
+            } else if (parts.length >= 4) {
+                mode = "m";
+                toks = new String[]{"m", parts[0], parts[1], parts[2], parts[3]};
+            } else if (parts.length >= 3) {
+                mode = "d";
+                toks = new String[]{"d", parts[0], parts[1], parts[2]};
+            } else if (!raw.contains(" ")) {
+                String num = raw.replaceAll("[^0-9]", "");
+                if (num.length() >= 4) {
+                    String hh = num.substring(0, 2);
+                    String mm = num.substring(2, 4);
+                    String ss = num.length() >= 6 ? num.substring(4, 6) : "0";
+                    mode = "d";
+                    toks = new String[]{"d", hh, mm, ss};
+                } else return 0;
+            } else return 0;
+        }
+        if (mode.equals("d") && toks.length >= 4) {
+            int h = Integer.parseInt(toks[1]);
+            int mi = Integer.parseInt(toks[2]);
+            int s = Integer.parseInt(toks[3]);
+            Calendar target = Calendar.getInstance();
+            target.set(Calendar.HOUR_OF_DAY, h);
+            target.set(Calendar.MINUTE, mi);
+            target.set(Calendar.SECOND, s);
+            target.set(Calendar.MILLISECOND, 0);
+            return target.getTimeInMillis();
+        }
+        if (mode.equals("i") && toks.length >= 4) {
+            int h = Integer.parseInt(toks[1]);
+            int mi = Integer.parseInt(toks[2]);
+            int s = Integer.parseInt(toks[3]);
+            long span = h * 3600000L + mi * 60000L + s * 1000L;
+            if (span <= 0) return 0;
+            if (lastRecorded <= 0) return 0;
+            return lastRecorded + span;
+        }
+        if (toks.length < 5) return 0;
+        int day = Integer.parseInt(toks[1]);
+        int h = Integer.parseInt(toks[2]);
+        int mi = Integer.parseInt(toks[3]);
+        int s = Integer.parseInt(toks[4]);
+        Calendar target = Calendar.getInstance();
+        target.set(Calendar.HOUR_OF_DAY, h);
+        target.set(Calendar.MINUTE, mi);
+        target.set(Calendar.SECOND, s);
+        target.set(Calendar.MILLISECOND, 0);
+        if (mode.equals("w")) {
+            if (day < 1 || day > 7) return 0;
+            target.set(Calendar.DAY_OF_WEEK, day);
+            return target.getTimeInMillis();
+        }
+        if (mode.equals("m")) {
+            if (day < 1 || day > 31) return 0;
+            target.set(Calendar.DAY_OF_MONTH, day);
+            return target.getTimeInMillis();
+        }
+        return 0;
+    } catch (Throwable e) {
+        return 0;
+    }
+}
+
 void startIndepThread(final String func, final long interval, final int maxCount) {
     Thread existing = (Thread)runningThreads.get(func);
     if (existing != null && existing.isAlive()) {
@@ -835,11 +769,32 @@ void startIndepThread(final String func, final long interval, final int maxCount
             traceLog("function_log", "[startIndepThread]" + func);
             int executedCount = 0;
             String[] meta = getMeta(func);
-            // res[11] is time string
+            
             boolean isScheduled = (meta != null && meta[11] != null && !meta[11].equals(""));
             boolean isLooping = getLoop(func);
             boolean runOnce = !isScheduled && !isLooping;
-            long lastFireTime = System.currentTimeMillis();
+            long lastFireTime = 0L;
+            String lfRaw = getString("HotPlug", "lastFireTime_" + func, "");
+            if (lfRaw != null && !lfRaw.equals("")) {
+                try { lastFireTime = Long.parseLong(lfRaw); } catch (Throwable e) { lastFireTime = 0L; }
+            }
+            if (lastFireTime <= 0) lastFireTime = System.currentTimeMillis();
+            boolean needCatchUp = false;
+            if (isScheduled && getBoolean("settings", "补一次执行", false)) {
+                long nowTs = System.currentTimeMillis();
+                long recorded = 0L;
+                String recRaw = getString("HotPlug", "lastFireTime_" + func, "");
+                if (recRaw != null && !recRaw.equals("")) {
+                    try { recorded = Long.parseLong(recRaw); } catch (Throwable e) { recorded = 0L; }
+                }
+                long due = getPrevScheduleTime(meta[11], nowTs, recorded);
+                
+                if (due > 0 && due <= nowTs && recorded < due) {
+                    needCatchUp = true;
+                    lastFireTime = due;
+                    traceLog("function_log", "[补执行] " + func + " 错过应执行点 " + due + "，启动补跑一次");
+                }
+            }
 
             while (!Thread.interrupted() && stopFlags.get(func) == stopToken) {
                 try {
@@ -847,21 +802,24 @@ void startIndepThread(final String func, final long interval, final int maxCount
                         traceLog("function_log", "[停止] " + func + " 总开关关闭");
                         break;
                     }
-                    if (!getRun(func) && !runOnce) {
-                        Thread.sleep(2000); 
+                    if (!getRun(func) && !runOnce && !needCatchUp) {
+                        Thread.sleep(2000);
                         continue;
                     }
                     if (!isScheduled && !isLooping && !runOnce) break;
-                    
+
                     if (!isScheduled && maxCount > 0 && executedCount >= maxCount) {
                         traceLog("function_log", "[完成] " + func + " 次数达标");
                         break;
                     }
-                    
+
                     long scheduledTarget = 0;
-                    if (isScheduled) {
+                    if (needCatchUp) {
+                        needCatchUp = false;
+                        scheduledTarget = lastFireTime;
+                    } else if (isScheduled) {
                         scheduledTarget = getNextScheduleTime(meta[11], lastFireTime);
-                        
+
                         if (scheduledTarget <= 0) {
                             traceLog("function_log", "[计划] " + func + " 定时配置无效，立即执行一次");
                             runOnce = true;
@@ -878,7 +836,7 @@ void startIndepThread(final String func, final long interval, final int maxCount
                                 }
                             }
                         }
-                        
+
                     } else if (isLooping) {
                         long sleepTime = interval > 0 ? interval : 5000;
                         if (sleepTime < 500) sleepTime = 500; 
@@ -896,16 +854,18 @@ void startIndepThread(final String func, final long interval, final int maxCount
                         this.interpreter.set("qun", ""); 
                         this.interpreter.set("uin", "");
                         
-                        scriptLoader.loadAndExecute(func, this.interpreter); 
-                        executedCount++; 
+                        scriptLoader.loadAndExecute(func, this.interpreter);
+                        executedCount++;
                         lastExecTime.put(func, System.currentTimeMillis());
-                        
+                        if (isScheduled) putString("HotPlug", "lastFireTime_" + func, String.valueOf(System.currentTimeMillis()));
+
                         traceLog("function_log", "[执行] " + func + " 第" + executedCount + "次");
                         }
                     }
-                    
+
                     if (isScheduled && scheduledTarget > 0) {
                         lastFireTime = scheduledTarget;
+                        putString("HotPlug", "lastFireTime_" + func, String.valueOf(scheduledTarget));
                     }
                     
                     if (runOnce) break; 
@@ -931,7 +891,6 @@ void startIndepThread(final String func, final long interval, final int maxCount
     runningThreads.put(func, wrapper);
 }
 
-/** 停止线程 */
 void stopThread(String func) {
     stopFlags.remove(func);
     Thread t = (Thread)runningThreads.get(func);
@@ -942,7 +901,6 @@ void stopThread(String func) {
     }
 }
 
-/** 停止所有线程 */
 void stopAllThreads() {
     List stopFuncs = new ArrayList(runningThreads.keySet());
     for (int i = 0; i < stopFuncs.size(); i++) {
@@ -957,12 +915,6 @@ void stopAllThreads() {
     runningThreads.clear();
 }
 
-/**
- * 执行功能脚本
- * @param func String: 功能名
- * @param data Object: 触发数据
- * @param type int: 触发类型 (1:Msg, 2:Join, 3:Quit, 4:Shut, 5:Chat, 6:Pai, 7:Pre)
- */
 void execFunc(String func, Object data, int type) {
     try {
         String[] m = getMeta(func);
@@ -973,7 +925,7 @@ void execFunc(String func, Object data, int type) {
         if (!getRun(func)) return;
         
         String currentGroupId = "";
-        if (m[9].equals("1")) { // m[9] is GrpLimit
+        if (m[9].equals("1")) { 
             String gid = "";
             if (type == 1 && data != null) {
                 try { gid = data.peerUin; } catch (Throwable e) { traceLog("function_log", "[execFunc] 异常: " + e); }
@@ -1046,11 +998,6 @@ void execFunc(String func, Object data, int type) {
     }
 }
 
-/**
- * 事件分发
- * @param data Object: 事件数据
- * @param type int: 事件类型
- */
 void dispatchEvent(Object data, int type) {
     Integer key = new Integer(type);
     if (!eventRegistry.containsKey(key)) return;
@@ -1061,7 +1008,6 @@ void dispatchEvent(Object data, int type) {
     }
 }
 
-/** 预设：消息 */
 String[][] getPresetsCategory1() {
     String[][] arr = new String[9][2];
             arr[0][0] = "发文本";
@@ -1085,7 +1031,6 @@ String[][] getPresetsCategory1() {
     return arr;
 }
 
-/** 预设：好友 */
 String[][] getPresetsCategory2() {
     String[][] arr = new String[5][2];
             arr[0][0] = "获取好友";
@@ -1101,7 +1046,6 @@ String[][] getPresetsCategory2() {
     return arr;
 }
 
-/** 预设：群管 */
 String[][] getPresetsCategory3() {
     String[][] arr = new String[13][2];
             arr[0][0] = "群列表";
@@ -1133,9 +1077,6 @@ String[][] getPresetsCategory3() {
     return arr;
 }
 
-/**
- * 动画：弹窗进入
- */
 void animateDialogIn(final android.app.Dialog d) {
     try {
         View v = d.getWindow().getDecorView();
@@ -1154,9 +1095,6 @@ void animateDialogIn(final android.app.Dialog d) {
     } catch (Throwable e) { traceLog("function_log", "[animateDialogIn] 异常: " + e); }
 }
 
-/**
- * 动画：弹窗退出
- */
 void animateDialogOut(final android.app.Dialog d, final Runnable onEnd) {
     try {
         Window w = d.getWindow();
@@ -1185,9 +1123,6 @@ void animateDialogOut(final android.app.Dialog d, final Runnable onEnd) {
     }
 }
 
-/**
- * 构建表单：名称
- */
 EditText addNameInput(Activity a, LinearLayout parent, String name) {
     EditText et = makeInput(a, "功能名", null);
     if (name != null) et.setText(name);
@@ -1195,9 +1130,6 @@ EditText addNameInput(Activity a, LinearLayout parent, String name) {
     return et;
 }
 
-/**
- * 构建表单：代码
- */
 EditText addCodeInput(Activity a, LinearLayout parent, String code, boolean isFile, final boolean[] isFileState) {
     LinearLayout rowFile = new LinearLayout(a);
     rowFile.setOrientation(LinearLayout.HORIZONTAL);
@@ -1237,9 +1169,6 @@ EditText addCodeInput(Activity a, LinearLayout parent, String code, boolean isFi
     return et;
 }
 
-/**
- * 构建表单：预设代码
- */
 void addPresetRows(Activity a, LinearLayout parent, final EditText et) {
     TextView pt = new TextView(a);
     pt.setText("快捷填入:");
@@ -1253,9 +1182,6 @@ void addPresetRows(Activity a, LinearLayout parent, final EditText et) {
     addPresetRow(a, parent, et, getPresetsCategory3(), pc("#FF9800"));
 }
 
-/**
- * 获取回调详细信息
- */
 String getCallbackTip(int index) {
     switch(index) {
         case 0: return "【消息】收到消息时触发\n参数: qun(群号), uin(发送者), msg(消息内容), msgId(消息ID), msgType(消息类型), type(聊天类型), data(Object对象)";
@@ -1270,9 +1196,6 @@ String getCallbackTip(int index) {
     }
 }
 
-/**
- * 更新动态tips显示
- */
 void updateDynamicTips(FormComponents fc, boolean[] cks) {
     if (fc.dynamicTips == null) return;
     
@@ -1294,9 +1217,6 @@ void updateDynamicTips(FormComponents fc, boolean[] cks) {
     fc.dynamicTips.setText(sb.toString());
 }
 
-/**
- * 构建表单：回调选择
- */
 TextView[] addChipRows(Activity a, LinearLayout parent, final boolean[] cks, final FormComponents fc) {
     TextView tipsHeader = new TextView(a);
     tipsHeader.setText("回调详情:");
@@ -1378,9 +1298,6 @@ TextView[] addChipRows(Activity a, LinearLayout parent, final boolean[] cks, fin
     return chips;
 }
 
-/**
- * 更新预处理控件可见性
- */
 void updatePreprocVisibility(FormComponents fc, boolean visible) {
     if (fc.preprocContainer != null) {
         fc.preprocContainer.setVisibility(visible ? View.VISIBLE : View.GONE);
@@ -1391,10 +1308,6 @@ void updatePreprocVisibility(FormComponents fc, boolean visible) {
     }
 }
 
-/**
- * 根据选中的样式类型返回对应的 tips 说明
- * 只在选中非“无”时调用
- */
 String getStyleTip(int type) {
     switch (type) {
         case 0: return "";
@@ -1451,9 +1364,6 @@ String getStyleTip(int type) {
     }
 }
 
-/**
- * 构建表单：预处理设置
- */
 void addPreprocRow(Activity a, LinearLayout parent, FormComponents fc, int preType, String preTail, int repeatSend, int repeatConcat) {
     final LinearLayout container = new LinearLayout(a);
     container.setOrientation(LinearLayout.VERTICAL);
@@ -1622,9 +1532,6 @@ void addPreprocRow(Activity a, LinearLayout parent, FormComponents fc, int preTy
     container.addView(inputTips);
 }
 
-/**
- * 构建表单：循环设置
- */
 FormComponents addLoopRow(Activity a, LinearLayout parent, boolean isLoop, long interval, int count, final boolean[] cks) {
     final FormComponents fc = new FormComponents();
     
@@ -1696,9 +1603,6 @@ FormComponents addLoopRow(Activity a, LinearLayout parent, boolean isLoop, long 
     return fc;
 }
 
-/**
- * 构建表单：定时设置
- */
 EditText addTimeRow(Activity a, LinearLayout parent, String timeVal) {
     TextView lblTime = new TextView(a);
     lblTime.setText("定时(可选):");
@@ -1727,13 +1631,33 @@ EditText addTimeRow(Activity a, LinearLayout parent, String timeVal) {
         public void onClick(View v) { showTimePicker(a, etTime, null); }
     });
     timeRow.addView(btnTime);
-    
+
+    LinearLayout catchRow = new LinearLayout(a);
+    catchRow.setOrientation(LinearLayout.HORIZONTAL);
+    catchRow.setGravity(Gravity.CENTER_VERTICAL);
+    catchRow.setPadding(0, dp(a, 6), 0, 0);
+    parent.addView(catchRow);
+    TextView catchLbl = new TextView(a);
+    catchLbl.setText("过点补执行");
+    catchLbl.setTextSize(11);
+    catchLbl.setTextColor(tc(a, "on_surface_variant"));
+    catchLbl.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
+    catchRow.addView(catchLbl);
+    final boolean[] catchOn = {getBoolean("settings", "补一次执行", false)};
+    final TextView catchSw = makeSwitch(a, catchOn[0], tc(a, "primary"));
+    catchSw.setOnClickListener(new View.OnClickListener() {
+        public void onClick(View v) {
+            catchOn[0] = !catchOn[0];
+            putBoolean("settings", "补一次执行", catchOn[0]);
+            setSwitch(catchSw, catchOn[0], tc(a, "primary"));
+            toast(catchOn[0] ? "过点补执行已开" : "过点补执行已关");
+        }
+    });
+    catchRow.addView(catchSw);
+
     return etTime;
 }
 
-/**
- * 构建表单：预设按钮行
- */
 void addPresetRow(Activity a, LinearLayout parent, final EditText et, String[][] presets, int color) {
     HorizontalScrollView hs = new HorizontalScrollView(a);
     hs.setHorizontalScrollBarEnabled(false);
@@ -1762,18 +1686,10 @@ void addPresetRow(Activity a, LinearLayout parent, final EditText et, String[][]
     }
 }
 
-
-/**
- * 显示日程选择器
- */
 void showSchedulePicker(Activity a, final EditText target) {
     a.runOnUiThread(new Runnable() {
         public void run() {
             try {
-
-
-
-
 
                 final android.app.Dialog d = new android.app.Dialog(a, android.R.style.Theme_Translucent_NoTitleBar);
                 d.requestWindowFeature(1);
@@ -2232,9 +2148,6 @@ void showSchedulePicker(Activity a, final EditText target) {
     });
 }
 
-/**
- * 临时测试执行
- */
 void testCode(String funcName, String code, String originalFunc) {
     ThreadPool.execute(new Runnable() {
     public void run() {
@@ -2260,10 +2173,6 @@ void testCode(String funcName, String code, String originalFunc) {
 	});
 }
 
-/**
- * 显示编辑弹窗
- * 复用 FormComponents 和 saveFunc，并正确处理 getMeta 的 String[20] 索引
- */
 void showEdit(Activity a, final String func, final String gid, final String gn) {
     traceLog("function_log", "[showEdit] 开始编辑: " + func);
     try {
@@ -2467,411 +2376,11 @@ void showEdit(Activity a, final String func, final String gid, final String gn) 
     }
 }
 
-/**
- * 显示热插拔功能管理主界面
- * <p>包含功能列表展示、状态刷新、新建功能入口以及侧滑删除等交互逻辑。</p>
- *
- * @param ft    功能类型标识
- * @param gid   当前群组ID (Group ID)
- * @param uname 当前用户名称
- */
-public void showHotPlugMain(int ft, String gid, String uname) {
-    traceLog("function_log", "[showHotPlugMain] 开始执行");
-    final Activity a = getNowActivity();
-    if (a == null) return;
-
-    final String g = gid != null ? gid : "";
-    final String gn = uname;
-    isAdding = false;
-
-    a.runOnUiThread(new Runnable() {
-        public void run() {
-            try {
-                final Dialog d = new Dialog(a, android.R.style.Theme_Translucent_NoTitleBar);
-                d.requestWindowFeature(1);
-                d.getWindow().setBackgroundDrawable(new ColorDrawable(0));
-
-                Window window = d.getWindow();
-                WindowManager.LayoutParams params = window.getAttributes();
-                params.gravity = Gravity.CENTER;
-                int screenWidth = a.getResources().getDisplayMetrics().widthPixels;
-                params.width = Math.min(dp(a, 400), screenWidth - dp(a, 32));
-                params.height = WindowManager.LayoutParams.WRAP_CONTENT;
-                params.verticalMargin = 0.0f;
-                window.setAttributes(params);
-
-                d.setOnDismissListener(new DialogInterface.OnDismissListener() {
-                    public void onDismiss(DialogInterface dialog) {
-                        isAdding = false;
-                    }
-                });
-
-                FrameLayout root = new FrameLayout(a);
-                root.setPadding(dp(a, 20), dp(a, 16), dp(a, 20), dp(a, 20));
-
-                final SwipeRefreshLayout swipe = new SwipeRefreshLayout(a);
-                root.addView(swipe, new FrameLayout.LayoutParams(-1, -2));
-                swipe.setPadding(0, 0, 0, 0);
-
-                final ScrollView sc = new ScrollView(a);
-                swipe.addView(sc, new FrameLayout.LayoutParams(-1, -2));
-
-                final LinearLayout cd = new LinearLayout(a);
-                cd.setOrientation(LinearLayout.VERTICAL);
-                cd.setPadding(dp(a, 16), dp(a, 16), dp(a, 16), dp(a, 16));
-                sc.addView(cd);
-
-                TextView t = new TextView(a);
-                t.setText("功能管理");
-                t.setTextSize(16);
-                t.setTypeface(null, Typeface.BOLD);
-                t.setTextColor(tc(a, "on_surface"));
-                cd.addView(t);
-
-                TextView s = new TextView(a);
-                String gn2 = (gn == null || gn.trim().length() == 0) ? "未知" : gn;
-                s.setText(gn2 + (g.equals("") ? "" : " (" + g + ")"));
-                s.setTextSize(12);
-                s.setTextColor(tc(a, "primary"));
-                s.setPadding(0, 0, 0, dp(a, 6));
-                cd.addView(s);
-
-                TextView tips = new TextView(a);
-                tips.setText("下拉可刷新状态");
-                tips.setTextSize(9);
-                tips.setTextColor(tc(a, "on_surface_variant"));
-                tips.setPadding(0, 0, 0, dp(a, 8));
-                cd.addView(tips);
-
-                final LinearLayout editorContainer = new LinearLayout(a);
-                editorContainer.setOrientation(LinearLayout.VERTICAL);
-                editorContainer.setBackground(roundRect(tc(a, "primary_container"), dp(a, 8)));
-                editorContainer.setPadding(dp(a, 12), dp(a, 12), dp(a, 12), dp(a, 12));
-                editorContainer.setVisibility(View.GONE);
-                editorContainer.setAlpha(0f);
-                editorContainer.setScaleY(0.8f);
-                cd.addView(editorContainer);
-
-                TextView editTitle = new TextView(a);
-                editTitle.setText("✏️ 新建功能");
-                editTitle.setTextSize(15);
-                editTitle.setTextColor(tc(a, "primary"));
-                editTitle.setPadding(0, 0, 0, dp(a, 8));
-                editorContainer.addView(editTitle);
-
-                final boolean[] isFileState = {false};
-                final boolean[] cks = new boolean[8];
-
-                final EditText etN = addNameInput(a, editorContainer, "");
-                final EditText etC = addCodeInput(a, editorContainer, "", false, isFileState);
-                addPresetRows(a, editorContainer, etC);
-
-                TextView varTips = new TextView(a);
-                varTips.setText("变量:qun群号 uinQQ msg消息 type类型(1私2群) operator操作者 time秒");
-                varTips.setTextSize(9);
-                varTips.setTextColor(tc(a, "on_surface_variant"));
-                varTips.setPadding(0, dp(a, 4), 0, 0);
-                editorContainer.addView(varTips);
-
-                final FormComponents fc = new FormComponents();
-                TextView[] chips = addChipRows(a, editorContainer, cks, fc);
-
-                addPreprocRow(a, editorContainer, fc, 0, "", 0, 0);
-                updatePreprocVisibility(fc, false);
-
-                FormComponents loopFc = addLoopRow(a, editorContainer, false, 5000, 0, cks);
-                fc.etInterval = loopFc.etInterval;
-                fc.etCount = loopFc.etCount;
-                fc.chipLoop = loopFc.chipLoop;
-                fc.loopSettings = loopFc.loopSettings;
-
-                final EditText etTime = addTimeRow(a, editorContainer, "");
-
-                LinearLayout editorBtnRow = new LinearLayout(a);
-                editorBtnRow.setOrientation(LinearLayout.HORIZONTAL);
-                editorBtnRow.setPadding(0, dp(a, 12), 0, 0);
-                editorContainer.addView(editorBtnRow);
-
-                TextView btnSave = createButton(a, "保存", Color.WHITE, tc(a, "primary"), 14f, 8, 16, 10, false, 0, 0, null);
-                btnSave.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
-                editorBtnRow.addView(btnSave);
-
-                TextView btnTest = createButton(a, "测试", tc(a, "on_surface_variant"), tc(a, "surface"), 14f, 8, 16, 10, false, 0, 0, null);
-                LinearLayout.LayoutParams lpTest = new LinearLayout.LayoutParams(0, -2, 1.0f);
-                lpTest.setMargins(dp(a, 6), 0, dp(a, 6), 0);
-                btnTest.setLayoutParams(lpTest);
-                editorBtnRow.addView(btnTest);
-
-                TextView btnCancel = createButton(a, "取消", tc(a, "on_surface_variant"), tc(a, "surface"), 14f, 8, 16, 10, false, 0, 0, null);
-                btnCancel.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
-                editorBtnRow.addView(btnCancel);
-
-                final LinearLayout lst = new LinearLayout(a);
-                lst.setOrientation(LinearLayout.VERTICAL);
-                lst.setPadding(0, dp(a, 6), 0, 0);
-                cd.addView(lst);
-
-                TextView btnAdd = createButton(a, "+ 新建功能", Color.WHITE, tc(a, "primary"), 14f, 8, 16, 10, false, 0, 0, null);
-                LinearLayout.LayoutParams btnAddLp = new LinearLayout.LayoutParams(-1, -2);
-                btnAddLp.setMargins(0, dp(a, 6), 0, 0);
-                cd.addView(btnAdd, cd.indexOfChild(lst), btnAddLp);
-
-                View ln = new View(a);
-                ln.setBackgroundColor(tc(a, "outline"));
-                ln.setLayoutParams(new LinearLayout.LayoutParams(-1, dp(a, 1)));
-                ((LinearLayout.LayoutParams) ln.getLayoutParams()).setMargins(0, dp(a, 10), 0, dp(a, 10));
-                cd.addView(ln, cd.indexOfChild(lst));
-
-                TextView lt = new TextView(a);
-                lt.setText("功能列表(长按编辑, 左滑删除):");
-                lt.setTextSize(12);
-                lt.setTextColor(tc(a, "on_surface_variant"));
-                cd.addView(lt, cd.indexOfChild(lst));
-
-                final Runnable refreshCallback = new Runnable() {
-                    public void run() {
-                        a.runOnUiThread(new Runnable() {
-                            public void run() {
-                                try {
-                                    swipe.setRefreshing(true);
-                                    lst.removeAllViews();
-                                    String[] fs = getAll();
-                                    if (fs.length == 0 || (fs.length == 1 && fs[0].equals(""))) {
-                                        TextView e = new TextView(a);
-                                        e.setText("暂无功能");
-                                        e.setTextColor(tc(a, "on_surface_variant"));
-                                        lst.addView(e);
-                                    } else {
-                                        for (String f : fs) {
-                                            if (!f.equals("")) {
-                                                createItem(a, lst, f, g, gn, refreshCallback);
-                                            }
-                                        }
-                                    }
-                                    swipe.postDelayed(new Runnable() {
-                                        public void run() {
-                                            swipe.setRefreshing(false);
-                                        }
-                                    }, 300);
-                                } catch (Throwable e) {
-                                    traceLog("function_log", "[refreshCallback] 异常: " + e);
-                                    swipe.setRefreshing(false);
-                                }
-                            }
-                        });
-                    }
-                };
-
-                refreshCallback.run();
-
-                swipe.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
-                    public void onRefresh() {
-                        swipe.postDelayed(new Runnable() {
-                            public void run() {
-                                refreshCallback.run();
-                            }
-                        }, 50);
-                    }
-                });
-                swipe.setColorSchemeColors(tc(a, "primary"));
-
-                btnSave.setOnClickListener(new View.OnClickListener() {
-                    public void onClick(View v) {
-                        String n = etN.getText().toString().trim();
-                        String c = etC.getText().toString();
-                        if (n.equals("") || (c.equals("") && !cks[6])) {
-                            toast("名称和内容不能为空(选择预处理时可不填代码)");
-                            return;
-                        }
-                        boolean hasCb = false;
-                        for (int i = 0; i < 7; i++) if (cks[i]) hasCb = true;
-
-                        long intervalVal = 0;
-                        int countVal = 0;
-                        int preTypeVal = 0;
-                        String preTailVal = "";
-                        int repeatSendVal = 0;
-                        int repeatConcatVal = 0;
-
-                        if (!hasCb) {
-                            try {
-                                intervalVal = Long.parseLong(fc.etInterval.getText().toString());
-                            } catch (Throwable e) {
-                                toast("间隔格式错误");
-                                return;
-                            }
-                            try {
-                                countVal = Integer.parseInt(fc.etCount.getText().toString());
-                            } catch (Throwable e) {
-                                countVal = 0;
-                            }
-                        }
-
-                        if (cks[6] && fc.preTypeChips != null) {
-                            for (int i = 0; i < 50; i++) {
-                                if (i < fc.preTypeChips.length && Boolean.TRUE.equals(fc.preTypeChips[i].getTag())) {
-                                    preTypeVal = i;
-                                    break;
-                                }
-                            }
-                            preTailVal = fc.etPreTail.getText().toString();
-                            try {
-                                repeatSendVal = Integer.parseInt(fc.etRepeatSend.getText().toString());
-                            } catch (Throwable e) { traceLog("function_log", "[onRefresh] 异常: " + e); }
-                            try {
-                                repeatConcatVal = Integer.parseInt(fc.etRepeatConcat.getText().toString());
-                            } catch (Throwable e) { traceLog("function_log", "[onRefresh] 异常: " + e); }
-                        }
-
-                        String rawTime = etTime.getText().toString().trim();
-
-                        try {
-                            saveFunc(n, c, isFileState[0], new boolean[]{cks[0], cks[1], cks[2], cks[3], cks[4], cks[5], cks[6]}, cks[7], rawTime, intervalVal, Boolean.TRUE.equals(fc.chipLoop.getTag()), countVal, preTypeVal, preTailVal, repeatSendVal, repeatConcatVal);
-                            toast("已添加:" + n);
-                            editorContainer.animate().scaleY(0.8f).alpha(0f).setDuration(300).withEndAction(new Runnable() {
-                                public void run() {
-                                    editorContainer.setVisibility(View.GONE);
-                                    isAdding = false;
-                                    refreshCallback.run();
-                                }
-                            }).start();
-                        } catch (Throwable e) {
-                            traceLog("function_log", "[btnSave] 保存异常: " + e);
-                            toast("保存失败");
-                        }
-                    }
-                });
-
-                btnTest.setOnClickListener(new View.OnClickListener() {
-                    public void onClick(View v) {
-                        String c = etC.getText().toString();
-                        if (c.equals("")) {
-                            toast("代码为空");
-                            return;
-                        }
-                        testCode(etN.getText().toString().trim(), c, "新建测试");
-                    }
-                });
-
-                btnCancel.setOnClickListener(new View.OnClickListener() {
-                    public void onClick(View v) {
-                        editorContainer.animate().scaleY(0.8f).alpha(0f).setDuration(300).withEndAction(new Runnable() {
-                            public void run() {
-                                editorContainer.setVisibility(View.GONE);
-                                isAdding = false;
-                            }
-                        }).start();
-                    }
-                });
-
-                btnAdd.setOnClickListener(new View.OnClickListener() {
-                    public void onClick(View v) {
-                        if (isAdding && editorContainer.getVisibility() == View.VISIBLE) {
-                            toast("已有未保存的编辑");
-                            return;
-                        }
-
-                        try {
-                            isAdding = true;
-                            etN.setText("");
-                            etC.setText("");
-                            etTime.setText("");
-                            isFileState[0] = false;
-                            for (int i = 0; i < 8; i++) {
-                                cks[i] = false;
-                                if (i < 7) setChip(chips[i], false);
-                            }
-                            if (Boolean.TRUE.equals(fc.chipLoop.getTag())) {
-                                fc.chipLoop.performClick();
-                            }
-                            fc.etInterval.setText("5000");
-                            fc.etCount.setText("0");
-
-                            if (fc.preTypeChips != null) {
-                                for (int j = 0; j < 50; j++) {
-                                    if(j < fc.preTypeChips.length) setChipWithType(fc.preTypeChips[j], j == 0, 2);
-                                }
-                                fc.etPreTail.setText("");
-                                fc.etRepeatSend.setText("");
-                                fc.etRepeatConcat.setText("");
-                            }
-                            updatePreprocVisibility(fc, false);
-
-                            editorContainer.setVisibility(View.VISIBLE);
-                            editorContainer.setScaleY(0.8f);
-                            editorContainer.setAlpha(0f);
-                            editorContainer.setTranslationY(-dp(a, 20));
-
-                            AnimatorSet set = new AnimatorSet();
-                            ObjectAnimator scale = ObjectAnimator.ofFloat(editorContainer, "scaleY", new float[]{0.8f, 1f});
-                            ObjectAnimator alpha = ObjectAnimator.ofFloat(editorContainer, "alpha", new float[]{0f, 1f});
-                            ObjectAnimator trans = ObjectAnimator.ofFloat(editorContainer, "translationY", new float[]{-dp(a, 20), 0f});
-                            android.animation.Animator[] animArr = new android.animation.Animator[3];
-                            animArr[0] = scale;
-                            animArr[1] = alpha;
-                            animArr[2] = trans;
-                            set.playTogether(animArr);
-                            set.setDuration(400);
-                            set.setInterpolator(new OvershootInterpolator(1.2f));
-                            set.start();
-
-                        } catch (Throwable e) {
-                            traceLog("function_log", "[btnAdd] 异常: " + e);
-                            isAdding = false;
-                        }
-                    }
-                });
-
-                TextView cls = createButton(a, "关闭", tc(a, "on_surface_variant"), tc(a, "surface"), 14f, 8, 16, 10, false, 0, 0, null);
-                LinearLayout.LayoutParams clsLp = new LinearLayout.LayoutParams(-1, -2);
-                clsLp.setMargins(0, dp(a, 6), 0, 0);
-                cls.setLayoutParams(clsLp);
-                cls.setOnClickListener(new View.OnClickListener() {
-                    public void onClick(View v) {
-                        isAdding = false;
-                        animateDialogOut(d, null);
-                    }
-                });
-                cd.addView(cls);
-
-                d.setContentView(root);
-                d.getWindow().setLayout(Math.min(dp(a, 400), screenWidth - dp(a, 32)), WindowManager.LayoutParams.WRAP_CONTENT);
-                d.show();
-                applyUiTheme(a, d, 1);
-                try {
-                    Window hw = d.getWindow();
-                    if (hw != null) {
-                        hw.setFormat(android.graphics.PixelFormat.TRANSLUCENT);
-                        if (android.os.Build.VERSION.SDK_INT >= 21) {
-                            hw.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-                            hw.setStatusBarColor(Color.TRANSPARENT);
-                        }
-                    }
-                } catch (Throwable ignore) {}
-                animateDialogIn(d);
-
-            } catch (Throwable e) {
-                traceLog("function_log", "[showHotPlugMain] 外层异常: " + e);
-                isAdding = false;
-            }
-        }
-    });
-}
-
-/**
- * 创建功能模块列表项
- * @param a Activity: 上下文
- * @param c LinearLayout: 父容器
- * @param f String: 功能名
- * @param gid String: 群号
- * @param gn String: 群名
- * @param refresh Runnable: 刷新回调
- */
 void createItem(final Activity a, LinearLayout c, final String f, final String gid, final String gn, final Runnable refresh) {
     try {
         String[] m = getMeta(f);
         if (m == null) return;
-        boolean hasGrp = m[9].equals("1"); // Grp is index 9
+        boolean hasGrp = m[9].equals("1"); 
         boolean hasAnyCallback = false;
         for (int i = 2; i <= 8; i++) {
             if (m[i].equals("1")) hasAnyCallback = true;
@@ -2879,13 +2388,13 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
         long interval = 0;
         int loopCount = 0;
         try {
-            interval = Long.parseLong(m[12]); // Interval is 12
+            interval = Long.parseLong(m[12]); 
         } catch (Throwable e) { traceLog("function_log", "[createItem] 异常: " + e); }
         try {
-            loopCount = Integer.parseInt(m[14]); // Count is 14
+            loopCount = Integer.parseInt(m[14]); 
         } catch (Throwable e) { traceLog("function_log", "[createItem] 异常: " + e); }
-        boolean isLoop = m[13].equals("1"); // Loop is 13
-        String timeCfg = m[11]; // Time is 11
+        boolean isLoop = m[13].equals("1"); 
+        String timeCfg = m[11]; 
         boolean isScheduled = (timeCfg != null && !timeCfg.equals(""));
 
         final HorizontalScrollView slideView = new HorizontalScrollView(a);
@@ -2902,7 +2411,7 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
         int screenWidth = a.getResources().getDisplayMetrics().widthPixels;
         final int deleteBtnWidth = dp(a, 80);
 
-        int visibleContentWidth = Math.min(dp(a, 400), screenWidth - dp(a, 32)) - dp(a, 72);
+        int visibleContentWidth = screenWidth - dp(a, 72);
 
         final LinearLayout content = new LinearLayout(a);
         content.setOrientation(LinearLayout.VERTICAL);
@@ -2936,7 +2445,7 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
         r1.addView(titleScroll);
 
         final TextView tv = new TextView(a);
-        tv.setText("📦 " + f);
+        tv.setText(f);
         tv.setTextSize(14);
         tv.setTextColor(tc(a, "on_surface"));
         tv.setSingleLine(true);
@@ -3052,16 +2561,16 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
         itemWrapper.addView(slideView);
         View itemDivider = new View(a);
         itemDivider.setBackgroundColor(tc(a, "outline"));
-        LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(-1, 1);
+        LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(-1, dp(a, 1));
         dividerParams.bottomMargin = dp(a, 4);
         itemWrapper.addView(itemDivider, dividerParams);
 
         final boolean[] isExpanded = {false};
 
-        final GestureDetector gestureDetector = new GestureDetector(a, new GestureDetector.SimpleOnGestureListener() {
-            private static final int SWIPE_THRESHOLD = 80; 
-            private static final int SWIPE_VELOCITY_THRESHOLD = 80;
+        final int swipeThreshold = dp(a, 24);
+        final int swipeVelocityThreshold = dp(a, 300);
 
+        final GestureDetector gestureDetector = new GestureDetector(a, new GestureDetector.SimpleOnGestureListener() {
             public boolean onDown(MotionEvent e) {
                 content.animate().scaleX(0.98f).scaleY(0.98f).setDuration(50).start();
                 return true; 
@@ -3072,13 +2581,13 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
                 if (isExpanded[0]) {
                     isExpanded[0] = false;
                     exp.setVisibility(View.GONE);
-                    tv.setText("📦 " + f);
+                    tv.setText(f);
                 } else {
                     isExpanded[0] = true;
                     exp.setVisibility(View.VISIBLE);
                     exp.setAlpha(0f);
                     exp.animate().alpha(1f).setDuration(250).start();
-                    tv.setText("📂 " + f);
+                    tv.setText(f);
                 }
                 return true;
             }
@@ -3098,8 +2607,8 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
                 try {
                     float diffX = e2.getX() - e1.getX();
                     if (Math.abs(diffX) > Math.abs(e2.getY() - e1.getY()) && 
-                        Math.abs(diffX) > SWIPE_THRESHOLD && 
-                        Math.abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
+                        Math.abs(diffX) > swipeThreshold && 
+                        Math.abs(velocityX) > swipeVelocityThreshold) {
                         
                         if (diffX < 0) {
                             slideView.smoothScrollTo(deleteBtnWidth, 0);
@@ -3176,14 +2685,6 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
     }
 }
 
-/**
- * 显示删除确认弹窗
- * @param a Activity: 上下文
- * @param f String: 功能名
- * @param itemView View: 列表项视图
- * @param parent LinearLayout: 父容器
- * @param refresh Runnable: 刷新回调
- */
 void showDeleteConfirm(Activity a, final String f, final View itemView, final LinearLayout parent, final Runnable refresh) {
     final android.app.Dialog confirmDialog = new android.app.Dialog(a);
     confirmDialog.requestWindowFeature(1);
@@ -3248,33 +2749,22 @@ void showDeleteConfirm(Activity a, final String f, final View itemView, final Li
     animateDialogIn(confirmDialog);
 }
 
-/** 接口实现：入群事件 */
 void joinGroup(String g, String m) { 
     try { dispatchEvent(new String[]{g, m}, 2); } catch (Throwable e) { traceLog("function_log", "[joinGroup] 异常: " + e); } 
 }
 
-/** 接口实现：退群事件 */
 void quitGroup(String g, String m) { 
     try { dispatchEvent(new String[]{g, m}, 3); } catch (Throwable e) { traceLog("function_log", "[quitGroup] 异常: " + e); } 
 }
 
-/** 接口实现：禁言事件 */
 void shutUpGroup(String g, String m, long t, String o) { 
     try { dispatchEvent(new Object[]{g, m, t, o}, 4); } catch (Throwable e) { traceLog("function_log", "[shutUpGroup] 异常: " + e); } 
 }
 
-/** 接口实现：拍一拍事件 */
 void onPaiYiPai(String p, int t, String o) {
     try { dispatchEvent(new Object[]{p, t, o}, 6); } catch (Throwable e) { traceLog("function_log", "[onPaiYiPai] 异常: " + e); } 
 }
 
-/**
- * 预处理消息文本，根据 type 应用不同样式效果
- * 所有样式（除反转、双字外）都采用：每个字符后加组合字符 + 末尾补一个
- * @param text String: 原始文本
- * @param type int: 样式类型（0=无，1=逐字发送，2~49=各种装饰样式）
- * @return String: 处理后的文本
- */
 String applyPreprocess(String text, int type) {
     if (text == null || text.isEmpty()) return text;
 
@@ -3286,19 +2776,19 @@ String applyPreprocess(String text, int type) {
         int len = text.length();
 
         String[] combs = {
-            null, null,                  // 0 无, 1 逐字
-            "̲", "̶", "̳", "̸", "͒", "͙", null, null,  // 2~7
-            "꯭", "̲", "̿", "̬", "͟", "̤", "̥", "̸", "⃥", "⃫",  // 10~19
-            "⃘", "⃝", "⃞", "⃟", "⃠", "⃖", "⃗", "⃰", "⃢", "⃲",  // 20~29
-            "⃤", "⃦", "⃴", "⃵", "⃒", "⃓", "⃔", "⃕", "⃡", "⃪",  // 30~39
-            "⃬", "⃭", "⃮", "⃯", "⃱", "⃫", "⃷", "̿", "⃰", "⃠"   // 40~49
+            null, null,                  
+            "̲", "̶", "̳", "̸", "͒", "͙", null, null,  
+            "꯭", "̲", "̿", "̬", "͟", "̤", "̥", "̸", "⃥", "⃫",  
+            "⃘", "⃝", "⃞", "⃟", "⃠", "⃖", "⃗", "⃰", "⃢", "⃲",  
+            "⃤", "⃦", "⃴", "⃵", "⃒", "⃓", "⃔", "⃕", "⃡", "⃪",  
+            "⃬", "⃭", "⃮", "⃯", "⃱", "⃫", "⃷", "̿", "⃰", "⃠"   
         };
 
         String comb = combs[type];
         if (comb == null) {
-            if (type == 8) { // 反转
+            if (type == 8) { 
                 return new StringBuilder(text).reverse().toString();
-            } else if (type == 9) { // 双字
+            } else if (type == 9) { 
                 while (i < len) {
                     String seg = extractSegmentAt(text, i);
                     if (seg.isEmpty()) break;
@@ -3327,21 +2817,12 @@ String applyPreprocess(String text, int type) {
     }
 }
 
-/**
- * 添加到发送队列 - 优化的队列系统
- * @param uin String: 目标UIN
- * @param msg String: 消息内容
- * @param type int: 聊天类型
- */
 void addToSendQueue(String uin, String msg, int type) {
     SendUnit unit = new SendUnit(uin, msg, type);
     sendMsgQueue.offer(unit);
     processSendQueue();
 }
 
-/**
- * 处理发送队列 - 优化线程安全与异常兜底，修复队列卡死问题
- */
 void processSendQueue() {
     if (!isProcessingQueue.compareAndSet(false, true)) return;
     
@@ -3366,11 +2847,6 @@ void processSendQueue() {
     });
 }
 
-/**
- * 逐字发送处理
- * @param m String: 原始消息
- * @return String: 消息首片段
- */
 String getMsgSplit(String m) {
     if(m == null || m.isEmpty()) return m;
     
@@ -3414,12 +2890,6 @@ String getMsgSplit(String m) {
     }
 }
 
-/**
- * 获取（处理）即将发送的消息
- * 触发预处理逻辑
- * @param m String: 原始消息
- * @return String: 处理后的消息
- */
 String getMsg(String m){
     if(m == null || m.isEmpty()) return m;
     if (inPreproc) return m;
@@ -3463,7 +2933,7 @@ String getMsg(String m){
                         traceLog("function_log", "[getMsg] dispatchEvent异常: " + e);
                     }
                     
-                    if (type == 1) { // Split is 1
+                    if (type == 1) { 
                         return getMsgSplit(m);
                     } else if (type > 1) {
                         result = applyPreprocess(m, type);
@@ -3515,12 +2985,6 @@ String getMsg(String m){
     }
 }
 
-/**
- * 从指定位置提取单元（表情/Emoji/单字）
- * @param text String: 源文本
- * @param pos int: 起始位置
- * @return String: 提取的单元
- */
 String extractSegmentAt(String text, int pos){
     if(pos >= text.length()) return "";
     
@@ -3543,8 +3007,5 @@ String extractSegmentAt(String text, int pos){
     return String.valueOf(c);
 }
 
-addItem("功能热插拔", "showHotPlugMain");
 rebuildRegistry();
-
-
 
