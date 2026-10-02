@@ -1,9 +1,9 @@
 {
-  "version": "2.5.5",
+  "version": "2.5.6",
   "versionType": "正式版",
   "updateType": "补丁",
-  "updateTime": "2026-10-02 10:19:08",
-  "changelog": "- 重构设置界面\n- 优化了功能热插拔的定时任务",
+  "updateTime": "2026-10-02 21:19:11",
+  "changelog": "- 优化更新检测\n- 优化更新进度条\n- gitee 由于内容被审核违规，将在不久后关闭此更新通道\n- 推荐使用GitHub线路，已加入镜像，可直连",
   "files": [
     "QFloatingX\/API\/ColorPicker.java",
     "QFloatingX\/API\/api3.java",
@@ -11,16 +11,10 @@
     "QFloatingX\/API\/Dialog.java",
     "QFloatingX\/API\/api5.java",
     "QFloatingX\/API\/api.java",
-    "QFloatingX\/API\/api2.java",
     "QFloatingX\/API\/setwindow.java",
     "QFloatingX\/API\/api4.java",
     "QFloatingX\/API\/api9.java",
-    "QFloatingX\/API\/api6.java",
-    "QFloatingX\/API\/api7.java",
-    "QFloatingX\/API\/api8.java",
-    "QFloatingX\/API\/function.java",
     "QFloatingX\/API\/import.java",
-    "QFloatingX\/main.java",
     "QFloatingX\/info.prop",
     "QFloatingX\/更新日志.txt"
   ]
