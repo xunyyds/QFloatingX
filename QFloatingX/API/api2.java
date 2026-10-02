@@ -388,6 +388,8 @@ void 关模拟定位() {
     }
     putBoolean("模拟定位开关", "模拟定位开关", false);
     try { unhook("mock_location"); } catch (Throwable e) { traceLog("api2_log", "[关模拟定位] 卸载hook异常: " + e); }
+    locationHooked = false;
+    locationGetterHooked = false;
 }
 
 void 开模拟定位() {
