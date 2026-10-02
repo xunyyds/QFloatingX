@@ -56,6 +56,42 @@ public String get(String url) {
 	return buffer.toString();
 }
 
+public String getCounter(String url) {
+	StringBuffer buffer = new StringBuffer();
+	InputStreamReader isr = null;
+	HttpURLConnection httpConn = null;
+	try {
+		URL urlObj = new URL(url);
+		URLConnection uc = urlObj.openConnection();
+		uc.setConnectTimeout(10000);
+		uc.setReadTimeout(10000);
+		uc.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36");
+		uc.setRequestProperty("Accept", "application/json, text/plain, */*");
+		uc.setRequestProperty("Authorization", "Bearer ut_zmgCqsl1jmyyTxNNOteiU0nywTCldcVok1dUUi8S");
+		if (uc instanceof HttpURLConnection) httpConn = (HttpURLConnection) uc;
+		isr = new InputStreamReader(uc.getInputStream(), "utf-8");
+		BufferedReader reader = new BufferedReader(isr);
+		String line;
+		while ((line = reader.readLine()) != null) {
+			buffer.append(line + "\n");
+		}
+	} catch (Exception e) {
+		return "访问网页失败，原因:" + e;
+	} finally {
+		try {
+			if (null != isr) {
+				isr.close();
+			}
+		} catch (IOException e) {
+			return "访问网页失败，原因:" + e;
+		}
+		if (httpConn != null) { try { httpConn.disconnect(); } catch (Throwable ignore) {} }
+	}
+	if (buffer.length() == 0) return "访问网页失败";
+	buffer.delete(buffer.length() - 1, buffer.length());
+	return buffer.toString();
+}
+
 private String getTodayDateStr() {
 	try {
 		Calendar cal = Calendar.getInstance();
@@ -2573,52 +2609,79 @@ boolean replaceWithTmp(String savePath, String tmpPath) {
     }
 }
 
-boolean downloadToTmpDetailed(String url, String tmpPath, final UpdateProgressListener listener,
+String[] buildMirrorUrls(String relativePath) {
+    String channel = getString("settings", "update_channel", "gitee");
+    if (!"github".equals(channel)) {
+        return new String[]{"https://gitee.com/ovoxiaomo/qfloating-x/raw/QF/" + relativePath};
+    }
+    String[] mirrorHosts = {"gh.07150721.xyz", "ghpxy.hwinzniej.top", "ghf.无名氏.top", "gh.chjina.com", "js.jiangss.shop", "ghproxy.icu"};
+    String rawUrl = "https://raw.githubusercontent.com/xunyyds/QFloatingX/QF/" + relativePath;
+    String[] urls = new String[1 + mirrorHosts.length];
+    urls[0] = rawUrl;
+    for (int k = 0; k < mirrorHosts.length; k++) {
+        String h = mirrorHosts[k];
+        try { h = java.net.IDN.toASCII(h); } catch (Throwable ignore) {}
+        urls[k + 1] = "https://" + h + "/" + rawUrl;
+    }
+    return urls;
+}
+
+boolean downloadToTmpDetailed(String[] urls, String tmpPath, final UpdateProgressListener listener,
     final long grandBytesBefore, final long startMs, final int idx, final int totalFiles,
     final String displayName, long[] resultBytes) {
-    java.io.FileOutputStream out = null;
-    java.io.InputStream in = null;
     java.io.File tmpFile = new java.io.File(tmpPath);
     java.io.File saveDir = tmpFile.getParentFile();
     if (saveDir != null && !saveDir.exists()) saveDir.mkdirs();
-    try {
-        java.net.HttpURLConnection conn = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
-        conn.setRequestMethod("GET");
-        conn.setConnectTimeout(10000);
-        conn.setReadTimeout(30000);
-        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36");
-        conn.setRequestProperty("Accept-Encoding", "identity");
-        int remoteSize = conn.getContentLength();
-        in = conn.getInputStream();
-        out = new java.io.FileOutputStream(tmpFile);
-        byte[] buf = new byte[8192];
-        long total = 0;
-        int read;
-        int tick = 0;
-        while ((read = in.read(buf)) != -1) {
-            out.write(buf, 0, read);
-            total += read;
-            tick++;
-            if (listener != null && tick % 4 == 0) {
-                int percent = 0;
-                if (remoteSize > 0) percent = (int) ((total * 100) / remoteSize);
-                listener.onFileProgress(percent, total, remoteSize > 0 ? remoteSize : 0, grandBytesBefore + total, System.currentTimeMillis() - startMs);
-            }
+    for (int u = 0; u < urls.length; u++) {
+        String url = urls[u];
+        if (u > 0 && listener != null) {
+            listener.onPhase("mirror");
+            traceLog("api_log", "[downloadToTmpDetailed] 尝试镜像#" + u + ": " + url);
         }
-        out.flush();
-        if (resultBytes != null) { resultBytes[0] = total; resultBytes[1] = remoteSize; }
-        if (remoteSize > 0) return total == remoteSize;
-        return total > 0;
-    } catch (Throwable e) {
-        traceLog("api_log", "[downloadToTmpDetailed] 异常: " + e.getMessage());
-        return false;
-    } finally {
-        try { if (out != null) out.close(); } catch (Throwable t) {}
-        try { if (in != null) in.close(); } catch (Throwable t) {}
+        java.io.FileOutputStream out = null;
+        java.io.InputStream in = null;
+        boolean ok = false;
+        try {
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(10000);
+            conn.setReadTimeout(30000);
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36");
+            conn.setRequestProperty("Accept-Encoding", "identity");
+            int remoteSize = conn.getContentLength();
+            in = conn.getInputStream();
+            out = new java.io.FileOutputStream(tmpFile);
+            byte[] buf = new byte[8192];
+            long total = 0;
+            int read;
+            int tick = 0;
+            while ((read = in.read(buf)) != -1) {
+                out.write(buf, 0, read);
+                total += read;
+                tick++;
+                if (listener != null && tick % 4 == 0) {
+                    int percent = 0;
+                    if (remoteSize > 0) percent = (int) ((total * 100) / remoteSize);
+                    listener.onFileProgress(percent, total, remoteSize > 0 ? remoteSize : 0, grandBytesBefore + total, System.currentTimeMillis() - startMs);
+                }
+            }
+            out.flush();
+            if (resultBytes != null) { resultBytes[0] = total; resultBytes[1] = remoteSize; }
+            if (remoteSize > 0) ok = (total == remoteSize);
+            else ok = (total > 0);
+        } catch (Throwable e) {
+            traceLog("api_log", "[downloadToTmpDetailed] 下载失败: " + e.getMessage() + " url=" + url);
+        } finally {
+            try { if (out != null) out.close(); } catch (Throwable t) {}
+            try { if (in != null) in.close(); } catch (Throwable t) {}
+        }
+        if (ok) return true;
+        try { if (tmpFile.exists()) tmpFile.delete(); } catch (Throwable t) {}
     }
+    return false;
 }
 
-boolean executeQfxUpdate(List updateFiles, String channel, JSONObject checksums, UpdateProgressListener listener) {
+boolean executeQfxUpdate(List updateFiles, JSONObject checksums, UpdateProgressListener listener) {
     if (updateFiles == null || updateFiles.isEmpty()) {
         if (listener != null) listener.onAllDone(false, "没有需要更新的文件");
         return false;
@@ -2631,16 +2694,15 @@ boolean executeQfxUpdate(List updateFiles, String channel, JSONObject checksums,
         String fileName = (String) updateFiles.get(i);
         String relativePath = fileName;
         if (relativePath.startsWith("QFloatingX/")) relativePath = relativePath.substring("QFloatingX/".length());
-        String displayName = relativePath;
-        String fileUrl = channel + "/" + fileName;
+        String[] urlArr = buildMirrorUrls(fileName);
         String savePath = pluginPath + "/" + relativePath;
         String tmpPath = savePath + ".new";
-        if (listener != null) listener.onFileStart(displayName, i + 1, total);
+        if (listener != null) listener.onFileStart(relativePath, i + 1, total);
         long[] bytesInfo = new long[]{0, 0};
-        boolean dlOk = downloadToTmpDetailed(fileUrl, tmpPath, listener, grandTotalBytes, startMs, i + 1, total, displayName, bytesInfo);
+        boolean dlOk = downloadToTmpDetailed(urlArr, tmpPath, listener, grandTotalBytes, startMs, i + 1, total, relativePath, bytesInfo);
         if (!dlOk) {
             cleanupTempFile(tmpPath);
-            if (listener != null) listener.onAllDone(false, "下载失败: " + displayName);
+            if (listener != null) listener.onAllDone(false, "下载失败: " + relativePath);
             return false;
         }
         grandTotalBytes += bytesInfo[0];
@@ -2648,16 +2710,15 @@ boolean executeQfxUpdate(List updateFiles, String channel, JSONObject checksums,
         String expectedSha = null;
         if (checksums != null) expectedSha = checksums.optString(relativePath, null);
         boolean verifyOk = verifyDownloadedFile(tmpPath, bytesInfo[0], expectedSha);
-        if (listener != null) listener.onFileVerify(displayName, verifyOk);
+        if (listener != null) listener.onFileVerify(relativePath, verifyOk);
         if (!verifyOk) {
             cleanupTempFile(tmpPath);
-            if (listener != null) listener.onAllDone(false, "完整性校验失败，已中止: " + displayName);
+            if (listener != null) listener.onAllDone(false, "完整性校验失败，已中止: " + relativePath);
             return false;
         }
-        boolean replaceOk = replaceWithTmp(savePath, tmpPath);
-        if (!replaceOk) {
+        if (!replaceWithTmp(savePath, tmpPath)) {
             cleanupTempFile(tmpPath);
-            if (listener != null) listener.onAllDone(false, "文件替换失败: " + displayName);
+            if (listener != null) listener.onAllDone(false, "文件替换失败: " + relativePath);
             return false;
         }
         if (listener != null) listener.onPhase("download");
@@ -2840,7 +2901,6 @@ void showUpdateDialog(final String version, final String versionType, final Stri
     Activity activity = getNowActivity();
 
     if (activity == null) return;
-    final String finalChannel = getUpdateChannelBaseUrl();
 
     final String prevVersion = readprop(pluginPath + "/info.prop", "versionCode");
     ThreadPool.execute(new Runnable() {
@@ -3030,7 +3090,7 @@ void showUpdateDialog(final String version, final String versionType, final Stri
                                     });
                                 }
                             };
-                            executeQfxUpdate(updateFiles, finalChannel, checksums, silentListener);
+                            executeQfxUpdate(updateFiles, checksums, silentListener);
                         }
                     });
                 }
@@ -3043,7 +3103,7 @@ void showUpdateDialog(final String version, final String versionType, final Stri
                         Toast("没有需要更新的文件");
                         return;
                     }
-                    showStyledUpdateProgress(activity, updateFiles, finalChannel, checksums, afterUpdateOk);
+                    showStyledUpdateProgress(activity, updateFiles, checksums, afterUpdateOk);
                 }
             });
 
@@ -3118,7 +3178,7 @@ void showUpdateDialog(final String version, final String versionType, final Stri
 }
 
 
-void showStyledUpdateProgress(final Activity activity, final List updateFiles, final String channel, final JSONObject checksums, final Runnable afterUpdateOk) {
+void showStyledUpdateProgress(final Activity activity, final List updateFiles, final JSONObject checksums, final Runnable afterUpdateOk) {
     activity.runOnUiThread(new Runnable() {
         public void run() {
             LinearLayout root = new LinearLayout(activity);
@@ -3224,6 +3284,7 @@ void showStyledUpdateProgress(final Activity activity, final List updateFiles, f
 
             ThreadPool.execute(new Runnable() {
                 public void run() {
+                    final long[] speedRef = new long[]{0L, 0L};
                     UpdateProgressListener listener = new UpdateProgressListener() {
                         public void onPhase(final String phase) {
                             activity.runOnUiThread(new Runnable() {
@@ -3231,6 +3292,8 @@ void showStyledUpdateProgress(final Activity activity, final List updateFiles, f
                                     if ("verify".equals(phase)) {
                                         phaseBase[0] = "正在验证完整性";
                                         bar.setProgress(100);
+                                    } else if ("mirror".equals(phase)) {
+                                        phaseBase[0] = "当前正在使用镜像站进行加速下载";
                                     } else {
                                         phaseBase[0] = "正在下载更新";
                                     }
@@ -3238,6 +3301,8 @@ void showStyledUpdateProgress(final Activity activity, final List updateFiles, f
                             });
                         }
                         public void onFileStart(final String displayName, final int currentIndex, final int totalFiles) {
+                            speedRef[0] = 0;
+                            speedRef[1] = 0;
                             activity.runOnUiThread(new Runnable() {
                                 public void run() {
                                     fileTv.setText(displayName);
@@ -3248,11 +3313,29 @@ void showStyledUpdateProgress(final Activity activity, final List updateFiles, f
                             });
                         }
                         public void onFileProgress(final int filePercent, final long fileBytes, final long fileTotal, final long totalBytesAll, final long elapsedMs) {
+                            long now = System.currentTimeMillis();
+                            String speedStr = null;
+                            if (speedRef[0] > 0 && now - speedRef[0] >= 400) {
+                                long db = totalBytesAll - speedRef[1];
+                                long dt = now - speedRef[0];
+                                long speed = dt > 0 ? db * 1000 / dt : 0;
+                                speedStr = formatBytes(speed) + "/s";
+                                speedRef[0] = now;
+                                speedRef[1] = totalBytesAll;
+                            } else if (speedRef[0] == 0) {
+                                speedRef[0] = now;
+                                speedRef[1] = totalBytesAll;
+                            }
+                            final String fspeed = speedStr;
                             activity.runOnUiThread(new Runnable() {
                                 public void run() {
                                     bar.setProgress(filePercent);
                                     percentTv.setText(filePercent + "%");
-                                    downloadedTv.setText("已下载 " + formatBytes(totalBytesAll));
+                                    if (fspeed != null) {
+                                        downloadedTv.setText("已下载 " + formatBytes(totalBytesAll) + "  ·  " + fspeed);
+                                    } else {
+                                        downloadedTv.setText("已下载 " + formatBytes(totalBytesAll));
+                                    }
                                 }
                             });
                         }
@@ -3274,20 +3357,11 @@ void showStyledUpdateProgress(final Activity activity, final List updateFiles, f
                             });
                         }
                     };
-                    executeQfxUpdate(updateFiles, channel, checksums, listener);
+                    executeQfxUpdate(updateFiles, checksums, listener);
                 }
             });
         }
     });
-}
-
-
-String getUpdateChannelBaseUrl() {
-    String channel = getString("settings", "update_channel", "gitee");
-    if ("github".equals(channel)) {
-        return "https://cdn.jsdelivr.net/gh/xunyyds/QFloatingX@QF";
-    }
-    return "https://gitee.com/ovoxiaomo/qfloating-x/raw/QF";
 }
 
 private volatile long qfxUpdateLastCheckTime = 0;
@@ -3312,10 +3386,19 @@ void runQFXUpdateCheck(final boolean manual) {
         public void run() {
             try {
                 String ignored = getString("更新检测", "已忽略版本", "");
-                String updateUrl = getUpdateChannelBaseUrl() + "/up.json";
-                String jsonStr = get(updateUrl);
+                String[] urls = buildMirrorUrls("up.json");
+                String jsonStr = "";
+                for (int k = 0; k < urls.length; k++) {
+                    String r = get(urls[k]);
+                    if (r != null && !r.isEmpty() && !r.startsWith("访问网页失败")) {
+                        traceLog("api_log", "[runQFXUpdateCheck] up.json 命中 #" + k + ": " + urls[k]);
+                        jsonStr = r;
+                        break;
+                    }
+                    traceLog("api_log", "[runQFXUpdateCheck] up.json 失败 #" + k + ": " + urls[k]);
+                }
                 if (jsonStr == null || jsonStr.isEmpty() || jsonStr.startsWith("访问网页失败")) {
-                    traceLog("api_log", "[runQFXUpdateCheck] 更新服务器访问失败: " + jsonStr);
+                    traceLog("api_log", "[runQFXUpdateCheck] 更新服务器访问失败");
                     if (manual) {
                         Activity activity = getNowActivity();
                         if (activity != null) {
@@ -3413,62 +3496,32 @@ void runQFXUpdateCheck(final boolean manual) {
     });
 }
 
-boolean checkAllIconsExist() {
-
-    String iconBase = extractBasePath(iconPath);
-    String closeBase = extractBasePath(closeIconPath);
-    
-    // 检查icon
-    if (!checkWithSuffixes(iconBase, new String[]{".png", ".gif"})) {
-        return false;
-    }
-    
-    // 检查closeIcon
-    if (!checkWithSuffixes(closeBase, new String[]{".png", ".gif"})) {
-        return false;
-    }
-    
-    // 检查固定png文件
-    if (!new java.io.File(pluginPath + "/API/QQ.png").exists()) {
-        return false;
-    }
-    
-    if (!new java.io.File(pluginPath + "/API/GitHub.png").exists()) {
-        return false;
-    }
-    
-    return true;
-}
-
-// 提取基础路径（去掉已有后缀）
-String extractBasePath(String fullPath) {
-    if (fullPath == null || fullPath.trim().isEmpty()) return "";
+boolean iconFileExists(String fullPath) {
+    if (fullPath == null || fullPath.trim().isEmpty()) return false;
     int lastDot = fullPath.lastIndexOf('.');
     int lastSlash = fullPath.lastIndexOf('/');
-    if (lastDot > lastSlash && lastDot > 0) {
-        return fullPath.substring(0, lastDot);
-    }
-    return fullPath;
+    String base = (lastDot > lastSlash && lastDot > 0) ? fullPath.substring(0, lastDot) : fullPath;
+    try {
+        if (new java.io.File(base + ".png").exists()) return true;
+        if (new java.io.File(base + ".gif").exists()) return true;
+    } catch (Throwable e) { traceLog("api_log", "[iconFileExists] 异常: " + e); }
+    return false;
 }
 
-// 检查后缀路径
-boolean checkWithSuffixes(String basePath, String[] suffixes) {
-    if (basePath == null || basePath.trim().isEmpty()) return false;
-    try {
-        for (String suffix : suffixes) {
-            java.io.File f = new java.io.File(basePath + suffix);
-            if (f.exists() && f.length() > 0) return true;
-        }
-    } catch (Throwable e) { traceLog("api_log", "[checkWithSuffixes] 异常: " + e); }
-    return false;
+boolean checkAllIconsExist() {
+    if (!iconFileExists(iconPath)) return false;
+    if (!iconFileExists(closeIconPath)) return false;
+    if (!new java.io.File(pluginPath + "/API/QQ.png").exists()) return false;
+    if (!new java.io.File(pluginPath + "/API/GitHub.png").exists()) return false;
+    return true;
 }
 
 boolean performDownloadAndUnzip() {
     final String downloadUrl = "https://gitee.com/ovoxiaomo/qfloating-x/raw/QF/icon.zip";
     final String tempZipPath = pluginPath + "/API/icon.zip";
     final String destDir = pluginPath + "/API/";
-    
-    java.util.concurrent.FutureTask<Boolean> downloadTask = 
+
+    java.util.concurrent.FutureTask<Boolean> downloadTask =
         new java.util.concurrent.FutureTask<Boolean>(
             new java.util.concurrent.Callable<Boolean>() {
                 public Boolean call() throws Exception {
@@ -3481,48 +3534,48 @@ boolean performDownloadAndUnzip() {
                 }
             }
         );
-    
+
     ThreadPool.execute(downloadTask);
     boolean downloadResult = false;
-    
+
     try {
         downloadResult = downloadTask.get(15000, java.util.concurrent.TimeUnit.MILLISECONDS).booleanValue();
     } catch (Throwable e) {
         downloadResult = false;
     }
-    
+
     if (!downloadResult) {
         cleanupTempFile(tempZipPath);
         return false;
     }
-    
-    java.util.concurrent.FutureTask<Boolean> unzipTask = 
+
+    java.util.concurrent.FutureTask<Boolean> unzipTask =
         new java.util.concurrent.FutureTask<Boolean>(
             new java.util.concurrent.Callable<Boolean>() {
                 public Boolean call() throws Exception {
                     return unzipFile(tempZipPath, destDir, new ProgressCallback() {
                         public void onProgress(int progressVal) {
                         }
-                        
+
                         public void onProgressTip(String tip) {
                         }
                     });
                 }
             }
         );
-    
+
     ThreadPool.execute(unzipTask);
     boolean unzipResult = false;
-    
+
     try {
         unzipResult = unzipTask.get(30000, java.util.concurrent.TimeUnit.MILLISECONDS).booleanValue();
     } catch (Throwable e) {
         traceLog("api_log", "[performDownloadAndUnzip]  解压超时/异常: " + e.getMessage());
         unzipResult = false;
     }
-    
+
     cleanupTempFile(tempZipPath);
-    
+
     return unzipResult;
 }
 
@@ -3541,21 +3594,21 @@ void cleanupTempFile(String tempPath) {
 void ensureResourceAvailable() {
 
     boolean allExist = checkAllIconsExist();
-    
+
     if (allExist) {
         return;
     }
-    
+
     Toast("检测到图标文件缺失，正在为您后台下载中...");
-    
+
     ThreadPool.execute(new Runnable() {
         public void run() {
             try {
                 boolean success = performDownloadAndUnzip();
-                
+
                 if (success) {
                     final boolean verifyResult = checkAllIconsExist();
-                    
+
                             if (verifyResult) {
                                 Toast("下载图标文件成功！");
                             } else {
@@ -3566,7 +3619,7 @@ void ensureResourceAvailable() {
                             Toast("图标文件下载失败，请检查网络");
                             traceLog("api_log", "[ensureResourceAvailable] 资源准备失败");
                 }
-                
+
             } catch (Exception e) {
                 final String errorMsg = e.getMessage();
                 traceLog("api_log", "[ensureResourceAvailable]  致命异常: " + errorMsg);
