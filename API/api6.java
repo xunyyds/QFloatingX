@@ -166,7 +166,7 @@ TextView createTSStyleTextView(Activity context, String text, boolean isDark) {
     textView.setMaxLines(Integer.MAX_VALUE);
     textView.setEllipsize(null);
     
-    int normalColor = isDark ? pc("#CCCCCC") : pc("#555555");
+    int normalColor = pc(getSettingsThemeColor(context, "on_surface_variant"));
     
     try {
         if (text != null && !text.equals("")) {
@@ -174,12 +174,11 @@ TextView createTSStyleTextView(Activity context, String text, boolean isDark) {
             String[] lines = text.split("\n");
             int highlightIndex = 0;
             
-            final int[] HIGHLIGHT_COLORS = isDark ? new int[]{
-                pc("#FF8A80"), pc("#80DEEA"),
-                pc("#CE93D8"), pc("#FFCC80")
-            } : new int[]{
-                pc("#D32F2F"), pc("#0097A7"),
-                pc("#7B1FA2"), pc("#F57C00")
+            final int[] HIGHLIGHT_COLORS = new int[]{
+                pc(getSettingsThemeColor(context, "primary")),
+                pc(getSettingsThemeColor(context, "switch_on")),
+                pc(getSettingsThemeColor(context, "error")),
+                adjustColor(pc(getSettingsThemeColor(context, "primary")), 1.35f)
             };
             
             for (int i = 0; i < lines.length; i++) {
@@ -245,28 +244,15 @@ TextView createTSStyleTextView(Activity context, String text, boolean isDark) {
     return textView;
 }
 
-TextView createTitleView(Activity context, String title, boolean isDark) {
-    TextView titleTv = new TextView(context);
-    titleTv.setText(title);
-    titleTv.setTextColor(isDark ? pc("#EFEFEF") : pc("#212121"));
-    titleTv.setTextSize(18); 
-    titleTv.setTypeface(null, Typeface.BOLD);
-    titleTv.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
-    titleTv.setPadding(dp(context, 4), dp(context, 4), 0, dp(context, 10));
-    return titleTv;
-}
-
 LinearLayout createTSCard(Activity context, String title, String content, boolean isDark) {
     LinearLayout card = new LinearLayout(context);
     card.setOrientation(LinearLayout.VERTICAL);
     card.setPadding(dp(context, 12), dp(context, 12), dp(context, 12), dp(context, 12));
     
     GradientDrawable bg = new GradientDrawable();
+    bg.setColor(getAdaptiveCardBg(context));
     if (isDark) {
-        bg.setColor(pc("#FF2D2D2D"));
-        bg.setStroke(dp(context, 1), pc("#1AFFFFFF")); 
-    } else {
-        bg.setColor(pc("#FFFFFF"));
+        bg.setStroke(dp(context, 1), pc(getSettingsThemeColor(context, "outline")));
     }
     bg.setCornerRadius(dp(context, 10));
     card.setBackground(bg);
@@ -282,7 +268,7 @@ LinearLayout createTSCard(Activity context, String title, String content, boolea
     
     TextView titleTv = new TextView(context);
     titleTv.setText(title);
-    titleTv.setTextColor(isDark ? pc("#8AB4F8") : pc("#FF6B6B"));
+    titleTv.setTextColor(pc(getSettingsThemeColor(context, "primary")));
     titleTv.setTextSize(16);
     titleTv.setTypeface(titleTv.getTypeface(), Typeface.BOLD);
     titleTv.setPadding(0, 0, 0, dp(context, 6));
@@ -465,70 +451,3 @@ void add设备信息卡片(Activity context, LinearLayout parent, boolean isDark
     }
 }
 
-void display状态对话框(final Activity activity) {
-    String errorStage = "初始化";
-    try {
-        boolean isDark = isThemeDark(activity);
-        
-        LinearLayout contentLayout = new LinearLayout(activity);
-        contentLayout.setOrientation(LinearLayout.VERTICAL);
-        contentLayout.setPadding(dp(activity, 10), dp(activity, 10), dp(activity, 10), dp(activity, 10));
-        
-        errorStage = "添加组件";
-        contentLayout.addView(createTitleView(activity, "运行状态", isDark));
-        addQQ状态卡片(activity, contentLayout, isDark);
-        add开关状态卡片(activity, contentLayout, isDark);
-        add监控卡片(activity, contentLayout, isDark);
-        add电池信息卡片(activity, contentLayout, isDark);
-        add系统资源卡片(activity, contentLayout, isDark);
-        add模块信息卡片(activity, contentLayout, isDark);
-        add脚本信息卡片(activity, contentLayout, isDark);
-        addJVM内存信息卡片(activity, contentLayout, isDark);
-        add设备信息卡片(activity, contentLayout, isDark);
-        
-        TextView footer = new TextView(activity);
-        footer.setText("Powered by QFun Engine");
-        footer.setGravity(Gravity.CENTER);
-        footer.setTextColor(pc(isDark ? "#555555" : "#AAAAAA"));
-        footer.setTextSize(10);
-        footer.setPadding(0, dp(activity, 4), 0, dp(activity, 4));
-        contentLayout.addView(footer);
-
-        ScrollView scrollView = new ScrollView(activity);
-        scrollView.setLayoutParams(new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-        scrollView.setVerticalScrollBarEnabled(true);
-        scrollView.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        scrollView.addView(contentLayout);
-        
-        errorStage = "构建弹窗";
-        AlertDialog.Builder builder = new AlertDialog.Builder(activity, 
-            isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-        builder.setView(scrollView);
-        builder.setPositiveButton("关闭", null);
-        builder.setCancelable(false);
-        
-        AlertDialog dialog = builder.create();
-        dialog.show();
-        applyUiTheme(activity, dialog, 0);
-        
-        WindowManager.LayoutParams params = dialog.getWindow().getAttributes();
-        params.width = dp(activity, 300); 
-        params.height = (int) (activity.getResources().getDisplayMetrics().heightPixels * 0.55); 
-        dialog.getWindow().setAttributes(params);
-        
-    } catch (Exception e) {
-        traceLog("api6_log","构建对话框失败 [" + errorStage + "]: " + e);
-        Toast("展示失败: " + e.getMessage());
-    }
-}
-
-public void 运行状态Dialog(final Activity activity) {
-    activity.runOnUiThread(() -> {
-        try {
-            display状态对话框(getNowActivity());
-        } catch (Exception e) {
-            Toast("显示失败: " + e.getMessage());
-        }
-    });
-}
