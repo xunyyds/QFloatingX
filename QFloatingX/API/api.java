@@ -24,11 +24,15 @@ Object app = BaseApplicationImpl.getApplication().getRuntime();
 public String get(String url) {
 	StringBuffer buffer = new StringBuffer();
 	InputStreamReader isr = null;
+	HttpURLConnection httpConn = null;
 	try {
 		URL urlObj = new URL(url);
 		URLConnection uc = urlObj.openConnection();
 		uc.setConnectTimeout(10000);
 		uc.setReadTimeout(10000);
+		uc.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36");
+		uc.setRequestProperty("Accept", "application/json, text/plain, */*");
+		if (uc instanceof HttpURLConnection) httpConn = (HttpURLConnection) uc;
 		isr = new InputStreamReader(uc.getInputStream(), "utf-8");
 		BufferedReader reader = new BufferedReader(isr);
 		String line;
@@ -45,6 +49,7 @@ public String get(String url) {
 		} catch (IOException e) {
 			return "访问网页失败，原因:" + e;
 		}
+		if (httpConn != null) { try { httpConn.disconnect(); } catch (Throwable ignore) {} }
 	}
 	if (buffer.length() == 0) return "访问网页失败";
 	buffer.delete(buffer.length() - 1, buffer.length());
@@ -2387,6 +2392,12 @@ void 取消加载脚本() {
 
 void 重新加载操作(Activity activity) {
 	try {
+		try {
+			Activity settingsAct = getSettingsCurrentActivity();
+			if (settingsAct != null && !settingsAct.isFinishing()) {
+				settingsAct.finish();
+			}
+		} catch (Throwable closeIgnore) {}
 		PluginManager pm = PluginManager.INSTANCE;
 		if (pm == null) return;
 
@@ -2462,6 +2473,197 @@ void unLoadPlugin() {
 interface ProgressCallback {
     void onProgress(int progress);
     void onProgressTip(String tip);
+}
+
+interface UpdateProgressListener {
+    void onPhase(String phase);
+    void onFileStart(String displayName, int currentIndex, int totalFiles);
+    void onFileProgress(int filePercent, long fileBytes, long fileTotal, long totalBytesAll, long elapsedMs);
+    void onFileVerify(String displayName, boolean pass);
+    void onAllDone(boolean success, String failReason);
+}
+
+String formatBytes(long bytes) {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1048576L) {
+        long kb10 = (bytes * 10) / 1024;
+        return (kb10 / 10) + "." + (kb10 % 10) + " KB";
+    }
+    long mb10 = (bytes * 10) / 1048576L;
+    return (mb10 / 10) + "." + (mb10 % 10) + " MB";
+}
+
+String formatElapsedTime(long ms) {
+    long totalSec = ms / 1000;
+    long mm = totalSec / 60;
+    long ss = totalSec % 60;
+    String mmS = mm < 10 ? "0" + mm : String.valueOf(mm);
+    String ssS = ss < 10 ? "0" + ss : String.valueOf(ss);
+    return mmS + ":" + ssS;
+}
+
+String sha256HexOfFile(String path) {
+    java.io.InputStream in = null;
+    try {
+        java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+        in = new java.io.FileInputStream(path);
+        byte[] buf = new byte[8192];
+        int read;
+        while ((read = in.read(buf)) != -1) md.update(buf, 0, read);
+        byte[] digest = md.digest();
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < digest.length; i++) {
+            int b = digest[i] & 0xFF;
+            String hex = Integer.toHexString(b);
+            if (hex.length() == 1) sb.append('0');
+            sb.append(hex);
+        }
+        return sb.toString();
+    } catch (Throwable e) {
+        traceLog("api_log", "[sha256HexOfFile] 异常: " + e);
+        return null;
+    } finally {
+        if (in != null) { try { in.close(); } catch (Throwable ignore) {} }
+    }
+}
+
+boolean verifyDownloadedFile(String tmpPath, long actualSize, String expectedSha256) {
+    try {
+        java.io.File f = new java.io.File(tmpPath);
+        if (!f.exists()) return false;
+        if (f.length() <= 0) return false;
+        if (actualSize > 0 && f.length() != actualSize) return false;
+        if (expectedSha256 != null && expectedSha256.trim().length() > 0) {
+            String actualSha = sha256HexOfFile(tmpPath);
+            if (actualSha == null) return false;
+            if (!actualSha.equalsIgnoreCase(expectedSha256.trim())) return false;
+        }
+        return true;
+    } catch (Throwable e) {
+        traceLog("api_log", "[verifyDownloadedFile] 异常: " + e);
+        return false;
+    }
+}
+
+boolean replaceWithTmp(String savePath, String tmpPath) {
+    try {
+        java.io.File target = new java.io.File(savePath);
+        java.io.File tmp = new java.io.File(tmpPath);
+        java.io.File parent = target.getParentFile();
+        if (parent != null && !parent.exists()) parent.mkdirs();
+        if (target.exists()) {
+            java.io.File bak = new java.io.File(savePath + ".bak");
+            if (bak.exists()) bak.delete();
+            boolean movedAside = target.renameTo(bak);
+            if (!movedAside) {
+                if (!target.delete()) return false;
+            }
+            if (!tmp.renameTo(target)) {
+                if (movedAside) bak.renameTo(target);
+                return false;
+            }
+            if (bak.exists()) bak.delete();
+        } else {
+            if (!tmp.renameTo(target)) return false;
+        }
+        return true;
+    } catch (Throwable e) {
+        traceLog("api_log", "[replaceWithTmp] 异常: " + e);
+        return false;
+    }
+}
+
+boolean downloadToTmpDetailed(String url, String tmpPath, final UpdateProgressListener listener,
+    final long grandBytesBefore, final long startMs, final int idx, final int totalFiles,
+    final String displayName, long[] resultBytes) {
+    java.io.FileOutputStream out = null;
+    java.io.InputStream in = null;
+    java.io.File tmpFile = new java.io.File(tmpPath);
+    java.io.File saveDir = tmpFile.getParentFile();
+    if (saveDir != null && !saveDir.exists()) saveDir.mkdirs();
+    try {
+        java.net.HttpURLConnection conn = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+        conn.setRequestMethod("GET");
+        conn.setConnectTimeout(10000);
+        conn.setReadTimeout(30000);
+        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36");
+        conn.setRequestProperty("Accept-Encoding", "identity");
+        int remoteSize = conn.getContentLength();
+        in = conn.getInputStream();
+        out = new java.io.FileOutputStream(tmpFile);
+        byte[] buf = new byte[8192];
+        long total = 0;
+        int read;
+        int tick = 0;
+        while ((read = in.read(buf)) != -1) {
+            out.write(buf, 0, read);
+            total += read;
+            tick++;
+            if (listener != null && tick % 4 == 0) {
+                int percent = 0;
+                if (remoteSize > 0) percent = (int) ((total * 100) / remoteSize);
+                listener.onFileProgress(percent, total, remoteSize > 0 ? remoteSize : 0, grandBytesBefore + total, System.currentTimeMillis() - startMs);
+            }
+        }
+        out.flush();
+        if (resultBytes != null) { resultBytes[0] = total; resultBytes[1] = remoteSize; }
+        if (remoteSize > 0) return total == remoteSize;
+        return total > 0;
+    } catch (Throwable e) {
+        traceLog("api_log", "[downloadToTmpDetailed] 异常: " + e.getMessage());
+        return false;
+    } finally {
+        try { if (out != null) out.close(); } catch (Throwable t) {}
+        try { if (in != null) in.close(); } catch (Throwable t) {}
+    }
+}
+
+boolean executeQfxUpdate(List updateFiles, String channel, JSONObject checksums, UpdateProgressListener listener) {
+    if (updateFiles == null || updateFiles.isEmpty()) {
+        if (listener != null) listener.onAllDone(false, "没有需要更新的文件");
+        return false;
+    }
+    int total = updateFiles.size();
+    long grandTotalBytes = 0;
+    long startMs = System.currentTimeMillis();
+    if (listener != null) listener.onPhase("download");
+    for (int i = 0; i < total; i++) {
+        String fileName = (String) updateFiles.get(i);
+        String relativePath = fileName;
+        if (relativePath.startsWith("QFloatingX/")) relativePath = relativePath.substring("QFloatingX/".length());
+        String displayName = relativePath;
+        String fileUrl = channel + "/" + fileName;
+        String savePath = pluginPath + "/" + relativePath;
+        String tmpPath = savePath + ".new";
+        if (listener != null) listener.onFileStart(displayName, i + 1, total);
+        long[] bytesInfo = new long[]{0, 0};
+        boolean dlOk = downloadToTmpDetailed(fileUrl, tmpPath, listener, grandTotalBytes, startMs, i + 1, total, displayName, bytesInfo);
+        if (!dlOk) {
+            cleanupTempFile(tmpPath);
+            if (listener != null) listener.onAllDone(false, "下载失败: " + displayName);
+            return false;
+        }
+        grandTotalBytes += bytesInfo[0];
+        if (listener != null) listener.onPhase("verify");
+        String expectedSha = null;
+        if (checksums != null) expectedSha = checksums.optString(relativePath, null);
+        boolean verifyOk = verifyDownloadedFile(tmpPath, bytesInfo[0], expectedSha);
+        if (listener != null) listener.onFileVerify(displayName, verifyOk);
+        if (!verifyOk) {
+            cleanupTempFile(tmpPath);
+            if (listener != null) listener.onAllDone(false, "完整性校验失败，已中止: " + displayName);
+            return false;
+        }
+        boolean replaceOk = replaceWithTmp(savePath, tmpPath);
+        if (!replaceOk) {
+            cleanupTempFile(tmpPath);
+            if (listener != null) listener.onAllDone(false, "文件替换失败: " + displayName);
+            return false;
+        }
+        if (listener != null) listener.onPhase("download");
+    }
+    if (listener != null) listener.onAllDone(true, null);
+    return true;
 }
 
 boolean downloadFile(String url, String savePath, ProgressCallback callback) {
@@ -2633,7 +2835,7 @@ boolean unzipFile(String zipPath, String destDir, ProgressCallback callback) {
     return success;
 }
 
-void showUpdateDialog(final String version, final String versionType, final String updateType, final String changelog, final List updateFiles, final String count) {
+void showUpdateDialog(final String version, final String versionType, final String updateType, final String changelog, final List updateFiles, final String count, final JSONObject checksums) {
 
     Activity activity = getNowActivity();
 
@@ -2660,7 +2862,6 @@ void showUpdateDialog(final String version, final String versionType, final Stri
 
             activity.runOnUiThread(new Runnable() {
                 public void run() {
-            boolean isDark = isThemeDark(activity);
 
             LinearLayout updRoot = new LinearLayout(activity);
             updRoot.setOrientation(LinearLayout.VERTICAL);
@@ -2734,7 +2935,7 @@ void showUpdateDialog(final String version, final String versionType, final Stri
             updBtnRow.setOrientation(LinearLayout.HORIZONTAL);
             updBtnRow.setGravity(Gravity.END);
             updBtnRow.setPadding(0, dp(activity, 16), 0, 0);
-            TextView updLater = createButton(activity, "稍后", pc(getSettingsThemeColor(activity, "on_surface_variant")), Color.TRANSPARENT, 14f, 20, 14, 12, false, 0, 0, null);
+            TextView updLater = createButton(activity, "此版本不再提示", pc(getSettingsThemeColor(activity, "on_surface_variant")), Color.TRANSPARENT, 14f, 20, 14, 12, false, 0, 0, null);
             TextView updSilent = createButton(activity, "静默更新", pc(getSettingsThemeColor(activity, "primary")), Color.TRANSPARENT, 14f, 20, 14, 12, false, 0, 0, null);
             TextView updOk = createButton(activity, "立即更新", Color.WHITE, pc(getSettingsThemeColor(activity, "primary")), 14f, 20, 16, 12, false, 0, 0, null);
             updBtnRow.addView(updLater);
@@ -2751,7 +2952,11 @@ void showUpdateDialog(final String version, final String versionType, final Stri
             updDialog.setContentView(updRoot);
             updDialog.setCancelable(false);
             updLater.setOnClickListener(new View.OnClickListener() {
-                public void onClick(View v) { try { updDialog.dismiss(); } catch (Throwable ignore) {} }
+                public void onClick(View v) {
+                    putString("更新检测", "已忽略版本", version);
+                    try { updDialog.dismiss(); } catch (Throwable ignore) {}
+                    Toast("已忽略 v" + version + "，可在设置中手动检查更新");
+                }
             });
 
             final Runnable afterUpdateOk = new Runnable() {
@@ -2807,35 +3012,25 @@ void showUpdateDialog(final String version, final String versionType, final Stri
                     Toast("开始静默更新…");
                     ThreadPool.execute(new Runnable() {
                         public void run() {
-                            boolean allSuccess = true;
-                            if (updateFiles != null && !updateFiles.isEmpty()) {
-                                int total = updateFiles.size();
-                                for (int i = 0; i < total; i++) {
-                                    String fileName = (String) updateFiles.get(i);
-                                    String fileUrl = finalChannel + "/" + fileName;
-                                    String relativePath = fileName;
-                                    if (relativePath.startsWith("QFloatingX/")) {
-                                        relativePath = relativePath.substring("QFloatingX/".length());
-                                    }
-                                    String savePath = pluginPath + "/" + relativePath;
-                                    if (!downloadFile(fileUrl, savePath, null)) {
-                                        allSuccess = false;
-                                        traceLog("api_log", "[showUpdateDialog] 静默更新失败: " + fileName);
-                                        break;
-                                    }
+                            UpdateProgressListener silentListener = new UpdateProgressListener() {
+                                public void onPhase(String phase) {}
+                                public void onFileStart(String displayName, int currentIndex, int totalFiles) {}
+                                public void onFileProgress(int filePercent, long fileBytes, long fileTotal, long totalBytesAll, long elapsedMs) {}
+                                public void onFileVerify(String displayName, boolean pass) {}
+                                public void onAllDone(final boolean success, final String failReason) {
+                                    activity.runOnUiThread(new Runnable() {
+                                        public void run() {
+                                            if (success) {
+                                                Toast("更新完成");
+                                                afterUpdateOk.run();
+                                            } else {
+                                                Toast("静默更新失败: " + failReason);
+                                            }
+                                        }
+                                    });
                                 }
-                            }
-                            final boolean res = allSuccess;
-                            activity.runOnUiThread(new Runnable() {
-                                public void run() {
-                                    if (res) {
-                                        Toast("更新完成");
-                                        afterUpdateOk.run();
-                                    } else {
-                                        Toast("静默更新失败");
-                                    }
-                                }
-                            });
+                            };
+                            executeQfxUpdate(updateFiles, finalChannel, checksums, silentListener);
                         }
                     });
                 }
@@ -2844,69 +3039,11 @@ void showUpdateDialog(final String version, final String versionType, final Stri
             updOk.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
                     try { updDialog.dismiss(); } catch (Throwable ignore) {}
-                    final android.app.ProgressDialog progress = new android.app.ProgressDialog(activity,
-                        isDark ? android.app.ProgressDialog.THEME_DEVICE_DEFAULT_DARK : android.app.ProgressDialog.THEME_DEVICE_DEFAULT_LIGHT);
-                    progress.setProgressStyle(android.app.ProgressDialog.STYLE_HORIZONTAL);
-                    progress.setCancelable(false);
-                    progress.show();
-                    ThreadPool.execute(new Runnable() {
-                        public void run() {
-                            boolean allSuccess = true;
-                            if (updateFiles == null || updateFiles.isEmpty()) {
-                                activity.runOnUiThread(new Runnable() {
-                                    public void run() {
-                                        progress.dismiss();
-                                        Toast("没有需要更新的文件");
-                                    }
-                                });
-                                return;
-                            }
-
-                            int total = updateFiles.size();
-
-                            for (int i = 0; i < total; i++) {
-                                final String fileName = (String) updateFiles.get(i);
-                                final int currentIndex = i + 1;
-                                final int remaining = total - currentIndex;
-
-                                activity.runOnUiThread(new Runnable() {
-                                    public void run() {
-                                        String displayName = fileName;
-                                        if (displayName.startsWith("QFloatingX/")) {
-                                            displayName = displayName.substring("QFloatingX/".length());
-                                        }
-                                        progress.setMessage("当前正在下载更新 " + displayName + "\n剩余 " + remaining + " 个文件");
-                                        progress.setProgress((int)((currentIndex - 1) * 100.0 / total));
-                                    }
-                                });
-
-                                String fileUrl = finalChannel + "/" + fileName;
-
-                                String relativePath = fileName;
-                                if (relativePath.startsWith("QFloatingX/")) {
-                                    relativePath = relativePath.substring("QFloatingX/".length());
-                                }
-                                String savePath = pluginPath + "/" + relativePath;
-                                if (!downloadFile(fileUrl, savePath, null)) {
-                                    allSuccess = false;
-                                    traceLog("api_log", "[showUpdateDialog] 下载失败: " + fileName);
-                                    break;
-                                }
-                            }
-
-                            final boolean res = allSuccess;
-                            activity.runOnUiThread(new Runnable() {
-                                public void run() {
-                                    progress.dismiss();
-                                    if (res) {
-                                        afterUpdateOk.run();
-                                    } else {
-                                        Toast("更新过程中出现错误");
-                                    }
-                                }
-                            });
-                        }
-                    });
+                    if (updateFiles == null || updateFiles.isEmpty()) {
+                        Toast("没有需要更新的文件");
+                        return;
+                    }
+                    showStyledUpdateProgress(activity, updateFiles, finalChannel, checksums, afterUpdateOk);
                 }
             });
 
@@ -2981,10 +3118,174 @@ void showUpdateDialog(final String version, final String versionType, final Stri
 }
 
 
+void showStyledUpdateProgress(final Activity activity, final List updateFiles, final String channel, final JSONObject checksums, final Runnable afterUpdateOk) {
+    activity.runOnUiThread(new Runnable() {
+        public void run() {
+            LinearLayout root = new LinearLayout(activity);
+            root.setOrientation(LinearLayout.VERTICAL);
+            root.setPadding(dp(activity, 22), dp(activity, 20), dp(activity, 22), dp(activity, 16));
+            root.setBackground(roundRect(pc(getSettingsThemeColor(activity, "surface")), dp(activity, getUiCornerDp())));
+
+            final TextView phaseTitle = new TextView(activity);
+            phaseTitle.setTextSize(17);
+            phaseTitle.setTypeface(null, Typeface.BOLD);
+            phaseTitle.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
+            root.addView(phaseTitle);
+
+            final TextView fileTv = new TextView(activity);
+            fileTv.setTextSize(12);
+            fileTv.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
+            fileTv.setPadding(0, dp(activity, 10), 0, dp(activity, 6));
+            root.addView(fileTv);
+
+            final ProgressBar bar = new ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal);
+            bar.setMax(100);
+            bar.setProgress(0);
+
+            GradientDrawable trackD = new GradientDrawable();
+            trackD.setShape(GradientDrawable.RECTANGLE);
+            trackD.setCornerRadius(dp(activity, 7));
+            trackD.setColor(pc(getSettingsThemeColor(activity, "ripple")));
+            GradientDrawable progressD = new GradientDrawable();
+            progressD.setShape(GradientDrawable.RECTANGLE);
+            progressD.setCornerRadius(dp(activity, 7));
+            progressD.setColor(pc(getSettingsThemeColor(activity, "primary")));
+            ClipDrawable clipD = new ClipDrawable(progressD, Gravity.LEFT, ClipDrawable.HORIZONTAL);
+            LayerDrawable layerD = new LayerDrawable(new Drawable[]{trackD, clipD});
+            layerD.setId(0, android.R.id.background);
+            layerD.setId(1, android.R.id.progress);
+            bar.setProgressDrawable(layerD);
+            root.addView(bar, new LinearLayout.LayoutParams(-1, dp(activity, 14)));
+
+            final TextView percentTv = new TextView(activity);
+            percentTv.setText("0%");
+            percentTv.setTextSize(22);
+            percentTv.setTypeface(null, Typeface.BOLD);
+            percentTv.setTextColor(pc(getSettingsThemeColor(activity, "primary")));
+            percentTv.setGravity(Gravity.CENTER);
+            percentTv.setPadding(0, dp(activity, 12), 0, dp(activity, 8));
+            root.addView(percentTv);
+
+            LinearLayout infoRow = new LinearLayout(activity);
+            infoRow.setOrientation(LinearLayout.HORIZONTAL);
+            final TextView elapsedTv = new TextView(activity);
+            elapsedTv.setText("已用时 00:00");
+            elapsedTv.setTextSize(12);
+            elapsedTv.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
+            infoRow.addView(elapsedTv);
+            Space infoSpace = new Space(activity);
+            infoRow.addView(infoSpace, new LinearLayout.LayoutParams(0, -2, 1.0f));
+            final TextView downloadedTv = new TextView(activity);
+            downloadedTv.setText("已下载 0 B");
+            downloadedTv.setTextSize(12);
+            downloadedTv.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
+            infoRow.addView(downloadedTv);
+            root.addView(infoRow);
+
+            final TextView remainTv = new TextView(activity);
+            remainTv.setText("");
+            remainTv.setTextSize(12);
+            remainTv.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
+            remainTv.setGravity(Gravity.CENTER);
+            remainTv.setPadding(0, dp(activity, 8), 0, 0);
+            root.addView(remainTv);
+
+            final Dialog progDialog = new Dialog(activity, android.R.style.Theme_DeviceDefault_Dialog_Alert);
+            progDialog.requestWindowFeature(1);
+            try {
+                Window pw = progDialog.getWindow();
+                if (pw != null) pw.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            } catch (Throwable ignore) {}
+            progDialog.setContentView(root);
+            progDialog.setCancelable(false);
+            progDialog.show();
+            try { applyUiTheme(activity, progDialog, 1); } catch (Throwable ignore) {}
+
+            final String[] phaseBase = new String[]{"正在下载更新"};
+            final Handler animHandler = new Handler(Looper.getMainLooper());
+            final int[] dotIdx = new int[]{0};
+            animHandler.post(new Runnable() {
+                public void run() {
+                    dotIdx[0] = (dotIdx[0] + 1) % 4;
+                    String dots = "";
+                    for (int d = 0; d < dotIdx[0]; d++) dots += ".";
+                    phaseTitle.setText(phaseBase[0] + dots);
+                    animHandler.postDelayed(this, 500);
+                }
+            });
+
+            final long timerStartMs = System.currentTimeMillis();
+            animHandler.post(new Runnable() {
+                public void run() {
+                    elapsedTv.setText("已用时 " + formatElapsedTime(System.currentTimeMillis() - timerStartMs));
+                    animHandler.postDelayed(this, 1000);
+                }
+            });
+
+            ThreadPool.execute(new Runnable() {
+                public void run() {
+                    UpdateProgressListener listener = new UpdateProgressListener() {
+                        public void onPhase(final String phase) {
+                            activity.runOnUiThread(new Runnable() {
+                                public void run() {
+                                    if ("verify".equals(phase)) {
+                                        phaseBase[0] = "正在验证完整性";
+                                        bar.setProgress(100);
+                                    } else {
+                                        phaseBase[0] = "正在下载更新";
+                                    }
+                                }
+                            });
+                        }
+                        public void onFileStart(final String displayName, final int currentIndex, final int totalFiles) {
+                            activity.runOnUiThread(new Runnable() {
+                                public void run() {
+                                    fileTv.setText(displayName);
+                                    remainTv.setText("第 " + currentIndex + " / " + totalFiles + " 个文件，剩余 " + (totalFiles - currentIndex) + " 个");
+                                    bar.setProgress(0);
+                                    percentTv.setText("0%");
+                                }
+                            });
+                        }
+                        public void onFileProgress(final int filePercent, final long fileBytes, final long fileTotal, final long totalBytesAll, final long elapsedMs) {
+                            activity.runOnUiThread(new Runnable() {
+                                public void run() {
+                                    bar.setProgress(filePercent);
+                                    percentTv.setText(filePercent + "%");
+                                    downloadedTv.setText("已下载 " + formatBytes(totalBytesAll));
+                                }
+                            });
+                        }
+                        public void onFileVerify(final String displayName, final boolean pass) {
+                            activity.runOnUiThread(new Runnable() {
+                                public void run() {
+                                    fileTv.setText((pass ? "✓ " : "✗ ") + displayName + (pass ? " 校验通过" : " 校验失败"));
+                                }
+                            });
+                        }
+                        public void onAllDone(final boolean success, final String failReason) {
+                            activity.runOnUiThread(new Runnable() {
+                                public void run() {
+                                    animHandler.removeCallbacksAndMessages(null);
+                                    try { progDialog.dismiss(); } catch (Throwable ignore) {}
+                                    if (success) afterUpdateOk.run();
+                                    else Toast("更新失败，未替换任何文件: " + failReason);
+                                }
+                            });
+                        }
+                    };
+                    executeQfxUpdate(updateFiles, channel, checksums, listener);
+                }
+            });
+        }
+    });
+}
+
+
 String getUpdateChannelBaseUrl() {
     String channel = getString("settings", "update_channel", "gitee");
     if ("github".equals(channel)) {
-        return "https://raw.githubusercontent.com/xunyyds/QFloatingX/QF";
+        return "https://cdn.jsdelivr.net/gh/xunyyds/QFloatingX@QF";
     }
     return "https://gitee.com/ovoxiaomo/qfloating-x/raw/QF";
 }
@@ -3013,7 +3314,8 @@ void runQFXUpdateCheck(final boolean manual) {
                 String ignored = getString("更新检测", "已忽略版本", "");
                 String updateUrl = getUpdateChannelBaseUrl() + "/up.json";
                 String jsonStr = get(updateUrl);
-                if (jsonStr == null || jsonStr.isEmpty()) {
+                if (jsonStr == null || jsonStr.isEmpty() || jsonStr.startsWith("访问网页失败")) {
+                    traceLog("api_log", "[runQFXUpdateCheck] 更新服务器访问失败: " + jsonStr);
                     if (manual) {
                         Activity activity = getNowActivity();
                         if (activity != null) {
@@ -3026,7 +3328,22 @@ void runQFXUpdateCheck(final boolean manual) {
                     return;
                 }
 
-                JSONObject json = new JSONObject(jsonStr);
+                final JSONObject json;
+                try {
+                    json = new JSONObject(jsonStr);
+                } catch (Throwable parseErr) {
+                    traceLog("api_log", "[runQFXUpdateCheck] up.json 解析失败: " + parseErr.getMessage());
+                    if (manual) {
+                        Activity activity = getNowActivity();
+                        if (activity != null) {
+                            final String msg = "更新信息解析失败，请稍后重试或切换通道";
+                            activity.runOnUiThread(new Runnable() {
+                                public void run() { Toast(msg); }
+                            });
+                        }
+                    }
+                    return;
+                }
                 final String[] countHolder = new String[]{"0"};
                 final Object countLock = new Object();
                 Thread countThread = new Thread(new Runnable() {
@@ -3059,6 +3376,7 @@ void runQFXUpdateCheck(final boolean manual) {
                         files.add(filesArray.getString(i));
                     }
                 }
+                final JSONObject checksums = json.optJSONObject("checksums");
 
                 String localVersion = readprop(pluginPath + "/info.prop", "versionCode");
                 if (localVersion == null || localVersion.isEmpty()) localVersion = "0.0.0";
@@ -3078,7 +3396,7 @@ void runQFXUpdateCheck(final boolean manual) {
 
                 if (!manual && remoteVersion.equals(ignored)) return;
 
-                showUpdateDialog(remoteVersion, versionType, updateType, changelog, files, count);
+                showUpdateDialog(remoteVersion, versionType, updateType, changelog, files, count, checksums);
             } catch (Throwable t) {
                 traceLog("api_log", "[runQFXUpdateCheck] checkQFXUpdate 异常: " + t.getMessage());
                 if (manual) {
