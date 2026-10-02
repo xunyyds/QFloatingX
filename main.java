@@ -498,16 +498,12 @@ void 前台初始化(Activity currentActivity) {
 
     ThreadPool.execute(new Runnable() {
         public void run() {
-            String countJson = get("https://api.521567.xyz/api/jisuan/api.php?id=5201314&key=ovo5201314&type=1&number=1");
+            String countJson = getCounter("https://api.counterapi.dev/v2/s-team-62-5773/qfx/up");
             int totalCount = 0;
-            if (countJson != null && !countJson.isEmpty()) {
+            if (countJson != null && !countJson.isEmpty() && !countJson.startsWith("访问网页失败")) {
                 try {
                     JSONObject jsonObj = new JSONObject(countJson.trim());
-                    if (jsonObj.getInt("code") == 200) {
-                        totalCount = jsonObj.getInt("value");
-                    } else {
-                        Toast("计数异常");
-                    }
+                    totalCount = jsonObj.optInt("data", 0);
                 } catch (Exception e) {
                     traceLog("main_log", "[前台初始化] 计数解析异常：" + e.getMessage());
                 }
