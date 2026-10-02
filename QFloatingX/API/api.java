@@ -1099,6 +1099,33 @@ String xorCipher(String text) {
 	return output.toString();
 }
 
+// 8.1 本地数据存储（无后缀文件；内容 XOR + Base64，非明文也非加密）—— 供各模块复用
+void saveLocalData(String name, String content) {
+	if (name == null || name.length() == 0) return;
+	try {
+		写(pluginPath + "/config/" + name, encryptBase64(content != null ? content : ""));
+	} catch (Throwable e) {
+		traceLog("api_log", "[saveLocalData] 异常: " + e);
+	}
+}
+
+String loadLocalData(String name) {
+	if (name == null || name.length() == 0) return "";
+	try {
+		String raw = 读(pluginPath + "/config/" + name);
+		if (raw == null) return "";
+		raw = raw.trim();
+		if (raw.length() == 0) return "";
+		if (raw.startsWith("读文件失败")) return "";
+		String decoded = decryptBase64(raw);
+		if (decoded == null || decoded.startsWith("Base64解密失败")) return "";
+		return decoded;
+	} catch (Throwable e) {
+		traceLog("api_log", "[loadLocalData] 异常: " + e);
+		return "";
+	}
+}
+
 // 9. 倒序
 String reverseString(String text) {
 	return new StringBuilder(text).reverse().toString();
@@ -1216,81 +1243,6 @@ void vibrate(Activity activity, int milliseconds) {
 // 默认经纬度（天安门）
 double 默认经度 = 116.397128;
 double 默认纬度 = 39.907500;
-private void showLocationDialog(Activity activity) {
-    boolean isDark = isThemeDark(activity);
-    int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
-    int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
-
-    LinearLayout layout = new LinearLayout(activity);
-    layout.setOrientation(LinearLayout.VERTICAL);
-    layout.setPadding(dp(activity, 20), dp(activity, 15), dp(activity, 20), dp(activity, 15));
-
-    TextView tvLongitude = new TextView(activity);
-    tvLongitude.setText("经度");
-    tvLongitude.setTextColor(textColor);
-    tvLongitude.setTextSize(14);
-    layout.addView(tvLongitude);
-
-    final EditText etLongitude = makeInput(activity, "请输入经度，如 116.397", null);
-    etLongitude.setText(getString("模拟定位", "lng", ""));
-    etLongitude.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED);
-    LinearLayout.LayoutParams etParams = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 48));
-    layout.addView(etLongitude, etParams);
-
-    layout.addView(new android.view.View(activity), new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 12)));
-
-    TextView tvLatitude = new TextView(activity);
-    tvLatitude.setText("纬度");
-    tvLatitude.setTextColor(textColor);
-    tvLatitude.setTextSize(14);
-    layout.addView(tvLatitude);
-
-    final EditText etLatitude = makeInput(activity, "请输入纬度，如 39.917", null);
-    etLatitude.setText(getString("模拟定位", "lat", ""));
-    etLatitude.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED);
-    layout.addView(etLatitude, etParams);
-
-    AlertDialog.Builder builder = new AlertDialog.Builder(activity,
-            isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-    builder.setTitle("设置经纬度")
-            .setView(layout)
-            .setPositiveButton("保存", null)
-            .setNegativeButton("关闭", new DialogInterface.OnClickListener() {
-                public void onClick(DialogInterface dialog, int which) {
-                    dialog.dismiss();
-                }
-            });
-    final AlertDialog dialog = builder.create();
-    dialog.show();
-
-    applyUiTheme(activity, dialog, 0);
-
-    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(new View.OnClickListener() {
-        public void onClick(View v) {
-            String lngStr = etLongitude.getText().toString().trim();
-            String latStr = etLatitude.getText().toString().trim();
-            if (lngStr.isEmpty() || latStr.isEmpty()) {
-                Toast("经度和纬度不能为空");
-                return;
-            }
-            double lng, lat;
-            try {
-                lng = Double.parseDouble(lngStr);
-                lat = Double.parseDouble(latStr);
-            } catch (NumberFormatException e) {
-                Toast("请输入有效的坐标");
-                return;
-            }
-            putString("模拟定位", "lng", lngStr);
-            putString("模拟定位", "lat", latStr);
-            Toast("保存成功：" + lngStr + ", " + latStr);
-            dialog.dismiss();
-        }
-    });
-}
-
 //控件打开动画
 private void startDialogShowAnimation(View view) {
 	ScaleAnimation scaleAnim = new ScaleAnimation(
@@ -1343,6 +1295,7 @@ private void startDialogDismissAnimation(View view, DialogInterface dialog) {
 	view.startAnimation(set);
 }
 
+/** hook/反射找不到类或方法时引导关闭 LSP API 调用保护（可关闭，统一主题） */
 void showApiProtectGuide(final Activity activity) {
     if (activity == null || activity.isFinishing()) return;
     activity.runOnUiThread(new Runnable() {
@@ -1351,7 +1304,7 @@ void showApiProtectGuide(final Activity activity) {
                 AlertDialog.Builder builder = new AlertDialog.Builder(activity,
                     isThemeDark(activity) ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
                 builder.setTitle("需要关闭 API 调用保护");
-                builder.setMessage("未能找到 hook所需的类或方法。\n请打开 LSPosed（LSP）管理器，关闭「API 调用保护」后重试\n");
+                builder.setMessage("未能找到 hook/反射所需的类或方法。\n请打开 LSPosed（LSP）管理器，关闭「API 调用保护」后重试。\n\n此提示可关闭，不影响已启动的功能。");
                 builder.setPositiveButton("知道了", null);
                 builder.setCancelable(true);
                 AlertDialog dlg = builder.create();
@@ -2184,11 +2137,47 @@ boolean updateMenuItemText(String oldName, String newName) {
             if (items.containsKey(oldName)) {
                 Object callback = items.remove(oldName);
                 items.put(newName, callback);
+                syncMenuOrder(items);
                 return true;
             }
         }
     } catch (Throwable e) { traceLog("api_log", "[updateMenuItemText] 异常: " + e); }
     return false;
+}
+
+String[] MENU_ORDER = {"开/关悬浮窗", "开启悬浮窗", "关闭悬浮窗", "设置", "Java脚本"};
+
+void syncMenuOrder(Map items) {
+    try {
+        if (items == null || items.isEmpty()) return;
+        java.util.ArrayList orderedKeys = new java.util.ArrayList();
+        for (int i = 0; i < MENU_ORDER.length; i++) {
+            if (items.containsKey(MENU_ORDER[i])) orderedKeys.add(MENU_ORDER[i]);
+        }
+        Object[] rest = items.keySet().toArray();
+        for (int i = 0; i < rest.length; i++) {
+            if (!orderedKeys.contains(rest[i])) orderedKeys.add(rest[i]);
+        }
+        java.util.ArrayList vals = new java.util.ArrayList();
+        for (int i = 0; i < orderedKeys.size(); i++) {
+            Object k = orderedKeys.get(i);
+            vals.add(items.get(k));
+        }
+        items.clear();
+        for (int i = 0; i < orderedKeys.size(); i++) {
+            items.put(orderedKeys.get(i), vals.get(i));
+        }
+    } catch (Throwable e) { traceLog("api_log", "[syncMenuOrder] 异常: " + e); }
+}
+
+void applyFloatWindowMenuText() {
+    try {
+        boolean on = getBoolean("settings", "开关", false);
+        String want = on ? "关闭悬浮窗" : "开启悬浮窗";
+        if (updateMenuItemText("开/关悬浮窗", want)) return;
+        if (updateMenuItemText("开启悬浮窗", want)) return;
+        updateMenuItemText("关闭悬浮窗", want);
+    } catch (Throwable e) { traceLog("api_log", "[applyFloatWindowMenuText] 异常: " + e); }
 }
 
 boolean isPowerSaveMode() {
@@ -3274,7 +3263,17 @@ public void openPlugin(int functionType, String groupId, String userName) {
 }
 
 public void openSetting(int functionType, String groupId, String userName) {
-    跳转到页面("me.yxp.qfun.activity.SettingActivity");
+    Activity act = getNowActivity();
+    if (act == null) act = 最后Activity;
+    if (act != null) {
+        final Activity fa = act;
+        final int fChatType = functionType;
+        final String fPeerUin = (groupId != null) ? groupId : "";
+        final String fPeerName = (userName != null) ? userName : "";
+        fa.runOnUiThread(new Runnable() {
+            public void run() { launchSettingsActivity(fa, fChatType, fPeerUin, fPeerName); }
+        });
+    }
 }
 
 void 跳转到页面(String className) {
