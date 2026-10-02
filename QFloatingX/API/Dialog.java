@@ -3340,7 +3340,9 @@ public void 长按消息菜单(Activity activity, Object data) {
         addMenuItem(menuItems, "其他", "群打卡", new Runnable() { public void run() { boolean ok = CheckSign(finalPeerUin, myUin); qqToast(ok ? 2 : 1, ok ? "打卡成功" : "打卡失败"); } });
         addMenuItem(menuItems, "其他", "群字符", new Runnable() { public void run() { drawLuckyChar(finalPeerUin); } });
     }
-    addMenuItem(menuItems, "其他", "设置", new Runnable() { public void run() { showSettingsMenu(activity, null, null, null); } });
+    addMenuItem(menuItems, "其他", "设置", new Runnable() { public void run() {
+        launchSettingsActivity(activity, finalChatType, finalPeerUin, (finalQuntext != null) ? finalQuntext : "");
+    } });
     addMenuItem(menuItems, "其他", "双击消息菜单", new Runnable() { public void run() {                                     fetchRealMsgRecord(finalMsgid, finalChatType, finalPeerUin, new MsgLoadedCallback() {
                                         public void onLoaded(MsgData msgData) {
                                             showActionDialog(activity, msgData, null, null);
