@@ -6,8 +6,6 @@ interface OnColorChangedListener {
     void onColorChanged(int color);
 }
 
-// SeekBar 统一走 uitools.applyUiSeekBar
-
 String colorToHex(int color) {
     try {
         String a = Integer.toHexString((color >> 24) & 0xFF);
