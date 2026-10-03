@@ -1,21 +1,15 @@
 {
-  "version": "2.5.7",
-  "versionType": "正式版",
+  "version": "2.5.8",
+  "versionType": "测试版",
   "updateType": "补丁",
-  "updateTime": "2026-10-02 22:47:36",
-  "changelog": "- 加入更多高速镜像站\n- 修复全网启动计数",
+  "updateTime": "2026-10-03 12:46:01",
+  "changelog": "- 修复启动计数一直显示0的问题\n- 修复更新提示中diff对比失败的问题\n- 修复设置项可以一直被点击触发的问题",
   "files": [
     "QFloatingX\/API\/ColorPicker.java",
-    "QFloatingX\/API\/api3.java",
-    "QFloatingX\/API\/Dialog.java",
-    "QFloatingX\/API\/api5.java",
     "QFloatingX\/API\/api.java",
     "QFloatingX\/API\/setwindow.java",
-    "QFloatingX\/API\/api4.java",
-    "QFloatingX\/API\/api9.java",
-    "QFloatingX\/API\/import.java",
-    "QFloatingX\/info.prop",
     "QFloatingX\/main.java",
+    "QFloatingX\/info.prop",
     "QFloatingX\/更新日志.txt"
   ]
 }
