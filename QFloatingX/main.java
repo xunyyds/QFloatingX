@@ -496,44 +496,48 @@ void 前台初始化(Activity currentActivity) {
     final int finalPersonalCount = personalCount;
     final Activity finalActivity = currentActivity;
 
-    ThreadPool.execute(new Runnable() {
-        public void run() {
-            String countJson = getCounter("https://api.counterapi.dev/v2/s-team-62-5773/qfx/up");
-            int totalCount = 0;
-            if (countJson != null && !countJson.isEmpty() && !countJson.startsWith("访问网页失败")) {
-                try {
-                    JSONObject jsonObj = new JSONObject(countJson.trim());
-                    totalCount = jsonObj.optInt("data", 0);
-                } catch (Exception e) {
-                    traceLog("main_log", "[前台初始化] 计数解析异常：" + e.getMessage());
-                }
-            }
+	ThreadPool.execute(new Runnable() {
+	    public void run() {
+	        String countJson = getCounter("https://api.counterapi.dev/v2/s-team-62-5773/qfx/up");
+	        int totalCount = 0;
+	        if (countJson != null && !countJson.isEmpty() && !countJson.startsWith("访问网页失败")) {
+	            try {
+	                JSONObject jsonObj = new JSONObject(countJson.trim());
+	                JSONObject dataObj = jsonObj.optJSONObject("data");
+	                if (dataObj != null) {
+	                    totalCount = dataObj.optInt("up_count", 0);
+	                }
+	            } catch (Exception e) {
+	                traceLog("main_log", "[前台初始化] 计数解析异常：" + e.getMessage());
+	            }
+	        }
+	
+	        String qqKey = "用户数" + qq;
+	        if (!getBoolean("settings", qqKey, false)) {
+	            String writeJson = get("https://cn.apihz.cn/api/jisuan/jishuqi2.php?id=10013224&key=17e1755199ff8eebc2fd58bce20d950e&type=1&number=2");
+	            if (writeJson != null && !writeJson.isEmpty()) {
+	                try {
+	                    JSONObject jsonObje = new JSONObject(writeJson.trim());
+	                    if (jsonObje.getInt("code") == 200) {
+	                        putBoolean("settings", qqKey, true);
+	                    }
+	                } catch (Exception e) {
+	                    traceLog("main_log", "[前台初始化] 新用户标记异常：" + e.getMessage());
+	                }
+	            }
+	        }
+	
+	        final int finalTotalCount = totalCount;
+	        finalActivity.runOnUiThread(new Runnable() {
+	            public void run() {
+	                if (getBoolean("settings", "加载提示", false)) {
+	                    Toast("当前运行 App 为：" + finalAppType + "\n点击悬浮窗查看菜单\n加载耗时：" + apiLoadCostTime + "ms\n您累计加载" + finalPersonalCount + "次\n全网累计加载" + finalTotalCount + "次");
+	                }
+	            }
+	        });
+	    }
+	});
 
-            String qqKey = "用户数" + qq;
-            if (!getBoolean("settings", qqKey, false)) {
-                String writeJson = get("https://cn.apihz.cn/api/jisuan/jishuqi2.php?id=10013224&key=17e1755199ff8eebc2fd58bce20d950e&type=1&number=2");
-                if (writeJson != null && !writeJson.isEmpty()) {
-                    try {
-                        JSONObject jsonObje = new JSONObject(writeJson.trim());
-                        if (jsonObje.getInt("code") == 200) {
-                            putBoolean("settings", qqKey, true);
-                        }
-                    } catch (Exception e) {
-                        traceLog("main_log", "[前台初始化] 新用户标记异常：" + e.getMessage());
-                    }
-                }
-            }
-
-            final int finalTotalCount = totalCount;
-            finalActivity.runOnUiThread(new Runnable() {
-                public void run() {
-                    if (getBoolean("settings", "加载提示", false)) {
-                        Toast("当前运行 App 为：" + finalAppType + "\n点击悬浮窗查看菜单\n加载耗时：" + apiLoadCostTime + "ms\n您累计加载" + finalPersonalCount + "次\n全网累计加载" + finalTotalCount + "次");
-                    }
-                }
-            });
-        }
-    });
     checkQFXUpdate();
 
     if (getBoolean("settings", "开关", false)) {

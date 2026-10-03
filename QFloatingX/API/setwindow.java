@@ -1,10 +1,8 @@
-
 import me.yxp.qfun.activity.BaseComposeActivity;
 import android.view.ViewPropertyAnimator;
 import android.view.ViewTreeObserver;
 import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.EditorInfo;
-import android.view.animation.DecelerateInterpolator;
 
 class SettingsItemMeta {
     String name;
@@ -1068,16 +1066,20 @@ void addSettingsGridCard(String rowTag, String cardTitle, String cardDesc, final
     arrowView.setTextSize(18);
     arrowView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
     card.addView(arrowView);
-
+	
     card.setClickable(true);
-    card.setOnClickListener(new View.OnClickListener() {
-        public void onClick(View view) {
-            Activity act = getSettingsCurrentActivity();
-            if (act != null) vibrate(act, 32);
-            if (clickCallback != null) clickCallback.run();
-        }
-    });
-    SettingsState.settingsListContainer.addView(card);
+	card.setOnClickListener(new View.OnClickListener() {
+	    long qfxLastClick = 0L;
+	    public void onClick(View view) {
+	        long now = System.currentTimeMillis();
+	        if (now - qfxLastClick < 1200L) return;
+	        qfxLastClick = now;
+	        Activity act = getSettingsCurrentActivity();
+	        if (act != null) vibrate(act, 32);
+	        if (clickCallback != null) clickCallback.run();
+	    }
+	});
+	SettingsState.settingsListContainer.addView(card);
     if (SettingsState.settingsItemViews == null) SettingsState.settingsItemViews = new HashMap();
     SettingsState.settingsItemViews.put(rowTag, card);
     registerSettingsIndexEntry(rowTag, cardTitle, cardDesc, "click");
@@ -1882,19 +1884,18 @@ void addSettingsItemClickWithKey(String itemName, String descriptionText, final 
     itemWrapper.addView(itemLayout);
 
     itemWrapper.setBackground(makeFeedbackBg(getAdaptiveSettingsItemBg(activity), pc(getSettingsThemeColor(activity, "ripple")), 0));
-    itemWrapper.setClickable(true);
-    itemWrapper.setOnClickListener(new View.OnClickListener() {
-        public void onClick(View view) {
-            Activity act = getSettingsCurrentActivity();
-            if (act != null) {
-                vibrate(act, 32);
-            }
-            if (clickCallback != null) {
-                clickCallback.run();
-            }
-        }
-    });
-
+	itemWrapper.setClickable(true);
+	itemWrapper.setOnClickListener(new View.OnClickListener() {
+	    public void onClick(View view) {
+	        Activity act = getSettingsCurrentActivity();
+	        if (act != null) {
+	            vibrate(act, 32);
+	        }
+	        if (clickCallback != null) {
+	            clickCallback.run();
+	        }
+	    }
+	});
     if (itemKey != null && !itemKey.isEmpty() && SettingsState.settingsItemViews != null) {
         SettingsState.settingsItemViews.put(itemKey, itemWrapper);
     }
@@ -1963,19 +1964,18 @@ void addSettingsItemChoiceWithKey(String itemName, String configKey, String valu
     itemWrapper.addView(itemLayout);
 
     itemWrapper.setBackground(makeFeedbackBg(getAdaptiveSettingsItemBg(activity), pc(getSettingsThemeColor(activity, "ripple")), 0));
-    itemWrapper.setClickable(true);
-    itemWrapper.setOnClickListener(new View.OnClickListener() {
-        public void onClick(View view) {
-            Activity act = getSettingsCurrentActivity();
-            if (act != null) {
-                vibrate(act, 32);
-            }
-            if (clickCallback != null) {
-                clickCallback.run();
-            }
-        }
-    });
-
+	itemWrapper.setClickable(true);
+	itemWrapper.setOnClickListener(new View.OnClickListener() {
+	    public void onClick(View view) {
+	        Activity act = getSettingsCurrentActivity();
+	        if (act != null) {
+	            vibrate(act, 32);
+	        }
+	        if (clickCallback != null) {
+	            clickCallback.run();
+	        }
+	    }
+	});
     if (itemKey != null && !itemKey.isEmpty() && SettingsState.settingsItemViews != null) {
         SettingsState.settingsItemViews.put(itemKey, itemWrapper);
     }
@@ -4014,50 +4014,64 @@ class SettingsActivity extends BaseComposeActivity {
         }
     }
 
-    void settingsRunNav() {
-        String l1 = SettingsState.settingsNavLevel1;
-        String l2 = SettingsState.settingsNavLevel2;
-        String l3 = SettingsState.settingsNavLevel3;
-        String hl = SettingsState.settingsNavHighlightKey;
-        String q = SettingsState.settingsNavQuery;
-        SettingsState.settingsNavLevel1 = null;
-        SettingsState.settingsNavLevel2 = null;
-        SettingsState.settingsNavLevel3 = null;
-        SettingsState.settingsNavHighlightKey = null;
-        SettingsState.settingsNavQuery = null;
-        boolean fromSearch = settingsSearchMode || (q != null && q.trim().length() >= 2);
-        if (q != null && q.trim().length() >= 2) {
-            try {
-                addSearchHistory(q);
-            } catch (Throwable e) {
-                traceLog("setwindow_log", "[settingsRunNav] 记录历史失败: " + e);
-            }
-        }
-        if (settingsSearchMode) {
-            try {
-                settingsExitSearchModeInstant();
-            } catch (Throwable e) {
-                traceLog("setwindow_log", "[settingsRunNav] 退出搜索失败: " + e);
-            }
-        }
-        SettingsState.settingsPendingHighlightKey = hl;
+void settingsRunNav() {
+    String l1 = SettingsState.settingsNavLevel1;
+    String l2 = SettingsState.settingsNavLevel2;
+    String l3 = SettingsState.settingsNavLevel3;
+    String hl = SettingsState.settingsNavHighlightKey;
+    String q = SettingsState.settingsNavQuery;
+    SettingsState.settingsNavLevel1 = null;
+    SettingsState.settingsNavLevel2 = null;
+    SettingsState.settingsNavLevel3 = null;
+    SettingsState.settingsNavHighlightKey = null;
+    SettingsState.settingsNavQuery = null;
+    boolean fromSearch = settingsSearchMode || (q != null && q.trim().length() >= 2);
+    if (q != null && q.trim().length() >= 2) {
         try {
-            if (l1 == null && l2 == null && l3 == null) {
-                settingsShowHome();
-            } else if (fromSearch) {
-                settingsResetToPath(l1, l2, l3);
-            } else {
-                settingsPushPage(l1, l2, l3);
-            }
+            addSearchHistory(q);
         } catch (Throwable e) {
-            traceLog("setwindow_log", "[settingsRunNav] 跳转失败: " + e);
-            try {
-                if (l1 != null) settingsPushPageNoAnim(l1, l2, l3);
-            } catch (Throwable ignore2) {
-                traceLog("setwindow_log", "[settingsRunNav] 兜底跳转失败: " + ignore2);
-            }
+            traceLog("setwindow_log", "[settingsRunNav] 记录历史失败: " + e);
         }
     }
+    if (settingsSearchMode) {
+        try {
+            settingsExitSearchModeInstant();
+        } catch (Throwable e) {
+            traceLog("setwindow_log", "[settingsRunNav] 退出搜索失败: " + e);
+        }
+    }
+    SettingsState.settingsPendingHighlightKey = hl;
+    try {
+        if (l1 == null && l2 == null && l3 == null) {
+            settingsShowHome();
+            return;
+        }
+        if (fromSearch) {
+            settingsResetToPath(l1, l2, l3);
+            return;
+        }
+        if (settingsPageStack != null && !settingsPageStack.isEmpty()) {
+            SettingsPage top = (SettingsPage) settingsPageStack.get(settingsPageStack.size() - 1);
+            if (top != null) {
+                boolean sameLevel = (top.level1 == null ? l1 == null : top.level1.equals(l1))
+                                 && (top.level2 == null ? l2 == null : top.level2.equals(l2))
+                                 && (top.level3 == null ? l3 == null : top.level3.equals(l3));
+                if (sameLevel) {
+                    traceLog("setwindow_log", "[settingsRunNav] 目标页已在栈顶，忽略重复跳转");
+                    return;
+                }
+            }
+        }
+        settingsPushPage(l1, l2, l3);
+    } catch (Throwable e) {
+        traceLog("setwindow_log", "[settingsRunNav] 跳转失败: " + e);
+        try {
+            if (l1 != null) settingsPushPageNoAnim(l1, l2, l3);
+        } catch (Throwable ignore2) {
+            traceLog("setwindow_log", "[settingsRunNav] 兜底跳转失败: " + ignore2);
+        }
+    }
+}
 
 
     SettingsPage settingsBuildMenuPage(String level1, String level2, String level3) {
