@@ -18,7 +18,7 @@ import com.tencent.mobileqq.profilecard.api.IProfileDataService;
 import com.tencent.mobileqq.profilecard.api.IProfileProtocolService;
 import android.os.Bundle;
 import com.tencent.mobileqq.data.Card;
-import java.lang.Thread; // Thread.yield()
+import java.lang.Thread; 
 Object app = BaseApplicationImpl.getApplication().getRuntime();
 
 public String get(String url) {
@@ -540,13 +540,6 @@ private boolean 删除文件夹(File folder) {
 	}
 }
 
-
-/** UI背景类型：color / gradient / image */
-String getUiBgType() {
-	return getString("settings", "ui_bg_type", "color");
-}
-
-/** 统一剩余时长（秒）→ 中文描述 */
 String formatRemainingTime(long seconds) {
 	if (seconds <= 0) return "0秒";
 	if (seconds < 60) return seconds + "秒";
@@ -555,17 +548,15 @@ String formatRemainingTime(long seconds) {
 	return (seconds / 86400) + "天" + ((seconds % 86400) / 3600) + "小时";
 }
 
-/** 统一剩余时长（毫秒）→ 中文描述；≤0 返回立即执行 */
 String formatRemainingTimeMs(long ms) {
 	if (ms <= 0) return "立即执行";
 	return formatRemainingTime(ms / 1000);
 }
 
-/** 分类卡片底色：三种背景样式都有；图片背景透明 */
 int getAdaptiveCardBg(Activity a) {
 	if (a == null) return pc("#33FFFFFF");
 	boolean dark = isThemeDark(a);
-	String bgType = getUiBgType();
+	String bgType = getString("settings", "ui_bg_type", "color");
 	if ("image".equals(bgType)) return Color.TRANSPARENT;
 	if ("gradient".equals(bgType)) {
 		int s = pc(getSettingsThemeColor(a, "surface"));
@@ -574,11 +565,10 @@ int getAdaptiveCardBg(Activity a) {
 	return mixTowardElevated(pc(getSettingsThemeColor(a, "background")), dark);
 }
 
-/** 输入框底色：图片半透明少遮挡；纯色/渐变用有对比 surface */
 int getAdaptiveInputBg(Activity a) {
 	if (a == null) return pc("#22FFFFFF");
 	boolean dark = isThemeDark(a);
-	String bgType = getUiBgType();
+	String bgType = getString("settings", "ui_bg_type", "color");
 	if ("image".equals(bgType)) {
 		int s = pc(getSettingsThemeColor(a, "surface"));
 		return Color.argb(dark ? 70 : 90, Color.red(s), Color.green(s), Color.blue(s));
@@ -586,11 +576,10 @@ int getAdaptiveInputBg(Activity a) {
 	return pc(getSettingsThemeColor(a, "surface"));
 }
 
-/** 半屏/弹窗填充底色 */
 int getAdaptiveSheetBg(Activity a) {
 	if (a == null) return pc("#FF1E1E1E");
 	boolean dark = isThemeDark(a);
-	String bgType = getUiBgType();
+	String bgType = getString("settings", "ui_bg_type", "color");
 	if ("image".equals(bgType)) {
 		int b = pc(getSettingsThemeColor(a, "background"));
 		return Color.argb(dark ? 200 : 220, Color.red(b), Color.green(b), Color.blue(b));
@@ -602,11 +591,10 @@ int getAdaptiveSheetBg(Activity a) {
 	return pc(getSettingsThemeColor(a, "background"));
 }
 
-/** 菜单项卡片底色：始终比半屏背景更浅 */
 int getAdaptiveMenuItemBg(Activity a) {
 	if (a == null) return pc("#FF3A3A3A");
 	boolean dark = isThemeDark(a);
-	String bgType = getUiBgType();
+	String bgType = getString("settings", "ui_bg_type", "color");
 	int base;
 	if ("image".equals(bgType)) {
 		return dark ? Color.argb(90, 255, 255, 255) : Color.argb(70, 255, 255, 255);
@@ -631,14 +619,12 @@ int getAdaptiveMenuItemBg(Activity a) {
 		b + (255 - b) * 45 / 100);
 }
 
-/** 设置页条目底色：半透明，让分类卡片底色透出来 */
 int getAdaptiveSettingsItemBg(Activity a) {
 	if (a == null) return Color.argb(30, 255, 255, 255);
 	boolean dark = isThemeDark(a);
 	return dark ? Color.argb(40, 255, 255, 255) : Color.argb(28, 255, 255, 255);
 }
 
-/** 颜色抬升为卡片色：浅色压暗、深色提亮，保证自定义纯色下可见 */
 int mixTowardElevated(int color, boolean dark) {
 	int r = Color.red(color);
 	int g = Color.green(color);
@@ -694,8 +680,6 @@ long getFileSize(File file) {
 	}
 }
 
-// 递归文件夹大小计算 - 依赖getFileSize
-// 递归文件夹大小计算
 long getFolderSize(File folder) {
 	if (folder == null || !folder.exists()) {
 		traceLog("api_log", "[getFolderSize] getFolderSize文件夹不存在: " + folder);
@@ -755,7 +739,7 @@ public String 读(String FilePath) {
 		File file = new File(FilePath);
 		if (!file.exists()) {
 			if (file.createNewFile()) {
-				return ""; // 新建空文件，返回空字符串
+				return "";
 			} else {
 				return "读文件失败：文件不存在且创建失败，路径：" + FilePath;
 			}
@@ -773,7 +757,7 @@ public String 读(String FilePath) {
 		String str;
 
 		while ((str = bf.readLine()) != null) {
-			sb.append(str).append("\n"); // 每行结尾添加换行符，还原文件原始换行
+			sb.append(str).append("\n"); 
 		}
 		return sb.toString();
 
@@ -834,12 +818,10 @@ String readprop(String file, String name2) {
 		traceLog("api_log", "[readprop] Properties解析异常: " + file + "    " + e);
 		return "";
 	} finally {
-		// 资源释放保护
 		if (reader != null) {
 			try {
 				reader.close();
 			} catch (Exception e) {
-				// 关闭异常不处理，避免掩盖主异常
 			}
 		}
 	}
@@ -858,7 +840,6 @@ private void 写(String Path, String WriteData) {
 		File file = new File(Path);
 		File parentDir = file.getParentFile();
 
-		// 确保父目录存在
 		if (parentDir != null && !parentDir.exists()) {
 			if (!parentDir.mkdirs()) {
 				traceLog("api_log", "[写]  【写入失败】创建目录失败: " + parentDir.getAbsolutePath());
@@ -866,19 +847,17 @@ private void 写(String Path, String WriteData) {
 			}
 		}
 
-		// 创建文件（如果不存在）
 		if (!file.exists() && !file.createNewFile()) {
 			traceLog("api_log", "[写]  【写入失败】创建文件失败: " + Path);
 			return;
 		}
 
-		// 写入数据（使用UTF-8编码）
 		fos = new FileOutputStream(file);
 		osw = new OutputStreamWriter(fos, StandardCharsets.UTF_8);
 		osw.write(WriteData);
 		osw.flush();
 		fos.flush();
-		fos.getFD().sync(); // 确保数据持久化到磁盘
+		fos.getFD().sync(); 
 
 		traceLog("api_log", "[写]  【写入成功】 " + Path + " (" + WriteData.length() + "字节)");
 
@@ -887,7 +866,6 @@ private void 写(String Path, String WriteData) {
 	} catch (Exception e) {
 		traceLog("api_log", "[写]  【写入异常】 " + Path + " - " + e.getMessage());
 	} finally {
-		// 在finally中关闭流
 		try {
 			if (osw != null) {
 				osw.close();
@@ -1284,7 +1262,6 @@ void vibrate(Activity activity, int milliseconds) {
 // 默认经纬度（天安门）
 double 默认经度 = 116.397128;
 double 默认纬度 = 39.907500;
-//控件打开动画
 private void startDialogShowAnimation(View view) {
 	ScaleAnimation scaleAnim = new ScaleAnimation(
 		0.7f, 1.0f, // X轴：起始0.7倍 → 目标1倍
@@ -1336,7 +1313,6 @@ private void startDialogDismissAnimation(View view, DialogInterface dialog) {
 	view.startAnimation(set);
 }
 
-/** hook/反射找不到类或方法时引导关闭 LSP API 调用保护（可关闭，统一主题） */
 void showApiProtectGuide(final Activity activity) {
     if (activity == null || activity.isFinishing()) return;
     activity.runOnUiThread(new Runnable() {
@@ -1494,7 +1470,6 @@ public void Toast(String text) {
 	}
 }
 
-/** 文字对齐；两端对齐=单词均匀分布（API28+ JUSTIFICATION_MODE_INTER_WORD） */
 private void applyToastTextAlign(TextView tv) {
     String g = getString("settings", "toast_text_gravity", "center");
     if (g == null || g.isEmpty()) g = "center";
@@ -1515,7 +1490,6 @@ private void applyToastTextAlign(TextView tv) {
     tv.setGravity(Gravity.CENTER);
 }
 
-/** 自定义位置：同顶部模式，左上角锚定 + 气泡 wrap 内容 */
 private void applyCustomToastCenter(WindowManager.LayoutParams p, Activity act) {
     int cx = 0, cy = 0;
     try { cx = Integer.parseInt(getString("settings", "toast_custom_x", "0")); } catch (Throwable e) {}
@@ -1534,7 +1508,6 @@ private void applyCustomToastCenterToToast(Toast toast, Activity act) {
     toast.setGravity(Gravity.TOP | Gravity.LEFT, cx, cy);
 }
 
-/** Toast 气泡在自定义宽高框内的位置 */
 private int parseToastBoxGravity() {
     String g = getString("settings", "toast_box_gravity", "center");
     if (g == null || g.isEmpty()) g = "center";
@@ -1556,10 +1529,6 @@ private void readCustomBoxSize(String posMode, int[] outWH) {
     try { outWH[1] = Integer.parseInt(getString("settings", "toast_custom_h", "0")); } catch (Throwable e) {}
 }
 
-/**
- * 用 WindowManager 显示自定义 Toast 视图（自定义位置/模糊共用）。
- * 窗体=选点框或 wrap；左上角锚定；可选系统模糊。
- */
 private void showToastViewOnWindow(final Activity act, final View content, String posMode, final int durMs, boolean useBlur) {
     try {
         final WindowManager wm = (WindowManager) act.getSystemService(Context.WINDOW_SERVICE);
@@ -1619,15 +1588,9 @@ private void showToastViewOnWindow(final Activity act, final View content, Strin
     }
 }
 
-/**
- * 自定义框：
- * - 自适应开：气泡 wrap 内容，用 box gravity 摆在框内
- * - 自适应关：气泡撑满框，文字填充才生效
- * 无框尺寸则直接返回气泡。
- */
 private View wrapToastInBox(Context ctx, View bubble, int boxW, int boxH) {
     if (boxW <= 0 || boxH <= 0) {
-        traceLog("api_log", "[wrapToastInBox] 无框尺寸，直接返回气泡");
+        // traceLog("api_log", "[wrapToastInBox] 无框尺寸，直接返回气泡");
         return bubble;
     }
     FrameLayout box = new FrameLayout(ctx);
@@ -1726,8 +1689,6 @@ private void applyToastPosToToast(Toast toast, String posMode) {
     toast.setGravity(gravity, x, y);
 }
 
-// toast 时长/前后缀在 xToast 内联
-
 private void xToast(String text) {
     try {
         Context ctx = context;
@@ -1820,12 +1781,11 @@ private void xToast(String text) {
         tv.setMaxLines(8);
         boolean adaptive = getBoolean("settings", "toast_adaptive", false);
         if (!adaptive && boxSize[0] > 0 && boxSize[1] > 0) {
-            // 撑满框：文字填充才看得到
             root.addView(tv, new LinearLayout.LayoutParams(-1, -1));
         } else {
             root.addView(tv, new LinearLayout.LayoutParams(-2, -2));
         }
-        traceLog("api_log", "[xToast] style=" + style + " pos=" + posMode + " maxW=" + maxW);
+        // traceLog("api_log", "[xToast] style=" + style + " pos=" + posMode + " maxW=" + maxW);
 
         AnimationSet showAnim = new AnimationSet(true);
         ScaleAnimation scaleShow = new ScaleAnimation(0.8f, 1.0f, 0.8f, 1.0f, Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF, 0.5f);
@@ -1871,14 +1831,11 @@ private void xToast(String text) {
     }
 }
 
-/**
- * 模糊 Toast：WindowManager 小窗只包气泡；失败则回退 Dialog。
- */
 private void xToastBlur(Context ctx, String text) {
     try {
         final Activity act = ctx instanceof Activity ? (Activity) ctx : getNowActivity();
         if (act == null || act.isFinishing()) {
-            traceLog("api_log", "[xToastBlur] act无效，回退系统toast");
+            // traceLog("api_log", "[xToastBlur] act无效，回退系统toast");
             toast("" + text);
             return;
         }
@@ -1898,10 +1855,10 @@ private void xToastBlur(Context ctx, String text) {
         readCustomBoxSize(posMode, boxSize);
         int maxW = act.getResources().getDisplayMetrics().widthPixels - dp(act, 48);
         if (boxSize[0] > 0 && boxSize[0] < maxW) maxW = boxSize[0];
-        traceLog("api_log", "[xToastBlur] start pos=" + posMode
-            + " maxW=" + maxW
-            + " textG=" + getString("settings", "toast_text_gravity", "center")
-            + " sdk=" + android.os.Build.VERSION.SDK_INT);
+        // traceLog("api_log", "[xToastBlur] start pos=" + posMode
+            // + " maxW=" + maxW
+            // + " textG=" + getString("settings", "toast_text_gravity", "center")
+            // + " sdk=" + android.os.Build.VERSION.SDK_INT);
 
         final TextView tv = new TextView(act);
         tv.setText(display);
@@ -1922,13 +1879,12 @@ private void xToastBlur(Context ctx, String text) {
         final View content = wrapToastInBox(act, tv, boxSize[0], boxSize[1]);
 
         if (act.getSystemService(Context.WINDOW_SERVICE) == null) {
-            traceLog("api_log", "[xToastBlur] WindowManager=null，回退Dialog");
+            // traceLog("api_log", "[xToastBlur] WindowManager=null，回退Dialog");
             xToastBlurFallback(act, content, posMode, durMs, boxSize);
             return;
         }
 
         try {
-            // 统一走 WindowManager 辅助方法（含模糊）
             showToastViewOnWindow(act, content, posMode, durMs, true);
         } catch (Throwable e) {
             traceLog("api_log", "[xToastBlur] addView失败: " + e + "，回退Dialog");
@@ -1984,7 +1940,6 @@ interface ScreenPointCallback {
     void onPointPicked(int x, int y, int w, int h);
 }
 
-/** 屏幕选点：拖主体移动，拖边/角改宽高。回调 onPointPicked(x,y,w,h) */
 void showScreenPointPicker(Activity a, final int initX, final int initY, final int initW, final int initH, final ScreenPointCallback callback) {
     if (a == null || a.isFinishing()) return;
     a.runOnUiThread(new Runnable() {
