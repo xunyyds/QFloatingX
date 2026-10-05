@@ -1048,7 +1048,7 @@ String[][] getPresetsCategory2() {
 }
 
 String[][] getPresetsCategory3() {
-    String[][] arr = new String[13][2];
+    String[][] arr = new String[15][2];
             arr[0][0] = "群列表";
             arr[0][1] = "List groups = getGroupList();";
             arr[1][0] = "成员列表";
@@ -1075,6 +1075,10 @@ String[][] getPresetsCategory3() {
             arr[11][1] = "boolean shut = isShutUp(qun);";
             arr[12][0] = "群打卡";
             arr[12][1] = "clockIn(qun);";
+            arr[13][0] = "群名";
+            arr[13][1] = "String groupName = getGroupName(qun);";
+            arr[14][0] = "群备注";
+            arr[14][1] = "String groupRemark = getGroupRemark(qun);";
     return arr;
 }
 
