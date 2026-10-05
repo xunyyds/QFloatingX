@@ -35,6 +35,7 @@ import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import me.yxp.qfun.utils.ui.ThemeHelper;
 
 
 import android.content.res.Configuration;
@@ -55,7 +56,7 @@ boolean isThemeDark(Activity activity) {
         
         // 跟随模块（QQ 自身深色状态）
         if ("module".equals(themeMode)) {
-            return me.yxp.qfun.utils.ui.ThemeHelper.INSTANCE.isNightMode();
+            return ThemeHelper.INSTANCE.isNightMode();
         }
         
         // 跟随系统 或 默认（推荐），都走系统暗黑判断
@@ -904,19 +905,6 @@ String md5(String input) {
     }
 }
 
-Drawable getCachedDrawable(String cacheKey) {
-    if (cacheKey == null || cacheKey.isEmpty()) return null;
-    
-    CacheEntry entry = (CacheEntry) imageCache.get(cacheKey);
-    if (entry != null && entry.drawable != null) {
-        cacheOrder.remove(cacheKey);
-        cacheOrder.put(cacheKey, entry);
-        entry.updateAccess();
-        return entry.drawable;
-    }
-    return null;
-}
-
 void putToCache(Drawable drawable, String cacheKey, int width, int height) {
     if (drawable == null || cacheKey == null || cacheKey.isEmpty()) return;
     
@@ -1024,9 +1012,11 @@ void applyUiTheme(final Activity activity, final android.app.Dialog dialog, int 
     
     if (dialogW <= 0 || dialogH <= 0) {
         float density = activity.getResources().getDisplayMetrics().density;
-        int screenWidth = activity.getResources().getDisplayMetrics().widthPixels;
-        dialogW = Math.min((int) (300 * density), screenWidth - (int) (48 * density));
-        dialogH = (int) (800 * density);
+        if (density <= 0) density = 2f;
+        float targetDensity = getPluginUiDensity(activity);
+        dialogW = getDialogWidthPx(activity, density, targetDensity);
+        dialogH = getDialogHeightPx(activity, density, targetDensity);
+        if (dialogH <= 0) dialogH = (int) (800 * Math.max(density, targetDensity));
     }
     
     executeApplyTheme(activity, dialog, dialogW, dialogH, skip);
@@ -1213,41 +1203,99 @@ void applyDrawableWithTransition(final Activity activity, final Window window, f
 
 // clearInnerBackgrounds 已移除：窗体主题由 applyUiTheme 统一负责
 
-void applyDialogSize(final Activity activity, final Window window) {
+float pluginUiDensity = 0f;
+
+void refreshPluginUiDensity(Context ctx) {
+    float hostDensity = 2f;
     try {
-        float scale = 1.0f;
-        try {
-            String scaleStr = getString("settings", "ui_dialog_scale", "1.0");
-            if (scaleStr != null && scaleStr.trim().length() > 0) scale = Float.parseFloat(scaleStr.trim());
-        } catch (Throwable e) { traceLog("uitools_log", "[applyDialogSize] 异常: " + e); }
-        
-        float density = activity.getResources().getDisplayMetrics().density;
-        
-        int customWidth = -1;
-        try {
-            String widthStr = getString("settings", "ui_dialog_width", "");
-            if (!widthStr.isEmpty()) {
-                customWidth = (int) (Float.parseFloat(widthStr) * density);
-            }
-        } catch (Throwable e) { traceLog("uitools_log", "[applyDialogSize] 异常: " + e); }
-        
-        int dialogWidth;
-        if (customWidth > 0) {
-            dialogWidth = customWidth;
-        } else {
-            int screenWidth = activity.getResources().getDisplayMetrics().widthPixels;
-            int maxDp = Math.min(260, (int)(screenWidth / density) - 48);
-            dialogWidth = (int) (maxDp * density * scale);
+        if (ctx != null) {
+            float d = ctx.getResources().getDisplayMetrics().density;
+            if (d > 0f) hostDensity = d;
         }
-        
-        int dialogHeight = ViewGroup.LayoutParams.WRAP_CONTENT;
-        
+    } catch (Throwable e) {
+        traceLog("uitools_log", "[refreshPluginUiDensity] 获取宿主 density 异常: " + e);
+    }
+    float targetDensity = hostDensity;
+    try {
+        String dpiMode = getString("settings", "ui_dialog_dpi_mode", "follow_qq");
+        if (dpiMode == null || dpiMode.isEmpty()) dpiMode = "follow_qq";
+        if ("custom".equals(dpiMode)) {
+            String raw = getString("settings", "ui_dialog_custom_dpi", "");
+            if (raw != null && !raw.trim().isEmpty()) {
+                float customDpi = Float.parseFloat(raw.trim());
+                if (customDpi > 0f) targetDensity = customDpi / 160f;
+            }
+        } else if ("follow_module".equals(dpiMode)) {
+            float moduleDensity = ThemeHelper.INSTANCE.getDensity();
+            if (moduleDensity > 0f) targetDensity = moduleDensity;
+        }
+    } catch (Throwable e) {
+        traceLog("uitools_log", "[refreshPluginUiDensity] 异常: " + e);
+    }
+    if (targetDensity <= 0f) targetDensity = hostDensity;
+    pluginUiDensity = targetDensity;
+}
+
+float getPluginUiDensity(Context ctx) {
+    float density = pluginUiDensity;
+    if (density > 0f) return density;
+    try {
+        if (ctx != null) {
+            float hostDensity = ctx.getResources().getDisplayMetrics().density;
+            if (hostDensity > 0f) return hostDensity;
+        }
+    } catch (Throwable e) {
+        traceLog("uitools_log", "[getPluginUiDensity] 异常: " + e);
+    }
+    return 2f;
+}
+
+
+int getDialogWidthPx(Activity activity, float hostDensity, float targetDensity) {
+    int screenWidth = activity.getResources().getDisplayMetrics().widthPixels;
+    float widthDp = -1;
+    try {
+        String widthStr = getString("settings", "ui_dialog_width", "");
+        if (widthStr != null && !widthStr.trim().isEmpty()) widthDp = Float.parseFloat(widthStr.trim());
+    } catch (Throwable ignore) {}
+    if (widthDp <= 0) {
+        int screenDp = (int) (screenWidth / hostDensity) - 48;
+        widthDp = Math.min(260, screenDp);
+    }
+    if (widthDp <= 0) widthDp = 260;
+    int px = (int) (widthDp * targetDensity);
+    int limit = screenWidth - (int) (8 * targetDensity);
+    if (limit > 0 && px > limit) px = limit;
+    return px;
+}
+
+int getDialogHeightPx(Activity activity, float hostDensity, float targetDensity) {
+    float heightDp = -1;
+    try {
+        String heightStr = getString("settings", "ui_dialog_height", "");
+        if (heightStr != null && !heightStr.trim().isEmpty()) heightDp = Float.parseFloat(heightStr.trim());
+    } catch (Throwable ignore) {}
+    if (heightDp <= 0) return ViewGroup.LayoutParams.WRAP_CONTENT;
+    int px = (int) (heightDp * targetDensity);
+    int limit = activity.getResources().getDisplayMetrics().heightPixels;
+    if (px > limit) px = limit;
+    return px;
+}
+
+void applyDialogSize(final Activity activity, final Window window) {
+    if (window == null || activity == null) return;
+    try {
+        float hostDensity = activity.getResources().getDisplayMetrics().density;
+        if (hostDensity <= 0f) hostDensity = 2f;
+        float targetDensity = getPluginUiDensity(activity);
+
         WindowManager.LayoutParams params = window.getAttributes();
-        params.width = dialogWidth;
-        params.height = dialogHeight;
+        params.width = getDialogWidthPx(activity, hostDensity, targetDensity);
+        params.height = getDialogHeightPx(activity, hostDensity, targetDensity);
         window.setAttributes(params);
-        
-    } catch (Throwable e) { traceLog("uitools_log", "[applyDialogSize] 异常: " + e); }
+    } catch (Throwable e) {
+        traceLog("uitools_log", "[applyDialogSize] 异常: " + e);
+    }
 }
 
 // applyUiSeekBar 仅保留 3 参版本
@@ -1524,32 +1572,6 @@ void copyToClipboard(Activity activity, String text) {
     } catch (Throwable e) { traceLog("uitools_log", "[copyToClipboard] 异常: " + e); }
 }
 
-int lightenColor(int color, float factor) {
-    int r = Color.red(color);
-    int g = Color.green(color);
-    int b = Color.blue(color);
-    int a = Color.alpha(color);
-    
-    r = (int) (r + (255 - r) * factor);
-    g = (int) (g + (255 - g) * factor);
-    b = (int) (b + (255 - b) * factor);
-    
-    return Color.argb(a, Math.min(255, r), Math.min(255, g), Math.min(255, b));
-}
-
-int darkenColor(int color, float factor) {
-    int r = Color.red(color);
-    int g = Color.green(color);
-    int b = Color.blue(color);
-    int a = Color.alpha(color);
-    
-    r = (int) (r * (1 - factor));
-    g = (int) (g * (1 - factor));
-    b = (int) (b * (1 - factor));
-    
-    return Color.argb(a, Math.max(0, r), Math.max(0, g), Math.max(0, b));
-}
-
 StateListDrawable getSelectableBg(Activity activity) {
     android.graphics.drawable.StateListDrawable res = new android.graphics.drawable.StateListDrawable();
     res.setExitFadeDuration(300);
@@ -1560,11 +1582,11 @@ StateListDrawable getSelectableBg(Activity activity) {
 
 int dpx(Context ctx, float d) {
     try {
-        Object result = android.util.TypedValue.applyDimension(1, d, ctx.getResources().getDisplayMetrics());
-        if (result instanceof float[]) return (int)(((float[])result)[0] + 0.5f);
-        if (result instanceof Float) return (int)(((Float)result).floatValue() + 0.5f);
-        return (int)(Float.parseFloat(result.toString()) + 0.5f);
-    } catch (Exception e) { return (int)(d * 2 + 0.5f); }
+        return (int)(d * getPluginUiDensity(ctx) + 0.5f);
+    } catch (Throwable e) {
+        traceLog("uitools_log", "[dpx] 异常: " + e);
+        return (int)(d * 2f + 0.5f);
+    }
 }
 
 int pc(String hex) {
@@ -1584,11 +1606,11 @@ int tca(Activity a, String key, int alpha) {
 
 int dpx(Activity activity, float d) {
     try {
-        Object result = android.util.TypedValue.applyDimension(1, d, activity.getResources().getDisplayMetrics());
-        if (result instanceof float[]) return (int)(((float[])result)[0] + 0.5f);
-        if (result instanceof Float) return (int)(((Float)result).floatValue() + 0.5f);
-        return (int)(Float.parseFloat(result.toString()) + 0.5f);
-    } catch (Exception e) { return (int)(d * 2 + 0.5f); }
+        return (int)(d * getPluginUiDensity((Context) activity) + 0.5f);
+    } catch (Throwable e) {
+        traceLog("uitools_log", "[dpx] 异常: " + e);
+        return (int)(d * 2f + 0.5f);
+    }
 }
 
 int dpxc(Context context, float d) {
@@ -1674,3 +1696,5 @@ TextView createButton(Context ctx, String text, int textColor, int bgColor, floa
     } catch (Throwable e) { traceLog("uitools_log", "[onTouch] 异常: " + e); }
     return btn;
 }
+
+try { refreshPluginUiDensity(context); } catch (Throwable e) { traceLog("uitools_log", "[initDensity] 异常: " + e); }

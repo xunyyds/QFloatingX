@@ -19,6 +19,11 @@ import com.tencent.mobileqq.profilecard.api.IProfileProtocolService;
 import android.os.Bundle;
 import com.tencent.mobileqq.data.Card;
 import java.lang.Thread; 
+
+interface SettingsFeatureBuilder {
+    View build(Activity activity);
+}
+
 Object app = BaseApplicationImpl.getApplication().getRuntime();
 
 public String get(String url) {
@@ -476,6 +481,18 @@ public Object GetCard(String qun,String uin)
     else return card;
 }
 
+String getUserName(String uin) {
+    if (uin == null || uin.isEmpty()) return "";
+    try {
+        Object card = GetCard(uin);
+        if (card != null) {
+            String cn = String.valueOf(card.strNick);
+            if (cn != null && !cn.isEmpty() && !cn.contains("*") && !"null".equals(cn)) return cn;
+        }
+    } catch (Throwable ignore) {}
+    return uin;
+}
+
 import com.tencent.mobileqq.troop.api.ITroopInfoService;
 import com.tencent.mobileqq.data.troop.TroopInfo;
 
@@ -617,12 +634,6 @@ int getAdaptiveMenuItemBg(Activity a) {
 		r + (255 - r) * 45 / 100,
 		g + (255 - g) * 45 / 100,
 		b + (255 - b) * 45 / 100);
-}
-
-int getAdaptiveSettingsItemBg(Activity a) {
-	if (a == null) return Color.argb(30, 255, 255, 255);
-	boolean dark = isThemeDark(a);
-	return dark ? Color.argb(40, 255, 255, 255) : Color.argb(28, 255, 255, 255);
 }
 
 int mixTowardElevated(int color, boolean dark) {
@@ -890,23 +901,6 @@ private void 新建(String Path) {
 		dir.mkdirs();
 	}
 }
-private String readFileContent(String filePath) throws Exception {
-	File file = new File(filePath);
-	if (!file.exists()) {
-		return "文件不存在";
-	}
-	InputStreamReader inputReader = new InputStreamReader(new FileInputStream(file));
-	BufferedReader bf = new BufferedReader(inputReader);
-	StringBuilder sb = new StringBuilder();
-	String str;
-	while ((str = bf.readLine()) != null) {
-		sb.append(str);
-	}
-	bf.close();
-	inputReader.close();
-	return sb.toString();
-}
-
 public void log大小限制(String Path) {
 	File targetFile = new File(Path);
 	try {
@@ -1217,14 +1211,13 @@ String desDecrypt(String base64Text) {
 }
 
 public int dp(Activity activity, int d) {
-	return (int)(d * activity.getResources().getDisplayMetrics().density);
+	return (int)(d * getPluginUiDensity(activity) + 0.5f);
 }
 public int dp(int d) {
-	return (int)(d * context.getResources().getDisplayMetrics().density);
+	return (int)(d * getPluginUiDensity(context) + 0.5f);
 }
 int dp(Context context, float dpValue) {
-	final float scale = context.getResources().getDisplayMetrics().density;
-	return (int)(dpValue * scale + 0.5f);
+	return (int)(dpValue * getPluginUiDensity(context) + 0.5f);
 }
 
 void vibrate(Activity activity, int milliseconds) {
@@ -1262,57 +1255,6 @@ void vibrate(Activity activity, int milliseconds) {
 // 默认经纬度（天安门）
 double 默认经度 = 116.397128;
 double 默认纬度 = 39.907500;
-private void startDialogShowAnimation(View view) {
-	ScaleAnimation scaleAnim = new ScaleAnimation(
-		0.7f, 1.0f, // X轴：起始0.7倍 → 目标1倍
-		0.7f, 1.0f, // Y轴：起始0.7倍 → 目标1倍
-		Animation.RELATIVE_TO_SELF, 0.5f, // 缩放中心：视图中心X
-		Animation.RELATIVE_TO_SELF, 0.5f// 缩放中心：视图中心Y
-	);
-	scaleAnim.setDuration(333); // 动画时长，单位ms
-	scaleAnim.setInterpolator(new AccelerateDecelerateInterpolator()); // 先加速后减速，更顺滑
-
-	// 透明度动画：从完全透明到不透明
-	AlphaAnimation alphaAnim = new AlphaAnimation(0.0f, 1.0f);
-	alphaAnim.setDuration(400);
-	alphaAnim.setInterpolator(new AccelerateDecelerateInterpolator());
-
-	AnimationSet set = new AnimationSet(true);
-	set.addAnimation(scaleAnim);
-	set.addAnimation(alphaAnim);
-	set.setFillAfter(true); // 动画结束后保持最终状态
-
-	view.startAnimation(set);
-}
-private void startDialogDismissAnimation(View view, DialogInterface dialog) {
-	if (view == null || dialog == null) return;
-	//  缩放动画：从1倍缩小到0.7倍，中心缩放
-	ScaleAnimation scaleAnim = new ScaleAnimation(
-		1.0f, 0.7f, // X轴：1倍 → 0.7倍
-		1.0f, 0.7f, // Y轴：1倍 → 0.7倍
-		Animation.RELATIVE_TO_SELF, 0.5f, // 缩放中心X：视图中心
-		Animation.RELATIVE_TO_SELF, 0.5f// 缩放中心Y：视图中心
-	);
-	scaleAnim.setDuration(250); // 关闭动画时长
-	scaleAnim.setInterpolator(new AccelerateDecelerateInterpolator());
-	AlphaAnimation alphaAnim = new AlphaAnimation(1.0f, 0.0f);
-	alphaAnim.setDuration(300);
-	alphaAnim.setInterpolator(new AccelerateDecelerateInterpolator());
-	AnimationSet set = new AnimationSet(true);
-	set.addAnimation(scaleAnim);
-	set.addAnimation(alphaAnim);
-	set.setFillAfter(true); // 保持动画结束状态
-	set.setAnimationListener(new Animation.AnimationListener() {
-		public void onAnimationStart(Animation animation) {}
-		public void onAnimationEnd(Animation animation) {
-			dialog.dismiss(); // 动画播放完再关闭，效果更自然
-		}
-		public void onAnimationRepeat(Animation animation) {}
-	});
-
-	view.startAnimation(set);
-}
-
 void showApiProtectGuide(final Activity activity) {
     if (activity == null || activity.isFinishing()) return;
     activity.runOnUiThread(new Runnable() {
@@ -2210,36 +2152,8 @@ void 关闭线程池() {
 	ThreadPool = null;
 }
 
-void performDataCleanup() {
-	if (writeLock == null) return;
-	synchronized(writeLock) {
-		try {
-			if (OP_STATS != null) OP_STATS.clear();
-			if (messageBatchQueue != null) messageBatchQueue.clear();
-			if (CHANGED_KEYS != null) CHANGED_KEYS.clear();
-			if (cardExpandStatus != null) cardExpandStatus.clear();
-			if (statsTextViewCache != null) statsTextViewCache.clear();
-			if (weekDatesCache != null) weekDatesCache.clear();
-			if (monthDatesCache != null) monthDatesCache.clear();
-		} catch (Throwable e) { traceLog("api_log", "[performDataCleanup] 异常: " + e); }
-	}
-	todayDateStr = null;
-}
-
 void performUiCleanup() {
-	final Dialog dialog = statsDialog;
-	final Handler handle = msgHandle;
 	try {
-		if (dialog != null) {
-			try {
-				if (dialog.isShowing()) dialog.dismiss();
-			} catch (Throwable e) { traceLog("api_log", "[performUiCleanup] 异常: " + e); }
-			statsDialog = null;
-		}
-		if (handle != null) {
-			handle.removeCallbacksAndMessages(null);
-			msgHandle = null;
-		}
 		dialogVisible = false;
 	} catch (Throwable e) { traceLog("api_log", "[performUiCleanup] 异常: " + e); }
 }
@@ -2382,69 +2296,71 @@ void 取消加载脚本() {
 }
 
 void 重新加载操作(Activity activity) {
-	try {
-		try {
-			Activity settingsAct = getSettingsCurrentActivity();
-			if (settingsAct != null && !settingsAct.isFinishing()) {
-				settingsAct.finish();
-			}
-		} catch (Throwable closeIgnore) {}
-		PluginManager pm = PluginManager.INSTANCE;
-		if (pm == null) return;
+    try {
+        try {
+            Activity ref = SettingsState.settingsCurrentActivityRef;
+            if (ref instanceof SettingsActivity && !ref.isFinishing()) {
+                ref.finish();
+            }
+        } catch (Throwable closeIgnore) {}
+        SettingsState.settingsCurrentActivityRef = null;
 
-		List list = pm.getPlugins();
-		if (list == null) return;
+        PluginManager pm = PluginManager.INSTANCE;
+        if (pm == null) return;
+        List list = pm.getPlugins();
+        if (list == null) return;
 
-		PluginInfo target = null;
-		int n = list.size();
-
-		for (int i = 0; i < n; i++) {
-			try {
-				Object obj = list.get(i);
-				if (obj == null || !"me.yxp.qfun.plugin.bean.PluginInfo".equals(obj.getClass().getName())) continue;
-
-				PluginInfo p = (PluginInfo) obj;
-				if ("QFloatingX".equals(p.getId()) && p.isRunning()) {
-					target = p;
-					break;
-				}
-			} catch (Throwable e) {
-				continue;
-			}
-		}
-
-		if (target != null) pm.reloadPlugin(target);
-	} catch (Throwable e) { traceLog("api_log", "[重新加载操作] 异常: " + e); }
+        PluginInfo target = null;
+        int n = list.size();
+        for (int i = 0; i < n; i++) {
+            try {
+                Object obj = list.get(i);
+                if (obj == null || !"me.yxp.qfun.plugin.bean.PluginInfo".equals(obj.getClass().getName())) continue;
+                PluginInfo p = (PluginInfo) obj;
+                if ("QFloatingX".equals(p.getId()) && p.isRunning()) {
+                    target = p;
+                    break;
+                }
+            } catch (Throwable e) { continue; }
+        }
+        if (target != null) pm.reloadPlugin(target);
+    } catch (Throwable e) {
+        traceLog("api_log", "[重新加载操作] 异常: " + e);
+    }
 }
 
 void 取消加载操作(Activity activity) {
-	try {
-		PluginManager pm = PluginManager.INSTANCE;
-		if (pm == null) return;
+    try {
+        try {
+            Activity ref = SettingsState.settingsCurrentActivityRef;
+            if (ref instanceof SettingsActivity && !ref.isFinishing()) {
+                ref.finish();
+            }
+        } catch (Throwable closeIgnore) {}
+        SettingsState.settingsCurrentActivityRef = null;
 
-		List list = pm.getPlugins();
-		if (list == null) return;
+        PluginManager pm = PluginManager.INSTANCE;
+        if (pm == null) return;
+        List list = pm.getPlugins();
+        if (list == null) return;
 
-		PluginInfo target = null;
-		int n = list.size();
-
-		for (int i = 0; i < n; i++) {
-			try {
-				Object obj = list.get(i);
-				if (obj == null || !"me.yxp.qfun.plugin.bean.PluginInfo".equals(obj.getClass().getName())) continue;
-
-				PluginInfo p = (PluginInfo) obj;
-				if ("QFloatingX".equals(p.getId()) && p.isRunning()) {
-					target = p;
-					break;
-				}
-			} catch (Throwable e) {
-				continue;
-			}
-		}
-
-		if (target != null) pm.stopPlugin(target);
-	} catch (Throwable e) { traceLog("api_log", "[取消加载操作] 异常: " + e); }
+        PluginInfo target = null;
+        int n = list.size();
+        for (int i = 0; i < n; i++) {
+            try {
+                Object obj = list.get(i);
+                if (obj == null || !"me.yxp.qfun.plugin.bean.PluginInfo".equals(obj.getClass().getName())) continue;
+                PluginInfo p = (PluginInfo) obj;
+                if ("QFloatingX".equals(p.getId()) && p.isRunning()) {
+                    target = p;
+                    break;
+                }
+            } catch (Throwable e) { continue; }
+        }
+        if (target != null) pm.stopPlugin(target);
+    } catch (Throwable e) {
+        traceLog("api_log", "[取消加载操作] 异常: " + e);
+    }
 }
 
 void unLoadPlugin() {

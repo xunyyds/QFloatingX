@@ -1403,7 +1403,6 @@ void showCopyConfirmDialog(Activity act, String title, String text, boolean isDa
 
                 if (!act.isFinishing() && !(Build.VERSION.SDK_INT >= 17 && act.isDestroyed())) {
                     ref[0].show();
-                    if (ref[0].getWindow() != null) applyDialogSize(act, ref[0].getWindow());
                     if (ref[0] != null && ref[0].getWindow() != null) applyUiTheme(act, ref[0], 0);
                 }
             } catch (Throwable e) { Toast("显示弹窗失败: " + e.getMessage()); }
@@ -3345,7 +3344,10 @@ public void 长按消息菜单(Activity activity, Object data) {
     } });
     addMenuItem(menuItems, "其他", "双击消息菜单", new Runnable() { public void run() {                                     fetchRealMsgRecord(finalMsgid, finalChatType, finalPeerUin, new MsgLoadedCallback() {
                                         public void onLoaded(MsgData msgData) {
-                                            showActionDialog(activity, msgData, null, null);
+                                            弹窗等待标记 = 0;
+                                            Activity target = activity;
+                                            if (target == null || target.isFinishing()) target = getNowActivity();
+                                            showActionDialog(target, msgData, null, null);
                                         }
                                     });
  } });
@@ -3677,7 +3679,7 @@ public void 长按消息菜单(Activity activity, Object data) {
         rootLayout.setTranslationY(dp(activity, 120));
         rootLayout.setAlpha(0f);
         rootLayout.animate().translationY(0f).alpha(1f).setDuration(250).setInterpolator(new DecelerateInterpolator()).start();
-        if (!"color".equals(getUiBgType())) {
+        if (!"color".equals(getString("settings", "ui_bg_type", "color"))) {
             applyUiTheme(activity, bottomSheet, 5);
         }
         applyWindowBlurBehind(window);
@@ -4324,8 +4326,6 @@ void showGroupSelector(final Activity act, final int mode, final List initSelect
                 final int colorAccent = isDark ? pc("#FF8AB4F8") : pc("#FF2196F3");
                 final int colorOnSurface = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
                 final int colorOnSurfaceVar = isDark ? pc("#99EFEFEF") : pc("#99000000");
-                final int colorOutline = isDark ? pc("#33FFFFFF") : pc("#1A000000");
-                final int colorInputBg = isDark ? pc("#1AFFFFFF") : pc("#0D000000");
 
                 AlertDialog.Builder builder = new AlertDialog.Builder(act, isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
                 
@@ -4478,21 +4478,10 @@ void showGroupSelector(final Activity act, final int mode, final List initSelect
                                             final String uin = (String) m.get("uin");
                                             final boolean isChecked = selected.contains(uin);
 
-                                            FrameLayout checkContainer = new FrameLayout(act);
-                                            checkContainer.setLayoutParams(new LinearLayout.LayoutParams(dp(act, 24), dp(act, 24)));
-
-                                            View box = new View(act);
-                                            GradientDrawable boxBg = new GradientDrawable();
-                                            boxBg.setCornerRadius(dp(act, 4));
-                                            boxBg.setStroke(dp(act, 2), isChecked ? colorAccent : colorOutline);
-                                            boxBg.setColor(isChecked ? colorAccent : Color.TRANSPARENT);
-                                            box.setBackground(boxBg);
-                                            checkContainer.addView(box, new FrameLayout.LayoutParams(-1, -1));
-
-                                            View checkMark = createCheckMarkView(act, isChecked, colorAccent);
-                                            checkContainer.addView(checkMark, new FrameLayout.LayoutParams(-1, -1));
-
-                                            item.addView(checkContainer);
+                                            final CheckBox checkBox = new CheckBox(context);
+                                            checkBox.setChecked(isChecked);
+                                            checkBox.setLayoutParams(new LinearLayout.LayoutParams(dp(act, 32), dp(act, 32)));
+                                            item.addView(checkBox);
 
                                             TextView tv = new TextView(act);
                                             tv.setText(m.get("name") + " (" + uin + ")");
@@ -4502,29 +4491,22 @@ void showGroupSelector(final Activity act, final int mode, final List initSelect
                                             tvLp.leftMargin = dp(act, 16);
                                             item.addView(tv, tvLp);
 
-                                            View.OnClickListener clickListener = new View.OnClickListener() {
-                                                public void onClick(View v) {
-                                                    boolean nowChecked = !selected.contains(uin);
-                                                    if (nowChecked) {
+                                            checkBox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+                                                public void onCheckedChanged(CompoundButton buttonView, boolean checked) {
+                                                    if (checked) {
                                                         selected.add(uin);
-                                                        
-                                                        boxBg.setStroke(dp(act, 2), colorAccent);
-                                                        boxBg.setColor(colorAccent);
-                                                        
-                                                        animateCheckMark(checkMark, true);
                                                     } else {
                                                         selected.remove(uin);
-                                                        
-                                                        boxBg.setStroke(dp(act, 2), colorOutline);
-                                                        boxBg.setColor(Color.TRANSPARENT);
-                                                        
-                                                        animateCheckMark(checkMark, false);
                                                     }
                                                     summary.setText("已选 " + selected.size() + " / 总 " + display.size());
                                                 }
-                                            };
+                                            });
 
-                                            item.setOnClickListener(clickListener);
+                                            item.setOnClickListener(new View.OnClickListener() {
+                                                public void onClick(View v) {
+                                                    checkBox.setChecked(!checkBox.isChecked());
+                                                }
+                                            });
                                             return item;
                                         }
                                     };
@@ -4622,98 +4604,6 @@ void showGroupSelector(final Activity act, final int mode, final List initSelect
             }
         }
     });
-}
-
-class CheckMarkView extends View {
-    private float drawProgress;
-    private int checkColor;
-
-    public CheckMarkView(Activity act, boolean isChecked, boolean backgroundIsBlue) {
-        super(act);
-        
-        final boolean isDark = isThemeDark(act);
-        
-        // 核心逻辑：蓝色背景时强制高对比色
-        if (backgroundIsBlue) {
-            this.checkColor = isDark ? Color.BLACK : Color.WHITE;
-        } else {
-            // 非蓝色背景时，可用主题色或其他（这里默认白色，防止意外）
-            this.checkColor = Color.WHITE;
-        }
-        
-        this.drawProgress = isChecked ? 1f : 0f;
-        setVisibility(isChecked ? View.VISIBLE : View.INVISIBLE);
-        
-        int size = dp(act, 24);
-        setLayoutParams(new FrameLayout.LayoutParams(size, size));
-    }
-
-    public float getDrawProgress() {
-        return drawProgress;
-    }
-
-    public void setDrawProgress(float progress) {
-        drawProgress = Math.max(0f, Math.min(1f, progress));
-        invalidate();
-    }
-
-    protected void onDraw(Canvas canvas) {
-        if (drawProgress <= 0f) return;
-
-        int w = getWidth();
-        int h = getHeight();
-        if (w <= 0 || h <= 0) return;
-
-        float scale = Math.min(w, h) / 24f;
-
-        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        paint.setColor(checkColor);
-        paint.setStyle(Paint.Style.STROKE);
-        paint.setStrokeWidth(2.5f * scale);
-        paint.setStrokeCap(Paint.Cap.ROUND);
-        paint.setStrokeJoin(Paint.Join.ROUND);
-
-        Path path = new Path();
-        path.moveTo(5f * scale, 12f * scale);
-        path.lineTo(10f * scale, 17f * scale);
-        path.lineTo(19f * scale, 6f * scale);
-
-        PathMeasure measure = new PathMeasure(path, false);
-        float length = measure.getLength();
-        Path dst = new Path();
-        measure.getSegment(0, length * drawProgress, dst, true);
-
-        canvas.drawPath(dst, paint);
-    }
-}
-
-View createCheckMarkView(Activity act, boolean isChecked, boolean backgroundIsBlue) {
-    return new CheckMarkView(act, isChecked, backgroundIsBlue);
-}
-void animateCheckMark(View checkMark, boolean show) {
-    if (checkMark == null) return;
-
-    if (show) {
-        checkMark.setVisibility(View.VISIBLE);
-    }
-
-    float target = show ? 1f : 0f;
-    ObjectAnimator anim = ObjectAnimator.ofFloat(checkMark, "drawProgress", new float[]{target});
-    anim.setDuration(200);
-    anim.setInterpolator(new AccelerateDecelerateInterpolator());
-
-    if (!show) {
-        anim.addListener(new Animator.AnimatorListener() {
-            public void onAnimationStart(Animator animation) {}
-            public void onAnimationEnd(Animator animation) {
-                checkMark.setVisibility(View.INVISIBLE);
-            }
-            public void onAnimationCancel(Animator animation) {}
-            public void onAnimationRepeat(Animator animation) {}
-        });
-    }
-
-    anim.start();
 }
 
 /**
