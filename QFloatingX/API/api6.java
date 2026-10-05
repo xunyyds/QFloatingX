@@ -492,6 +492,62 @@ View 状态卡片错误View(Activity context, String title, Throwable e) {
     return tv;
 }
 
+Object hotPlugScopeVar = null;
+
+Object[] getHotPlugScope() {
+    Object scope = hotPlugScopeVar;
+    if (scope == null) {
+        scope = this.interpreter.eval("this");
+        hotPlugScopeVar = scope;
+    }
+    return new Object[] {scope, getHotPlugNames(scope)};
+}
+
+String[] getHotPlugNames(Object scope) {
+    try {
+        return (String[]) scope.invokeMethod("getAll", new Object[0]);
+    } catch (Throwable e) {
+        return null;
+    }
+}
+
+boolean getHotPlugOn(Object scope, String func) {
+    try {
+        Object r = scope.invokeMethod("getLoad", new Object[]{func});
+        return Boolean.TRUE.equals(r);
+    } catch (Throwable e) {
+        return false;
+    }
+}
+
+void add脚本规模卡片(Activity context, LinearLayout parent, boolean isDark) {
+    try {
+        String[] varNames = null;
+        String[] methodNames = null;
+        try { varNames = this.interpreter.getNameSpace().getVariableNames(); } catch (Throwable ignored) {}
+        try { methodNames = this.interpreter.getNameSpace().getMethodNames(); } catch (Throwable ignored) {}
+        int varCount = (varNames == null) ? 0 : varNames.length;
+        int methodCount = (methodNames == null) ? 0 : methodNames.length;
+        int hotTotal = 0;
+        int hotOn = 0;
+        try {
+            Object[] scope = getHotPlugScope();
+            String[] funcs = (String[]) scope[1];
+            hotTotal = (funcs == null) ? 0 : funcs.length;
+            for (int i = 0; i < hotTotal; i++) {
+                if (getHotPlugOn(scope[0], funcs[i])) hotOn = hotOn + 1;
+            }
+        } catch (Throwable ignored) {}
+        StringBuilder sb = new StringBuilder();
+        sb.append("全局变量: #").append(varCount).append("# 个\n");
+        sb.append("全局方法: #").append(methodCount).append("# 个\n");
+        sb.append("热插拔脚本: 已开启#").append(hotOn).append("个/总").append(hotTotal).append("个#");
+        parent.addView(createTSCard(context, " 脚本规模", sb.toString(), isDark));
+    } catch (Exception e) {
+        parent.addView(状态卡片错误View(context, " 脚本规模", e));
+    }
+}
+
 void add运行状态卡片组(Activity context, LinearLayout parent, boolean isDark) {
     try { addQQ状态卡片(context, parent, isDark); } catch (Throwable e) { parent.addView(状态卡片错误View(context, "QQ运行状态", e)); }
     try { add开关状态卡片(context, parent, isDark); } catch (Throwable e) { parent.addView(状态卡片错误View(context, "开关状态", e)); }
@@ -499,6 +555,7 @@ void add运行状态卡片组(Activity context, LinearLayout parent, boolean isD
     try { add电池信息卡片(context, parent, isDark); } catch (Throwable e) { parent.addView(状态卡片错误View(context, "电池信息", e)); }
     try { add系统资源卡片(context, parent, isDark); } catch (Throwable e) { parent.addView(状态卡片错误View(context, "系统资源", e)); }
     try { add模块信息卡片(context, parent, isDark); } catch (Throwable e) { parent.addView(状态卡片错误View(context, "模块信息", e)); }
+    try { add脚本规模卡片(context, parent, isDark); } catch (Throwable e) { parent.addView(状态卡片错误View(context, "脚本规模", e)); }
     try { add脚本信息卡片(context, parent, isDark); } catch (Throwable e) { parent.addView(状态卡片错误View(context, "脚本信息", e)); }
     try { addJVM内存信息卡片(context, parent, isDark); } catch (Throwable e) { parent.addView(状态卡片错误View(context, "JVM内存信息", e)); }
     try { add设备信息卡片(context, parent, isDark); } catch (Throwable e) { parent.addView(状态卡片错误View(context, "设备信息", e)); }
