@@ -1,16 +1,13 @@
 {
-  "version": "2.5.10",
+  "version": "2.5.11",
   "versionType": "测试版",
   "updateType": "补丁",
-  "updateTime": "2026-10-05 19:02:25",
-  "changelog": "- 优化群聊\/好友选择器\n- 优化群\/好友\/禁言\/群成员列表\n- 统一为所有列表类增加了搜索框\n- 优化了所有列表类弹窗的性能\n- 优化了更新检测的检测速度\n- 优化了群\/好友昵称\/备注的获取速度\n- 优化了更新及安装速度\n- 新增运行状态-脚本规模（可查看全部变量以及方法数量）",
+  "updateTime": "2026-10-05 21:23:07",
+  "changelog": "- 修复更新通道配置混乱的问题\n- 优化初始化图标文件速度，采用 GitHub 线路+镜像加速的方案",
   "files": [
-    "QFloatingX\/API\/Dialog.java",
     "QFloatingX\/API\/api.java",
     "QFloatingX\/API\/setwindow.java",
     "QFloatingX\/API\/api6.java",
-    "QFloatingX\/API\/function.java",
-    "QFloatingX\/API\/import.java",
     "QFloatingX\/info.prop",
     "QFloatingX\/更新日志.txt"
   ]

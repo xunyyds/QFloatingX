@@ -1184,7 +1184,7 @@ void buildLevel2MenuContent(Activity activity, String level1Title) {
         }});
 
         addSettingsCategory("其他", "");
-        addSettingsItemChoiceWithKey( "更新通道", "update_channel", (("github".equals(getString("settings", "update_channel", "github")) ? "GitHub" : "Gitee")), new Runnable() { public void run() {
+        addSettingsItemChoiceWithKey( "更新通道", "update_channel", (("github".equals(getString("settings", "update_channel", "github")) ? "GitHub（推荐）" : "Gitee")), new Runnable() { public void run() {
             Activity act = getSettingsCurrentActivity();
             if (act != null) showUpdateChannelChoiceDialog(act);
         }});
@@ -2435,8 +2435,8 @@ void showToastPosChoiceDialog(final Activity activity) {
     } });
 }
 void showUpdateChannelChoiceDialog(final Activity activity) {
-    final String[] names = {"GitHub", "Gitee"};
-    final String[] values = {"gitee", "github"};
+    final String[] names = {"GitHub（推荐）", "Gitee"};
+    final String[] values = {"github", "gitee"};
     showChoiceDialogEx(activity, "更新通道", names, values, "update_channel", "github", 0, 3, "已切换至 ", null);
 }
 void showThemeModeChoiceDialog(final Activity activity) {
