@@ -483,13 +483,24 @@ public Object GetCard(String qun,String uin)
 
 import com.tencent.mobileqq.troop.api.ITroopInfoService;
 import com.tencent.mobileqq.data.troop.TroopInfo;
-//由 ᗜ×ᗜ &大肥鱼 开发
+
 public TroopInfo findTroopInfo(String qun) {
 	// Object app = BaseApplicationImpl.getApplication().getRuntime();
 	ITroopInfoService Info = app.getRuntimeService(ITroopInfoService.class);
 	return Info.findTroopInfo("" + qun);
 }
 
+// ================= 昵称 / 备注 取值方法组（4 个，全部走宿主本地缓存，单条 O(1)，不做全表遍历） =================
+// 数据结构：com.tencent.mobileqq.data.Card 同时带 strNick（用户昵称）与 strReMark（我给对方设的备注）；
+//          群信息用 com.tencent.mobileqq.data.troop.TroopInfo，troopname=原群名、troopRemark=群备注。
+// 用法（热插拔脚本里同名直接调用，弹窗内自行拼「备注(名字)」）：
+//   String uShow = getUserRemark(uin);  // 好友备注，无则为空串
+//   String uNick = getUserName(uin);    // 好友昵称，查不到回退为原号码
+//   String gName = getGroupName(qun);   // 群原名，查不到回退为群号
+//   String gMark = getGroupRemark(qun); // 群备注，无则为空串
+// 说明：查不到时返回空串 / 原号码，绝不联网重查，也不会返回含 “*” 的脱敏名。
+
+// 名字有效性：非空、非 "null"、不含 “*” 脱敏
 boolean validDisplayName(String value) {
     if (value == null || value.isEmpty()) return false;
     if ("null".equals(value) || value.contains("*")) return false;
@@ -2545,20 +2556,35 @@ boolean replaceWithTmp(String savePath, String tmpPath) {
     }
 }
 
+void migrateUpdateChannelOnce() {
+    try {
+        if (getBoolean("settings", "update_channel_migrated", false)) return;
+        if ("gitee".equals(getString("settings", "update_channel", "github"))) {
+            putString("settings", "update_channel", "github");
+            traceLog("api_log", "[migrateUpdateChannelOnce] 旧版下拉选 GitHub 实存 gitee，已归正为 github");
+        }
+        putBoolean("settings", "update_channel_migrated", true);
+    } catch (Throwable e) {
+        traceLog("api_log", "[migrateUpdateChannelOnce] 异常: " + e);
+    }
+}
+
 String[] buildMirrorUrls(String relativePath) {
+    migrateUpdateChannelOnce();
     String channel = getString("settings", "update_channel", "github");
+    String githubRaw = "https://raw.githubusercontent.com/xunyyds/QFloatingX/QF/" + relativePath;
     if (!"github".equals(channel)) {
-        return new String[]{"https://gitee.com/ovoxiaomo/qfloating-x/raw/QF/" + relativePath};
+        return new String[]{"https://gitee.com/ovoxiaomo/qfloating-x/raw/QF/" + relativePath, githubRaw};
     }
     String[] mirrorHosts = {"gh.07150721.xyz", "ghpxy.hwinzniej.top", "ghf.无名氏.top", "gh.chjina.com", "js.jiangss.shop", "ghproxy.icu"};
-    String rawUrl = "https://raw.githubusercontent.com/xunyyds/QFloatingX/QF/" + relativePath;
-    String[] urls = new String[1 + mirrorHosts.length];
-    urls[0] = rawUrl;
+    String[] urls = new String[2 + mirrorHosts.length];
+    urls[0] = githubRaw;
     for (int k = 0; k < mirrorHosts.length; k++) {
         String h = mirrorHosts[k];
         try { h = java.net.IDN.toASCII(h); } catch (Throwable ignore) {}
-        urls[k + 1] = "https://" + h + "/" + rawUrl;
+        urls[k + 1] = "https://" + h + "/" + githubRaw;
     }
+    urls[mirrorHosts.length + 1] = "https://gitee.com/ovoxiaomo/qfloating-x/raw/QF/" + relativePath;
     return urls;
 }
 
@@ -3684,14 +3710,18 @@ boolean checkAllIconsExist() {
 }
 
 boolean performDownloadAndUnzip() {
-    final String downloadUrl = "https://gitee.com/ovoxiaomo/qfloating-x/raw/QF/icon.zip";
     final String tempZipPath = pluginPath + "/API/icon.zip";
     final String destDir = pluginPath + "/API/";
     try {
-        boolean downloadResult = downloadFile(downloadUrl, tempZipPath, new ProgressCallback() {
-            public void onProgress(int progressVal) {}
-            public void onProgressTip(String tip) {}
-        });
+        String[] urls = buildMirrorUrls("icon.zip");
+        boolean downloadResult = false;
+        for (int u = 0; u < urls.length && !downloadResult; u++) {
+            downloadResult = downloadFile(urls[u], tempZipPath, new ProgressCallback() {
+                public void onProgress(int progressVal) {}
+                public void onProgressTip(String tip) {}
+            });
+            if (!downloadResult) traceLog("api_log", "[performDownloadAndUnzip] 下载失败，尝试下一个源: " + urls[u]);
+        }
         if (!downloadResult) {
             cleanupTempFile(tempZipPath);
             return false;
