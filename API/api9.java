@@ -194,17 +194,8 @@ public class FunProtoData {
         return PacketHelper.hexToBytes(hex);
     }
 
-    public Object getFirstValue(int fieldNumber) {
-        List list = (List) values.get(fieldNumber);
-        return (list != null && !list.isEmpty()) ? list.get(0) : null;
-    }
-
     public List getValues(int fieldNumber) {
         return (List) values.get(fieldNumber);
-    }
-
-    public boolean hasField(int fieldNumber) {
-        return values.containsKey(fieldNumber);
     }
 
     public void clear() {
@@ -770,20 +761,6 @@ void sendSpecifiedFaceReply(Object data, int faceIndex) {
     } catch (Exception e) {
         qqToast(1, "发送异常: " + e.getMessage());
     }
-}
-
-void randomFaceReply(Object data) {
-    String cfg = getString("config", "face_reply_config", "1~200");
-    List faces = parseFaceConfig(cfg);
-
-    if (faces.isEmpty()) {
-        qqToast(1, "表情配置为空，请先设置");
-        showFaceReplyConfigDialog(data);
-        return;
-    }
-
-    int randomFace = (Integer) faces.get(new Random().nextInt(faces.size()));
-    sendSpecifiedFaceReply(data, randomFace);
 }
 
 private List parseFaceConfig(String cfg) {

@@ -32,6 +32,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import android.view.animation.OvershootInterpolator;
+import android.widget.ScrollView;
 
 HashMap runningThreads = new HashMap();
 
@@ -92,6 +94,10 @@ class SendUnit {
     }
 }
 
+final String[] SYNC_VARS = {
+    "qun", "uin", "msg", "msgId", "msgType", "type", "data", "operator", "time", "paiType", "qq", "pluginPath", "this", "scriptLoader"
+};
+
 class HotPlugClassLoader {
     ConcurrentHashMap objectCache = new ConcurrentHashMap(); 
     ConcurrentHashMap directMethodCache = new ConcurrentHashMap(); 
@@ -101,11 +107,6 @@ class HotPlugClassLoader {
     
     boolean interpreterInitialized = false; 
     
-    
-    final String[] SYNC_VARS = {
-        "qun", "uin", "msg", "msgId", "msgType", "type", "data", "operator", "time", "paiType", "qq", "pluginPath", "this", "scriptLoader"
-    };
-
     
     String getCodeHash(String code) {
         if (code == null || code.length() == 0) return "";
@@ -1169,7 +1170,7 @@ EditText addCodeInput(Activity a, LinearLayout parent, String code, boolean isFi
     return et;
 }
 
-void addPresetRows(Activity a, LinearLayout parent, final EditText et) {
+void addPresetRows(final Activity a, LinearLayout parent, final EditText et, final boolean forceDialog) {
     TextView pt = new TextView(a);
     pt.setText("快捷填入:");
     pt.setTextSize(10);
@@ -1180,6 +1181,16 @@ void addPresetRows(Activity a, LinearLayout parent, final EditText et) {
     addPresetRow(a, parent, et, getPresetsCategory1(), pc("#3B71FE"));
     addPresetRow(a, parent, et, getPresetsCategory2(), pc("#00C853"));
     addPresetRow(a, parent, et, getPresetsCategory3(), pc("#FF9800"));
+
+    TextView btnVars = new TextView(a);
+    btnVars.setText("插入变量  ›");
+    btnVars.setTextSize(14);
+    btnVars.setTextColor(tc(a, "primary"));
+    btnVars.setPadding(0, dp(a, 10), 0, dp(a, 4));
+    btnVars.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {
+        showVariablePool(a, et, forceDialog, "hotplug");
+    }});
+    parent.addView(btnVars);
 }
 
 String getCallbackTip(int index) {
@@ -2245,7 +2256,7 @@ void showEdit(Activity a, final String func, final String gid, final String gn) 
         
         final EditText etName = addNameInput(a, card, func);
         final EditText etCode = addCodeInput(a, card, isFile ? m[10] : readCodeFile(func), isFile, isFileState);
-        addPresetRows(a, card, etCode);
+        addPresetRows(a, card, etCode, true);
         
         TextView tips = new TextView(a);
         tips.setText("变量:qun群号 uinQQ号 msg消息内容 msgId消息ID type类型(1私聊2群聊) operator操作者 time禁言秒数");
@@ -2401,7 +2412,7 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
         slideView.setHorizontalScrollBarEnabled(false);
         slideView.setOverScrollMode(View.OVER_SCROLL_NEVER);
         LinearLayout.LayoutParams slideParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        slideParams.setMargins(0, dp(a, 6), 0, 0);
+        slideParams.setMargins(0, dp(a, 8), 0, 0);
         slideView.setLayoutParams(slideParams);
 
         final LinearLayout itemContainer = new LinearLayout(a);
@@ -2411,17 +2422,17 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
         int screenWidth = a.getResources().getDisplayMetrics().widthPixels;
         final int deleteBtnWidth = dp(a, 80);
 
-        int visibleContentWidth = screenWidth - dp(a, 72);
+        int visibleContentWidth = screenWidth - dp(a, 24);
 
         final LinearLayout content = new LinearLayout(a);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setBackground(makeFeedbackBg(tc(a, "surface"), adjustColor(tc(a, "surface"), 0.85f), dp(a, 8)));
+        content.setBackground(makeFeedbackBg(getAdaptiveCardBg(a), pc(getSettingsThemeColor(a, "ripple")), dp(a, 16)));
         
         LinearLayout.LayoutParams contentParams = new LinearLayout.LayoutParams(visibleContentWidth, LinearLayout.LayoutParams.WRAP_CONTENT);
         contentParams.setMargins(0, 0, dp(a, 1), 0); 
         content.setLayoutParams(contentParams);
         
-        content.setPadding(dp(a, 12), dp(a, 10), dp(a, 12), dp(a, 10));
+        content.setPadding(dp(a, 16), dp(a, 14), dp(a, 16), dp(a, 14));
         content.setClickable(true);
         content.setFocusable(true);
         itemContainer.addView(content);
@@ -2559,11 +2570,6 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
         final LinearLayout itemWrapper = new LinearLayout(a);
         itemWrapper.setOrientation(LinearLayout.VERTICAL);
         itemWrapper.addView(slideView);
-        View itemDivider = new View(a);
-        itemDivider.setBackgroundColor(tc(a, "outline"));
-        LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(-1, dp(a, 1));
-        dividerParams.bottomMargin = dp(a, 4);
-        itemWrapper.addView(itemDivider, dividerParams);
 
         final boolean[] isExpanded = {false};
 
@@ -3009,3 +3015,340 @@ String extractSegmentAt(String text, int pos){
 
 rebuildRegistry();
 
+// ===== 功能热插拔页（设置入口调用，实现留在本文件） =====
+public View buildHotPlugContentView(final Activity a, String gid, String uname, boolean fillParent) {
+    if (a == null) return null;
+    final String g = (gid != null) ? gid : "";
+    final String gn = uname;
+    isAdding = false;
+
+        FrameLayout root = new FrameLayout(a);
+        root.setPadding(dp(a, 12), 0, dp(a, 12), dp(a, 20));
+
+        final SwipeRefreshLayout swipe = new SwipeRefreshLayout(a);
+        root.addView(swipe, new FrameLayout.LayoutParams(-1, fillParent ? -1 : -2));
+        swipe.setPadding(0, 0, 0, 0);
+
+        final ScrollView sc = new ScrollView(a);
+        swipe.addView(sc, new FrameLayout.LayoutParams(-1, fillParent ? -1 : -2));
+
+        final LinearLayout cd = new LinearLayout(a);
+        cd.setOrientation(LinearLayout.VERTICAL);
+        cd.setPadding(0, dp(a, 16), 0, dp(a, 16));
+        sc.addView(cd);
+
+        TextView s = new TextView(a);
+        String gn2 = (gn == null || gn.trim().length() == 0) ? "未知" : gn;
+        s.setText(gn2 + (g.equals("") ? "" : " (" + g + ")"));
+        s.setTextSize(12);
+        s.setTextColor(tc(a, "primary"));
+        s.setPadding(0, 0, 0, dp(a, 6));
+        cd.addView(s);
+
+        if (g.length() > 0 && (gn == null || gn.length() == 0)) {
+            ThreadPool.execute(new Runnable() {
+                public void run() {
+                    String name = "";
+                    try {
+                        Object ti = findTroopInfo(g);
+                        if (ti != null) {
+                            String tn = String.valueOf(ti.troopname);
+                            if (tn != null && tn.length() > 0 && !"null".equals(tn)) name = tn;
+                        }
+                    } catch (Throwable ignore) {}
+                    if (name.length() > 0) {
+                        final String fn = name;
+                        a.runOnUiThread(new Runnable() {
+                            public void run() {
+                                try { s.setText(fn + " (" + g + ")"); } catch (Throwable ignore) {}
+                            }
+                        });
+                    }
+                }
+            });
+        }
+
+        TextView tips = new TextView(a);
+        tips.setText("下拉可刷新状态");
+        tips.setTextSize(11);
+        tips.setTextColor(tc(a, "on_surface_variant"));
+        tips.setPadding(0, 0, 0, dp(a, 8));
+        cd.addView(tips);
+
+        final LinearLayout editorContainer = new LinearLayout(a);
+        editorContainer.setOrientation(LinearLayout.VERTICAL);
+        editorContainer.setBackground(roundRect(tc(a, "primary_container"), dp(a, 8)));
+        editorContainer.setPadding(dp(a, 12), dp(a, 12), dp(a, 12), dp(a, 12));
+        editorContainer.setVisibility(View.GONE);
+        editorContainer.setAlpha(0f);
+        editorContainer.setScaleY(0.8f);
+        cd.addView(editorContainer);
+
+        TextView editTitle = new TextView(a);
+        editTitle.setText("✏️ 新建功能");
+        editTitle.setTextSize(15);
+        editTitle.setTextColor(tc(a, "primary"));
+        editTitle.setPadding(0, 0, 0, dp(a, 8));
+        editorContainer.addView(editTitle);
+
+        final boolean[] isFileState = {false};
+        final boolean[] cks = new boolean[8];
+
+        final EditText etN = addNameInput(a, editorContainer, "");
+        final EditText etC = addCodeInput(a, editorContainer, "", false, isFileState);
+        addPresetRows(a, editorContainer, etC, false);
+
+        final FormComponents fc = new FormComponents();
+        TextView[] chips = addChipRows(a, editorContainer, cks, fc);
+
+        addPreprocRow(a, editorContainer, fc, 0, "", 0, 0);
+        updatePreprocVisibility(fc, false);
+
+        FormComponents loopFc = addLoopRow(a, editorContainer, false, 5000, 0, cks);
+        fc.etInterval = loopFc.etInterval;
+        fc.etCount = loopFc.etCount;
+        fc.chipLoop = loopFc.chipLoop;
+        fc.loopSettings = loopFc.loopSettings;
+
+        final EditText etTime = addTimeRow(a, editorContainer, "");
+
+        LinearLayout editorBtnRow = new LinearLayout(a);
+        editorBtnRow.setOrientation(LinearLayout.HORIZONTAL);
+        editorBtnRow.setPadding(0, dp(a, 12), 0, 0);
+        editorContainer.addView(editorBtnRow);
+
+        TextView btnSave = createButton(a, "保存", Color.WHITE, tc(a, "primary"), 14f, 8, 16, 10, false, 0, 0, null);
+        btnSave.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
+        editorBtnRow.addView(btnSave);
+
+        TextView btnTest = createButton(a, "测试", tc(a, "on_surface_variant"), tc(a, "surface"), 14f, 8, 16, 10, false, 0, 0, null);
+        LinearLayout.LayoutParams lpTest = new LinearLayout.LayoutParams(0, -2, 1.0f);
+        lpTest.setMargins(dp(a, 6), 0, dp(a, 6), 0);
+        btnTest.setLayoutParams(lpTest);
+        editorBtnRow.addView(btnTest);
+
+        TextView btnCancel = createButton(a, "取消", tc(a, "on_surface_variant"), tc(a, "surface"), 14f, 8, 16, 10, false, 0, 0, null);
+        btnCancel.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
+        editorBtnRow.addView(btnCancel);
+
+        final LinearLayout lst = new LinearLayout(a);
+        lst.setOrientation(LinearLayout.VERTICAL);
+        lst.setPadding(0, dp(a, 6), 0, 0);
+        cd.addView(lst);
+
+        TextView btnAdd = createButton(a, "+ 新建功能", Color.WHITE, tc(a, "primary"), 14f, 8, 16, 10, false, 0, 0, null);
+        LinearLayout.LayoutParams btnAddLp = new LinearLayout.LayoutParams(-1, -2);
+        btnAddLp.setMargins(0, dp(a, 6), 0, 0);
+        cd.addView(btnAdd, cd.indexOfChild(lst), btnAddLp);
+
+        TextView lt = new TextView(a);
+        lt.setText("功能列表");
+        lt.setTextSize(14);
+        lt.setTypeface(null, Typeface.BOLD);
+        lt.setTextColor(tc(a, "primary"));
+        lt.setPadding(dp(a, 16), dp(a, 20), dp(a, 16), dp(a, 8));
+        cd.addView(lt, cd.indexOfChild(lst));
+
+        TextView lh = new TextView(a);
+        lh.setText("长按编辑 · 左滑删除");
+        lh.setTextSize(11);
+        lh.setTextColor(tc(a, "on_surface_variant"));
+        lh.setPadding(dp(a, 16), 0, dp(a, 16), dp(a, 4));
+        cd.addView(lh, cd.indexOfChild(lst));
+
+        final Runnable refreshCallback = new Runnable() {
+            public void run() {
+                a.runOnUiThread(new Runnable() {
+                    public void run() {
+                        try {
+                            swipe.setRefreshing(true);
+                            lst.removeAllViews();
+                            String[] fs = getAll();
+                            if (fs.length == 0 || (fs.length == 1 && fs[0].equals(""))) {
+                                TextView e = new TextView(a);
+                                e.setText("暂无功能");
+                                e.setTextColor(tc(a, "on_surface_variant"));
+                                lst.addView(e);
+                            } else {
+                                for (String f : fs) {
+                                    if (!f.equals("")) {
+                                        createItem(a, lst, f, g, gn, refreshCallback);
+                                    }
+                                }
+                            }
+                            swipe.postDelayed(new Runnable() {
+                                public void run() {
+                                    swipe.setRefreshing(false);
+                                }
+                            }, 300);
+                        } catch (Throwable e) {
+                            traceLog("function_log", "[refreshCallback] 异常: " + e);
+                            swipe.setRefreshing(false);
+                        }
+                    }
+                });
+            }
+        };
+
+        refreshCallback.run();
+
+        swipe.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+            public void onRefresh() {
+                swipe.postDelayed(new Runnable() {
+                    public void run() {
+                        refreshCallback.run();
+                    }
+                }, 50);
+            }
+        });
+        swipe.setColorSchemeColors(tc(a, "primary"));
+
+        btnSave.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                String n = etN.getText().toString().trim();
+                String c = etC.getText().toString();
+                if (n.equals("") || (c.equals("") && !cks[6])) {
+                    toast("名称和内容不能为空(选择预处理时可不填代码)");
+                    return;
+                }
+                boolean hasCb = false;
+                for (int i = 0; i < 7; i++) if (cks[i]) hasCb = true;
+
+                long intervalVal = 0;
+                int countVal = 0;
+                int preTypeVal = 0;
+                String preTailVal = "";
+                int repeatSendVal = 0;
+                int repeatConcatVal = 0;
+
+                if (!hasCb) {
+                    try {
+                        intervalVal = Long.parseLong(fc.etInterval.getText().toString());
+                    } catch (Throwable e) {
+                        toast("间隔格式错误");
+                        return;
+                    }
+                    try {
+                        countVal = Integer.parseInt(fc.etCount.getText().toString());
+                    } catch (Throwable e) {
+                        countVal = 0;
+                    }
+                }
+
+                if (cks[6] && fc.preTypeChips != null) {
+                    for (int i = 0; i < 50; i++) {
+                        if (i < fc.preTypeChips.length && Boolean.TRUE.equals(fc.preTypeChips[i].getTag())) {
+                            preTypeVal = i;
+                            break;
+                        }
+                    }
+                    preTailVal = fc.etPreTail.getText().toString();
+                    try {
+                        repeatSendVal = Integer.parseInt(fc.etRepeatSend.getText().toString());
+                    } catch (Throwable e) { traceLog("function_log", "[onRefresh] 异常: " + e); }
+                    try {
+                        repeatConcatVal = Integer.parseInt(fc.etRepeatConcat.getText().toString());
+                    } catch (Throwable e) { traceLog("function_log", "[onRefresh] 异常: " + e); }
+                }
+
+                String rawTime = etTime.getText().toString().trim();
+
+                try {
+                    saveFunc(n, c, isFileState[0], new boolean[]{cks[0], cks[1], cks[2], cks[3], cks[4], cks[5], cks[6]}, cks[7], rawTime, intervalVal, Boolean.TRUE.equals(fc.chipLoop.getTag()), countVal, preTypeVal, preTailVal, repeatSendVal, repeatConcatVal);
+                    toast("已添加:" + n);
+                    editorContainer.animate().scaleY(0.8f).alpha(0f).setDuration(300).withEndAction(new Runnable() {
+                        public void run() {
+                            editorContainer.setVisibility(View.GONE);
+                            isAdding = false;
+                            refreshCallback.run();
+                        }
+                    }).start();
+                } catch (Throwable e) {
+                    traceLog("function_log", "[btnSave] 保存异常: " + e);
+                    toast("保存失败");
+                }
+            }
+        });
+
+        btnTest.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                String c = etC.getText().toString();
+                if (c.equals("")) {
+                    toast("代码为空");
+                    return;
+                }
+                testCode(etN.getText().toString().trim(), c, "新建测试");
+            }
+        });
+
+        btnCancel.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                editorContainer.animate().scaleY(0.8f).alpha(0f).setDuration(300).withEndAction(new Runnable() {
+                    public void run() {
+                        editorContainer.setVisibility(View.GONE);
+                        isAdding = false;
+                    }
+                }).start();
+            }
+        });
+
+        btnAdd.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                if (isAdding && editorContainer.getVisibility() == View.VISIBLE) {
+                    toast("已有未保存的编辑");
+                    return;
+                }
+
+                try {
+                    isAdding = true;
+                    etN.setText("");
+                    etC.setText("");
+                    etTime.setText("");
+                    isFileState[0] = false;
+                    for (int i = 0; i < 8; i++) {
+                        cks[i] = false;
+                        if (i < 7) setChip(chips[i], false);
+                    }
+                    if (Boolean.TRUE.equals(fc.chipLoop.getTag())) {
+                        fc.chipLoop.performClick();
+                    }
+                    fc.etInterval.setText("5000");
+                    fc.etCount.setText("0");
+
+                    if (fc.preTypeChips != null) {
+                        for (int j = 0; j < 50; j++) {
+                            if(j < fc.preTypeChips.length) setChipWithType(fc.preTypeChips[j], j == 0, 2);
+                        }
+                        fc.etPreTail.setText("");
+                        fc.etRepeatSend.setText("");
+                        fc.etRepeatConcat.setText("");
+                    }
+                    updatePreprocVisibility(fc, false);
+
+                    editorContainer.setVisibility(View.VISIBLE);
+                    editorContainer.setScaleY(0.8f);
+                    editorContainer.setAlpha(0f);
+                    editorContainer.setTranslationY(-dp(a, 20));
+
+                    AnimatorSet set = new AnimatorSet();
+                    ObjectAnimator scale = ObjectAnimator.ofFloat(editorContainer, "scaleY", new float[]{0.8f, 1f});
+                    ObjectAnimator alpha = ObjectAnimator.ofFloat(editorContainer, "alpha", new float[]{0f, 1f});
+                    ObjectAnimator trans = ObjectAnimator.ofFloat(editorContainer, "translationY", new float[]{-dp(a, 20), 0f});
+                    android.animation.Animator[] animArr = new android.animation.Animator[3];
+                    animArr[0] = scale;
+                    animArr[1] = alpha;
+                    animArr[2] = trans;
+                    set.playTogether(animArr);
+                    set.setDuration(400);
+                    set.setInterpolator(new OvershootInterpolator(1.2f));
+                    set.start();
+
+                } catch (Throwable e) {
+                    traceLog("function_log", "[btnAdd] 异常: " + e);
+                    isAdding = false;
+                }
+            }
+        });
+
+    return root;
+}
