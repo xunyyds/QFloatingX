@@ -1,21 +1,153 @@
+class StatsState {
+    boolean pageVisible = false;
+    View contentRoot = null;
+    final Object writeLock = new Object();
+    volatile boolean writeThreadRunning = false;
+    Handler msgHandle = new Handler(Looper.getMainLooper());
+    volatile long lastUIUpdateTime = 0L;
+    List weekDatesCache = new ArrayList();
+    List monthDatesCache = new ArrayList();
+    String weekCacheKey = "";
+    String monthCacheKey = "";
+    LinearLayout todayCoreCardCache = null;
+    View progressBarCache = null;
+    TextView sendTargetLabelCache = null;
+    TextView achievementTextCache = null;
+    TextView whitelistDetailCache = null;
+    int whitelistCurrentIndex = 0;
+    List statsTextViewCache = new ArrayList();
+    final Hashtable OP_STATS = new Hashtable();
+    final Vector CHANGED_KEYS = new Vector();
+    final Vector messageBatchQueue = new Vector();
+    final Hashtable cardExpandStatus = new Hashtable();
+    volatile int currentTimeRange = 0;
+    String customDateStr = null;
+    volatile String todayDateStr = "";
+    final Hashtable linkCache = new Hashtable();
+    final Hashtable linkCacheTime = new Hashtable();
+    volatile long lastLogCheckTime = 0L;
+    volatile int logMsgCounter = 0;
+    volatile boolean logCheckRunning = false;
+    volatile long lastBackupTime = 0L;
+    final Pattern LINK_PATTERN = Pattern.compile("##(.*?)##");
+    final Pattern VAR_PATTERN = Pattern.compile("#(.*?)#");
+}
 
-volatile boolean statsPageVisible = false;
-View statsContentRoot = null;
+StatsState SC = new StatsState();
+SC.todayDateStr = getTodayDateStr();
 
-private final Object writeLock = new Object();
-private volatile boolean writeThreadRunning = false;
-private Handler msgHandle = new Handler(Looper.getMainLooper());
-private volatile long lastUIUpdateTime = 0L;
+interface OnSelectorPickedListener {
+    void onPicked(int index);
+}
 
-private List weekDatesCache = new ArrayList();
-private List monthDatesCache = new ArrayList();
-private String weekCacheKey = "";
-private String monthCacheKey = "";
-private List statsTextViewCache = new ArrayList();
-private LinearLayout todayCoreCardCache = null;
-private View progressBarCache = null;
-private TextView sendTargetLabelCache = null;
-private TextView achievementTextCache = null;
+void showStyledSelector(final Activity act, final View anchor, final String[] items, final int selectedIndex, final OnSelectorPickedListener callback) {
+    if (act == null || items == null || items.length == 0) return;
+
+    int bgColor = pc(getSettingsThemeColor(act, "surface"));
+    int textColor = pc(getSettingsThemeColor(act, "on_surface"));
+    int accentColor = pc(getSettingsThemeColor(act, "primary"));
+    int dividerColor = pc(getSettingsThemeColor(act, "outline"));
+    int pressedColor = tca(act, "primary", 40);
+    int corner = dp(act, 12);
+    int outerPad = dp(act, 6);
+
+    final PopupWindow popup = new PopupWindow(act);
+    popup.setOutsideTouchable(true);
+    popup.setFocusable(true);
+    popup.setBackgroundDrawable(new ColorDrawable(0));
+
+    FrameLayout wrap = new FrameLayout(act);
+    wrap.setPadding(0, outerPad, 0, outerPad);
+
+    LinearLayout container = new LinearLayout(act);
+    container.setOrientation(LinearLayout.VERTICAL);
+    GradientDrawable bg = new GradientDrawable();
+    bg.setColor(bgColor);
+    bg.setCornerRadius(corner);
+    container.setBackground(bg);
+    container.setClipToOutline(true);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+        final int fc = corner;
+        container.setOutlineProvider(new ViewOutlineProvider() {
+            public void getOutline(View v, Outline o) {
+                o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), fc);
+            }
+        });
+    }
+    wrap.addView(container, new FrameLayout.LayoutParams(-1, -2));
+
+    int itemHeight = dp(act, 46);
+    for (int i = 0; i < items.length; i++) {
+        final int idx = i;
+        boolean selected = (i == selectedIndex);
+        TextView tv = new TextView(act);
+        tv.setText(items[i]);
+        tv.setTextSize(14);
+        tv.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
+        tv.setPadding(dp(act, 20), 0, dp(act, 20), 0);
+        tv.setLayoutParams(new LinearLayout.LayoutParams(-1, itemHeight));
+        tv.setTextColor(selected ? accentColor : textColor);
+        if (selected) tv.setTypeface(null, Typeface.BOLD);
+        tv.setSingleLine(true);
+        tv.setEllipsize(android.text.TextUtils.TruncateAt.END);
+
+        StateListDrawable sld = new StateListDrawable();
+        GradientDrawable pressed = new GradientDrawable();
+        pressed.setColor(pressedColor);
+        sld.addState(new int[]{android.R.attr.state_pressed}, pressed);
+        GradientDrawable normal = new GradientDrawable();
+        normal.setColor(Color.TRANSPARENT);
+        sld.addState(new int[0], normal);
+        tv.setBackground(sld);
+
+        tv.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                popup.dismiss();
+                if (callback != null) callback.onPicked(idx);
+            }
+        });
+        container.addView(tv);
+
+        if (i < items.length - 1) {
+            View div = new View(act);
+            LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(-1, 1);
+            dlp.leftMargin = dp(act, 12);
+            dlp.rightMargin = dp(act, 12);
+            div.setLayoutParams(dlp);
+            div.setBackgroundColor(dividerColor);
+            container.addView(div);
+        }
+    }
+
+    popup.setContentView(wrap);
+
+    int screenW = act.getResources().getDisplayMetrics().widthPixels;
+    int screenH = act.getResources().getDisplayMetrics().heightPixels;
+    int popupW = Math.max(dp(act, 180), anchor.getWidth());
+
+    wrap.measure(
+        View.MeasureSpec.makeMeasureSpec(popupW, View.MeasureSpec.AT_MOST),
+        View.MeasureSpec.makeMeasureSpec(screenH, View.MeasureSpec.AT_MOST));
+    int popupH = Math.min(wrap.getMeasuredHeight(), (int)(screenH * 0.6));
+
+    popup.setWidth(popupW);
+    popup.setHeight(popupH);
+
+    int[] loc = new int[2];
+    anchor.getLocationOnScreen(loc);
+
+    int x = loc[0];
+    if (x + popupW > screenW - dp(act, 8)) x = screenW - popupW - dp(act, 8);
+    if (x < dp(act, 8)) x = dp(act, 8);
+
+    int y = loc[1] + anchor.getHeight() + dp(act, 4);
+    if (y + popupH > screenH - dp(act, 8)) {
+        y = loc[1] - popupH - dp(act, 4);
+        if (y < dp(act, 8)) y = dp(act, 8);
+    }
+
+    popup.showAtLocation(anchor, Gravity.NO_GRAVITY, x, y);
+}
 
 private String[] api3StatTypes() {
     return new String[] {
@@ -26,6 +158,33 @@ private String[] api3StatTypes() {
         "SendEmoji", "SendAudio", "SendCard", "SendCall", "Command", "Like",
         "SendWordCount", "SendUnknown"
     };
+}
+
+private static final String[][] STAT_CATEGORIES = {
+    {"Text", "📝 文本"},
+    {"Pic", "🖼️ 图片"},
+    {"File", "📎 文件"},
+    {"Video", "🎬 视频"},
+    {"Emoji", "😊 表情"},
+    {"Audio", "🎙️ 语音"},
+    {"Card", "🍭 卡片"},
+    {"Call", "📞 通话"},
+    {"WordCount", "🔢 字数"},
+    {"GrayTip", "📋 灰字提示"},
+    {"Unknown", "🤔 未知"}
+};
+
+private String catKeyOf(String msgType) {
+    if ("text".equals(msgType)) return "Text";
+    if ("pic".equals(msgType)) return "Pic";
+    if ("file".equals(msgType)) return "File";
+    if ("video".equals(msgType)) return "Video";
+    if ("emoji".equals(msgType)) return "Emoji";
+    if ("audio".equals(msgType)) return "Audio";
+    if ("card".equals(msgType)) return "Card";
+    if ("call".equals(msgType)) return "Call";
+    if ("grayTip".equals(msgType)) return "GrayTip";
+    return "Unknown";
 }
 
 private String statsConfigPath() {
@@ -40,59 +199,36 @@ private String timeRangeName(int range) {
     return "今日";
 }
 
-private static final Hashtable OP_STATS = new Hashtable();
-private static final Vector CHANGED_KEYS = new Vector();
-private static final Vector messageBatchQueue = new Vector();
-private static final Hashtable cardExpandStatus = new Hashtable();
-
-// 时间范围常量（仅 api3 使用）：0今日 1昨日 2本周 3本月 4自定义
-private volatile int currentTimeRange = 0;
-private String customDateStr = null;
-
-private volatile String todayDateStr = getTodayDateStr();
-
-private final Pattern LINK_PATTERN = Pattern.compile("##(.*?)##");
-private final Pattern VAR_PATTERN = Pattern.compile("#(.*?)#");
-
-private final Hashtable linkCache = new Hashtable();
-private final Hashtable linkCacheTime = new Hashtable();
-
-private volatile long lastLogCheckTime = 0L;
-private volatile int logMsgCounter = 0;
-private volatile boolean logCheckRunning = false;
-
 private long atomicIncrement(String key) {
-    synchronized (writeLock) {
-        Long current = (Long) OP_STATS.get(key);
+    synchronized (SC.writeLock) {
+        Long current = (Long) SC.OP_STATS.get(key);
         long newValue = (current != null ? current.longValue() + 1 : 1);
-        OP_STATS.put(key, Long.valueOf(newValue));
+        SC.OP_STATS.put(key, Long.valueOf(newValue));
         addChangedKey(key);
         return newValue;
     }
 }
 
 private long atomicAdd(String key, long delta) {
-    synchronized (writeLock) {
-        Long current = (Long) OP_STATS.get(key);
+    synchronized (SC.writeLock) {
+        Long current = (Long) SC.OP_STATS.get(key);
         long newValue = (current != null ? current.longValue() + delta : delta);
-        OP_STATS.put(key, Long.valueOf(newValue));
+        SC.OP_STATS.put(key, Long.valueOf(newValue));
         addChangedKey(key);
         return newValue;
     }
 }
 
 private long atomicGet(String key) {
-    synchronized (writeLock) {
-        Long value = (Long) OP_STATS.get(key);
+    synchronized (SC.writeLock) {
+        Long value = (Long) SC.OP_STATS.get(key);
         return value != null ? value.longValue() : 0L;
     }
 }
 
 private void addChangedKey(String key) {
-    synchronized (writeLock) {
-        if (!CHANGED_KEYS.contains(key)) {
-            CHANGED_KEYS.add(key);
-        }
+    synchronized (SC.writeLock) {
+        if (!SC.CHANGED_KEYS.contains(key)) SC.CHANGED_KEYS.add(key);
     }
 }
 
@@ -105,56 +241,45 @@ private String formatStatValue(long value) {
 }
 
 private void startWriteThread() {
-    if (writeThreadRunning) return;
-    
-    writeThreadRunning = true;
-    
+    if (SC.writeThreadRunning) return;
+    SC.writeThreadRunning = true;
     ThreadPool.execute(new Runnable() {
         public void run() {
-            traceLog("api3_log", "[startWriteThread] 后台写入任务启动（懒调用模式）");
             long lastWriteTime = 0L;
-            while (writeThreadRunning) {
+            while (SC.writeThreadRunning) {
                 try {
-                    synchronized(writeLock) {
-                        if (messageBatchQueue.isEmpty() && CHANGED_KEYS.isEmpty()) {
-                            writeLock.wait();
+                    synchronized(SC.writeLock) {
+                        if (SC.messageBatchQueue.isEmpty() && SC.CHANGED_KEYS.isEmpty()) {
+                            SC.writeLock.wait();
                         }
-                        if (!messageBatchQueue.isEmpty()) {
-                            processBatch();
-                        }
+                        if (!SC.messageBatchQueue.isEmpty()) processBatch();
                     }
-                    int pendingKeys = CHANGED_KEYS.size();
+                    int pendingKeys = SC.CHANGED_KEYS.size();
                     long nowW = System.currentTimeMillis();
                     if (pendingKeys > 0) {
                         if (nowW - lastWriteTime >= 30000L || pendingKeys > 100) {
                             writeStats();
                             lastWriteTime = System.currentTimeMillis();
                         } else {
-                            synchronized(writeLock) {
-                                writeLock.wait(30000L - (nowW - lastWriteTime));
+                            synchronized(SC.writeLock) {
+                                SC.writeLock.wait(30000L - (nowW - lastWriteTime));
                             }
                         }
                     }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    traceLog("api3_log", "[startWriteThread] 任务被中断，退出");
                     break;
                 } catch (Exception e) {
                     traceLog("api3_log", "[startWriteThread] 运行时错误: " + e.getMessage());
                 }
             }
-            traceLog("api3_log", "[startWriteThread] 后台写入任务已停止");
         }
     });
-    traceLog("api3_log","[startWriteThread] 写入任务提交完成");
 }
 
 private void stopWriteThread() {
-    traceLog("api3_log", "[stopWriteThread] 停止写入任务");
-    writeThreadRunning = false;
-    synchronized(writeLock) {
-        writeLock.notifyAll();
-    }
+    SC.writeThreadRunning = false;
+    synchronized(SC.writeLock) { SC.writeLock.notifyAll(); }
 }
 
 private String formatDateForDisplay(String dateStr) {
@@ -169,36 +294,22 @@ private String formatDateForDisplay(String dateStr) {
 
 private String getMsgType(Object data) {
     if (data == null || data.data == null) return "unknown";
-    
     List elements = data.data.elements;
-    
-    boolean hasText = false;
-    boolean hasPic = false;
-    boolean hasVideo = false;
-    boolean hasFile = false;
-    boolean hasVoice = false;
-    boolean hasEmoji = false;
-    boolean hasCard = false;
-
+    boolean hasText = false, hasPic = false, hasVideo = false, hasFile = false;
+    boolean hasVoice = false, hasEmoji = false, hasCard = false;
     for (int i = 0; i < elements.size(); i++) {
         Object element = elements.get(i);
         if (element == null) continue;
-
         if (element.picElement != null) hasPic = true;
         else if (element.videoElement != null) hasVideo = true;
         else if (element.fileElement != null) hasFile = true;
         else if (element.pttElement != null) hasVoice = true;
-        else if (element.marketFaceElement != null || element.faceElement != null) {
-            hasEmoji = true; 
-        }
+        else if (element.marketFaceElement != null || element.faceElement != null) hasEmoji = true;
         else if (element.arkElement != null || element.structMsgElement != null) hasCard = true;
         else if (element.textElement != null) {
-            if (element.textElement.content != null && element.textElement.content.length() > 0) {
-                hasText = true;
-            }
+            if (element.textElement.content != null && element.textElement.content.length() > 0) hasText = true;
         }
     }
-
     if (hasVideo) return "video";
     if (hasFile) return "file";
     if (hasPic) return "pic";
@@ -206,27 +317,21 @@ private String getMsgType(Object data) {
     if (hasCard) return "card";
     if (hasText) return "text";
     if (hasEmoji) return "emoji";
-
     int rawType = data.data.msgType;
-    if (rawType == 5) return "grayTip"; 
-    if (rawType == 19) return "call";   
-
+    if (rawType == 5) return "grayTip";
+    if (rawType == 19) return "call";
     return "unknown";
 }
 
 private long getPureWordCount(Object data) {
     if (data == null || data.data == null || data.data.elements == null) return 0;
-    
     long totalLen = 0;
     List elements = data.data.elements;
-    
     for (int i = 0; i < elements.size(); i++) {
         Object element = elements.get(i);
         if (element != null && element.textElement != null) {
             String content = element.textElement.content;
-            if (content != null) {
-                totalLen += content.length();
-            }
+            if (content != null) totalLen += content.length();
         }
     }
     return totalLen;
@@ -234,36 +339,36 @@ private long getPureWordCount(Object data) {
 
 private void checkTodayReset() {
     String currentDate = getTodayDateStr();
-    if (todayDateStr == null || todayDateStr.isEmpty()) {
-        todayDateStr = currentDate;
-        traceLog("api3_log", "[checkTodayReset] 初始化todayDateStr=" + todayDateStr);
+    if (SC.todayDateStr == null || SC.todayDateStr.isEmpty()) {
+        SC.todayDateStr = currentDate;
         return;
     }
-    if (!currentDate.equals(todayDateStr)) {
-        traceLog("api3_log", "[checkTodayReset] 日期变更，旧:" + todayDateStr + " 新:" + currentDate);
-        todayDateStr = currentDate;
-        
-        synchronized(writeLock) {
-            writeStats();
-        }
-        
+    if (!currentDate.equals(SC.todayDateStr)) {
+        SC.todayDateStr = currentDate;
+        synchronized(SC.writeLock) { writeStats(); }
         triggerUIUpdate();
-        weekDatesCache.clear();
-        monthDatesCache.clear();
-        weekCacheKey = "";
-        monthCacheKey = "";
+        SC.weekDatesCache.clear();
+        SC.monthDatesCache.clear();
+        SC.weekCacheKey = "";
+        SC.monthCacheKey = "";
     }
 }
 
 private int getDailyTargetFromPrefs() {
+    int target = 0;
+    try {
+        String s = getString("settings", "msg_stats_daily_target", "");
+        if (s != null && !s.trim().isEmpty()) target = Integer.parseInt(s.trim());
+    } catch (Throwable ignore) {}
+    if (target > 0) return target;
     Activity activity = getNowActivity();
     if (activity != null) {
-        SharedPreferences sp = activity.getSharedPreferences("msg_stats_config", Activity.MODE_PRIVATE);
-        int target = sp.getInt("daily_msg_target", 100);
-        traceLog("api3_log","[getDailyTargetFromPrefs] 读取目标: " + target);
-        return target;
+        try {
+            SharedPreferences sp = activity.getSharedPreferences("msg_stats_config", Activity.MODE_PRIVATE);
+            int legacy = sp.getInt("daily_msg_target", 100);
+            if (legacy > 0) return legacy;
+        } catch (Throwable ignore) {}
     }
-    traceLog("api3_log","[getDailyTargetFromPrefs] activity为null，返回默认值: " + 100);
     return 100;
 }
 
@@ -274,9 +379,7 @@ private int getColorForStat(int index) {
         pc("#FFA07A"), pc("#87CEEB"), pc("#F0E68C"),
         pc("#CD853F"), pc("#98FB98")
     };
-    if (index >= 0 && index < colors.length) {
-        return colors[index];
-    }
+    if (index >= 0 && index < colors.length) return colors[index];
     return pc("#333333");
 }
 
@@ -288,9 +391,8 @@ private View createSpaceView(Activity activity, int heightDp) {
 }
 
 private View createDivider(Activity activity) {
-    boolean isDark = isThemeDark(activity);
     View divider = new View(activity);
-    divider.setBackgroundColor(isDark ? pc("#33FFFFFF") : pc("#F0F0F0"));
+    divider.setBackgroundColor(pc(getSettingsThemeColor(activity, "outline")));
     LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(
         LinearLayout.LayoutParams.MATCH_PARENT, 1);
     dividerParams.setMargins(0, dp(activity, 6), 0, dp(activity, 6));
@@ -299,51 +401,32 @@ private View createDivider(Activity activity) {
 }
 
 private void initTimeRange(Activity activity) {
-    if (activity == null) {
-        currentTimeRange = 0;
-        traceLog("api3_log","[initTimeRange] activity为null，默认TODAY");
-        return;
-    }
+    if (activity == null) { SC.currentTimeRange = 0; return; }
     SharedPreferences sp = activity.getSharedPreferences("msg_stats_config", Activity.MODE_PRIVATE);
     int savedOrdinal = sp.getInt("selected_time_range", 0);
     switch (savedOrdinal) {
-        case 1: currentTimeRange = 1; break;
-        case 2: currentTimeRange = 2; break;
-        case 3: currentTimeRange = 3; break;
-        case 4: currentTimeRange = 4; break;
-        default: currentTimeRange = 0; break;
+        case 1: SC.currentTimeRange = 1; break;
+        case 2: SC.currentTimeRange = 2; break;
+        case 3: SC.currentTimeRange = 3; break;
+        case 4: SC.currentTimeRange = 4; break;
+        default: SC.currentTimeRange = 0; break;
     }
-    customDateStr = sp.getString("custom_selected_date", null);
-    if (customDateStr == null) {
-        customDateStr = getTodayDateStr();
-    }
-    traceLog("api3_log","[initTimeRange] 加载范围: " + timeRangeName(currentTimeRange) + " 自定义日期: " + customDateStr);
+    SC.customDateStr = sp.getString("custom_selected_date", null);
+    if (SC.customDateStr == null) SC.customDateStr = getTodayDateStr();
 }
 
 private synchronized void readFullStats() {
     String configName = statsConfigPath();
-    if (configName == null || configName.isEmpty()) {
-        traceLog("api3_log", "[readFullStats] configName无效");
-        return;
-    }
-
+    if (configName == null || configName.isEmpty()) return;
     File mainFile = new File(statsConfigPath());
-    traceLog("api3_log", "[readFullStats] 尝试读取主文件: " + mainFile.getAbsolutePath());
-    if (mainFile.exists() && parseStatsFile(mainFile)) {
-        traceLog("api3_log", "[readFullStats] 从主文件加载数据");
-        return;
-    }
-
+    if (mainFile.exists() && parseStatsFile(mainFile)) return;
     File backupFile = new File(statsConfigPath() + ".bak");
     if (backupFile.exists() && parseStatsFile(backupFile)) {
-        traceLog("api3_log", "[readFullStats] 从备份文件恢复数据");
         Toast("已从备份文件恢复数据");
         return;
     }
-
-    msgHandle.post(new Runnable() {
+    SC.msgHandle.post(new Runnable() {
         public void run() {
-            traceLog("api3_log", "[readFullStats] 无历史数据，初始化空统计");
             initEmptyStats();
             Toast("无历史数据，初始化新统计");
         }
@@ -353,248 +436,217 @@ private synchronized void readFullStats() {
 private boolean parseStatsFile(File file) {
     BufferedReader bf = null;
     try {
-        bf = new BufferedReader(new InputStreamReader(
-            new FileInputStream(file), StandardCharsets.UTF_8), 8192);
+        bf = new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8), 8192);
         StringBuilder sb = new StringBuilder();
         String line;
         while ((line = bf.readLine()) != null) sb.append(line);
         String jsonStr = sb.length() == 0 ? "{}" : sb.toString();
-        
         JSONObject statsJson = new JSONObject(jsonStr);
         Iterator jsonIterator = statsJson.keys();
         while (jsonIterator.hasNext()) {
             String key = (String) jsonIterator.next();
             long value = statsJson.optLong(key, 0L);
-            OP_STATS.put(key, new Long(value));
+            SC.OP_STATS.put(key, new Long(value));
         }
-        traceLog("api3_log", "[parseStatsFile] 解析完成，加载键数量: " + OP_STATS.size());
         return true;
     } catch (Exception e) {
-        traceLog("api3_log", "[parseStatsFile] 文件: " + file.getName() + " - " + e.getMessage());
+        traceLog("api3_log", "[parseStatsFile] " + file.getName() + " - " + e.getMessage());
         return false;
     } finally {
-        try { if (bf != null) bf.close(); } catch (Throwable e) { traceLog("api3_log", "[parseStatsFile] 异常: " + e); }
+        try { if (bf != null) bf.close(); } catch (Throwable e) {}
     }
 }
 
 private void initEmptyStats() {
-    synchronized(writeLock) {
-        traceLog("api3_log", "[initEmptyStats] 初始化空统计数据");
-        OP_STATS.clear();
-        CHANGED_KEYS.clear();
+    synchronized(SC.writeLock) {
+        SC.OP_STATS.clear();
+        SC.CHANGED_KEYS.clear();
         String[] statTypes = api3StatTypes();
         for (int i = 0; i < statTypes.length; i++) {
-            String type = statTypes[i];
-            OP_STATS.put("total" + type, new Long(0L));
-            traceLog("api3_log", "[initEmptyStats] 初始化total" + type);
+            SC.OP_STATS.put("total" + statTypes[i], new Long(0L));
         }
-        traceLog("api3_log", "[initEmptyStats] 初始化结束");
     }
 }
 
 public void initStats() {
-    if (!getBoolean("settings", "消息统计开关", false)) {
-        traceLog("api3_log", "[initStats] 消息统计开关关闭，跳过初始化");
-        return;
-    }
-    traceLog("api3_log", "[initStats] api3初始化开始");
+    if (!getBoolean("settings", "消息统计开关", false)) return;
     Activity activity = getNowActivity();
     initTimeRange(activity);
     readFullStats();
     startWriteThread();
-    traceLog("api3_log", "[initStats] api3初始化完成");
 }
 
 private void processBatch() {
-    if (messageBatchQueue.isEmpty()) return;
-    
+    if (SC.messageBatchQueue.isEmpty()) return;
+
     List batch = new ArrayList();
-    synchronized(writeLock) {
-        while (!messageBatchQueue.isEmpty() && batch.size() < 10) {
-            batch.add(messageBatchQueue.remove(0));
+    synchronized(SC.writeLock) {
+        while (!SC.messageBatchQueue.isEmpty() && batch.size() < 10) {
+            batch.add(SC.messageBatchQueue.remove(0));
         }
     }
-    
     if (batch.isEmpty()) return;
-    
-    traceLog("api3_log", "[processBatch] 批量处理 " + batch.size() + " 条消息");
-    
+
+    boolean wlOn = getBoolean("settings", "msg_stats_whitelist_enabled", false);
+    HashSet wlG = new HashSet();
+    HashSet wlF = new HashSet();
+    if (wlOn) {
+        String gs = getString("settings", "msg_stats_whitelist_groups", "");
+        String fs = getString("settings", "msg_stats_whitelist_friends", "");
+        if (gs != null) {
+            String[] parts = gs.split(",");
+            for (int i = 0; i < parts.length; i++) {
+                String s = parts[i].trim();
+                if (!s.isEmpty()) wlG.add(s);
+            }
+        }
+        if (fs != null) {
+            String[] parts = fs.split(",");
+            for (int i = 0; i < parts.length; i++) {
+                String s = parts[i].trim();
+                if (!s.isEmpty()) wlF.add(s);
+            }
+        }
+    }
+
+    boolean sendOn = getBoolean("settings", "msg_stats_send_enabled", true);
+    boolean recvOn = getBoolean("settings", "msg_stats_receive_enabled", true);
+    boolean[] catOn = new boolean[STAT_CATEGORIES.length];
+    for (int i = 0; i < STAT_CATEGORIES.length; i++) {
+        catOn[i] = getBoolean("settings", "msg_stats_cat_" + STAT_CATEGORIES[i][0], true);
+    }
+
+    int wcIdx = -1;
+    for (int k = 0; k < STAT_CATEGORIES.length; k++) {
+        if ("WordCount".equals(STAT_CATEGORIES[k][0])) { wcIdx = k; break; }
+    }
+    boolean wcOn = wcIdx >= 0 && catOn[wcIdx];
+
     SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd", Locale.CHINA);
-    
+
     for (int i = 0; i < batch.size(); i++) {
         Object data = batch.get(i);
         String senderUin = data.userUin != null ? data.userUin.trim() : "";
-        
         String msgTypeStr = getMsgType(data);
-        
         String msgDateStr;
         try {
             long msgTimeSec = data.time;
-            if (msgTimeSec > 0) {
-                long msgTimeMs = msgTimeSec * 1000;
-                msgDateStr = sdf.format(new Date(msgTimeMs));
-            } else {
-                msgDateStr = todayDateStr;
-            }
+            msgDateStr = msgTimeSec > 0 ? sdf.format(new Date(msgTimeSec * 1000)) : SC.todayDateStr;
         } catch (Exception e) {
-            msgDateStr = todayDateStr;
+            msgDateStr = SC.todayDateStr;
         }
-        
+
         String dateKeyPrefix = "date_" + msgDateStr + "_";
         boolean isSend = myUin.equals(senderUin);
+        if (isSend && !sendOn) continue;
+        if (!isSend && !recvOn) continue;
+
+        String cat = catKeyOf(msgTypeStr);
+        int catIdx = -1;
+        for (int k = 0; k < STAT_CATEGORIES.length; k++) {
+            if (STAT_CATEGORIES[k][0].equals(cat)) { catIdx = k; break; }
+        }
+        boolean catEnabled = catIdx >= 0 && catOn[catIdx];
+
         long wordCount = 0;
-        
-        if ("text".equals(msgTypeStr)) {
+        if ("text".equals(msgTypeStr) && catEnabled && wcOn) {
             wordCount = getPureWordCount(data);
+        }
+
+        String wlPrefix = null;
+        if (wlOn) {
+            try {
+                int chatType = data.type;
+                String peerUin = String.valueOf(data.peerUin);
+                if (chatType == 2 && wlG.contains(peerUin)) wlPrefix = "g" + peerUin;
+                else if (chatType == 1 && wlF.contains(peerUin)) wlPrefix = "f" + peerUin;
+            } catch (Throwable ignore) {}
         }
 
         if (isSend) {
             atomicIncrement(dateKeyPrefix + "Send");
             atomicIncrement("totalSend");
-            
-            if ("text".equals(msgTypeStr)) {
-                atomicIncrement(dateKeyPrefix + "SendText");
-                atomicIncrement("totalSendText");
+            if (catEnabled) {
+                atomicIncrement(dateKeyPrefix + "Send" + cat);
+                atomicIncrement("totalSend" + cat);
+            }
+            if (wordCount > 0) {
+                atomicAdd(dateKeyPrefix + "SendWordCount", wordCount);
+                atomicAdd("totalSendWordCount", wordCount);
+            }
+            if (wlPrefix != null) {
+                atomicIncrement(dateKeyPrefix + "Send#" + wlPrefix);
+                atomicIncrement("totalSend#" + wlPrefix);
                 if (wordCount > 0) {
-                    atomicAdd(dateKeyPrefix + "SendWordCount", wordCount);
-                    atomicAdd("totalSendWordCount", wordCount);
+                    atomicAdd(dateKeyPrefix + "SendWordCount#" + wlPrefix, wordCount);
+                    atomicAdd("totalSendWordCount#" + wlPrefix, wordCount);
                 }
-            } else if ("pic".equals(msgTypeStr)) {
-                atomicIncrement(dateKeyPrefix + "SendPic");
-                atomicIncrement("totalSendPic");
-            } else if ("file".equals(msgTypeStr)) {
-                atomicIncrement(dateKeyPrefix + "SendFile");
-                atomicIncrement("totalSendFile");
-            } else if ("video".equals(msgTypeStr)) {
-                atomicIncrement(dateKeyPrefix + "SendVideo");
-                atomicIncrement("totalSendVideo");
-            } else if ("emoji".equals(msgTypeStr)) {
-                atomicIncrement(dateKeyPrefix + "SendEmoji");
-                atomicIncrement("totalSendEmoji");
-            } else if ("audio".equals(msgTypeStr)) {
-                atomicIncrement(dateKeyPrefix + "SendAudio");
-                atomicIncrement("totalSendAudio");
-            } else if ("card".equals(msgTypeStr)) {
-                atomicIncrement(dateKeyPrefix + "SendCard");
-                atomicIncrement("totalSendCard");
-            } else if ("call".equals(msgTypeStr)) {
-                atomicIncrement(dateKeyPrefix + "SendCall");
-                atomicIncrement("totalSendCall");
-            } else {
-                traceLog("api3_log", "[processBatch] 消息类型未知，归类为Unknown");
-                atomicIncrement(dateKeyPrefix + "SendUnknown");
-                atomicIncrement("totalSendUnknown");
             }
         } else {
             atomicIncrement(dateKeyPrefix + "Receive");
             atomicIncrement("totalReceive");
-            
-            if ("text".equals(msgTypeStr)) {
-                atomicIncrement(dateKeyPrefix + "ReceiveText");
-                atomicIncrement("totalReceiveText");
+            if (catEnabled) {
+                atomicIncrement(dateKeyPrefix + "Receive" + cat);
+                atomicIncrement("totalReceive" + cat);
+            }
+            if (wordCount > 0) {
+                atomicAdd(dateKeyPrefix + "ReceiveWordCount", wordCount);
+                atomicAdd("totalReceiveWordCount", wordCount);
+            }
+            if (wlPrefix != null) {
+                atomicIncrement(dateKeyPrefix + "Receive#" + wlPrefix);
+                atomicIncrement("totalReceive#" + wlPrefix);
                 if (wordCount > 0) {
-                    atomicAdd(dateKeyPrefix + "ReceiveWordCount", wordCount);
-                    atomicAdd("totalReceiveWordCount", wordCount);
+                    atomicAdd(dateKeyPrefix + "ReceiveWordCount#" + wlPrefix, wordCount);
+                    atomicAdd("totalReceiveWordCount#" + wlPrefix, wordCount);
                 }
-            } else if ("pic".equals(msgTypeStr)) {
-                atomicIncrement(dateKeyPrefix + "ReceivePic");
-                atomicIncrement("totalReceivePic");
-            } else if ("file".equals(msgTypeStr)) {
-                atomicIncrement(dateKeyPrefix + "ReceiveFile");
-                atomicIncrement("totalReceiveFile");
-            } else if ("video".equals(msgTypeStr)) {
-                atomicIncrement(dateKeyPrefix + "ReceiveVideo");
-                atomicIncrement("totalReceiveVideo");
-            } else if ("emoji".equals(msgTypeStr)) {
-                atomicIncrement(dateKeyPrefix + "ReceiveEmoji");
-                atomicIncrement("totalReceiveEmoji");
-            } else if ("audio".equals(msgTypeStr)) {
-                atomicIncrement(dateKeyPrefix + "ReceiveAudio");
-                atomicIncrement("totalReceiveAudio");
-            } else if ("card".equals(msgTypeStr)) {
-                atomicIncrement(dateKeyPrefix + "ReceiveCard");
-                atomicIncrement("totalReceiveCard");
-            } else if ("call".equals(msgTypeStr)) {
-                atomicIncrement(dateKeyPrefix + "ReceiveCall");
-                atomicIncrement("totalReceiveCall");
-            } else if ("grayTip".equals(msgTypeStr)) {
-                atomicIncrement(dateKeyPrefix + "ReceiveGrayTip");
-                atomicIncrement("totalReceiveGrayTip");
-            } else {
-                traceLog("api3_log", "[processBatch] 消息类型未知，归类为Unknown");
-                atomicIncrement(dateKeyPrefix + "ReceiveUnknown");
-                atomicIncrement("totalReceiveUnknown");
             }
         }
     }
-    
     triggerUIUpdate();
 }
 
 public void onMsg(Object data) {
-
-    
-    try { dispatchEvent(data, 1); 
+    try {
+        dispatchEvent(data, 1);
         checkTodayReset();
-        logMsgCounter++;
+        SC.logMsgCounter++;
         long nowMs = System.currentTimeMillis();
-        if (!logCheckRunning && (nowMs - lastLogCheckTime > 60000L || logMsgCounter >= 200)) {
-            lastLogCheckTime = nowMs;
-            logMsgCounter = 0;
-            logCheckRunning = true;
+        if (!SC.logCheckRunning && (nowMs - SC.lastLogCheckTime > 60000L || SC.logMsgCounter >= 200)) {
+            SC.lastLogCheckTime = nowMs;
+            SC.logMsgCounter = 0;
+            SC.logCheckRunning = true;
             ThreadPool.execute(new Runnable() {
                 public void run() {
-                    try { log大小限制(logPath); } catch (Throwable t) { traceLog("api3_log", "[log检查]" + t); }
-                    logCheckRunning = false;
+                    try { log大小限制(logPath); } catch (Throwable t) {}
+                    SC.logCheckRunning = false;
                 }
             });
         }
-        } catch (Throwable e) { traceLog("api3_log", "[onMsg]" + e); }
+    } catch (Throwable e) { traceLog("api3_log", "[onMsg]" + e); }
 
     if (!getBoolean("settings", "消息统计开关", false)) return;
 
-    synchronized(writeLock) {
-        messageBatchQueue.add(data);
-        writeLock.notifyAll();
-    }
-    
-    int queueSize = messageBatchQueue.size();
-    if (queueSize > 50) {
-        traceLog("api3_log", "[onMsg] 队列积压: " + queueSize + " 条");
+    synchronized(SC.writeLock) {
+        SC.messageBatchQueue.add(data);
+        SC.writeLock.notifyAll();
     }
 }
 
 private void writeStats() {
     String configName = statsConfigPath();
-    if (CHANGED_KEYS.isEmpty() || configName == null || configName.isEmpty()) {
-        return;
-    }
-
+    if (SC.CHANGED_KEYS.isEmpty() || configName == null || configName.isEmpty()) return;
     Vector keysToWrite = null;
-    synchronized(writeLock) {
-        keysToWrite = new Vector(CHANGED_KEYS);
-    }
-
+    synchronized(SC.writeLock) { keysToWrite = new Vector(SC.CHANGED_KEYS); }
     if (keysToWrite != null && !keysToWrite.isEmpty()) {
         writeFullStatsInternal();
-        
-        synchronized(writeLock) {
-            CHANGED_KEYS.removeAll(keysToWrite);
-            traceLog("api3_log", "[writeStats] 成功写入" + keysToWrite.size() + "个键，剩余" + CHANGED_KEYS.size() + "个键待写入");
-        }
-    }
-}
-
-private void writeFullStats() {
-    traceLog("api3_log", "[writeFullStats] 用户触发强制全量持久化");
-    synchronized(writeLock) {
-        writeFullStatsInternal();
+        synchronized(SC.writeLock) { SC.CHANGED_KEYS.removeAll(keysToWrite); }
     }
 }
 
 private void writeFullStatsInternal() {
     JSONObject statsJson = new JSONObject();
-    Iterator iterator = OP_STATS.entrySet().iterator();
+    Iterator iterator = SC.OP_STATS.entrySet().iterator();
     while (iterator.hasNext()) {
         Map.Entry entry = (Map.Entry) iterator.next();
         Long value = (Long) entry.getValue();
@@ -604,12 +656,8 @@ private void writeFullStatsInternal() {
 
     File mainFile = new File(statsConfigPath());
     File tempFile = new File(statsConfigPath() + ".tmp");
-    
     File parentDir = mainFile.getParentFile();
-    if (!parentDir.exists() && !parentDir.mkdirs()) {
-        traceLog("api3_log", "[writeFullStatsInternal] 创建目录失败: " + parentDir.getAbsolutePath());
-        return;
-    }
+    if (!parentDir.exists() && !parentDir.mkdirs()) return;
 
     FileOutputStream fos = null;
     OutputStreamWriter osw = null;
@@ -620,44 +668,31 @@ private void writeFullStatsInternal() {
         osw.flush();
         fos.getFD().sync();
         osw.close();
-
         if (mainFile.exists() && !mainFile.delete()) {
-            traceLog("api3_log", "[writeFullStatsInternal] 删除原文件失败: " + mainFile.getName());
             tempFile.delete();
             return;
         }
         if (!tempFile.renameTo(mainFile)) {
-            traceLog("api3_log", "[writeFullStatsInternal] 重命名失败: " + tempFile.getName());
             tempFile.delete();
             return;
         }
-
-        if (mainFile.exists() && mainFile.length() > 0) {
-            traceLog("api3_log", "[writeFullStatsInternal] 文件写入完成: " + mainFile.getName() + " 大小=" + mainFile.length() + "字节");
-        } else {
-            traceLog("api3_log", "[writeFullStatsInternal] 文件不存在或大小为0！");
-        }
-        
         createSingleBackup();
-        
     } catch (Exception e) {
         traceLog("api3_log", "[writeFullStatsInternal] 写入失败: " + e.getMessage());
         if (tempFile != null) tempFile.delete();
     } finally {
-        if (osw != null) try { osw.close(); } catch (Throwable e) { traceLog("api3_log", "[writeFullStatsInternal] 异常: " + e); }
-        if (fos != null) try { fos.close(); } catch (Throwable e) { traceLog("api3_log", "[writeFullStatsInternal] 异常: " + e); }
+        if (osw != null) try { osw.close(); } catch (Throwable e) {}
+        if (fos != null) try { fos.close(); } catch (Throwable e) {}
     }
 }
 
 private void recalculateTotalStats() {
-    traceLog("api3_log", "[recalculateTotalStats] 重新计算所有total统计");
     String[] statTypes = api3StatTypes();
     for (int i = 0; i < statTypes.length; i++) {
         String type = statTypes[i];
         long total = 0L;
         String keySuffix = "_" + type;
-        
-        List snapshot = new ArrayList(OP_STATS.entrySet());
+        List snapshot = new ArrayList(SC.OP_STATS.entrySet());
         Iterator iterator = snapshot.iterator();
         while (iterator.hasNext()) {
             Map.Entry entry = (Map.Entry) iterator.next();
@@ -666,75 +701,49 @@ private void recalculateTotalStats() {
                 total += ((Long) entry.getValue()).longValue();
             }
         }
-        
-        OP_STATS.put("total" + type, new Long(total));
+        SC.OP_STATS.put("total" + type, new Long(total));
         addChangedKey("total" + type);
-        traceLog("api3_log", "[recalculateTotalStats] type=" + type + " total=" + total);
     }
-    traceLog("api3_log", "[recalculateTotalStats] 重新计算结束");
 }
 
-private volatile long lastBackupTime = 0L;
-
 private void createSingleBackup() {
-    if (System.currentTimeMillis() - lastBackupTime < 600000L) return;
+    if (System.currentTimeMillis() - SC.lastBackupTime < 600000L) return;
     File mainFile = new File(statsConfigPath());
     if (!mainFile.exists() || mainFile.length() == 0) return;
-    
     File backupFile = new File(statsConfigPath() + ".bak");
     if (backupFile.exists()) backupFile.delete();
-    
     try {
         java.nio.file.Files.copy(mainFile.toPath(), backupFile.toPath());
-        lastBackupTime = System.currentTimeMillis();
-        traceLog("api3_log", "[createSingleBackup] 备份文件已创建");
-    } catch (Exception e) {
-        traceLog("api3_log", "[createSingleBackup] 备份失败: " + e.getMessage());
-    }
+        SC.lastBackupTime = System.currentTimeMillis();
+    } catch (Exception e) {}
 }
 
 private void triggerUIUpdate() {
-    if (!statsPageVisible || statsContentRoot == null) {
-        return;
-    }
-    
+    if (!SC.pageVisible || SC.contentRoot == null) return;
     long currentTime = System.currentTimeMillis();
-    if (currentTime - lastUIUpdateTime < 150) {
-        msgHandle.removeCallbacksAndMessages(null);
-        msgHandle.postDelayed(new Runnable() {
-            public void run() {
-                updateUIImmediately();
-            }
+    if (currentTime - SC.lastUIUpdateTime < 150) {
+        SC.msgHandle.removeCallbacksAndMessages(null);
+        SC.msgHandle.postDelayed(new Runnable() {
+            public void run() { updateUIImmediately(); }
         }, 150);
         return;
     }
-    lastUIUpdateTime = currentTime;
-    
-    msgHandle.post(new Runnable() {
+    SC.lastUIUpdateTime = currentTime;
+    SC.msgHandle.post(new Runnable() {
         public void run() {
-            try {
-                updateUIImmediately();
-            } catch (Throwable e) {
-                traceLog("api3_log", "[triggerUIUpdate] UI更新失败: " + e.getMessage());
-                traceLog("api3_log","[triggerUIUpdate]" + e);
-            }
+            try { updateUIImmediately(); } catch (Throwable e) {}
         }
     });
 }
 
 private void updateUIImmediately() {
-    if (statsContentRoot == null) {
-        return;
-    }
-    
+    if (SC.contentRoot == null) return;
+
     final String rangeName;
-    if (currentTimeRange == 4 && customDateStr != null) {
-        rangeName = formatDateForDisplay(customDateStr);
-    } else {
-        rangeName = timeRangeName(currentTimeRange);
-    }
-    
-    final long todaySend = atomicGet("date_" + todayDateStr + "_Send");
+    if (SC.currentTimeRange == 4 && SC.customDateStr != null) rangeName = formatDateForDisplay(SC.customDateStr);
+    else rangeName = timeRangeName(SC.currentTimeRange);
+
+    final long todaySend = atomicGet("date_" + SC.todayDateStr + "_Send");
     final int dailyTarget = getDailyTargetFromPrefs();
     final long totalReceive = atomicGet("totalReceive");
     final long totalSend = atomicGet("totalSend");
@@ -744,78 +753,102 @@ private void updateUIImmediately() {
     updateCachedTextView("Receive", rangeName + ": " + formatStatValue(getStatsByTimeRange("Receive")));
     updateCachedTextView("Send", rangeName + ": " + formatStatValue(getStatsByTimeRange("Send")));
 
-    String[] typeKeys = {
-        "ReceiveText", "ReceivePic", "ReceiveFile", "ReceiveVideo", "ReceiveEmoji",
-        "ReceiveAudio", "ReceiveCard", "ReceiveCall", "ReceiveGrayTip", "ReceiveWordCount", "ReceiveUnknown",
-        "SendText", "SendPic", "SendFile", "SendVideo", "SendEmoji",
-        "SendAudio", "SendCard", "SendCall", "SendWordCount", "SendUnknown"
-    };
-    for (int i = 0; i < typeKeys.length; i++) {
-        String key = typeKeys[i];
-        long rangeVal = getStatsByTimeRange(key);
-        long totalVal = atomicGet("total" + key);
-        updateCachedTextView(key, rangeName + ": " + formatStatValue(rangeVal) + "  累计: " + formatStatValue(totalVal));
+    for (int i = 0; i < STAT_CATEGORIES.length; i++) {
+        String cat = STAT_CATEGORIES[i][0];
+        if ("GrayTip".equals(cat)) {
+            long rv = getStatsByTimeRange("ReceiveGrayTip");
+            long tv = atomicGet("totalReceiveGrayTip");
+            updateCachedTextView("ReceiveGrayTip", rangeName + ": " + formatStatValue(rv) + "  累计: " + formatStatValue(tv));
+        } else if ("WordCount".equals(cat)) {
+            long rv = getStatsByTimeRange("SendWordCount") + getStatsByTimeRange("ReceiveWordCount");
+            long tv = atomicGet("totalSendWordCount") + atomicGet("totalReceiveWordCount");
+            updateCachedTextView("SendWordCount", rangeName + ": " + formatStatValue(rv) + "  累计: " + formatStatValue(tv));
+        } else {
+            long rvS = getStatsByTimeRange("Send" + cat);
+            long tvS = atomicGet("totalSend" + cat);
+            updateCachedTextView("Send" + cat, rangeName + ": " + formatStatValue(rvS) + "  累计: " + formatStatValue(tvS));
+            long rvR = getStatsByTimeRange("Receive" + cat);
+            long tvR = atomicGet("totalReceive" + cat);
+            updateCachedTextView("Receive" + cat, rangeName + ": " + formatStatValue(rvR) + "  累计: " + formatStatValue(tvR));
+        }
     }
 
     updateTodayProgress(todaySend, dailyTarget);
+
+    if (SC.whitelistDetailCache != null && SC.contentRoot != null) {
+        View wlCard = SC.contentRoot.findViewWithTag("whitelistCard");
+        if (wlCard != null) updateWhitelistDetail(wlCard, SC.whitelistCurrentIndex);
+    }
+}
+
+private void updateWhitelistDetail(View wlCard, int idx) {
+    if (wlCard == null || SC.whitelistDetailCache == null) return;
+    Object tagObj = wlCard.getTag();
+    if (!(tagObj instanceof Object[])) return;
+    Object[] meta = (Object[]) tagObj;
+    List prefixes = (List) meta[0];
+    Map nameCache = (Map) meta[1];
+    if (prefixes == null || prefixes.isEmpty()) return;
+    if (idx < 0 || idx >= prefixes.size()) return;
+    String prefix = (String) prefixes.get(idx);
+    String name = (nameCache != null && nameCache.containsKey(prefix))
+        ? (String) nameCache.get(prefix) : prefix.substring(1);
+    String uin = prefix.substring(1);
+    String tag2 = prefix.startsWith("g") ? "群" : "好友";
+
+    long rSend = getStatsByTimeRange("Send#" + prefix);
+    long rRecv = getStatsByTimeRange("Receive#" + prefix);
+    long rWords = getStatsByTimeRange("SendWordCount#" + prefix) + getStatsByTimeRange("ReceiveWordCount#" + prefix);
+    long tSend = atomicGet("totalSend#" + prefix);
+    long tRecv = atomicGet("totalReceive#" + prefix);
+    long tWords = atomicGet("totalSendWordCount#" + prefix) + atomicGet("totalReceiveWordCount#" + prefix);
+
+    String rangeName = (SC.currentTimeRange == 4 && SC.customDateStr != null)
+        ? formatDateForDisplay(SC.customDateStr) : timeRangeName(SC.currentTimeRange);
+
+    StringBuilder sb = new StringBuilder();
+    sb.append(tag2).append(": ").append(name).append("(").append(uin).append(")\n\n");
+    sb.append(rangeName).append(": 收 ").append(rRecv).append(" 条 · 发 ").append(rSend)
+      .append(" 条 · 字数 ").append(rWords).append("\n");
+    sb.append("累计: 收 ").append(tRecv).append(" 条 · 发 ").append(tSend)
+      .append(" 条 · 字数 ").append(tWords);
+    SC.whitelistDetailCache.setText(sb.toString());
 }
 
 private void updateCachedTextView(String tag, String text) {
     if (tag == null || text == null) return;
-    
     TextView tv = null;
-    for (int i = 0; i < statsTextViewCache.size(); i++) {
-        Object item = statsTextViewCache.get(i);
+    for (int i = 0; i < SC.statsTextViewCache.size(); i++) {
+        Object item = SC.statsTextViewCache.get(i);
         if (item instanceof TextView && tag.equals(((TextView) item).getTag())) {
             tv = (TextView) item;
             break;
         }
     }
-    
     if (tv == null) {
-        View rootView = statsContentRoot;
-        if (rootView != null) {
-            tv = (TextView) rootView.findViewWithTag(tag);
-            if (tv != null) {
-                statsTextViewCache.add(tv);
-            } else {
-                traceLog("api3_log", "[updateCachedTextView] 未找到Tag=" + tag + "的TextView");
-                return;
-            }
-        } else {
-            traceLog("api3_log", "[updateCachedTextView] rootView为null");
-            return;
-        }
+        if (SC.contentRoot != null) {
+            tv = (TextView) SC.contentRoot.findViewWithTag(tag);
+            if (tv != null) SC.statsTextViewCache.add(tv);
+            else return;
+        } else return;
     }
-    if (!text.equals(tv.getText().toString())) {
-        tv.setText(text);
-    }
+    if (!text.equals(tv.getText().toString())) tv.setText(text);
 }
 
 private void updateTodayProgress(long todaySend, int dailyTarget) {
-    if (todayCoreCardCache == null) {
-        traceLog("api3_log", "[updateTodayProgress] todayCoreCardCache为null");
-        return;
-    }
-    
+    if (SC.todayCoreCardCache == null) return;
     int progress = (int) Math.min(todaySend * 100 / Math.max(dailyTarget, 1), 100);
     int remaining = Math.max(dailyTarget - (int) todaySend, 0);
-    traceLog("api3_log", "[updateTodayProgress] 今日发送=" + todaySend + " dailyTarget=" + dailyTarget + " progress=" + progress);
-
-    if (sendTargetLabelCache != null) {
-        sendTargetLabelCache.setText("今天已经逼逼了" + todaySend + "句，还差" + remaining + " 句，目标：" + dailyTarget + "(" + progress + "%)");
+    if (SC.sendTargetLabelCache != null) {
+        SC.sendTargetLabelCache.setText("今天已经逼逼了" + todaySend + "句，还差" + remaining + " 句，目标：" + dailyTarget + "(" + progress + "%)");
     }
-
-    if (progressBarCache != null && todayCoreCardCache.getWidth() > 0) {
-        LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) progressBarCache.getLayoutParams();
-        params.width = (int) (todayCoreCardCache.getWidth() * progress / 100.0f);
-        progressBarCache.setLayoutParams(params);
-        traceLog("api3_log", "[updateTodayProgress] 进度条宽度更新: " + params.width);
+    if (SC.progressBarCache != null && SC.todayCoreCardCache.getWidth() > 0) {
+        LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) SC.progressBarCache.getLayoutParams();
+        params.width = (int) (SC.todayCoreCardCache.getWidth() * progress / 100.0f);
+        SC.progressBarCache.setLayoutParams(params);
     }
-
-    if (achievementTextCache != null) {
-        achievementTextCache.setVisibility(progress >= 100 ? View.VISIBLE : View.GONE);
-        traceLog("api3_log", "[updateTodayProgress] 成就显示: " + (progress >= 100 ? "显示" : "隐藏"));
+    if (SC.achievementTextCache != null) {
+        SC.achievementTextCache.setVisibility(progress >= 100 ? View.VISIBLE : View.GONE);
     }
 }
 
@@ -825,86 +858,70 @@ private long getStatsByTimeRange(String typeKey) {
     String keySuffix = "_" + typeKey;
     SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd", Locale.CHINA);
 
-    if (currentTimeRange == 0) {
-        return atomicGet(datePrefix + todayDateStr + keySuffix);
-    } else if (currentTimeRange == 1) {
+    if (SC.currentTimeRange == 0) {
+        return atomicGet(datePrefix + SC.todayDateStr + keySuffix);
+    } else if (SC.currentTimeRange == 1) {
         Calendar cal = Calendar.getInstance();
         cal.add(Calendar.DATE, -1);
         String yesterday = dateFormat.format(cal.getTime());
         return atomicGet(datePrefix + yesterday + keySuffix);
-    } else if (currentTimeRange == 2) {
-        String cacheKey = todayDateStr + "_week";
-        if (!cacheKey.equals(weekCacheKey) || weekDatesCache.isEmpty()) {
-            weekDatesCache.clear();
+    } else if (SC.currentTimeRange == 2) {
+        String cacheKey = SC.todayDateStr + "_week";
+        if (!cacheKey.equals(SC.weekCacheKey) || SC.weekDatesCache.isEmpty()) {
+            SC.weekDatesCache.clear();
             Calendar cal = Calendar.getInstance();
             cal.setFirstDayOfWeek(Calendar.MONDAY);
             cal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY);
             String today = getTodayDateStr();
-
             while (true) {
                 String currentDate = dateFormat.format(cal.getTime());
                 if (currentDate.compareTo(today) > 0) break;
-                weekDatesCache.add(currentDate);
+                SC.weekDatesCache.add(currentDate);
                 cal.add(Calendar.DATE, 1);
             }
-            weekCacheKey = cacheKey;
+            SC.weekCacheKey = cacheKey;
         }
-
-        for (int i = 0; i < weekDatesCache.size(); i++) {
-            String date = (String) weekDatesCache.get(i);
-            total += atomicGet(datePrefix + date + keySuffix);
+        for (int i = 0; i < SC.weekDatesCache.size(); i++) {
+            total += atomicGet(datePrefix + (String) SC.weekDatesCache.get(i) + keySuffix);
         }
-    } else if (currentTimeRange == 3) {
-        String cacheKey = todayDateStr.substring(0, 6) + "_month";
-        if (!cacheKey.equals(monthCacheKey) || monthDatesCache.isEmpty()) {
-            monthDatesCache.clear();
+    } else if (SC.currentTimeRange == 3) {
+        String cacheKey = SC.todayDateStr.substring(0, 6) + "_month";
+        if (!cacheKey.equals(SC.monthCacheKey) || SC.monthDatesCache.isEmpty()) {
+            SC.monthDatesCache.clear();
             Calendar cal = Calendar.getInstance();
             cal.set(Calendar.DAY_OF_MONTH, 1);
             String today = getTodayDateStr();
             String monthPrefix = today.substring(0, 6);
-
             while (true) {
                 String currentDate = dateFormat.format(cal.getTime());
                 if (!currentDate.substring(0, 6).equals(monthPrefix)) break;
-                monthDatesCache.add(currentDate);
+                SC.monthDatesCache.add(currentDate);
                 cal.add(Calendar.DATE, 1);
             }
-            monthCacheKey = cacheKey;
+            SC.monthCacheKey = cacheKey;
         }
-
-        for (int i = 0; i < monthDatesCache.size(); i++) {
-            String date = (String) monthDatesCache.get(i);
-            total += atomicGet(datePrefix + date + keySuffix);
+        for (int i = 0; i < SC.monthDatesCache.size(); i++) {
+            total += atomicGet(datePrefix + (String) SC.monthDatesCache.get(i) + keySuffix);
         }
-    } else if (currentTimeRange == 4) {
-        if (customDateStr == null) {
-            customDateStr = getTodayDateStr();
-        }
-        return atomicGet(datePrefix + customDateStr + keySuffix);
+    } else if (SC.currentTimeRange == 4) {
+        if (SC.customDateStr == null) SC.customDateStr = getTodayDateStr();
+        return atomicGet(datePrefix + SC.customDateStr + keySuffix);
     }
     return total;
 }
 
 private View createRangeSpinner(Activity activity) {
     final Activity finalActivity = activity;
-    final boolean isDark = isThemeDark(activity);
-    
-    final int textColor = isDark ? pc("#EFEFEF") : pc("#333333");
-    final int accentColor = isDark ? pc("#8AB4F8") : pc("#2196F3");
-    final int cardBgColor = isDark ? pc("#FF2D2D2D") : Color.WHITE;
-    
-    final int capsuleBgNormal = isDark ? pc("#1AFFFFFF") : pc("#F2F2F7");
-    final int capsuleBgPressed = isDark ? pc("#33FFFFFF") : pc("#E5E5EA");
-    
-    final int dropdownBgColor = isDark ? pc("#FF383838") : Color.WHITE;
+    final int textColor = pc(getSettingsThemeColor(activity, "on_surface"));
+    final int accentColor = pc(getSettingsThemeColor(activity, "primary"));
+    final int cardBgColor = getAdaptiveCardBg(activity);
+    final int capsuleBgNormal = tca(activity, "on_surface", 20);
+    final int capsuleBgPressed = tca(activity, "on_surface", 40);
 
     LinearLayout layout = new LinearLayout(finalActivity);
     layout.setGravity(Gravity.CENTER_VERTICAL);
     layout.setBackground(roundRect(cardBgColor, dp(finalActivity, 16)));
     layout.setPadding(dp(finalActivity, 16), dp(finalActivity, 14), dp(finalActivity, 16), dp(finalActivity, 14));
-    
-    layout.setClipChildren(false); 
-    layout.setClipToPadding(false);
 
     TextView label = new TextView(finalActivity);
     label.setText("📅  时间范围：");
@@ -916,157 +933,70 @@ private View createRangeSpinner(Activity activity) {
     View spacer = new View(finalActivity);
     layout.addView(spacer, new LinearLayout.LayoutParams(0, 1, 1.0f));
 
-    Spinner spinner = new Spinner(finalActivity, Spinner.MODE_DROPDOWN);
-    String[] rangeNames = {"今日", "昨日", "本周", "本月", "自定义日期"};
-
-    spinner.setPadding(0, 0, 0, 0);
+    final String[] rangeNames = {"今日", "昨日", "本周", "本月", "自定义日期"};
+    final TextView trigger = new TextView(finalActivity);
+    trigger.setText(rangeNames[SC.currentTimeRange]);
+    trigger.setTextSize(13);
+    trigger.setTypeface(null, Typeface.BOLD);
+    trigger.setTextColor(accentColor);
+    trigger.setGravity(Gravity.CENTER);
+    trigger.setPadding(dp(finalActivity, 16), 0, dp(finalActivity, 16), 0);
+    trigger.setSingleLine(true);
 
     StateListDrawable capsuleDrawable = new StateListDrawable();
-    
     GradientDrawable pressedBg = new GradientDrawable();
     pressedBg.setColor(capsuleBgPressed);
-    pressedBg.setCornerRadius(dp(finalActivity, 20)); 
+    pressedBg.setCornerRadius(dp(finalActivity, 20));
     capsuleDrawable.addState(new int[]{android.R.attr.state_pressed}, pressedBg);
-    
     GradientDrawable normalBg = new GradientDrawable();
     normalBg.setColor(capsuleBgNormal);
-    normalBg.setCornerRadius(dp(finalActivity, 20)); 
+    normalBg.setCornerRadius(dp(finalActivity, 20));
     capsuleDrawable.addState(new int[0], normalBg);
+    trigger.setBackground(capsuleDrawable);
 
-    LinearLayout.LayoutParams spinnerParams = new LinearLayout.LayoutParams(dp(finalActivity, 120), dp(finalActivity, 36));
-    
-    spinnerParams.setMargins(0, 0, 0, 0); 
-    spinnerParams.leftMargin = -dp(finalActivity, 2); 
-    
-    spinner.setLayoutParams(spinnerParams);
-    spinner.setBackground(capsuleDrawable);
-    
-    try {
-        GradientDrawable popupBg = new GradientDrawable();
-        popupBg.setColor(dropdownBgColor);
-        popupBg.setCornerRadius(dp(finalActivity, 12));
-        spinner.setPopupBackgroundDrawable(popupBg);
-    } catch (Throwable e) { traceLog("api3_log", "[createRangeSpinner] 异常: " + e); }
+    trigger.setLayoutParams(new LinearLayout.LayoutParams(dp(finalActivity, 130), dp(finalActivity, 36)));
 
-    try {
-        ArrayAdapter adapter = new ArrayAdapter(finalActivity, android.R.layout.simple_spinner_item, rangeNames) {
-            
-            public View getView(int position, View convertView, ViewGroup parent) {
-                TextView tv = new TextView(finalActivity);
-                
-                tv.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-                
-                tv.setGravity(Gravity.CENTER);
-                
-                tv.setTextSize(13);
-                tv.setTypeface(null, Typeface.BOLD);
-                tv.setText(getItem(position));
-                
-                tv.setPadding(0, 0, 0, 0);
-                tv.setIncludeFontPadding(false);
-
-                if (position == currentTimeRange) {
-                    tv.setTextColor(accentColor);
-                } else {
-                    tv.setTextColor(textColor);
+    trigger.setOnClickListener(new View.OnClickListener() {
+        public void onClick(View v) {
+            showStyledSelector(finalActivity, trigger, rangeNames, SC.currentTimeRange, new OnSelectorPickedListener() {
+                public void onPicked(int position) {
+                    int selected = 0;
+                    boolean needShowDatePicker = false;
+                    switch (position) {
+                        case 1: selected = 1; break;
+                        case 2: selected = 2; break;
+                        case 3: selected = 3; break;
+                        case 4: selected = 4; needShowDatePicker = true; break;
+                    }
+                    SC.currentTimeRange = selected;
+                    SharedPreferences sp = finalActivity.getSharedPreferences("msg_stats_config", Activity.MODE_PRIVATE);
+                    sp.edit().putInt("selected_time_range", position).apply();
+                    if (selected == 2) { SC.weekDatesCache.clear(); SC.weekCacheKey = ""; }
+                    else if (selected == 3) { SC.monthDatesCache.clear(); SC.monthCacheKey = ""; }
+                    trigger.setText(rangeNames[position]);
+                    if (needShowDatePicker) showDatePickerDialog(finalActivity);
+                    updateUIImmediately();
                 }
-                return tv;
-            }
-
-            public View getDropDownView(int position, View convertView, ViewGroup parent) {
-                TextView tv = new TextView(finalActivity);
-                tv.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-                tv.setTextSize(14);
-                tv.setText(getItem(position));
-                tv.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
-                
-                int padV = dp(finalActivity, 12);
-                int padH = dp(finalActivity, 16);
-                tv.setPadding(padH, padV, padH, padV);
-                
-                if (position == currentTimeRange) {
-                    tv.setTextColor(accentColor);
-                    tv.setTypeface(null, Typeface.BOLD);
-                    tv.setText("✓  " + getItem(position));
-                } else {
-                    tv.setTextColor(textColor);
-                    tv.setTypeface(null, Typeface.NORMAL);
-                    tv.setText("    " + getItem(position));
-                }
-                tv.setBackgroundColor(Color.TRANSPARENT);
-                return tv;
-            }
-        };
-        spinner.setAdapter(adapter);
-    } catch (Throwable e) {
-        ArrayAdapter adapter = new ArrayAdapter(finalActivity, android.R.layout.simple_spinner_item, rangeNames);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spinner.setAdapter(adapter);
-    }
-
-    int selectedPos = 0;
-    if (currentTimeRange == 1) selectedPos = 1;
-    else if (currentTimeRange == 2) selectedPos = 2;
-    else if (currentTimeRange == 3) selectedPos = 3;
-    else if (currentTimeRange == 4) selectedPos = 4;
-    spinner.setSelection(selectedPos);
-
-    spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-        public void onItemSelected(AdapterView parent, View view, int position, long id) {
-            int selected = 0;
-            boolean needShowDatePicker = false;
-            switch (position) {
-                case 1: selected = 1; break;
-                case 2: selected = 2; break;
-                case 3: selected = 3; break;
-                case 4: 
-                    selected = 4;
-                    needShowDatePicker = true;
-                    break;
-            }
-
-            if (currentTimeRange != selected || needShowDatePicker) {
-                currentTimeRange = selected;
-                SharedPreferences sp = finalActivity.getSharedPreferences("msg_stats_config", Activity.MODE_PRIVATE);
-                sp.edit().putInt("selected_time_range", position).apply();
-                
-                if (selected == 2) {
-                    weekDatesCache.clear();
-                    weekCacheKey = "";
-                } else if (selected == 3) {
-                    monthDatesCache.clear();
-                    monthCacheKey = "";
-                }
-                
-                if (needShowDatePicker) {
-                    showDatePickerDialog(finalActivity);
-                }
-                
-                triggerUIUpdate();
-            }
+            });
         }
-        public void onNothingSelected(AdapterView parent) {}
     });
 
-    layout.addView(spinner);
+    layout.addView(trigger);
     return layout;
 }
 
 private void showDatePickerDialog(final Activity activity) {
     if (activity == null || activity.isFinishing()) return;
     boolean isDark = isThemeDark(activity);
-
     final Calendar calendar = Calendar.getInstance();
-    if (customDateStr != null) {
+    if (SC.customDateStr != null) {
         try {
             SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd", Locale.CHINA);
-            calendar.setTime(sdf.parse(customDateStr));
-        } catch (Throwable e) { traceLog("api3_log", "[showDatePickerDialog] 异常: " + e); }
+            calendar.setTime(sdf.parse(SC.customDateStr));
+        } catch (Throwable e) {}
     }
-
     DatePicker datePicker = new DatePicker(activity);
     datePicker.init(calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH), null);
-
     LinearLayout container = new LinearLayout(activity);
     container.setOrientation(LinearLayout.VERTICAL);
     container.setPadding(dp(activity, 20), dp(activity, 10), dp(activity, 20), dp(activity, 10));
@@ -1083,19 +1013,16 @@ private void showDatePickerDialog(final Activity activity) {
                 String sy = "0000" + year;
                 String sm = "00" + month;
                 String sd = "00" + day;
-                customDateStr = sy.substring(sy.length() - 4) + sm.substring(sm.length() - 2) + sd.substring(sd.length() - 2);
-                
+                SC.customDateStr = sy.substring(sy.length() - 4) + sm.substring(sm.length() - 2) + sd.substring(sd.length() - 2);
                 SharedPreferences sp = activity.getSharedPreferences("msg_stats_config", Activity.MODE_PRIVATE);
-                sp.edit().putString("custom_selected_date", customDateStr).apply();
-                
-                traceLog("api3_log", "[showDatePickerDialog] 用户选择日期: " + customDateStr);
-                Toast("已选择日期: " + formatDateForDisplay(customDateStr));
+                sp.edit().putString("custom_selected_date", SC.customDateStr).apply();
+                Toast("已选择日期: " + formatDateForDisplay(SC.customDateStr));
                 triggerUIUpdate();
             }
         })
         .setNegativeButton("取消", new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int which) {
-                currentTimeRange = 0;
+                SC.currentTimeRange = 0;
                 SharedPreferences sp = activity.getSharedPreferences("msg_stats_config", Activity.MODE_PRIVATE);
                 sp.edit().putInt("selected_time_range", 0).apply();
                 triggerUIUpdate();
@@ -1104,57 +1031,10 @@ private void showDatePickerDialog(final Activity activity) {
         .show();
 }
 
-private void showTargetSettingDialog(Activity activity) {
-    if (activity == null || activity.isFinishing()) return;
-    boolean isDark = isThemeDark(activity);
-
-    SharedPreferences sp = activity.getSharedPreferences("msg_stats_config", Activity.MODE_PRIVATE);
-    int currentTarget = sp.getInt("daily_msg_target", 100);
-
-    LinearLayout dialogLayout = new LinearLayout(activity);
-    dialogLayout.setOrientation(LinearLayout.VERTICAL);
-    dialogLayout.setPadding(dp(activity, 24), dp(activity, 16), dp(activity, 24), dp(activity, 16));
-
-    EditText editText = makeInput(activity, "输入每日消息目标（默认100）", null);
-    editText.setText(String.valueOf(currentTarget));
-    editText.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-    editText.setTextSize(14);
-    dialogLayout.addView(editText);
-
-    new AlertDialog.Builder(activity, isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT)
-        .setTitle("设置每日消息目标")
-        .setView(dialogLayout)
-        .setPositiveButton("确认", new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface dialog, int which) {
-                String input = editText.getText().toString().trim();
-                if (!input.isEmpty()) {
-                    try {
-                        int target = Integer.parseInt(input);
-                        if (target > 0) {
-                            sp.edit().putInt("daily_msg_target", target).apply();
-                            traceLog("api3_log", "[showTargetSettingDialog] 用户设置目标: " + target);
-                            Toast("目标设置成功：" + target + "条/天");
-                            triggerUIUpdate();
-                        } else {
-                            Toast("目标需大于0");
-                        }
-                    } catch (NumberFormatException e) {
-                        Toast("请输入有效数字");
-                    }
-                } else {
-                    Toast("请输入有效数字");
-                }
-            }
-        })
-        .setNegativeButton("取消", null)
-        .show();
-}
-
 private LinearLayout createStatsCardBase(Activity activity, String title, String cardType) {
-    boolean isDark = isThemeDark(activity);
     LinearLayout card = new LinearLayout(activity);
     card.setOrientation(LinearLayout.VERTICAL);
-    card.setBackground(roundRect(isDark ? pc("#FF2D2D2D") : Color.WHITE, dp(activity, 12)));
+    card.setBackground(roundRect(getAdaptiveCardBg(activity), dp(activity, 12)));
     card.setTag(cardType);
     int padding = dp(activity, 16);
     card.setPadding(padding, padding, padding, padding);
@@ -1162,28 +1042,28 @@ private LinearLayout createStatsCardBase(Activity activity, String title, String
     LinearLayout titleBar = new LinearLayout(activity);
     titleBar.setOrientation(LinearLayout.HORIZONTAL);
     titleBar.setGravity(Gravity.CENTER_VERTICAL);
+    final LinearLayout fCard = card;
+    final String fCardType = cardType;
     titleBar.setOnClickListener(new View.OnClickListener() {
         public void onClick(View v) {
-            Boolean current = (Boolean) cardExpandStatus.get(cardType);
+            Boolean current = (Boolean) SC.cardExpandStatus.get(fCardType);
             boolean isExpanded = current != null && current;
-            cardExpandStatus.put(cardType, !isExpanded);
-            updateCardExpandStatus(card, !isExpanded);
+            SC.cardExpandStatus.put(fCardType, !isExpanded);
+            updateCardExpandStatus(fCard, !isExpanded);
         }
     });
 
     TextView cardTitle = new TextView(activity);
     cardTitle.setText(title);
-    cardTitle.setTextColor(isDark ? pc("#EFEFEF") : pc("#333333"));
+    cardTitle.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
     cardTitle.setTextSize(17);
-    cardTitle.setTypeface(cardTitle.getTypeface(), android.graphics.Typeface.BOLD);
-    LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
-    cardTitle.setLayoutParams(titleParams);
-    titleBar.addView(cardTitle);
+    cardTitle.setTypeface(cardTitle.getTypeface(), Typeface.BOLD);
+    titleBar.addView(cardTitle, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
 
     TextView arrowTv = new TextView(activity);
     arrowTv.setText("▶");
     arrowTv.setTextSize(14);
-    arrowTv.setTextColor(isDark ? pc("#AAAAAA") : pc("#666666"));
+    arrowTv.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
     arrowTv.setTag(cardType + "_arrow");
     titleBar.addView(arrowTv);
 
@@ -1195,7 +1075,7 @@ private LinearLayout createStatsCardBase(Activity activity, String title, String
     statsContainer.setVisibility(View.GONE);
     card.addView(statsContainer);
 
-    cardExpandStatus.put(cardType, false);
+    SC.cardExpandStatus.put(cardType, false);
     return card;
 }
 
@@ -1207,67 +1087,52 @@ private void updateCardExpandStatus(LinearLayout card, boolean isExpanded) {
         arrowTv.animate().rotation(isExpanded ? 90 : 0).setDuration(300).start();
         if (isExpanded) {
             container.setVisibility(View.VISIBLE);
-            Animation expandAnim = new ExpandAnimation(container, 300);
-            container.startAnimation(expandAnim);
+            container.startAnimation(new ExpandAnimation(container, 300));
         } else {
             Animation collapseAnim = new CollapseAnimation(container, 300);
             collapseAnim.setAnimationListener(new Animation.AnimationListener() {
                 public void onAnimationStart(Animation animation) {}
-                public void onAnimationEnd(Animation animation) {
-                    container.setVisibility(View.GONE);
-                }
+                public void onAnimationEnd(Animation animation) { container.setVisibility(View.GONE); }
                 public void onAnimationRepeat(Animation animation) {}
             });
             container.startAnimation(collapseAnim);
         }
-        cardExpandStatus.put(cardType, isExpanded);
-        traceLog("api3_log", "[updateCardExpandStatus] " + cardType + " 展开状态: " + isExpanded);
+        SC.cardExpandStatus.put(cardType, isExpanded);
     }
 }
 
 class ExpandAnimation extends Animation {
     private final View view;
     private final int targetHeight;
-
     public ExpandAnimation(View view, int duration) {
         this.view = view;
         view.measure(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         this.targetHeight = view.getMeasuredHeight();
         setDuration(duration);
     }
-
     protected void applyTransformation(float interpolatedTime, Transformation t) {
         view.getLayoutParams().height = (int) (targetHeight * interpolatedTime);
         view.requestLayout();
     }
-
-    public boolean willChangeBounds() {
-        return true;
-    }
+    public boolean willChangeBounds() { return true; }
 }
 
 class CollapseAnimation extends Animation {
     private final View view;
     private final int startHeight;
-
     public CollapseAnimation(View view, int duration) {
         this.view = view;
         this.startHeight = view.getHeight();
         setDuration(duration);
     }
-
     protected void applyTransformation(float interpolatedTime, Transformation t) {
         view.getLayoutParams().height = startHeight - (int) (startHeight * interpolatedTime);
         view.requestLayout();
     }
-
-    public boolean willChangeBounds() {
-        return true;
-    }
+    public boolean willChangeBounds() { return true; }
 }
 
-private LinearLayout createTypeStatsItemLayout(Activity activity, String label, String typeKey, int colorIndex) {
-    boolean isDark = isThemeDark(activity);
+private LinearLayout createStatsItemLayout(Activity activity, String label, String typeKey, int colorIndex, boolean withTotal) {
     LinearLayout itemLayout = new LinearLayout(activity);
     itemLayout.setOrientation(LinearLayout.HORIZONTAL);
     itemLayout.setGravity(Gravity.CENTER_VERTICAL);
@@ -1276,65 +1141,36 @@ private LinearLayout createTypeStatsItemLayout(Activity activity, String label, 
     TextView iconTv = new TextView(activity);
     iconTv.setText(label.substring(0, 2));
     iconTv.setTextSize(16);
-    iconTv.setTextColor(tc(activity, "on_surface_variant"));
+    iconTv.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
     iconTv.setLayoutParams(new LinearLayout.LayoutParams(dp(activity, 30), dp(activity, 30)));
 
     TextView labelTv = new TextView(activity);
     labelTv.setText(label.substring(3));
-    labelTv.setTextColor(isDark ? pc("#AAAAAA") : pc("#666666"));
+    labelTv.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
     labelTv.setTextSize(14);
     labelTv.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
 
-    TextView statsTv = new TextView(activity);
-    long rangeValue = getStatsByTimeRange(typeKey);
-    long totalValue = atomicGet("total" + typeKey);
-    statsTv.setText(timeRangeName(currentTimeRange) + ": " + formatStatValue(rangeValue) + "  累计: " + formatStatValue(totalValue));
-    statsTv.setTextColor(getColorForStat(colorIndex));
-    statsTv.setTextSize(14);
-    statsTv.setTag(typeKey);
-
-    itemLayout.addView(iconTv);
-    itemLayout.addView(labelTv);
-    itemLayout.addView(statsTv);
-    return itemLayout;
-}
-
-private LinearLayout createStatsItemLayout(Activity activity, String label, String key, int colorIndex) {
-    boolean isDark = isThemeDark(activity);
-    LinearLayout itemLayout = new LinearLayout(activity);
-    itemLayout.setOrientation(LinearLayout.HORIZONTAL);
-    itemLayout.setGravity(Gravity.CENTER_VERTICAL);
-    itemLayout.setPadding(0, dp(activity, 6), 0, dp(activity, 6));
-
-    TextView iconTv = new TextView(activity);
-    iconTv.setText(label.substring(0, 2));
-    iconTv.setTextSize(16);
-    iconTv.setTextColor(tc(activity, "on_surface_variant"));
-    iconTv.setLayoutParams(new LinearLayout.LayoutParams(dp(activity, 30), dp(activity, 30)));
-
-    TextView labelTv = new TextView(activity);
-    labelTv.setText(label.substring(3));
-    labelTv.setTextColor(isDark ? pc("#AAAAAA") : pc("#666666"));
-    labelTv.setTextSize(14);
-    labelTv.setLayoutParams(new LinearLayout.LayoutParams(
-        0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
-
-    long value;
-    String textPrefix;
-    if (key.startsWith("total")) {
-        value = atomicGet(key);
-        textPrefix = "累计: ";
-    } else {
-        value = getStatsByTimeRange(key);
-        textPrefix = timeRangeName(currentTimeRange) + ": ";
-    }
-
     TextView valueTv = new TextView(activity);
-    valueTv.setText(textPrefix + formatStatValue(value));
+    if (withTotal) {
+        long rangeValue = getStatsByTimeRange(typeKey);
+        long totalValue = atomicGet("total" + typeKey);
+        valueTv.setText(timeRangeName(SC.currentTimeRange) + ": " + formatStatValue(rangeValue) + "  累计: " + formatStatValue(totalValue));
+    } else {
+        long value;
+        String textPrefix;
+        if (typeKey.startsWith("total")) {
+            value = atomicGet(typeKey);
+            textPrefix = "累计: ";
+        } else {
+            value = getStatsByTimeRange(typeKey);
+            textPrefix = timeRangeName(SC.currentTimeRange) + ": ";
+        }
+        valueTv.setText(textPrefix + formatStatValue(value));
+    }
+    valueTv.setTag(typeKey);
     valueTv.setTextColor(getColorForStat(colorIndex));
-    valueTv.setTextSize(16);
-    valueTv.setTypeface(valueTv.getTypeface(), android.graphics.Typeface.BOLD);
-    valueTv.setTag(key);
+    valueTv.setTextSize(withTotal ? 14 : 16);
+    if (!withTotal) valueTv.setTypeface(valueTv.getTypeface(), Typeface.BOLD);
 
     itemLayout.addView(iconTv);
     itemLayout.addView(labelTv);
@@ -1343,10 +1179,9 @@ private LinearLayout createStatsItemLayout(Activity activity, String label, Stri
 }
 
 private LinearLayout createTodayCoreStatsCard(Activity activity, String title) {
-    boolean isDark = isThemeDark(activity);
     LinearLayout card = new LinearLayout(activity);
     card.setOrientation(LinearLayout.VERTICAL);
-    card.setBackground(roundRect(isDark ? pc("#FF2D2D2D") : Color.WHITE, dp(activity, 12)));
+    card.setBackground(roundRect(getAdaptiveCardBg(activity), dp(activity, 12)));
     card.setTag("todayCoreCard");
     int padding = dp(activity, 16);
     card.setPadding(padding, padding, padding, padding);
@@ -1354,23 +1189,16 @@ private LinearLayout createTodayCoreStatsCard(Activity activity, String title) {
     TextView cardTitle = new TextView(activity);
     cardTitle.setText(title);
     cardTitle.setTag("core_card_title");
-    cardTitle.setTextColor(isDark ? pc("#EFEFEF") : pc("#333333"));
+    cardTitle.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
     cardTitle.setTextSize(17);
-    cardTitle.setTypeface(cardTitle.getTypeface(), android.graphics.Typeface.BOLD);
+    cardTitle.setTypeface(cardTitle.getTypeface(), Typeface.BOLD);
     card.addView(cardTitle);
 
-    String[][] statsItems = {
-        {"📥 今日接收总数", "Receive"},
-        {"📤 今日发送总数", "Send"}
-    };
-    for (int i = 0; i < statsItems.length; i++) {
-        LinearLayout itemLayout = createStatsItemLayout(activity, statsItems[i][0], statsItems[i][1], i);
-        card.addView(itemLayout);
-        if (i < statsItems.length - 1) {
-            card.addView(createDivider(activity));
-        }
+    String[][] items = {{"📥 今日接收总数", "Receive"}, {"📤 今日发送总数", "Send"}};
+    for (int i = 0; i < items.length; i++) {
+        card.addView(createStatsItemLayout(activity, items[i][0], items[i][1], i, false));
+        if (i < items.length - 1) card.addView(createDivider(activity));
     }
-
     card.addView(createDivider(activity));
 
     LinearLayout sendTargetLayout = new LinearLayout(activity);
@@ -1379,27 +1207,18 @@ private LinearLayout createTodayCoreStatsCard(Activity activity, String title) {
 
     TextView sendTargetLabel = new TextView(activity);
     sendTargetLabel.setTag("send_target_label");
-
-    long todaySend = atomicGet("date_" + todayDateStr + "_Send");
-    Activity act = getNowActivity();
-    if (act != null) {
-        SharedPreferences sp = act.getSharedPreferences("msg_stats_config", Activity.MODE_PRIVATE);
-        int dailyTarget = sp.getInt("daily_msg_target", 100);
-        int progress = (int) Math.min(todaySend * 100 / Math.max(dailyTarget, 1), 100);
-        sendTargetLabel.setText("今天已经逼逼了" + todaySend + "句，还差" + (dailyTarget - todaySend) + " 句，目标：" + dailyTarget + "(" + progress + "%)");
-    } else {
-        sendTargetLabel.setText("正在加载目标数据...");
-    }
-
-    sendTargetLabel.setTextColor(isDark ? pc("#EFEFEF") : pc("#333333"));
+    long todaySend = atomicGet("date_" + SC.todayDateStr + "_Send");
+    int dailyTarget = getDailyTargetFromPrefs();
+    int progress = (int) Math.min(todaySend * 100 / Math.max(dailyTarget, 1), 100);
+    sendTargetLabel.setText("今天已经逼逼了" + todaySend + "句，还差" + (dailyTarget - todaySend) + " 句，目标：" + dailyTarget + "(" + progress + "%)");
+    sendTargetLabel.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
     sendTargetLabel.setTextSize(14);
     sendTargetLayout.addView(sendTargetLabel);
 
     View progressBg = new View(activity);
     progressBg.setTag("send_progress_bg");
-    progressBg.setBackgroundColor(isDark ? pc("#33FFFFFF") : pc("#E0E0E0"));
-    LinearLayout.LayoutParams bgParams = new LinearLayout.LayoutParams(
-        LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 8));
+    progressBg.setBackgroundColor(pc(getSettingsThemeColor(activity, "outline")));
+    LinearLayout.LayoutParams bgParams = new LinearLayout.LayoutParams(-1, dp(activity, 8));
     bgParams.setMargins(0, dp(activity, 8), 0, 0);
     progressBg.setLayoutParams(bgParams);
     sendTargetLayout.addView(progressBg);
@@ -1417,9 +1236,8 @@ private LinearLayout createTodayCoreStatsCard(Activity activity, String title) {
     achievementText.setText("🎉 今日达成成就：屁话王");
     achievementText.setTextColor(pc("#FF6B6B"));
     achievementText.setTextSize(14);
-    achievementText.setTypeface(achievementText.getTypeface(), android.graphics.Typeface.BOLD);
-    LinearLayout.LayoutParams achievementParams = new LinearLayout.LayoutParams(
-        LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+    achievementText.setTypeface(achievementText.getTypeface(), Typeface.BOLD);
+    LinearLayout.LayoutParams achievementParams = new LinearLayout.LayoutParams(-2, -2);
     achievementParams.setMargins(0, dp(activity, 8), 0, 0);
     achievementText.setLayoutParams(achievementParams);
     achievementText.setVisibility(View.GONE);
@@ -1430,93 +1248,463 @@ private LinearLayout createTodayCoreStatsCard(Activity activity, String title) {
 }
 
 private LinearLayout createTotalStatsCard(Activity activity, String title) {
-    boolean isDark = isThemeDark(activity);
     LinearLayout card = new LinearLayout(activity);
     card.setOrientation(LinearLayout.VERTICAL);
-    card.setBackground(roundRect(isDark ? pc("#FF2D2D2D") : Color.WHITE, dp(activity, 12)));
+    card.setBackground(roundRect(getAdaptiveCardBg(activity), dp(activity, 12)));
     int padding = dp(activity, 16);
     card.setPadding(padding, padding, padding, padding);
 
     TextView cardTitle = new TextView(activity);
     cardTitle.setText(title);
-    cardTitle.setTextColor(isDark ? pc("#EFEFEF") : pc("#333333"));
+    cardTitle.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
     cardTitle.setTextSize(17);
-    cardTitle.setTypeface(cardTitle.getTypeface(), android.graphics.Typeface.BOLD);
+    cardTitle.setTypeface(cardTitle.getTypeface(), Typeface.BOLD);
     card.addView(cardTitle);
 
-    String[][] statsItems = {
-        {"📥 累计接收总数", "totalReceive"},
-        {"📤 累计发送总数", "totalSend"}
-    };
-    for (int i = 0; i < statsItems.length; i++) {
-        LinearLayout itemLayout = createStatsItemLayout(activity, statsItems[i][0], statsItems[i][1], i);
-        card.addView(itemLayout);
-        if (i < statsItems.length - 1) {
-            card.addView(createDivider(activity));
-        }
+    String[][] items = {{"📥 累计接收总数", "totalReceive"}, {"📤 累计发送总数", "totalSend"}};
+    for (int i = 0; i < items.length; i++) {
+        card.addView(createStatsItemLayout(activity, items[i][0], items[i][1], i, false));
+        if (i < items.length - 1) card.addView(createDivider(activity));
     }
     return card;
 }
 
-private LinearLayout createReceiveStatsCard(Activity activity, String title, String cardType) {
+private LinearLayout createCategoryStatsCard(Activity activity, String title, String cardType, boolean isReceive) {
     LinearLayout card = createStatsCardBase(activity, title, cardType);
-
-    String[][] statsItems = {
-        {"💬 文本", "ReceiveText"},
-        {"🖼️ 图片", "ReceivePic"},
-        {"📎 文件", "ReceiveFile"},
-        {"🎬 视频", "ReceiveVideo"},
-        {"😊 表情", "ReceiveEmoji"},
-        {"🎙️ 语音", "ReceiveAudio"},
-        {"🍭 卡片", "ReceiveCard"},
-        {"📞 通话", "ReceiveCall"},
-        {"📝 灰字提示", "ReceiveGrayTip"},
-        {"📝 字数", "ReceiveWordCount"},
-        {"🤔 未知", "ReceiveUnknown"}
-    };
-
     LinearLayout statsContainer = (LinearLayout) card.findViewWithTag(cardType + "_container");
-    for (int i = 0; i < statsItems.length; i++) {
-        LinearLayout itemLayout = createTypeStatsItemLayout(activity, statsItems[i][0], statsItems[i][1], i);
-        statsContainer.addView(itemLayout);
-        if (i < statsItems.length - 1) {
-            statsContainer.addView(createDivider(activity));
-        }
-    }
 
+    int idx = 0;
+    for (int i = 0; i < STAT_CATEGORIES.length; i++) {
+        String cat = STAT_CATEGORIES[i][0];
+        if ("GrayTip".equals(cat) && !isReceive) continue;
+        if ("WordCount".equals(cat)) continue;
+        String label = STAT_CATEGORIES[i][1];
+        String key = (isReceive ? "Receive" : "Send") + cat;
+        statsContainer.addView(createStatsItemLayout(activity, label, key, idx, true));
+        idx++;
+        if (i < STAT_CATEGORIES.length - 1) statsContainer.addView(createDivider(activity));
+    }
+    statsContainer.addView(createStatsItemLayout(activity, "🔢 字数", (isReceive ? "Receive" : "Send") + "WordCount", idx, true));
     return card;
 }
 
-private LinearLayout createSendStatsCard(Activity activity, String title, String cardType) {
-    LinearLayout card = createStatsCardBase(activity, title, cardType);
-
-    String[][] statsItems = {
-        {"💬 文本", "SendText"},
-        {"🖼️ 图片", "SendPic"},
-        {"📎 文件", "SendFile"},
-        {"🎬 视频", "SendVideo"},
-        {"😊 表情", "SendEmoji"},
-        {"🎙️ 语音", "SendAudio"},
-        {"🍭 卡片", "SendCard"},
-        {"📞 通话", "SendCall"},
-        {"📝 字数", "SendWordCount"},
-        {"🤔 未知", "SendUnknown"}
-    };
-
-    LinearLayout statsContainer = (LinearLayout) card.findViewWithTag(cardType + "_container");
-    for (int i = 0; i < statsItems.length; i++) {
-        LinearLayout itemLayout = createTypeStatsItemLayout(activity, statsItems[i][0], statsItems[i][1], i);
-        statsContainer.addView(itemLayout);
-        if (i < statsItems.length - 1) {
-            statsContainer.addView(createDivider(activity));
+private LinearLayout createWhitelistCard(Activity activity) {
+    boolean wlOn = getBoolean("settings", "msg_stats_whitelist_enabled", false);
+    if (!wlOn) return null;
+    String gs = getString("settings", "msg_stats_whitelist_groups", "");
+    String fs = getString("settings", "msg_stats_whitelist_friends", "");
+    final List prefixes = new ArrayList();
+    if (gs != null && !gs.isEmpty()) {
+        String[] parts = gs.split(",");
+        for (int i = 0; i < parts.length; i++) {
+            String s = parts[i].trim();
+            if (!s.isEmpty()) prefixes.add("g" + s);
         }
     }
+    if (fs != null && !fs.isEmpty()) {
+        String[] parts = fs.split(",");
+        for (int i = 0; i < parts.length; i++) {
+            String s = parts[i].trim();
+            if (!s.isEmpty()) prefixes.add("f" + s);
+        }
+    }
+    if (prefixes.isEmpty()) return null;
 
+    final Map nameCache = new HashMap();
+    final List displayNames = new ArrayList();
+    for (int i = 0; i < prefixes.size(); i++) {
+        String prefix = (String) prefixes.get(i);
+        String uin = prefix.substring(1);
+        String name = uin;
+        if (prefix.startsWith("g")) {
+            try {
+                Object info = findTroopInfo(uin);
+                if (info != null) {
+                    String tn = String.valueOf(info.troopname);
+                    if (tn != null && !tn.isEmpty() && !"null".equals(tn)) name = tn;
+                }
+            } catch (Throwable ignore) {}
+        } else {
+            try {
+                Object card = GetCard(uin);
+                if (card != null) {
+                    String cn = String.valueOf(card.strNick);
+                    if (cn != null && !cn.isEmpty() && !"null".equals(cn)) name = cn;
+                }
+            } catch (Throwable ignore) {}
+        }
+        nameCache.put(prefix, name);
+        displayNames.add(name + "(" + uin + ")");
+    }
+
+    final LinearLayout card = new LinearLayout(activity);
+    card.setOrientation(LinearLayout.VERTICAL);
+    card.setBackground(roundRect(getAdaptiveCardBg(activity), dp(activity, 12)));
+    card.setTag(new Object[]{prefixes, nameCache});
+    int padding = dp(activity, 16);
+    card.setPadding(padding, padding, padding, padding);
+
+    TextView title = new TextView(activity);
+    title.setText("🎯 指定数据");
+    title.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
+    title.setTextSize(17);
+    title.setTypeface(title.getTypeface(), Typeface.BOLD);
+    card.addView(title);
+
+    final Activity fActivity = activity;
+    final int accentColor = pc(getSettingsThemeColor(activity, "primary"));
+    final int chipBgNormal = tca(activity, "on_surface", 20);
+    final int chipBgPressed = tca(activity, "on_surface", 40);
+
+    final TextView trigger = new TextView(activity);
+    trigger.setText((String) displayNames.get(0));
+    trigger.setTextSize(14);
+    trigger.setTypeface(null, Typeface.BOLD);
+    trigger.setTextColor(accentColor);
+    trigger.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
+    trigger.setPadding(dp(activity, 14), 0, dp(activity, 14), 0);
+    trigger.setSingleLine(true);
+    trigger.setEllipsize(android.text.TextUtils.TruncateAt.END);
+
+    StateListDrawable chipBg = new StateListDrawable();
+    GradientDrawable chipPressed = new GradientDrawable();
+    chipPressed.setColor(chipBgPressed);
+    chipPressed.setCornerRadius(dp(activity, 10));
+    chipBg.addState(new int[]{android.R.attr.state_pressed}, chipPressed);
+    GradientDrawable chipNormal = new GradientDrawable();
+    chipNormal.setColor(chipBgNormal);
+    chipNormal.setCornerRadius(dp(activity, 10));
+    chipBg.addState(new int[0], chipNormal);
+    trigger.setBackground(chipBg);
+
+    LinearLayout.LayoutParams triggerLp = new LinearLayout.LayoutParams(-1, dp(activity, 44));
+    triggerLp.topMargin = dp(activity, 10);
+    trigger.setLayoutParams(triggerLp);
+
+    final TextView detail = new TextView(activity);
+    detail.setTag("whitelistDetail");
+    detail.setTextSize(13);
+    detail.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
+    detail.setPadding(0, dp(activity, 12), 0, 0);
+    detail.setLineSpacing(0, 1.15f);
+
+    card.addView(trigger);
+    card.addView(detail);
+
+    SC.whitelistDetailCache = detail;
+    SC.whitelistCurrentIndex = 0;
+
+    trigger.setOnClickListener(new View.OnClickListener() {
+        public void onClick(View v) {
+            String[] items = (String[]) displayNames.toArray(new String[0]);
+            showStyledSelector(fActivity, trigger, items, SC.whitelistCurrentIndex, new OnSelectorPickedListener() {
+                public void onPicked(int position) {
+                    SC.whitelistCurrentIndex = position;
+                    trigger.setText((String) displayNames.get(position));
+                    updateWhitelistDetail(card, position);
+                }
+            });
+        }
+    });
+
+    updateWhitelistDetail(card, 0);
     return card;
+}
+
+public LinearLayout buildStatsContentView(Activity activity) {
+    if (activity == null) return null;
+    readFullStats();
+
+    LinearLayout contentLayout = new LinearLayout(activity);
+    contentLayout.setOrientation(LinearLayout.VERTICAL);
+    contentLayout.setPadding(dp(activity, 16), dp(activity, 16), dp(activity, 16), dp(activity, 16));
+
+    contentLayout.addView(createRangeSpinner(activity));
+    contentLayout.addView(createSpaceView(activity, 12));
+
+    LinearLayout wlCard = createWhitelistCard(activity);
+    if (wlCard != null) {
+        contentLayout.addView(wlCard);
+        contentLayout.addView(createSpaceView(activity, 12));
+    }
+
+    contentLayout.addView(createTotalStatsCard(activity, "📈 累计统计"));
+    contentLayout.addView(createSpaceView(activity, 12));
+    contentLayout.addView(createTodayCoreStatsCard(activity, "📊  今日统计"));
+    contentLayout.addView(createSpaceView(activity, 12));
+    contentLayout.addView(createCategoryStatsCard(activity, "📥 接收消息统计", "receive", true));
+    contentLayout.addView(createSpaceView(activity, 12));
+    contentLayout.addView(createCategoryStatsCard(activity, "📤 发送消息统计", "send", false));
+    contentLayout.addView(createSpaceView(activity, 18));
+
+    LinearLayout entry = new LinearLayout(activity);
+    entry.setOrientation(LinearLayout.HORIZONTAL);
+    entry.setGravity(Gravity.CENTER_VERTICAL);
+    entry.setPadding(dp(activity, 16), dp(activity, 14), dp(activity, 16), dp(activity, 14));
+    entry.setBackground(makeFeedbackBg(getAdaptiveCardBg(activity), pc(getSettingsThemeColor(activity, "ripple")), dp(activity, 16)));
+    entry.setClipToOutline(true);
+    entry.setClickable(true);
+
+    TextView entryLabel = new TextView(activity);
+    entryLabel.setText("消息统计设置");
+    entryLabel.setTextSize(16);
+    entryLabel.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
+    entryLabel.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
+    entry.addView(entryLabel);
+
+    TextView entryArrow = new TextView(activity);
+    entryArrow.setText("›");
+    entryArrow.setTextSize(20);
+    entryArrow.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
+    entry.addView(entryArrow);
+
+    entry.setOnClickListener(new View.OnClickListener() {
+        public void onClick(View v) {
+            Activity act = getSettingsCurrentActivity();
+            if (act != null) showSettingsMenu(act, "消息与互动", "消息统计设置", null);
+        }
+    });
+    contentLayout.addView(entry);
+    return contentLayout;
+}
+
+void buildStatsSettingsView(Activity activity) {
+    if (activity == null) return;
+
+    boolean wlOn = getBoolean("settings", "msg_stats_whitelist_enabled", false);
+
+    addSettingsCategory("统计范围", "");
+    addSettingsItemSwitchWithKey("按好友/群聊单独统计", "settings", "msg_stats_whitelist_enabled",
+        "开启后仅白名单内的群/好友单独统计，其他仍汇总", wlOn, new Runnable() {
+            public void run() { rebuildStatsSettingsPage(); }
+        });
+
+    String gs = getString("settings", "msg_stats_whitelist_groups", "");
+    String fs = getString("settings", "msg_stats_whitelist_friends", "");
+    int gCount = 0, fCount = 0;
+    if (gs != null && !gs.isEmpty()) {
+        String[] p = gs.split(",");
+        for (int i = 0; i < p.length; i++) if (!p[i].trim().isEmpty()) gCount++;
+    }
+    if (fs != null && !fs.isEmpty()) {
+        String[] p = fs.split(",");
+        for (int i = 0; i < p.length; i++) if (!p[i].trim().isEmpty()) fCount++;
+    }
+
+    addSettingsItemClickWithKey("群聊白名单", wlOn ? ("已选 " + gCount + " 个群") : "需先开启上方开关", new Runnable() {
+        public void run() {
+            Activity act = getSettingsCurrentActivity();
+            if (act == null) return;
+            String cur = getString("settings", "msg_stats_whitelist_groups", "");
+            ArrayList init = new ArrayList();
+            if (cur != null && !cur.isEmpty()) {
+                String[] p = cur.split(",");
+                for (int i = 0; i < p.length; i++) if (!p[i].trim().isEmpty()) init.add(p[i].trim());
+            }
+            showGroupSelector(act, 2, init, new GroupSelectCallback() {
+                public void onSelected(List selected) {
+                    StringBuilder sb = new StringBuilder();
+                    if (selected != null) {
+                        for (int i = 0; i < selected.size(); i++) {
+                            if (i > 0) sb.append(",");
+                            sb.append(selected.get(i));
+                        }
+                    }
+                    putString("settings", "msg_stats_whitelist_groups", sb.toString());
+                    Toast("已保存 " + (selected == null ? 0 : selected.size()) + " 个群");
+                    rebuildStatsSettingsPage();
+                }
+            });
+        }
+    });
+    String groupKey = settingsAutoItemKey("群聊白名单");
+    View groupView = (SettingsState.settingsItemViews == null) ? null : (View) SettingsState.settingsItemViews.get(groupKey);
+    if (groupView != null && !wlOn) {
+        groupView.setAlpha(0.4f);
+        groupView.setOnClickListener(null);
+        groupView.setClickable(false);
+    }
+
+    addSettingsItemClickWithKey("好友白名单", wlOn ? ("已选 " + fCount + " 个好友") : "需先开启上方开关", new Runnable() {
+        public void run() {
+            Activity act = getSettingsCurrentActivity();
+            if (act == null) return;
+            String cur = getString("settings", "msg_stats_whitelist_friends", "");
+            ArrayList init = new ArrayList();
+            if (cur != null && !cur.isEmpty()) {
+                String[] p = cur.split(",");
+                for (int i = 0; i < p.length; i++) if (!p[i].trim().isEmpty()) init.add(p[i].trim());
+            }
+            showGroupSelector(act, 1, init, new GroupSelectCallback() {
+                public void onSelected(List selected) {
+                    StringBuilder sb = new StringBuilder();
+                    if (selected != null) {
+                        for (int i = 0; i < selected.size(); i++) {
+                            if (i > 0) sb.append(",");
+                            sb.append(selected.get(i));
+                        }
+                    }
+                    putString("settings", "msg_stats_whitelist_friends", sb.toString());
+                    Toast("已保存 " + (selected == null ? 0 : selected.size()) + " 个好友");
+                    rebuildStatsSettingsPage();
+                }
+            });
+        }
+    });
+    String friendKey = settingsAutoItemKey("好友白名单");
+    View friendView = (SettingsState.settingsItemViews == null) ? null : (View) SettingsState.settingsItemViews.get(friendKey);
+    if (friendView != null && !wlOn) {
+        friendView.setAlpha(0.4f);
+        friendView.setOnClickListener(null);
+        friendView.setClickable(false);
+    }
+
+    addSettingsCategory("收发总开关", "");
+    addSettingsItemSwitchWithKey("接收统计", "settings", "msg_stats_receive_enabled",
+        "关闭后不统计任何接收数据", getBoolean("settings", "msg_stats_receive_enabled", true), null);
+    addSettingsItemSwitchWithKey("发送统计", "settings", "msg_stats_send_enabled",
+        "关闭后不统计任何发送数据", getBoolean("settings", "msg_stats_send_enabled", true), null);
+
+    addSettingsCategory("统计类别", "");
+    for (int i = 0; i < STAT_CATEGORIES.length; i++) {
+        String catKey = STAT_CATEGORIES[i][0];
+        String catLabel = STAT_CATEGORIES[i][1];
+        addSettingsItemSwitchWithKey(catLabel, "settings", "msg_stats_cat_" + catKey, null,
+            getBoolean("settings", "msg_stats_cat_" + catKey, true), null);
+    }
+
+    addSettingsCategory("每日目标", "");
+    addSettingsInputItem("每日消息目标", "默认 100", "msg_stats_daily_target", "如: 100", "100", null);
+
+    addSettingsCategory("数据操作", "");
+    addSettingsItemClickWithKey("重置今日数据", "清空今日所有统计", new Runnable() {
+        public void run() {
+            Activity act = getSettingsCurrentActivity();
+            if (act != null) resetTodayStats(act);
+        }
+    });
+    addSettingsItemClickWithKey("重置累计数据", "清空所有累计统计", new Runnable() {
+        public void run() {
+            Activity act = getSettingsCurrentActivity();
+            if (act != null) resetTotalStats(act);
+        }
+    });
+    addSettingsItemClickWithKey("修复数据", "重算所有 total 键", new Runnable() {
+        public void run() {
+            Activity act = getSettingsCurrentActivity();
+            if (act != null) repairStatsData(act);
+        }
+    });
+}
+
+SettingsFeatureBuilder statsBoardFeatureBuilder() {
+    return new SettingsFeatureBuilder() {
+        public View build(Activity activity) {
+            if (SettingsState.settingsIndexMode) return null;
+            LinearLayout board = buildStatsContentView((activity != null) ? activity : getSettingsCurrentActivity());
+            if (board != null) bindStatsViewCache(board);
+            return board;
+        }
+    };
+}
+
+SettingsFeatureBuilder statsSettingsFeatureBuilder() {
+    return new SettingsFeatureBuilder() {
+        public View build(Activity activity) {
+            buildStatsSettingsView((activity != null) ? activity : getSettingsCurrentActivity());
+            return null;
+        }
+    };
+}
+
+void rebuildStatsSettingsPage() {
+    Activity act = getSettingsCurrentActivity();
+    if (act == null) return;
+    LinearLayout listContainer = SettingsState.settingsListContainer;
+    if (listContainer == null) return;
+    try {
+        listContainer.removeAllViews();
+        if (SettingsState.settingsCategoryContainers != null) SettingsState.settingsCategoryContainers.clear();
+        if (SettingsState.settingsItemViews != null) SettingsState.settingsItemViews.clear();
+        if (SettingsState.settingsItemTextViews != null) SettingsState.settingsItemTextViews.clear();
+        SettingsState.settingsCurrentCategory = null;
+        buildStatsSettingsView(act);
+    } catch (Throwable e) {
+        traceLog("api3_log", "[rebuildStatsSettingsPage] 异常: " + e);
+    }
+}
+
+public void refreshStatsBoardOnReturn() {
+    Activity act = getSettingsCurrentActivity();
+    if (!(act instanceof SettingsActivity)) {
+        unbindStatsViewCache();
+        return;
+    }
+    SettingsActivity sa = (SettingsActivity) act;
+    if (sa.settingsPageStack == null || sa.settingsPageStack.isEmpty()) {
+        unbindStatsViewCache();
+        return;
+    }
+    Object topObj = sa.settingsPageStack.get(sa.settingsPageStack.size() - 1);
+    if (topObj == null) {
+        unbindStatsViewCache();
+        return;
+    }
+    try {
+        java.lang.reflect.Field l2Field = topObj.getClass().getDeclaredField("level2");
+        l2Field.setAccessible(true);
+        Object l2 = l2Field.get(topObj);
+        if (!"消息统计".equals(l2)) {
+            unbindStatsViewCache();
+            return;
+        }
+        java.lang.reflect.Field pvField = topObj.getClass().getDeclaredField("pageView");
+        pvField.setAccessible(true);
+        Object pvObj = pvField.get(topObj);
+        if (!(pvObj instanceof LinearLayout)) {
+            unbindStatsViewCache();
+            return;
+        }
+        LinearLayout pageLayout = (LinearLayout) pvObj;
+        if (pageLayout.getChildCount() < 2) {
+            unbindStatsViewCache();
+            return;
+        }
+        View scrollChild = pageLayout.getChildAt(1);
+        if (!(scrollChild instanceof ScrollView)) {
+            unbindStatsViewCache();
+            return;
+        }
+        unbindStatsViewCache();
+        LinearLayout newContent = buildStatsContentView(act);
+        if (newContent == null) return;
+        ScrollView sv = (ScrollView) scrollChild;
+        sv.removeAllViews();
+        sv.addView(newContent);
+        bindStatsViewCache(newContent);
+    } catch (Throwable e) {
+        traceLog("api3_log", "[refreshStatsBoardOnReturn] 异常: " + e);
+        unbindStatsViewCache();
+    }
+}
+
+void performDataCleanup() {
+    if (SC == null || SC.writeLock == null) return;
+    synchronized(SC.writeLock) {
+        try {
+            if (SC.OP_STATS != null) SC.OP_STATS.clear();
+            if (SC.messageBatchQueue != null) SC.messageBatchQueue.clear();
+            if (SC.CHANGED_KEYS != null) SC.CHANGED_KEYS.clear();
+            if (SC.cardExpandStatus != null) SC.cardExpandStatus.clear();
+            if (SC.statsTextViewCache != null) SC.statsTextViewCache.clear();
+            if (SC.weekDatesCache != null) SC.weekDatesCache.clear();
+            if (SC.monthDatesCache != null) SC.monthDatesCache.clear();
+        } catch (Throwable e) { traceLog("api3_log", "[performDataCleanup] 异常: " + e); }
+    }
+    SC.todayDateStr = null;
 }
 
 private void resetTodayStats(final Activity activity) {
-    traceLog("api3_log", "[resetTodayStats] 用户请求重置今日数据");
     boolean isDark = isThemeDark(activity);
     new AlertDialog.Builder(activity, isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT)
         .setTitle("重置确认")
@@ -1524,37 +1712,24 @@ private void resetTodayStats(final Activity activity) {
         .setPositiveButton("确定", new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int which) {
                 vibrate(activity, 48);
-                String todayPrefix = "date_" + todayDateStr + "_";
-                synchronized(writeLock) {
-                    traceLog("api3_log", "[resetTodayStats] 删除今日数据，前缀: " + todayPrefix);
-                    List entriesToRemove = new ArrayList();
-                    Iterator iterator = OP_STATS.entrySet().iterator();
-                    int deletedCount = 0;
+                String todayPrefix = "date_" + SC.todayDateStr + "_";
+                synchronized(SC.writeLock) {
+                    List toRemove = new ArrayList();
+                    Iterator iterator = SC.OP_STATS.entrySet().iterator();
                     while (iterator.hasNext()) {
                         Map.Entry entry = (Map.Entry) iterator.next();
                         String key = (String) entry.getKey();
-                        if (key.startsWith(todayPrefix)) {
-                            entriesToRemove.add(entry);
-                            deletedCount++;
-                        }
+                        if (key.startsWith(todayPrefix)) toRemove.add(key);
                     }
-                    for (int i = 0; i < entriesToRemove.size(); i++) {
-                        Object entry = entriesToRemove.get(i);
-                        if (entry instanceof Map.Entry) {
-                            String keyStr = (String) ((Map.Entry) entry).getKey();
-                            OP_STATS.remove(keyStr);
-                        }
-                    }
+                    for (int i = 0; i < toRemove.size(); i++) SC.OP_STATS.remove(toRemove.get(i));
                     recalculateTotalStats();
-                    traceLog("api3_log", "[resetTodayStats] 删除键数量: " + deletedCount);
                     writeStats();
                 }
-                
-                weekDatesCache.clear();
-                monthDatesCache.clear();
-                weekCacheKey = "";
-                monthCacheKey = "";
-                statsTextViewCache.clear();
+                SC.weekDatesCache.clear();
+                SC.monthDatesCache.clear();
+                SC.weekCacheKey = "";
+                SC.monthCacheKey = "";
+                SC.statsTextViewCache.clear();
                 triggerUIUpdate();
                 Toast("今日数据已重置");
             }
@@ -1564,7 +1739,6 @@ private void resetTodayStats(final Activity activity) {
 }
 
 private void resetTotalStats(final Activity activity) {
-    traceLog("api3_log", "[resetTotalStats] 用户请求重置累计数据");
     boolean isDark = isThemeDark(activity);
     new AlertDialog.Builder(activity, isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT)
         .setTitle("重置确认")
@@ -1572,25 +1746,20 @@ private void resetTotalStats(final Activity activity) {
         .setPositiveButton("确定", new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int which) {
                 vibrate(activity, 48);
-                synchronized(writeLock) {
-                    traceLog("api3_log", "[resetTotalStats] 清空所有数据");
-                    OP_STATS.clear();
+                synchronized(SC.writeLock) {
+                    SC.OP_STATS.clear();
                     String[] statTypes = api3StatTypes();
                     for (int i = 0; i < statTypes.length; i++) {
-                        String type = statTypes[i];
-                        OP_STATS.put("total" + type, new Long(0L));
-                        addChangedKey("total" + type);
-                        traceLog("api3_log", "[resetTotalStats] 初始化total" + type);
+                        SC.OP_STATS.put("total" + statTypes[i], new Long(0L));
+                        addChangedKey("total" + statTypes[i]);
                     }
-                    traceLog("api3_log", "[resetTotalStats] 数据清空并初始化");
                     writeStats();
                 }
-                
-                weekDatesCache.clear();
-                monthDatesCache.clear();
-                weekCacheKey = "";
-                monthCacheKey = "";
-                statsTextViewCache.clear();
+                SC.weekDatesCache.clear();
+                SC.monthDatesCache.clear();
+                SC.weekCacheKey = "";
+                SC.monthCacheKey = "";
+                SC.statsTextViewCache.clear();
                 triggerUIUpdate();
                 Toast("累计数据已重置");
             }
@@ -1600,108 +1769,76 @@ private void resetTotalStats(final Activity activity) {
 }
 
 private void repairStatsData(final Activity activity) {
-    traceLog("api3_log", "[repairStatsData] 用户请求修复数据");
     vibrate(activity, 48);
-    
-    synchronized(writeLock) {
+    synchronized(SC.writeLock) {
         recalculateTotalStats();
         writeStats();
     }
-    
-    statsTextViewCache.clear();
+    SC.statsTextViewCache.clear();
     triggerUIUpdate();
     Toast("数据已修复完成");
 }
 
 Map getSendTypeMapping() {
     Map map = new HashMap();
-    map.put("SendText", "文本");
-    map.put("SendPic", "图片");
-    map.put("SendFile", "文件");
-    map.put("SendVideo", "视频");
-    map.put("SendEmoji", "表情");
-    map.put("SendAudio", "语音");
-    map.put("SendCard", "卡片");
-    map.put("SendCall", "通话");
-    map.put("SendWordCount", "字数");
-    map.put("Send", "总数"); 
+    map.put("SendText", "文本"); map.put("SendPic", "图片");
+    map.put("SendFile", "文件"); map.put("SendVideo", "视频");
+    map.put("SendEmoji", "表情"); map.put("SendAudio", "语音");
+    map.put("SendCard", "卡片"); map.put("SendCall", "通话");
+    map.put("SendWordCount", "字数"); map.put("Send", "总数");
     return map;
 }
 
 Map getReceiveTypeMapping() {
     Map map = new HashMap();
-    map.put("ReceiveText", "文本");
-    map.put("ReceivePic", "图片");
-    map.put("ReceiveFile", "文件");
-    map.put("ReceiveVideo", "视频");
-    map.put("ReceiveEmoji", "表情");
-    map.put("ReceiveAudio", "语音");
-    map.put("ReceiveCard", "卡片");
-    map.put("ReceiveCall", "通话");
-    map.put("ReceiveWordCount", "字数");
-    map.put("Receive", "总数");
+    map.put("ReceiveText", "文本"); map.put("ReceivePic", "图片");
+    map.put("ReceiveFile", "文件"); map.put("ReceiveVideo", "视频");
+    map.put("ReceiveEmoji", "表情"); map.put("ReceiveAudio", "语音");
+    map.put("ReceiveCard", "卡片"); map.put("ReceiveCall", "通话");
+    map.put("ReceiveWordCount", "字数"); map.put("Receive", "总数");
     return map;
 }
 
 Map getAllVariablesMap(Object scriptScope) {
     Map map = new HashMap();
-
     map.put("time", getTime());
-    try {
-        map.put("qq", String.valueOf(myUin));
-    } catch (Throwable e) { traceLog("api3_log", "[getAllVariablesMap] 异常: " + e); }
+    try { map.put("qq", String.valueOf(myUin)); } catch (Throwable e) {}
 
     String rawTime = getTodayDateStr();
     String todayStr = "";
     if (rawTime != null) {
-        if (rawTime.contains("-")) {
-            todayStr = rawTime.split(" ")[0].replace("-", "");
-        } else if (rawTime.contains("/")) {
-            todayStr = rawTime.split(" ")[0].replace("/", "");
-        } else {
-            if (rawTime.length() >= 8) {
-                todayStr = rawTime.substring(0, 8);
-            } else {
-                todayStr = rawTime;
-            }
-        }
+        if (rawTime.contains("-")) todayStr = rawTime.split(" ")[0].replace("-", "");
+        else if (rawTime.contains("/")) todayStr = rawTime.split(" ")[0].replace("/", "");
+        else todayStr = rawTime.length() >= 8 ? rawTime.substring(0, 8) : rawTime;
     }
 
     Map SEND_TYPE_MAP = getSendTypeMapping();
     Map RECEIVE_TYPE_MAP = getReceiveTypeMapping();
-    
+
     for (Object sendValue : SEND_TYPE_MAP.values()) {
-        String chineseType = (String) sendValue;
-        map.put("今日发送" + chineseType, "0");
+        map.put("今日发送" + (String) sendValue, "0");
     }
     for (Object receiveValue : RECEIVE_TYPE_MAP.values()) {
-        String chineseType = (String) receiveValue;
-        map.put("今日接收" + chineseType, "0");
+        map.put("今日接收" + (String) receiveValue, "0");
     }
 
-    synchronized(writeLock) {
-        Iterator iterator = OP_STATS.entrySet().iterator();
+    synchronized(SC.writeLock) {
+        Iterator iterator = SC.OP_STATS.entrySet().iterator();
         String todayPrefix = "date_" + todayStr + "_";
-
         while (iterator.hasNext()) {
             Map.Entry entry = (Map.Entry) iterator.next();
             String key = (String) entry.getKey();
             Object valObj = entry.getValue();
             String valueStr = (valObj != null) ? String.valueOf(valObj) : "0";
-            
             if (!key.startsWith("date_") || key.startsWith(todayPrefix)) {
                 map.put(key, valueStr);
             }
-
             if (key.startsWith(todayPrefix)) {
                 String suffix = key.substring(todayPrefix.length());
-
                 if (SEND_TYPE_MAP.containsKey(suffix)) {
-                    String chineseType = (String) SEND_TYPE_MAP.get(suffix);
-                    map.put("今日发送" + chineseType, valueStr);
+                    map.put("今日发送" + (String) SEND_TYPE_MAP.get(suffix), valueStr);
                 } else if (RECEIVE_TYPE_MAP.containsKey(suffix)) {
-                    String chineseType = (String) RECEIVE_TYPE_MAP.get(suffix);
-                    map.put("今日接收" + chineseType, valueStr);
+                    map.put("今日接收" + (String) RECEIVE_TYPE_MAP.get(suffix), valueStr);
                 }
             }
         }
@@ -1711,68 +1848,169 @@ Map getAllVariablesMap(Object scriptScope) {
 
 String getVariableValue(Object scriptScope, String varName) {
     Map allVars = getAllVariablesMap(scriptScope);
-    for (Object obj: allVars.entrySet()) {
+    for (Object obj : allVars.entrySet()) {
         Map.Entry entry = (Map.Entry) obj;
-        if (((String) entry.getKey()).equalsIgnoreCase(varName)) {
-            return (String) entry.getValue();
-        }
+        if (((String) entry.getKey()).equalsIgnoreCase(varName)) return (String) entry.getValue();
     }
     return null;
 }
 
-String getVarDescription(String key, String value) {
+String getVarDescription(String key) {
     String desc = "变量值";
-
-    if (key.equalsIgnoreCase("time")) {
-        desc = "当前系统时间";
-    } else if (key.equalsIgnoreCase("qq")) {
-        desc = "宿主QQ号";
-    } else if (key.startsWith("total")) {
+    if (key.equalsIgnoreCase("time")) desc = "当前系统时间";
+    else if (key.equalsIgnoreCase("qq")) desc = "宿主QQ号";
+    else if (key.startsWith("total")) {
         String type = key.substring(5);
         if (type.equals("Send")) desc = "累计发送总数";
         else if (type.equals("Receive")) desc = "累计接收总数";
         else if (type.equals("SendWordCount")) desc = "累计发送字数";
         else if (type.equals("ReceiveWordCount")) desc = "累计接收字数";
         else desc = "累计 " + type + " 数量";
-    } else if (key.startsWith("今日发送")) {
-        String type = key.substring(4);
-        desc = "今日发送" + type + "数量";
-    } else if (key.startsWith("今日接收")) {
-        String type = key.substring(4);
-        desc = "今日接收" + type + "数量";
-    }
-
-    return desc + ": " + value;
+    } else if (key.startsWith("今日发送")) desc = "今日发送" + key.substring(4) + "数量";
+    else if (key.startsWith("今日接收")) desc = "今日接收" + key.substring(4) + "数量";
+    return desc;
 }
 
-List getSortedVariableList(Object scriptScope) {
-    Map map = getAllVariablesMap(scriptScope);
-    List list = new ArrayList(map.entrySet());
-    
-    Collections.sort(list, new Comparator() {
-        public int compare(Object o1, Object o2) {
-            Map.Entry e1 = (Map.Entry) o1;
-            Map.Entry e2 = (Map.Entry) o2;
-            String k1 = (String) e1.getKey();
-            String k2 = (String) e2.getKey();
-            int len1 = k1.length();
-            int len2 = k2.length();
-            if (len1 != len2) return len1 - len2;
-            return k1.compareToIgnoreCase(k2);
+final String[] VAR_POOL_GROUPS = { "推荐", "全部", "消息统计", "事件变量", "全局变量" };
+
+final String[] VAR_POOL_FALLBACK_EVENT = {
+    "qun", "uin", "msg", "msgId", "msgType", "type", "data", "operator", "time", "paiType", "qq", "pluginPath", "this", "scriptLoader"
+};
+
+String varPoolAnyDesc(String key) {
+    String d = varPoolDesc(key);
+    if (d != null && d.length() > 0) return d;
+    try { return getVarDescription(key); } catch (Throwable e) { return "变量"; }
+}
+
+final String[][] VAR_DESC_DICT = {
+    {"time", "当前系统时间（热插拔里为禁言秒数）"},
+    {"qq", "当前登录QQ号"},
+    {"qun", "群号（私聊时为空）"},
+    {"uin", "触发者QQ号"},
+    {"msg", "消息内容"},
+    {"msgId", "消息ID"},
+    {"msgType", "消息类型"},
+    {"type", "聊天类型（1私聊 2群聊）"},
+    {"data", "原始消息对象 MsgData"},
+    {"operator", "操作者QQ号"},
+    {"paiType", "拍一拍类型"},
+    {"pluginPath", "插件目录绝对路径"},
+    {"this", "当前脚本对象"},
+    {"scriptLoader", "热插拔脚本加载器"},
+    {"myUin", "当前登录QQ号"},
+    {"context", "宿主 Context"},
+    {"ThreadPool", "全局线程池"}
+};
+
+String varPoolDesc(String name) {
+    if (name == null) return "";
+    for (int i = 0; i < VAR_DESC_DICT.length; i++) {
+        if (VAR_DESC_DICT[i][0].equalsIgnoreCase(name)) return VAR_DESC_DICT[i][1];
+    }
+    return "";
+}
+
+String formatVarValue(Object val) {
+    if (val == null) return "null";
+    try {
+        if (val instanceof bsh.This) return "<脚本对象>";
+        String s = String.valueOf(val);
+        if (s == null) return "";
+        if (s.length() > 120) s = s.substring(0, 120) + "…";
+        return s;
+    } catch (Throwable e) {
+        return "<对象>";
+    }
+}
+
+List collectVariablePool(String group, String keyword, String context) {
+    List out = new ArrayList();
+    String g = (group == null || group.length() == 0) ? "推荐" : group;
+    boolean all = "全部".equals(g);
+    boolean hotplug = "hotplug".equals(context);
+
+    Map statMap = null;
+    try { statMap = getAllVariablesMap(this); } catch (Throwable e) { traceLog("api3_log", "[collectVariablePool] 统计表: " + e); }
+
+    if (("推荐".equals(g) && !hotplug) || all || "消息统计".equals(g)) {
+        if (statMap != null) {
+            Iterator iter = statMap.entrySet().iterator();
+            while (iter.hasNext()) {
+                Map.Entry e = (Map.Entry) iter.next();
+                String k = (String) e.getKey();
+                if (k == null || k.length() == 0) continue;
+                if (k.startsWith("date_") && k.length() > 20) continue;
+                boolean isStat = k.equalsIgnoreCase("time") || k.equalsIgnoreCase("qq")
+                    || k.startsWith("total") || k.startsWith("今日发送") || k.startsWith("今日接收");
+                if ("推荐".equals(g) && !isStat) continue;
+                out.add(new String[]{ k, varPoolAnyDesc(k), String.valueOf(e.getValue()), "消息统计" });
+            }
         }
-    });
-    return list;
+    }
+
+    if (("推荐".equals(g) && hotplug) || all || "事件变量".equals(g)) {
+        String[] names = null;
+        try { names = SYNC_VARS; } catch (Throwable e) { traceLog("api3_log", "[collectVariablePool] SYNC_VARS 不可见: " + e); }
+        if (names == null || names.length == 0) names = VAR_POOL_FALLBACK_EVENT;
+        for (int i = 0; i < names.length; i++) {
+            String k = names[i];
+            if (k == null || k.length() == 0) continue;
+            if ("推荐".equals(g) && (k.equals("this") || k.equals("scriptLoader"))) continue;
+            Object v = null;
+            try { v = this.interpreter.get(k); } catch (Throwable ignore) {}
+            String d = varPoolDesc(k);
+            out.add(new String[]{ k, d.length() > 0 ? d : "热插拔脚本可用变量", formatVarValue(v), "事件变量" });
+        }
+    }
+
+    if (all || "全局变量".equals(g)) {
+        try {
+            String[] names = this.interpreter.getNameSpace().getVariableNames();
+            for (int i = 0; i < names.length; i++) {
+                String k = names[i];
+                if (k == null || k.length() == 0) continue;
+                if (k.startsWith("bsh") || k.equals("unhooks")) continue;
+                Object v = null;
+                try { v = this.interpreter.get(k); } catch (Throwable ignore) {}
+                String d = varPoolDesc(k);
+                out.add(new String[]{ k, d.length() > 0 ? d : "全局变量", formatVarValue(v), "全局变量" });
+            }
+        } catch (Throwable e) { traceLog("api3_log", "[collectVariablePool] 全局: " + e); }
+    }
+
+    try {
+        Collections.sort(out, new Comparator() {
+            public int compare(Object o1, Object o2) {
+                String a = ((String[]) o1)[0];
+                String b = ((String[]) o2)[0];
+                int la = a.length();
+                int lb = b.length();
+                if (la != lb) return la - lb;
+                return a.compareToIgnoreCase(b);
+            }
+        });
+    } catch (Throwable e) { traceLog("api3_log", "[collectVariablePool] 排序: " + e); }
+
+    String kw = (keyword == null) ? "" : keyword.trim().toLowerCase();
+    if (kw.length() == 0) return out;
+    List filtered = new ArrayList();
+    for (int i = 0; i < out.size(); i++) {
+        String[] it = (String[]) out.get(i);
+        if (it[0].toLowerCase().contains(kw) || it[1].toLowerCase().contains(kw) || it[2].toLowerCase().contains(kw)) {
+            filtered.add(it);
+        }
+    }
+    traceLog("api3_log", "[collectVariablePool] group=" + g + " ctx=" + context + " 总=" + out.size() + " 命中=" + filtered.size());
+    return filtered;
 }
 
 String 替换变量占位符(String template, Object scriptScope) {
-    if (template == null || template.trim().isEmpty()) {
-        return "";
-    }
-
+    if (template == null || template.trim().isEmpty()) return "";
     String result = template;
 
     try {
-        Matcher linkMatcher = LINK_PATTERN.matcher(result);
+        Matcher linkMatcher = SC.LINK_PATTERN.matcher(result);
         StringBuilder linkSb = new StringBuilder();
         int lastIdx = 0;
         while (linkMatcher.find()) {
@@ -1783,23 +2021,19 @@ String 替换变量占位符(String template, Object scriptScope) {
             } else {
                 String linkValue = null;
                 try {
-                    Long cacheTs = (Long) linkCacheTime.get(linkName);
+                    Long cacheTs = (Long) SC.linkCacheTime.get(linkName);
                     if (cacheTs != null && System.currentTimeMillis() - cacheTs.longValue() < 60000L) {
-                        linkValue = (String) linkCache.get(linkName);
+                        linkValue = (String) SC.linkCache.get(linkName);
                     } else {
                         Future future = ThreadPool.submit(new Callable() {
-                            public Object call() throws Exception {
-                                return get(linkName);
-                            }
+                            public Object call() throws Exception { return get(linkName); }
                         });
                         linkValue = (String) future.get(500, TimeUnit.MILLISECONDS);
-                        if (linkValue == null || linkValue.trim().isEmpty() || "null".equals(linkValue)) {
-                            linkValue = null;
-                        }
-                        linkCache.put(linkName, linkValue != null ? linkValue : "");
-                        linkCacheTime.put(linkName, Long.valueOf(System.currentTimeMillis()));
+                        if (linkValue == null || linkValue.trim().isEmpty() || "null".equals(linkValue)) linkValue = null;
+                        SC.linkCache.put(linkName, linkValue != null ? linkValue : "");
+                        SC.linkCacheTime.put(linkName, Long.valueOf(System.currentTimeMillis()));
                     }
-                } catch (Throwable e) { traceLog("api3_log", "[替换变量占位符] 异常: " + e); }
+                } catch (Throwable e) {}
                 if (linkValue == null || linkValue.isEmpty()) linkValue = null;
                 linkSb.append(linkValue != null ? linkValue : "访问链接失败了哦～");
             }
@@ -1807,10 +2041,10 @@ String 替换变量占位符(String template, Object scriptScope) {
         }
         linkSb.append(result, lastIdx, result.length());
         result = linkSb.toString();
-    } catch (Throwable e) { traceLog("api3_log", "[替换变量占位符] 异常: " + e); }
+    } catch (Throwable e) {}
 
     try {
-        Matcher varMatcher = VAR_PATTERN.matcher(result);
+        Matcher varMatcher = SC.VAR_PATTERN.matcher(result);
         StringBuilder varSb = new StringBuilder();
         int lastIdx = 0;
         while (varMatcher.find()) {
@@ -1827,7 +2061,7 @@ String 替换变量占位符(String template, Object scriptScope) {
         }
         varSb.append(result, lastIdx, result.length());
         result = varSb.toString();
-    } catch (Throwable e) { traceLog("api3_log", "[替换变量占位符] 异常: " + e); }
+    } catch (Throwable e) {}
 
     return result;
 }
@@ -1841,19 +2075,16 @@ void chatInterface(int chatType, String peerUin, String peerName) {
     if (finalActivity == null) return;
 
     final Object scriptScope = this;
-    
+
     try {
         currentPeerUin = peerUin;
         currentChatType = chatType;
-        dispatchEvent(peerUin, 5); 
-    } catch (Throwable e) { traceLog("api3_log", "[chatInterface] 异常: " + e); }
+        dispatchEvent(peerUin, 5);
+    } catch (Throwable e) {}
 
     boolean 输入框开关 = getBoolean("输入框", "输入框开关", false);
-    
     String 提示词模板 = getString("输入框", "提示词", "");
-    if (提示词模板 == null || 提示词模板.trim().isEmpty()) {
-        提示词模板 = "我是一个输入框提示～";
-    }
+    if (提示词模板 == null || 提示词模板.trim().isEmpty()) 提示词模板 = "我是一个输入框提示～";
 
     final String final提示词 = 替换变量占位符(提示词模板, scriptScope);
 
@@ -1867,8 +2098,67 @@ void chatInterface(int chatType, String peerUin, String peerName) {
                         ((TextView) inputView).setHint(final提示词);
                     }
                 }
-
-            } catch (Throwable e) { traceLog("api3_log", "[chatInterface] 异常: " + e); }
+            } catch (Throwable e) {}
         }
     });
+}
+
+public void bindStatsViewCache(final View rootView) {
+    if (rootView == null) return;
+    SC.contentRoot = rootView;
+    SC.pageVisible = true;
+    SC.msgHandle.postDelayed(new Runnable() {
+        public void run() {
+            try {
+                if (SC.statsTextViewCache == null) SC.statsTextViewCache = new ArrayList();
+                SC.statsTextViewCache.clear();
+                collectTextViewsWithTag(rootView, SC.statsTextViewCache);
+                SC.todayCoreCardCache = (LinearLayout) rootView.findViewWithTag("todayCoreCard");
+                if (SC.todayCoreCardCache != null) {
+                    SC.sendTargetLabelCache = (TextView) SC.todayCoreCardCache.findViewWithTag("send_target_label");
+                    SC.progressBarCache = SC.todayCoreCardCache.findViewWithTag("send_progress");
+                    SC.achievementTextCache = (TextView) SC.todayCoreCardCache.findViewWithTag("achievement_text");
+                }
+                View wlCard = rootView.findViewWithTag("whitelistCard");
+                SC.whitelistDetailCache = wlCard != null ? (TextView) wlCard.findViewWithTag("whitelistDetail") : null;
+                SC.whitelistCurrentIndex = 0;
+                if (wlCard != null) updateWhitelistDetail(wlCard, 0);
+                triggerUIUpdate();
+            } catch (Throwable e) {
+                traceLog("api3_log", "[bindStatsViewCache] 异常: " + e);
+            }
+        }
+    }, 150);
+}
+
+private void collectTextViewsWithTag(View root, List out) {
+    if (root == null || out == null) return;
+    if (root instanceof TextView) {
+        Object tag = ((TextView) root).getTag();
+        if (tag instanceof String) {
+            String s = (String) tag;
+            if ("totalReceive".equals(s) || "totalSend".equals(s) || "Receive".equals(s) || "Send".equals(s)
+                || s.startsWith("Receive") || s.startsWith("Send")) {
+                out.add(root);
+            }
+        }
+    }
+    if (root instanceof ViewGroup) {
+        ViewGroup vg = (ViewGroup) root;
+        for (int i = 0; i < vg.getChildCount(); i++) {
+            collectTextViewsWithTag(vg.getChildAt(i), out);
+        }
+    }
+}
+
+public void unbindStatsViewCache() {
+    SC.pageVisible = false;
+    SC.contentRoot = null;
+    try { if (SC.statsTextViewCache != null) SC.statsTextViewCache.clear(); } catch (Throwable ignore) {}
+    SC.todayCoreCardCache = null;
+    SC.progressBarCache = null;
+    SC.sendTargetLabelCache = null;
+    SC.achievementTextCache = null;
+    SC.whitelistDetailCache = null;
+    SC.whitelistCurrentIndex = 0;
 }
