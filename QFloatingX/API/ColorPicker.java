@@ -1411,7 +1411,7 @@ void addSettingsColorItem(String categoryName, String itemName, String descripti
 
     itemLayout.addView(colorRow);
 
-    itemLayout.setBackground(makeFeedbackBg(getAdaptiveSettingsItemBg(activity), pc(getSettingsThemeColor(activity, "ripple")), 0));
+    itemLayout.setBackground(makeFeedbackBg(getAdaptiveCardBg(activity), pc(getSettingsThemeColor(activity, "ripple")), 0));
     itemLayout.setClickable(true);
 
     final String finalKeyName = keyName;
