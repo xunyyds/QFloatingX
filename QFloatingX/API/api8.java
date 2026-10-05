@@ -1,3 +1,12 @@
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.view.Gravity;
+import android.view.View;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
+import java.util.ArrayList;
 //此空间api由冷雨开发  点赞/评论由ᗜ×ᗜ改进并适配新版 使用请留名
 private final java.util.concurrent.CopyOnWriteArraySet doneTasks = new java.util.concurrent.CopyOnWriteArraySet();
 private volatile boolean isServiceRunning = false;
@@ -92,29 +101,6 @@ private ArrayList parseActiveFeeds(String jsonResp) {
         }
     } catch (Throwable e) { traceLog("api8_log", "[parseActiveFeeds] 异常: " + e); }
     return result;
-}
-
-
-View buildQzoneSwitchRow(Activity act, String labelText, final String keyName) {
-    LinearLayout row = new LinearLayout(act);
-    row.setOrientation(LinearLayout.HORIZONTAL);
-    row.setGravity(Gravity.CENTER_VERTICAL);
-    row.setPadding(0, dp(act, 12), 0, dp(act, 12));
-
-    TextView label = new TextView(act);
-    label.setText(labelText);
-    label.setTextSize(16);
-    label.setTextColor(tc(act, "on_surface"));
-    row.addView(label, new LinearLayout.LayoutParams(0, -2, 1.0f));
-
-    boolean initVal = getBoolean("qzone_cfg", keyName, false);
-    View sw = createSettingsSwitchView(act, initVal, "qzone_cfg", keyName, labelText, new Runnable() {
-        public void run() {
-            checkAndStartOrStopThread();
-        }
-    });
-    row.addView(sw);
-    return row;
 }
 
 private void checkAndStartOrStopThread() {
@@ -288,3 +274,38 @@ private void sendQzoneComment(String orglikekey, String curlikekey, String userU
     }
 }
 checkAndStartOrStopThread();
+
+// ===== QQ空间设置页（设置入口调用，实现留在本文件） =====
+void buildQzoneSettingsView(final Activity act) {
+    if (act == null) return;
+
+    addSettingsCategory("开关", "");
+    addSettingsItemSwitchWithKey("秒赞", "qzone_cfg", "switch_like", "自动给好友说说点赞", getBoolean("qzone_cfg", "switch_like", false), new Runnable() {
+        public void run() { checkAndStartOrStopThread(); }
+    });
+    addSettingsItemSwitchWithKey("秒评", "qzone_cfg", "switch_comment", "自动评论好友说说", getBoolean("qzone_cfg", "switch_comment", false), new Runnable() {
+        public void run() { checkAndStartOrStopThread(); }
+    });
+
+    addSettingsCategory("评论内容", "");
+    addSettingsInputItemWithConfig("评论内容", "自动评论使用的文字（≤100 字）", "qzone_cfg", "comment", "我来暖说说啦！", "我来暖说说啦！", true, false, null);
+
+    addSettingsCategory("间隔设置", "");
+    addSettingsInputItemWithConfig("拉取列表后延迟", "毫秒，建议 3000~15000", "qzone_cfg", "fetch_delay_ms", "毫秒", "5000", false, true, null);
+    addSettingsInputItemWithConfig("每条说说间隔", "毫秒，建议 500~5000", "qzone_cfg", "feed_interval_ms", "毫秒", "1000", false, true, null);
+
+    addSettingsCategory("黑名单", "");
+    addSettingsItemChoiceWithKey("设置黑名单", "qzone_blacklist_count", "已屏蔽 " + blackList.size() + " 人", new Runnable() {
+        public void run() {
+            final ArrayList initSel = new ArrayList(blackList);
+            showGroupSelector(act, 1, initSel, new GroupSelectCallback() {
+                public void onSelected(List selected) {
+                    blackList.clear();
+                    if (selected != null) blackList.addAll(selected);
+                    saveBlackList();
+                    updateSettingsItemText("qzone_blacklist_count", "已屏蔽 " + blackList.size() + " 人");
+                }
+            });
+        }
+    });
+}

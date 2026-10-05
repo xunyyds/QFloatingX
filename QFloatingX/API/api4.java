@@ -140,10 +140,10 @@ private int 获取悬浮窗大小(Activity activity) {
         if (dpValue > 200) {
             dpValue = 200;
         }
-        int pixelSize = (int) (dpValue * activity.getResources().getDisplayMetrics().density);
+        int pixelSize = (int) (dpValue * getPluginUiDensity(activity));
         return pixelSize > 0 ? pixelSize : 180;
     } catch (Exception e) {
-        return (int) (DEFAULT_ICON_SIZE_DP * activity.getResources().getDisplayMetrics().density);
+        return (int) (DEFAULT_ICON_SIZE_DP * getPluginUiDensity(activity));
     }
 }
 
@@ -160,10 +160,10 @@ private int 获取关闭区域大小(Activity activity) {
         if (dpValue <= 0) {
             dpValue = DEFAULT_CLOSE_RANGE_SIZE_DP;
         }
-        int pixelSize = (int) (dpValue * activity.getResources().getDisplayMetrics().density);
+        int pixelSize = (int) (dpValue * getPluginUiDensity(activity));
         return pixelSize > 0 ? pixelSize : 240;
     } catch (Exception e) {
-        return (int) (DEFAULT_CLOSE_RANGE_SIZE_DP * activity.getResources().getDisplayMetrics().density);
+        return (int) (DEFAULT_CLOSE_RANGE_SIZE_DP * getPluginUiDensity(activity));
     }
 }
 
@@ -180,10 +180,10 @@ private int 获取关闭图标大小(Activity activity) {
         if (dpValue <= 0) {
             dpValue = DEFAULT_CLOSE_ICON_SIZE_DP;
         }
-        int pixelSize = (int) (dpValue * activity.getResources().getDisplayMetrics().density);
+        int pixelSize = (int) (dpValue * getPluginUiDensity(activity));
         return pixelSize > 0 ? pixelSize : 72;
     } catch (Exception e) {
-        return (int) (DEFAULT_CLOSE_ICON_SIZE_DP * activity.getResources().getDisplayMetrics().density);
+        return (int) (DEFAULT_CLOSE_ICON_SIZE_DP * getPluginUiDensity(activity));
     }
 }
 
@@ -196,7 +196,7 @@ private float 获取移动阈值(Activity activity) {
         if (value == null || value.trim().isEmpty()) value = "12";
         double dpValue = Double.parseDouble(value.trim());
         if (dpValue <= 0) dpValue = 12;
-        return (float) (dpValue * activity.getResources().getDisplayMetrics().density);
+        return (float) (dpValue * getPluginUiDensity(activity));
     } catch (Exception e) {
         return 36.0f;
     }
@@ -347,7 +347,7 @@ Bitmap 创建关闭区域Fallback图标(Activity activity, int size) {
             return null;
         }
         if (size <= 0) {
-            size = (int) (DEFAULT_CLOSE_ICON_SIZE_DP * activity.getResources().getDisplayMetrics().density);
+            size = (int) (DEFAULT_CLOSE_ICON_SIZE_DP * getPluginUiDensity(activity));
         }
         Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
@@ -423,7 +423,7 @@ Bitmap 创建默认图标(Activity activity) {
         }
         int size = 获取悬浮窗大小(activity);
         if (size <= 0) {
-            size = (int) (DEFAULT_ICON_SIZE_DP * activity.getResources().getDisplayMetrics().density);
+            size = (int) (DEFAULT_ICON_SIZE_DP * getPluginUiDensity(activity));
         }
         if (size > 800) {
             size = 800;
@@ -552,12 +552,12 @@ int 加载悬浮窗Y位置(Activity activity) {
         }
         SharedPreferences sp = activity.getSharedPreferences("floating_window_pos", Context.MODE_PRIVATE);
         if (sp != null) {
-            return sp.getInt("y", (int)(100 * activity.getResources().getDisplayMetrics().density));
+            return sp.getInt("y", (int)(100 * getPluginUiDensity(activity)));
         }
-        int defaultY = (int)(100 * activity.getResources().getDisplayMetrics().density);
+        int defaultY = (int)(100 * getPluginUiDensity(activity));
         return defaultY;
     } catch (Exception e) {
-        int defaultY = (int)(100 * activity.getResources().getDisplayMetrics().density);
+        int defaultY = (int)(100 * getPluginUiDensity(activity));
         return defaultY;
     }
 }
@@ -738,7 +738,7 @@ void 设置窗口参数(Activity activity) {
     }
     int windowSize = 获取悬浮窗大小(activity);
     if (windowSize <= 0) {
-        windowSize = (int) (DEFAULT_ICON_SIZE_DP * activity.getResources().getDisplayMetrics().density);
+        windowSize = (int) (DEFAULT_ICON_SIZE_DP * getPluginUiDensity(activity));
     }
     params = new WindowManager.LayoutParams(
         windowSize, windowSize,
@@ -1302,7 +1302,7 @@ private void 重建悬浮窗图标视图(Activity activity) {
     try {
         if (activity == null || floatingView == null) return;
         int size = 获取悬浮窗大小(activity);
-        if (size <= 0) size = (int)(DEFAULT_ICON_SIZE_DP * activity.getResources().getDisplayMetrics().density);
+        if (size <= 0) size = (int)(DEFAULT_ICON_SIZE_DP * getPluginUiDensity(activity));
         try {
             if (iconImageView instanceof GifImageView) {
                 ((GifImageView) iconImageView).stopAnimation();
