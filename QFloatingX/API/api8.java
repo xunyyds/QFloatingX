@@ -275,7 +275,7 @@ private void sendQzoneComment(String orglikekey, String curlikekey, String userU
 }
 checkAndStartOrStopThread();
 
-// ===== QQ空间设置页（设置入口调用，实现留在本文件） =====
+
 void buildQzoneSettingsView(final Activity act) {
     if (act == null) return;
 

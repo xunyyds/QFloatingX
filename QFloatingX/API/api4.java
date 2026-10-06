@@ -1,57 +1,57 @@
-// 悬浮窗生命周期状态常量
-private static final int STATE_DESTROYED = 0; // 视图已销毁，内存释放，不可见不可交互
-private static final int STATE_CREATED = 1; // 视图已实例化但未添加到WindowManager，不可见
-private static final int STATE_VISIBLE = 2; // 视图已添加到WindowManager，可见且可交互
-private static final int STATE_HIDDEN = 3; // 视图已从WindowManager移除但实例保留，不可见
 
-// 关闭区域常量（可配置）
-private static final int DEFAULT_CLOSE_RANGE_SIZE_DP = 80; // 关闭区域直径(dp)
-private static final int DEFAULT_ICON_SIZE_DP = 60; // 图标默认大小(dp)
-private static final int DEFAULT_CLOSE_ICON_SIZE_DP = 24; // 关闭图标默认大小(dp)
-private static final int VIBRATION_INTERVAL_MS = 100; // 持续振动间隔
+private static final int STATE_DESTROYED = 0; 
+private static final int STATE_CREATED = 1; 
+private static final int STATE_VISIBLE = 2; 
+private static final int STATE_HIDDEN = 3; 
 
-// 拖拽手势状态标志
-private boolean isDragging = false; // 是否处于拖拽模式
-private boolean isInCloseRange = false; // 悬浮窗中心是否进入关闭区域
-private boolean isCloseRangeAttached = false; // 防止重复添加到WindowManager
-private FrameLayout closeRangeView = null; // 关闭区域容器
-private ImageView closeRangeIcon = null; // 关闭区域图标
-private Bitmap cachedCloseIconBitmap = null; // 关闭图标缓存
-private Vibrator vibrator = null; // 系统振动服务
-private Runnable continuousVibrationRunnable = null; // 持续振动任务
 
-// 触摸与动画状态
-private final Handler xfcHandler = new Handler(Looper.getMainLooper()); // 主线程Handler
-private int touchOffsetX = 0; // 触摸点X轴偏移
-private int touchOffsetY = 0; // 触摸点Y轴偏移
-private long touchStartTime = 0; // 触摸开始时间
-private boolean isLongClickScheduled = false; // 是否已调度长按任务
-private int currentAlpha = 255; // 当前透明度
-private Runnable longClickRunnable = null; // 长按检测任务
-private Runnable fadeRunnable = null; // 透明度渐变任务
+private static final int DEFAULT_CLOSE_RANGE_SIZE_DP = 80; 
+private static final int DEFAULT_ICON_SIZE_DP = 60; 
+private static final int DEFAULT_CLOSE_ICON_SIZE_DP = 24; 
+private static final int VIBRATION_INTERVAL_MS = 100; 
 
-// 悬浮窗核心状态字段
-private int 悬浮窗状态 = STATE_DESTROYED; // 当前悬浮窗状态
-private boolean 允许触摸 = false; // 是否允许触摸交互
-private WindowManager wm = null; // 系统窗口管理器服务
-private WindowManager.LayoutParams params = null; // 窗口布局参数
-private FrameLayout floatingView = null; // 悬浮窗根视图
-private ImageView iconImageView = null; // 图标显示视图
-private Bitmap cachedIconBitmap = null; // 静态图标缓存
-private String cachedGifPath = ""; // 动态图标路径缓存
-private boolean isGifMode = false; // 当前是否为GIF模式
-private Movie cachedGifMovie = null; // GIF动画数据缓存
+
+private boolean isDragging = false; 
+private boolean isInCloseRange = false; 
+private boolean isCloseRangeAttached = false; 
+private FrameLayout closeRangeView = null; 
+private ImageView closeRangeIcon = null; 
+private Bitmap cachedCloseIconBitmap = null; 
+private Vibrator vibrator = null; 
+private Runnable continuousVibrationRunnable = null; 
+
+
+private final Handler xfcHandler = new Handler(Looper.getMainLooper()); 
+private int touchOffsetX = 0; 
+private int touchOffsetY = 0; 
+private long touchStartTime = 0; 
+private boolean isLongClickScheduled = false; 
+private int currentAlpha = 255; 
+private Runnable longClickRunnable = null; 
+private Runnable fadeRunnable = null; 
+
+
+private int 悬浮窗状态 = STATE_DESTROYED; 
+private boolean 允许触摸 = false; 
+private WindowManager wm = null; 
+private WindowManager.LayoutParams params = null; 
+private FrameLayout floatingView = null; 
+private ImageView iconImageView = null; 
+private Bitmap cachedIconBitmap = null; 
+private String cachedGifPath = ""; 
+private boolean isGifMode = false; 
+private Movie cachedGifMovie = null; 
 
 private static class GifImageView extends ImageView {
-    private Movie movie = null; // GIF Movie 对象
-    private long movieStart = 0; // 动画起始时间
-    private boolean isAnimating = false; // 是否正在动画
-    private boolean lastSetMovieSuccess = false; // 记录最后一次 setMovie 是否成功（用于判断缓存是否可用）
+    private Movie movie = null; 
+    private long movieStart = 0; 
+    private boolean isAnimating = false; 
+    private boolean lastSetMovieSuccess = false; 
     private int cachedDelay = 100;
 
     public GifImageView(Context context) {
         super(context);
-        setWillNotDraw(false); // 强制允许自定义绘制
+        setWillNotDraw(false); 
     }
     
     public void setMovie(Movie movie) {

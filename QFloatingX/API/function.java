@@ -3019,7 +3019,7 @@ String extractSegmentAt(String text, int pos){
 
 rebuildRegistry();
 
-// ===== 功能热插拔页（设置入口调用，实现留在本文件） =====
+
 public View buildHotPlugContentView(final Activity a, String gid, String uname, boolean fillParent) {
     if (a == null) return null;
     final String g = (gid != null) ? gid : "";

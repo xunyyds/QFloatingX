@@ -76,29 +76,29 @@ final String logPath   = pluginPath + "/Log/";
 long startTime         = System.currentTimeMillis();
 ExecutorService ThreadPool = null;
 
-// 核心api（顺序加载）  非核心api（并行加载）
+
 final String[] coreFiles = {
-    rootPath + "import.java",   // 导类
-    rootPath + "api.java",      // 基础
-    rootPath + "uitools.java"   // UI工具
+    rootPath + "import.java",   
+    rootPath + "api.java",      
+    rootPath + "uitools.java"   
 };
 final String[] parallelFiles = {
-    rootPath + "ColorPicker.java",// 调色盘
-    rootPath + "KeepAlive.java", // 后台保活
-    rootPath + "setwindow.java",// 设置弹窗
-    rootPath + "Dialog.java",    //  弹窗
-    rootPath + "api2.java",     // 模拟定位
-    rootPath + "api3.java",     // 消息统计
-    rootPath + "api4.java",     // 悬浮窗
-    rootPath + "api5.java",     // 双击消息
-    rootPath + "api6.java",     // 运行状态
-    rootPath + "api7.java",     // html
-    rootPath + "api8.java",     // QQ空间
-    rootPath + "api9.java",     // pb
-    rootPath + "function.java"  // 功能(动态热插拔)
+    rootPath + "ColorPicker.java",
+    rootPath + "KeepAlive.java", 
+    rootPath + "setwindow.java",
+    rootPath + "Dialog.java",    
+    rootPath + "api2.java",     
+    rootPath + "api3.java",     
+    rootPath + "api4.java",     
+    rootPath + "api5.java",     
+    rootPath + "api6.java",     
+    rootPath + "api7.java",     
+    rootPath + "api8.java",     
+    rootPath + "api9.java",     
+    rootPath + "function.java"  
 };
 
-// API加载耗时，-1表示未初始化
+
 volatile long apiLoadCostTime = -1;
 static ThreadLocal dateFormatHolder = new ThreadLocal();
 
@@ -207,7 +207,7 @@ ThreadPool.execute(new Runnable() {
         try {
             for (int i = 0; i < coreFiles.length; i++) {
                 loadJava(coreFiles[i]);
-                // traceLog("main_log", "[apiLoad] 核心api加载：" + coreFiles[i]);
+                
             }
 
             final CountDownLatch latch = new CountDownLatch(parallelFiles.length);
@@ -244,14 +244,14 @@ ThreadPool.execute(new Runnable() {
 
 String currentPackageName = context.getPackageName();
 
-// 状态变量
+
 volatile boolean 悬浮窗显示状态 = false;
 volatile boolean 应用前台状态 = false;
 volatile boolean 非UI初始化完成 = false;
 volatile boolean UI初始化完成 = false;
 volatile boolean 允许触摸 = true;
 
-// [精准前后台检测] Activity计数器
+
 static volatile int resumedActivityCount = 0;
 
 Handler uiHandler = new Handler(Looper.getMainLooper());
@@ -262,13 +262,7 @@ boolean dialogVisible = false;
 Activity activity = null;
 volatile boolean Hook已调用 = false;
 
-/**
- * 检查并更新前台状态。
- * 当 {@code resumedActivityCount} 大于 0 时表示有 Activity 可见；
- * 若后台初始化已完成但 UI 尚未初始化，则在主线程补做前台初始化；
- *
- * @param activity 当前可见的 {@link Activity}
- */
+
 void checkAndUpdateForegroundState(final Activity activity) {
     if (resumedActivityCount <= 0) return;
 
@@ -281,7 +275,7 @@ void checkAndUpdateForegroundState(final Activity activity) {
     }
 
     if (!应用前台状态) {
-        // traceLog("main_log", "[checkAndUpdateForegroundState] 状态变更 → 前台");
+        
         应用前台状态 = true;
         允许触摸 = true;
         最后Activity = activity;
@@ -295,12 +289,7 @@ void checkAndUpdateForegroundState(final Activity activity) {
     }
 }
 
-/**
- * 检查并更新后台状态，带 400ms 延迟防止 Activity 切换时的误判
- * <p>
- * 延迟结束后若 {@code resumedActivityCount} 仍为 0，则确认进入后台：
- * </p>
- */
+
 void checkAndUpdateBackgroundState() {
     if (resumedActivityCount > 0) return;
 
@@ -308,7 +297,7 @@ void checkAndUpdateBackgroundState() {
         public void run() {
             if (resumedActivityCount > 0) return;
             if (应用前台状态) {
-                // traceLog("main_log", "[checkAndUpdateBackgroundState] 状态变更 → 后台");
+                
                 应用前台状态 = false;
                 允许触摸 = false;
                 if (悬浮窗显示状态) 停止悬浮窗();
@@ -465,9 +454,9 @@ void 后台初始化() {
         traceLog("main_log", "[后台初始化] add项添加完成");
         开模拟定位();
         checkMuteAllExpiry();
-        // if (getBoolean("settings", "后台保活", false)) {
-        // KeepAlive.start();
-        // }
+        
+        
+        
         非UI初始化完成 = true;
 
     } catch (Exception e) {
