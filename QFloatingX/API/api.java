@@ -425,7 +425,7 @@ import com.tencent.mobileqq.transfile.api.ITransFileController;
 import com.tencent.mobileqq.app.BaseApplicationImpl;
 //无心 由ᗜ×ᗜ适配本脚本，你直接搬可能会遇到bug哦～
 boolean 上传头像(String path) {
-	// toast ("111");
+	
 	try {
 		ITransFileController control = app.getApplication().getRuntime().getRuntimeService(ITransFileController.class);
 		TransferRequest transferRequest = new TransferRequest();
@@ -434,7 +434,7 @@ boolean 上传头像(String path) {
 		transferRequest.mFileType = 22;
 		boolean transferAsync = control.transferAsync(transferRequest);
 		return transferAsync;
-		// toast("调用了上传头像");
+		
 	} catch (e) {
 		return false;
 	}
@@ -485,29 +485,29 @@ import com.tencent.mobileqq.troop.api.ITroopInfoService;
 import com.tencent.mobileqq.data.troop.TroopInfo;
 
 public TroopInfo findTroopInfo(String qun) {
-	// Object app = BaseApplicationImpl.getApplication().getRuntime();
+	
 	ITroopInfoService Info = app.getRuntimeService(ITroopInfoService.class);
 	return Info.findTroopInfo("" + qun);
 }
 
-// ================= 昵称 / 备注 取值方法组（4 个，全部走宿主本地缓存，单条 O(1)，不做全表遍历） =================
-// 数据结构：com.tencent.mobileqq.data.Card 同时带 strNick（用户昵称）与 strReMark（我给对方设的备注）；
-//          群信息用 com.tencent.mobileqq.data.troop.TroopInfo，troopname=原群名、troopRemark=群备注。
-// 用法（热插拔脚本里同名直接调用，弹窗内自行拼「备注(名字)」）：
-//   String uShow = getUserRemark(uin);  // 好友备注，无则为空串
-//   String uNick = getUserName(uin);    // 好友昵称，查不到回退为原号码
-//   String gName = getGroupName(qun);   // 群原名，查不到回退为群号
-//   String gMark = getGroupRemark(qun); // 群备注，无则为空串
-// 说明：查不到时返回空串 / 原号码，绝不联网重查，也不会返回含 “*” 的脱敏名。
 
-// 名字有效性：非空、非 "null"、不含 “*” 脱敏
+
+
+
+
+
+
+
+
+
+
 boolean validDisplayName(String value) {
     if (value == null || value.isEmpty()) return false;
     if ("null".equals(value) || value.contains("*")) return false;
     return true;
 }
 
-// 单人资料卡（宿主本地缓存，不触发网络）
+
 Object getProfileCard(String uin) {
     if (uin == null || uin.isEmpty()) return null;
     try {
@@ -518,7 +518,7 @@ Object getProfileCard(String uin) {
     }
 }
 
-// 好友备注；无备注或查不到返回 ""
+
 String getUserRemark(String uin) {
     Object card = getProfileCard(uin);
     if (card == null) return "";
@@ -530,7 +530,7 @@ String getUserRemark(String uin) {
     }
 }
 
-// 好友昵称；查不到返回原号码
+
 String getUserName(String uin) {
     if (uin == null || uin.isEmpty()) return "";
     Object card = getProfileCard(uin);
@@ -543,7 +543,7 @@ String getUserName(String uin) {
     return uin;
 }
 
-// 群原名；无群信息或取不到时返回群号
+
 String getGroupName(String qun) {
     if (qun == null || qun.isEmpty()) return "";
     TroopInfo troopInfo = null;
@@ -560,7 +560,7 @@ String getGroupName(String qun) {
     return qun;
 }
 
-// 群备注（我给群设的备注）；无备注或查不到返回 ""
+
 String getGroupRemark(String qun) {
     if (qun == null || qun.isEmpty()) return "";
     TroopInfo troopInfo = null;
@@ -1018,7 +1018,7 @@ import java.net.URLDecoder;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 
-// 1. Base64
+
 String encryptBase64(String text) {
 	try {
 		return new String(android.util.Base64.encode(text.getBytes("UTF-8"), android.util.Base64.NO_WRAP), "UTF-8");
@@ -1035,7 +1035,7 @@ String decryptBase64(String text) {
 	}
 }
 
-// 2. Unicode
+
 String encryptUnicode(String text) {
 	try {
 		StringBuilder result = new StringBuilder();
@@ -1076,7 +1076,7 @@ String decryptUnicode(String text) {
 }
 
 
-// 3. Hex (16进制)
+
 String stringToHex(String str) {
 	try {
 		StringBuilder sb = new StringBuilder();
@@ -1090,7 +1090,7 @@ String stringToHex(String str) {
 
 String hexToString(String hex) {
 	try {
-		hex = hex.replace(" ", ""); // 容错空格
+		hex = hex.replace(" ", ""); 
 		StringBuilder output = new StringBuilder();
 		for (int i = 0; i < hex.length(); i += 2) {
 			String str = hex.substring(i, i + 2);
@@ -1102,7 +1102,7 @@ String hexToString(String hex) {
 	}
 }
 
-// 4. 二进制
+
 String stringToBinary(String text) {
 	try {
 		StringBuilder binary = new StringBuilder();
@@ -1117,7 +1117,7 @@ String stringToBinary(String text) {
 	}
 }
 
-// 5. URL 编码
+
 String urlEncode(String text) {
 	try {
 		return URLEncoder.encode(text, "UTF-8");
@@ -1133,7 +1133,7 @@ String urlDecode(String text) {
 	}
 }
 
-// 6. 哈希摘要 (MD5/SHA)
+
 String getHash(String text, String algorithm) {
 	try {
 		MessageDigest digest = MessageDigest.getInstance(algorithm);
@@ -1150,7 +1150,7 @@ String getHash(String text, String algorithm) {
 	}
 }
 
-// 7. 凯撒密码 (支持正负偏移)
+
 String caesarCipher(String text, int shift) {
 	StringBuilder result = new StringBuilder();
 	for (char character: text.toCharArray()) {
@@ -1171,7 +1171,7 @@ String caesarCipher(String text, int shift) {
 	return result.toString();
 }
 
-// 8. XOR 简单加密
+
 String xorCipher(String text) {
 	char[] key = {
 		'Q',
@@ -1188,7 +1188,7 @@ String xorCipher(String text) {
 	return output.toString();
 }
 
-// 8.1 本地数据存储（无后缀文件；内容 XOR + Base64，非明文也非加密）—— 供各模块复用
+
 void saveLocalData(String name, String content) {
 	if (name == null || name.length() == 0) return;
 	try {
@@ -1215,13 +1215,13 @@ String loadLocalData(String name) {
 	}
 }
 
-// 9. 倒序
+
 String reverseString(String text) {
 	return new StringBuilder(text).reverse().toString();
 }
 
-// --- 高级加密辅助 (AES/DES) ---
-// 密钥生成器
+
+
 private byte[] getRawKey(String seed, int length) {
 	try {
 		byte[] keyBytes = seed.getBytes("UTF-8");
@@ -1236,7 +1236,7 @@ private byte[] getRawKey(String seed, int length) {
 	}
 }
 
-// 10. AES 加密/解密
+
 String aesEncrypt(String text) {
 	try {
 		SecretKeySpec keySpec = new SecretKeySpec(getRawKey("QFloatingX_AES_Key", 16), "AES");
@@ -1261,7 +1261,7 @@ String aesDecrypt(String base64Text) {
 	}
 }
 
-// 11. DES 加密/解密
+
 String desEncrypt(String text) {
 	try {
 		SecretKeySpec keySpec = new SecretKeySpec(getRawKey("QFloatingX_DES", 8), "DES");
@@ -1286,14 +1286,11 @@ String desDecrypt(String base64Text) {
 	}
 }
 
-public int dp(Activity activity, int d) {
-	return (int)(d * getPluginUiDensity(activity) + 0.5f);
+int dp(Object contextObj, float dpValue) {
+	return (int)(dpValue * getPluginUiDensity(contextObj) + 0.5f);
 }
-public int dp(int d) {
-	return (int)(d * getPluginUiDensity(context) + 0.5f);
-}
-int dp(Context context, float dpValue) {
-	return (int)(dpValue * getPluginUiDensity(context) + 0.5f);
+int dp(float dpValue) {
+	return dp(context, dpValue);
 }
 
 void vibrate(Activity activity, int milliseconds) {
@@ -1328,7 +1325,7 @@ void vibrate(Activity activity, int milliseconds) {
 	}
 }
 
-// 默认经纬度（天安门）
+
 double 默认经度 = 116.397128;
 double 默认纬度 = 39.907500;
 void showApiProtectGuide(final Activity activity) {
@@ -1608,7 +1605,7 @@ private void showToastViewOnWindow(final Activity act, final View content, Strin
 
 private View wrapToastInBox(Context ctx, View bubble, int boxW, int boxH) {
     if (boxW <= 0 || boxH <= 0) {
-        // traceLog("api_log", "[wrapToastInBox] 无框尺寸，直接返回气泡");
+        
         return bubble;
     }
     FrameLayout box = new FrameLayout(ctx);
@@ -1622,7 +1619,7 @@ private View wrapToastInBox(Context ctx, View bubble, int boxW, int boxH) {
         blp.gravity = boxG;
     } else {
         blp = new FrameLayout.LayoutParams(-1, -1);
-        // 撑满后 box gravity 无意义；文字填充由 TextView gravity 负责
+        
     }
     bubble.setLayoutParams(blp);
     box.addView(bubble, blp);
@@ -1766,7 +1763,7 @@ private void xToast(String text) {
                 bg.setColor(pc(isDark ? "#D9333333" : "#F2E0E0E0"));
             }
         } else {
-            // default：纯色背景支持轮换（1色常驻）；未自定义=白底
+            
             int[] barr = parseColorCsv(getString("settings", "toast_bg_solid_list", ""), false);
             if (barr != null && barr.length > 0) {
                 bg.setColor(pickFrom(barr));
@@ -1786,7 +1783,7 @@ private void xToast(String text) {
             Activity ta = ctx instanceof Activity ? (Activity) ctx : getNowActivity();
             textColor = (ta != null) ? tc(ta, "primary") : pc("#FF2196F3");
         } else {
-            // default：未自定义=黑字；已配置则轮换
+            
             int[] tarr = parseColorCsv(getString("settings", "toast_color_list", ""), false);
             if (tarr != null && tarr.length > 0) textColor = pickFrom(tarr);
             else textColor = pc("#FF000000");
@@ -1803,7 +1800,7 @@ private void xToast(String text) {
         } else {
             root.addView(tv, new LinearLayout.LayoutParams(-2, -2));
         }
-        // traceLog("api_log", "[xToast] style=" + style + " pos=" + posMode + " maxW=" + maxW);
+        
 
         AnimationSet showAnim = new AnimationSet(true);
         ScaleAnimation scaleShow = new ScaleAnimation(0.8f, 1.0f, 0.8f, 1.0f, Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF, 0.5f);
@@ -1834,7 +1831,7 @@ private void xToast(String text) {
         if (durMs > 10000) durMs = 10000;
         View toastContent = wrapToastInBox(ctx, root, boxSize[0], boxSize[1]);
         if ("custom".equals(posMode) && ctx instanceof Activity) {
-            // 自定义位置走 WindowManager，框内 gravity / 文字填充才可靠
+            
             showToastViewOnWindow((Activity) ctx, toastContent, posMode, durMs, false);
             return;
         }
@@ -1853,7 +1850,7 @@ private void xToastBlur(Context ctx, String text) {
     try {
         final Activity act = ctx instanceof Activity ? (Activity) ctx : getNowActivity();
         if (act == null || act.isFinishing()) {
-            // traceLog("api_log", "[xToastBlur] act无效，回退系统toast");
+            
             toast("" + text);
             return;
         }
@@ -1873,10 +1870,10 @@ private void xToastBlur(Context ctx, String text) {
         readCustomBoxSize(posMode, boxSize);
         int maxW = act.getResources().getDisplayMetrics().widthPixels - dp(act, 48);
         if (boxSize[0] > 0 && boxSize[0] < maxW) maxW = boxSize[0];
-        // traceLog("api_log", "[xToastBlur] start pos=" + posMode
-            // + " maxW=" + maxW
-            // + " textG=" + getString("settings", "toast_text_gravity", "center")
-            // + " sdk=" + android.os.Build.VERSION.SDK_INT);
+        
+            
+            
+            
 
         final TextView tv = new TextView(act);
         tv.setText(display);
@@ -1887,7 +1884,7 @@ private void xToastBlur(Context ctx, String text) {
         tv.setMaxLines(8);
         tv.setPadding(dp(20), dp(14), dp(20), dp(14));
         GradientDrawable bg = new GradientDrawable();
-        // 半透明底保证可见；系统再在窗后做模糊
+        
         bg.setColor(Color.argb(isDark ? 160 : 200, isDark ? 48 : 255, isDark ? 48 : 255, isDark ? 48 : 255));
         bg.setCornerRadius(dp(14));
         tv.setBackground(bg);
@@ -1897,7 +1894,7 @@ private void xToastBlur(Context ctx, String text) {
         final View content = wrapToastInBox(act, tv, boxSize[0], boxSize[1]);
 
         if (act.getSystemService(Context.WINDOW_SERVICE) == null) {
-            // traceLog("api_log", "[xToastBlur] WindowManager=null，回退Dialog");
+            
             xToastBlurFallback(act, content, posMode, durMs, boxSize);
             return;
         }
@@ -2011,9 +2008,9 @@ void showScreenPointPicker(Activity a, final int initX, final int initY, final i
                 updateLabel.run();
                 root.addView(coordTv);
 
-                // 8 handles: edges + corners
+                
                 final View[] hs = new View[8];
-                // 0 TL 1 T 2 TR 3 R 4 BR 5 B 6 BL 7 L
+                
                 for (int i = 0; i < 8; i++) {
                     View hv = new View(act);
                     GradientDrawable hgd = new GradientDrawable();
@@ -2311,8 +2308,8 @@ void 执行卸载核心逻辑() {
 		onUnMsgload();
 		a卸载悬浮窗();
 		putBoolean("settings", "开关", false);
-		// new Handler(Looper.getMainLooper()).post(new Runnable() {
-			// public void run() {
+		
+			
 				unloadBackgroundCache();
 				清理Handler(uiHandler);
 				uiHandler = null;
@@ -2320,8 +2317,8 @@ void 执行卸载核心逻辑() {
 				悬浮窗显示状态 = false;
 				应用前台状态 = false;
 				Toast("脚本卸载完成，欢迎下次使用");
-			// }
-		// });
+			
+		
 	} catch (Throwable e) {
 		traceLog("api_log", "[执行卸载核心逻辑] 卸载失败: " + e.toString());
 		Toast("卸载失败：" + e.getMessage());
@@ -3524,6 +3521,13 @@ String fetchFirstValidUpdateJson(final String[] urls) {
                             return null;
                         }
                         return new String[]{body, url};
+                    } catch (java.io.InterruptedIOException e) {
+                        if (e instanceof java.net.SocketTimeoutException) {
+                            traceLog("api_log", "[fetchFirstValidUpdateJson] up.json 请求超时 #" + index + ": " + e);
+                        } else if (!Thread.currentThread().isInterrupted()) {
+                            traceLog("api_log", "[fetchFirstValidUpdateJson] up.json 请求中断 #" + index + ": " + e);
+                        }
+                        return null;
                     } catch (Throwable e) {
                         traceLog("api_log", "[fetchFirstValidUpdateJson] up.json 请求失败 #" + index + ": " + e);
                         return null;
@@ -3539,6 +3543,9 @@ String fetchFirstValidUpdateJson(final String[] urls) {
             java.util.concurrent.Future future = null;
             try {
                 future = completion.poll(6000, java.util.concurrent.TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
             } catch (Throwable e) {
                 traceLog("api_log", "[fetchFirstValidUpdateJson] 等待镜像结果异常: " + e);
             }
@@ -3550,6 +3557,7 @@ String fetchFirstValidUpdateJson(final String[] urls) {
                     traceLog("api_log", "[fetchFirstValidUpdateJson] up.json 命中: " + hit[1]);
                     return hit[0];
                 }
+            } catch (java.util.concurrent.CancellationException e) {
             } catch (Throwable e) {
                 traceLog("api_log", "[fetchFirstValidUpdateJson] 解析线程结果异常: " + e);
             }

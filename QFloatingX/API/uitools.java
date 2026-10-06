@@ -1,4 +1,4 @@
-//UI工具类
+
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -41,25 +41,25 @@ import me.yxp.qfun.utils.ui.ThemeHelper;
 import android.content.res.Configuration;
 boolean isThemeDark(Activity activity) {
     try {
-        // 获取当前主题模式配置，默认 default
+        
         String themeMode = getString("settings", "ui_theme_mode", "default");
         
-        // 强制深色
+        
         if ("dark".equals(themeMode)) {
             return true;
         }
         
-        // 强制浅色
+        
         if ("light".equals(themeMode)) {
             return false;
         }
         
-        // 跟随模块（QQ 自身深色状态）
+        
         if ("module".equals(themeMode)) {
             return ThemeHelper.INSTANCE.isNightMode();
         }
         
-        // 跟随系统 或 默认（推荐），都走系统暗黑判断
+        
         boolean systemDarkMode = false;
         int uiMode = activity.getResources().getConfiguration().uiMode;
         int nightMode = uiMode & Configuration.UI_MODE_NIGHT_MASK;
@@ -67,22 +67,58 @@ boolean isThemeDark(Activity activity) {
         
         return systemDarkMode;
     } catch (Throwable e) {
-        // 异常兜底默认浅色
+        
         return false;
     }
 }
 
 private Drawable createRippleBg(Context ctx, int bgColor, int radius) {
+    int effectiveRadius = dp(ctx, Math.max(8, radius));
     GradientDrawable content = new GradientDrawable();
     content.setColor(bgColor);
-    content.setCornerRadius(dp(ctx, radius));
-    return new RippleDrawable(ColorStateList.valueOf(pc("#1A000000")), content, content);
+    content.setCornerRadius(effectiveRadius);
+    GradientDrawable mask = new GradientDrawable();
+    mask.setColor(Color.WHITE);
+    mask.setCornerRadius(effectiveRadius);
+    return new RippleDrawable(ColorStateList.valueOf(getAdaptiveRippleColor(ctx, bgColor)), content, mask);
+}
+
+int blendColor(int baseColor, int targetColor, float amount) {
+    amount = Math.max(0f, Math.min(1f, amount));
+    int a = Math.round(Color.alpha(baseColor) + (Color.alpha(targetColor) - Color.alpha(baseColor)) * amount);
+    int r = Math.round(Color.red(baseColor) + (Color.red(targetColor) - Color.red(baseColor)) * amount);
+    int g = Math.round(Color.green(baseColor) + (Color.green(targetColor) - Color.green(baseColor)) * amount);
+    int b = Math.round(Color.blue(baseColor) + (Color.blue(targetColor) - Color.blue(baseColor)) * amount);
+    return Color.argb(a, r, g, b);
+}
+
+int getAdaptivePressedColor(int normalColor) {
+    int base = normalColor;
+    if (Color.alpha(base) < 24) base = pc(isThemeDark(getNowActivity()) ? "#FF242424" : "#FFF7F7F7");
+    boolean dark = isColorDark(base);
+    return blendColor(base, dark ? Color.WHITE : Color.BLACK, 0.16f);
+}
+
+int getAdaptiveRippleColor(Context context, int baseColor) {
+    boolean dark = false;
+    try {
+        if (context instanceof Activity) dark = isThemeDark((Activity) context);
+    } catch (Throwable e) {
+        traceLog("uitools_log", "[getAdaptiveRippleColor] 异常: " + e);
+    }
+    if (Color.alpha(baseColor) >= 24) {
+        boolean baseDark = isColorDark(baseColor);
+        int target = baseDark ? Color.WHITE : Color.BLACK;
+        return Color.argb(46, Color.red(target), Color.green(target), Color.blue(target));
+    }
+    int target = dark ? Color.WHITE : Color.BLACK;
+    return Color.argb(38, Color.red(target), Color.green(target), Color.blue(target));
 }
 
 StateListDrawable makeFeedbackBg(int normalColor, int pressedColor, int r) {
     StateListDrawable sld = new StateListDrawable();
     GradientDrawable pressed = new GradientDrawable();
-    pressed.setColor(pressedColor);
+    pressed.setColor(getAdaptivePressedColor(normalColor));
     pressed.setCornerRadius(r);
     GradientDrawable normal = new GradientDrawable();
     normal.setColor(normalColor);
@@ -90,6 +126,57 @@ StateListDrawable makeFeedbackBg(int normalColor, int pressedColor, int r) {
     sld.addState(new int[]{android.R.attr.state_pressed}, pressed);
     sld.addState(new int[0], normal);
     return sld;
+}
+
+Drawable makeAdaptiveRippleBg(Context context, int baseColor, int radiusDp) {
+    int radius = dp(context, Math.max(8, radiusDp));
+    GradientDrawable content = new GradientDrawable();
+    content.setColor(baseColor);
+    content.setCornerRadius(radius);
+    GradientDrawable mask = new GradientDrawable();
+    mask.setColor(Color.WHITE);
+    mask.setCornerRadius(radius);
+    return new RippleDrawable(ColorStateList.valueOf(getAdaptiveRippleColor(context, baseColor)), content, mask);
+}
+
+int getReadableTextColor(int backgroundColor) {
+    return isColorDark(backgroundColor) ? Color.WHITE : pc("#FF202124");
+}
+
+void applyStatusPill(Activity activity, TextView view, String text, int tone) {
+    if (activity == null || view == null || text == null || text.length() == 0) {
+        if (view != null) view.setVisibility(View.GONE);
+        return;
+    }
+    int surface = tc(activity, "surface");
+    int bg = blendColor(surface, tone, isThemeDark(activity) ? 0.30f : 0.16f);
+    view.setText(text);
+    view.setTextSize(10.5f);
+    view.setTextColor(getReadableTextColor(bg));
+    view.setGravity(Gravity.CENTER);
+    view.setIncludeFontPadding(false);
+    view.setSingleLine(true);
+    view.setEllipsize(android.text.TextUtils.TruncateAt.END);
+    view.setPadding(dp(activity, 8), dp(activity, 3), dp(activity, 8), dp(activity, 3));
+    view.setBackground(roundRect(bg, dp(activity, 20)));
+    view.setVisibility(View.VISIBLE);
+}
+
+void applyRolePill(Activity activity, TextView view, String role) {
+    if (activity == null || view == null || role == null || role.length() == 0) {
+        if (view != null) view.setVisibility(View.GONE);
+        return;
+    }
+    String normalized = role;
+    int tone = tc(activity, "primary");
+    if ("管理员".equals(normalized)) tone = pc("#FFF59E0B");
+    else if ("普通成员".equals(normalized)) tone = tc(activity, "on_surface");
+    int surface = tc(activity, "surface");
+    int bg = "普通成员".equals(normalized)
+        ? blendColor(surface, tc(activity, "on_surface"), 0.10f)
+        : blendColor(surface, tone, isThemeDark(activity) ? 0.30f : 0.18f);
+    applyStatusPill(activity, view, normalized, tone);
+    view.setBackground(roundRect(bg, dp(activity, 20)));
 }
 
 int adjustColor(int color, float factor) {
@@ -108,6 +195,14 @@ GradientDrawable roundRect(int c, int r) {
     GradientDrawable g = new GradientDrawable();
     g.setColor(c);
     g.setCornerRadius(r);
+    return g;
+}
+
+GradientDrawable makeDialogInnerCard(Activity activity, int color) {
+    GradientDrawable g = new GradientDrawable();
+    g.setShape(GradientDrawable.RECTANGLE);
+    g.setColor(color);
+    g.setCornerRadius(dp(activity, 12));
     return g;
 }
 
@@ -159,47 +254,41 @@ TextView makeChip(Activity a, String t, boolean s, int type) {
     v.setTextSize(11);
     v.setPadding(dp(a, 10), dp(a, 4), dp(a, 10), dp(a, 4));
     
-    int normalColor, pressedColor;
+    int normalColor;
     if (type == 1) { 
         normalColor = s ? pc("#3B71FE") : pc("#E0E0E0");
-        pressedColor = s ? pc("#2E5BC7") : pc("#B0B0B0");
         v.setTextColor(s ? Color.WHITE : pc("#666666"));
         v.setGravity(Gravity.CENTER);
         v.setPadding(dp(a, 12), dp(a, 4), dp(a, 12), dp(a, 4));
     } else if (type == 2) {
         normalColor = s ? pc("#FF9800") : pc("#F0F0F0");
-        pressedColor = s ? pc("#F57C00") : pc("#D6D6D6");
         v.setTextColor(s ? Color.WHITE : pc("#666666"));
     } else {
         normalColor = s ? pc("#3B71FE") : pc("#F0F0F0");
-        pressedColor = s ? pc("#2E5BC7") : pc("#D6D6D6");
         v.setTextColor(s ? Color.WHITE : pc("#666666"));
     }
     
-    v.setBackground(makeFeedbackBg(normalColor, pressedColor, dp(a, 50)));
+    v.setBackground(makeFeedbackBg(normalColor, 0, dp(a, 50)));
     v.setTag(new Boolean(s));
     return v;
 }
 
 void setChip(TextView v, boolean s) {
     int normalColor = s ? pc("#3B71FE") : pc("#F0F0F0");
-    int pressedColor = s ? pc("#2E5BC7") : pc("#D6D6D6");
     v.setTextColor(s ? Color.WHITE : pc("#666666"));
-    v.setBackground(makeFeedbackBg(normalColor, pressedColor, dp(v.getContext(), 50)));
+    v.setBackground(makeFeedbackBg(normalColor, 0, dp(v.getContext(), 50)));
     v.setTag(new Boolean(s));
 }
 
 void setChipWithType(TextView v, boolean s, int type) {
-    int normalColor, pressedColor;
+    int normalColor;
     if (type == 2) {
         normalColor = s ? pc("#FF9800") : pc("#F0F0F0");
-        pressedColor = s ? pc("#F57C00") : pc("#D6D6D6");
     } else {
         normalColor = s ? pc("#3B71FE") : pc("#F0F0F0");
-        pressedColor = s ? pc("#2E5BC7") : pc("#D6D6D6");
     }
     v.setTextColor(s ? Color.WHITE : pc("#666666"));
-    v.setBackground(makeFeedbackBg(normalColor, pressedColor, dp(v.getContext(), 50)));
+    v.setBackground(makeFeedbackBg(normalColor, 0, dp(v.getContext(), 50)));
     v.setTag(new Boolean(s));
 }
 
@@ -210,7 +299,7 @@ TextView makePresetChip(Activity a, String t, int textColor) {
     v.setPadding(dp(a, 8), dp(a, 3), dp(a, 8), dp(a, 3));
     v.setTextColor(textColor);
     int bg = pc("#F5F5F5");
-    v.setBackground(makeFeedbackBg(bg, adjustColor(bg, 0.9f), dp(a, 50)));
+    v.setBackground(makeFeedbackBg(bg, 0, dp(a, 50)));
     v.setMinWidth(dp(a, 36));
     v.setGravity(Gravity.CENTER);
     return v;
@@ -224,7 +313,7 @@ TextView makeSwitch(Activity a, boolean o, int c) {
     v.setGravity(Gravity.CENTER);
     v.setPadding(dp(a, 12), dp(a, 4), dp(a, 12), dp(a, 4));
     int bg = o ? c : pc("#E0E0E0");
-    v.setBackground(makeFeedbackBg(bg, adjustColor(bg, 0.9f), dp(a, 20)));
+    v.setBackground(makeFeedbackBg(bg, 0, dp(a, 20)));
     return v;
 }
 
@@ -232,7 +321,7 @@ void setSwitch(TextView v, boolean o, int c) {
     v.setText(o ? "开" : "关");
     v.setTextColor(o ? Color.WHITE : pc("#666666"));
     int bg = o ? c : pc("#E0E0E0");
-    v.setBackground(makeFeedbackBg(bg, adjustColor(bg, 0.9f), dp(v.getContext(), 20)));
+    v.setBackground(makeFeedbackBg(bg, 0, dp(v.getContext(), 20)));
 }
 
 boolean shouldKeepOriginalColor(View view) {
@@ -1054,7 +1143,7 @@ void executeApplyTheme(final Activity activity, final android.app.Dialog dialog,
         
         String rawBgColor = getString("settings", isDark ? "ui_bg_color_dark" : "ui_bg_color_light", 
             isDark ? "#FF1E1E1E" : "#FFFFFFFF");
-        // 纯色列表：多色轮转，1色常驻
+        
         String solidListKey = isDark ? "ui_bg_solid_list_dark" : "ui_bg_solid_list_light";
         int[] solidArr = parseColorCsv(getString("settings", solidListKey, ""), false);
         if (solidArr != null && solidArr.length > 0) {
@@ -1070,7 +1159,7 @@ void executeApplyTheme(final Activity activity, final android.app.Dialog dialog,
         
         if ((skip & 2) == 0) {
         String gradList = bgGradient;
-        // 渐变列表 key 与 toast 同格式，空则用原值
+        
         if ("gradient".equals(bgType)) {
             String gk = isDark ? "ui_bg_gradient_dark" : "ui_bg_gradient_light";
             String graw = getString("settings", gk, "");
@@ -1201,11 +1290,9 @@ void applyDrawableWithTransition(final Activity activity, final Window window, f
     });
 }
 
-// clearInnerBackgrounds 已移除：窗体主题由 applyUiTheme 统一负责
 
-float pluginUiDensity = 0f;
-
-void refreshPluginUiDensity(Context ctx) {
+float getPluginUiDensity(Object ctxObj) {
+    Context ctx = (ctxObj instanceof Context) ? (Context) ctxObj : null;
     float hostDensity = 2f;
     try {
         if (ctx != null) {
@@ -1213,7 +1300,7 @@ void refreshPluginUiDensity(Context ctx) {
             if (d > 0f) hostDensity = d;
         }
     } catch (Throwable e) {
-        traceLog("uitools_log", "[refreshPluginUiDensity] 获取宿主 density 异常: " + e);
+        traceLog("uitools_log", "[getPluginUiDensity] 获取宿主 density 异常: " + e);
     }
     float targetDensity = hostDensity;
     try {
@@ -1230,26 +1317,10 @@ void refreshPluginUiDensity(Context ctx) {
             if (moduleDensity > 0f) targetDensity = moduleDensity;
         }
     } catch (Throwable e) {
-        traceLog("uitools_log", "[refreshPluginUiDensity] 异常: " + e);
-    }
-    if (targetDensity <= 0f) targetDensity = hostDensity;
-    pluginUiDensity = targetDensity;
-}
-
-float getPluginUiDensity(Context ctx) {
-    float density = pluginUiDensity;
-    if (density > 0f) return density;
-    try {
-        if (ctx != null) {
-            float hostDensity = ctx.getResources().getDisplayMetrics().density;
-            if (hostDensity > 0f) return hostDensity;
-        }
-    } catch (Throwable e) {
         traceLog("uitools_log", "[getPluginUiDensity] 异常: " + e);
     }
-    return 2f;
+    return targetDensity > 0f ? targetDensity : hostDensity;
 }
-
 
 int getDialogWidthPx(Activity activity, float hostDensity, float targetDensity) {
     int screenWidth = activity.getResources().getDisplayMetrics().widthPixels;
@@ -1298,7 +1369,7 @@ void applyDialogSize(final Activity activity, final Window window) {
     }
 }
 
-// applyUiSeekBar 仅保留 3 参版本
+
 
 void applyUiSeekBar(android.widget.SeekBar sb, Context ctx, int primary) {
     try {
@@ -1485,7 +1556,7 @@ boolean isDefaultTextColor(int color) {
     return false;
 }
 
-// isUserCustomColor 已删除（无调用）
+
 
 
 void updateViewStylesRecursively(View view, int textColor, Typeface tf, float fontSizeScale) {
@@ -1572,22 +1643,10 @@ void copyToClipboard(Activity activity, String text) {
     } catch (Throwable e) { traceLog("uitools_log", "[copyToClipboard] 异常: " + e); }
 }
 
-StateListDrawable getSelectableBg(Activity activity) {
-    android.graphics.drawable.StateListDrawable res = new android.graphics.drawable.StateListDrawable();
-    res.setExitFadeDuration(300);
-    res.addState(new int[]{android.R.attr.state_pressed}, new android.graphics.drawable.ColorDrawable(pc("#1A000000")));
-    res.addState(new int[0], new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
-    return res;
+Drawable getSelectableBg(Activity activity) {
+    return makeAdaptiveRippleBg(activity, Color.TRANSPARENT, 10);
 }
 
-int dpx(Context ctx, float d) {
-    try {
-        return (int)(d * getPluginUiDensity(ctx) + 0.5f);
-    } catch (Throwable e) {
-        traceLog("uitools_log", "[dpx] 异常: " + e);
-        return (int)(d * 2f + 0.5f);
-    }
-}
 
 int pc(String hex) {
     try {
@@ -1604,23 +1663,6 @@ int tca(Activity a, String key, int alpha) {
     return Color.argb(alpha, Color.red(c), Color.green(c), Color.blue(c));
 }
 
-int dpx(Activity activity, float d) {
-    try {
-        return (int)(d * getPluginUiDensity((Context) activity) + 0.5f);
-    } catch (Throwable e) {
-        traceLog("uitools_log", "[dpx] 异常: " + e);
-        return (int)(d * 2f + 0.5f);
-    }
-}
-
-int dpxc(Context context, float d) {
-    try {
-        Object result = android.util.TypedValue.applyDimension(1, d, context.getResources().getDisplayMetrics());
-        if (result instanceof float[]) return (int)(((float[])result)[0] + 0.5f);
-        if (result instanceof Float) return (int)(((Float)result).floatValue() + 0.5f);
-        return (int)(Float.parseFloat(result.toString()) + 0.5f);
-    } catch (Exception e) { return (int)(d * 2 + 0.5f); }
-}
 
 int hsvColor(float h, float s, float v) {
     try {
@@ -1631,8 +1673,8 @@ int hsvColor(float h, float s, float v) {
 }
 
 
-// 全脚本唯一的通用按钮工厂：TextView 实现，圆角背景 + 按压水波纹 + 按下缩放动画
-// 透明底/白底自动换灰色波纹；strokeWidthDp>0 时绘制描边；onClick 可为 null
+
+
 TextView createButton(Context ctx, String text, int textColor, int bgColor) {
     return createButton(ctx, text, textColor, bgColor, 14f, 20, 16, 10, false, 0, 0, null);
 }
@@ -1648,27 +1690,27 @@ TextView createButton(Context ctx, String text, int textColor, int bgColor, floa
     btn.setTextColor(textColor);
     btn.setGravity(Gravity.CENTER);
     if (bold) btn.setTypeface(null, Typeface.BOLD);
-    int padH = dpx(ctx, paddingHDp);
-    int padV = dpx(ctx, paddingVDp);
+    int padH = dp(ctx, paddingHDp);
+    int padV = dp(ctx, paddingVDp);
     btn.setPadding(padH, padV, padH, padV);
     try {
         GradientDrawable content = new GradientDrawable();
+        int effectiveRadiusDp = Math.max(8, radiusDp);
         content.setColor(bgColor);
-        content.setCornerRadius(dpx(ctx, radiusDp));
-        if (strokeWidthDp > 0) content.setStroke(dpx(ctx, strokeWidthDp), strokeColor);
-        // mask 必须不透明，否则透明底按钮的水波纹不可见
+        content.setCornerRadius(dp(ctx, effectiveRadiusDp));
+        if (strokeWidthDp > 0) content.setStroke(dp(ctx, strokeWidthDp), strokeColor);
+        
         GradientDrawable mask = new GradientDrawable();
         mask.setColor(-1);
-        mask.setCornerRadius(dpx(ctx, radiusDp));
-        int rippleColor = (bgColor == -1 || bgColor == 0) ? pc("#1A000000") : pc("#33FFFFFF");
-        RippleDrawable ripple = new RippleDrawable(ColorStateList.valueOf(rippleColor), content, mask);
+        mask.setCornerRadius(dp(ctx, effectiveRadiusDp));
+        RippleDrawable ripple = new RippleDrawable(ColorStateList.valueOf(getAdaptiveRippleColor(ctx, bgColor)), content, mask);
         btn.setBackground(ripple);
     } catch (Exception e) {
         try {
             GradientDrawable gd = new GradientDrawable();
             gd.setColor(bgColor);
-            gd.setCornerRadius(dpx(ctx, radiusDp));
-            if (strokeWidthDp > 0) gd.setStroke(dpx(ctx, strokeWidthDp), strokeColor);
+            gd.setCornerRadius(dp(ctx, radiusDp));
+            if (strokeWidthDp > 0) gd.setStroke(dp(ctx, strokeWidthDp), strokeColor);
             btn.setBackground(gd);
         } catch (Throwable e2) { traceLog("uitools_log", "[createButton] 异常: " + e2); }
     }
@@ -1697,4 +1739,3 @@ TextView createButton(Context ctx, String text, int textColor, int bgColor, floa
     return btn;
 }
 
-try { refreshPluginUiDensity(context); } catch (Throwable e) { traceLog("uitools_log", "[initDensity] 异常: " + e); }

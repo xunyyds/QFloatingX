@@ -369,18 +369,18 @@ void showPBSenderDialog() {
         title.setPadding(0, 0, 0, dp(act, 20));
         card.addView(title);
         
-        // 服务名输入
+        
         card.addView(makeSubTitleCompact(act, "服务名", tc(act, "on_surface_variant")));
         EditText etService = makeInput(act, "MessageSvc.PbSendMsg", null);
         card.addView(etService);
         
-        // PB数据输入
+        
         card.addView(makeSubTitleCompact(act, "PB数据 (JSON)", tc(act, "on_surface_variant")));
         EditText etPB = makeInput(act, "{\"1\":123,\"2\":\"示例数据\"}", null);
         etPB.setMinLines(4);
         card.addView(etPB);
         
-        // 模板管理区域
+        
         card.addView(makeSubTitleCompact(act, "模板管理", tc(act, "on_surface_variant")));
         
         LinearLayout templateContainer = new LinearLayout(act);
@@ -407,7 +407,7 @@ void showPBSenderDialog() {
         etTemplateName.setVisibility(View.GONE);
         card.addView(etTemplateName);
         
-        // 保存模板
+        
         btnSave.setOnClickListener(v -> {
             if (etTemplateName.getVisibility() == View.GONE) {
                 etTemplateName.setVisibility(View.VISIBLE);
@@ -437,10 +437,10 @@ void showPBSenderDialog() {
             }
         });
         
-        // 使用模板
+        
         btnLoad.setOnClickListener(v -> showTemplateSelectorDialog(act, etService, etPB));
         
-        // 预览
+        
         btnPreview.setOnClickListener(v -> {
             String service = etService.getText().toString().trim();
             String pbData = etPB.getText().toString().trim();
@@ -451,7 +451,7 @@ void showPBSenderDialog() {
             showPreviewDialog(act, service, pbData);
         });
         
-        // 底部按钮
+        
         LinearLayout bottomContainer = new LinearLayout(act);
         bottomContainer.setOrientation(LinearLayout.HORIZONTAL);
         bottomContainer.setGravity(Gravity.CENTER);
@@ -471,7 +471,7 @@ void showPBSenderDialog() {
         
         btnCancel.setOnClickListener(v -> dialog.dismiss());
         
-        // 发送
+        
         btnConfirm.setOnClickListener(v -> {
             String service = etService.getText().toString().trim();
             String pbData = etPB.getText().toString().trim();
@@ -499,7 +499,7 @@ void showPBSenderDialog() {
                         return;
                     }
                     
-                    // 记录发送数据
+                    
                     StringBuilder logContent = new StringBuilder();
                     logContent.append("\n========== 发送PB请求 ==========\n");
                     logContent.append("时间: ").append(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
@@ -510,7 +510,7 @@ void showPBSenderDialog() {
                     logContent.append("================================\n");
                     traceLog("api9_log", "[showPBSenderDialog] " + logContent.toString());
                     
-                    // 发送
+                    
                     PacketHelper.sendRequest(service, pbBytes, new IReceiver() {
                         void onReceive(byte[] data) {
                             act.runOnUiThread(() -> {
@@ -566,7 +566,7 @@ void showTemplateSelectorDialog(Activity act, EditText etService, EditText etPB)
     title.setPadding(0, 0, 0, dp(act, 20));
     card.addView(title);
     
-    // 加载模板
+    
     HashMap templates = new HashMap();
     try {
         String configPath = pluginPath + "/config/templates.json";
@@ -728,17 +728,17 @@ void sendSpecifiedFaceReply(Object data, int faceIndex) {
     }
 
     try {
-        // Oidb请求结构说明：
-        // 1: 固定36994（命令字）
-        // 2: 固定1（服务类型）
-        // 4: 消息体
-        //   2: 群号
-        //   3: 消息序号
-        //   4: 表情ID（服务端要求字符串形式）
-        //   5: 固定1（操作类型）
-        //   6: 固定0
-        //   7: 固定0
-        // 12: 固定1（标志位）
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         String jsonStr = "{\"1\":36994,\"2\":1,\"4\":{\"2\":" + groupUin
                 + ",\"3\":" + msgSeq + ",\"4\":\"" + faceIndex
                 + "\",\"5\":1,\"6\":0,\"7\":0},\"12\":1}";
@@ -751,7 +751,7 @@ void sendSpecifiedFaceReply(Object data, int faceIndex) {
         PacketHelper.sendRequest("OidbSvcTrpcTcp.0x9082_2", pbData, new IReceiver() {
             public void onReceive(byte[] resp) {
                 if (resp != null) {
-                    // qqToast(2, "表情回应成功！");
+                    
                 } else {
                     qqToast(1, "表情回应失败");
                 }
@@ -1045,7 +1045,7 @@ void showVoiceSendDialog(Object data) {
     Activity act = getNowActivity();
     if (act == null || act.isFinishing()) return;
 
-    // 仅支持群聊
+    
     if (data == null || data.type != 2) {
         qqToast(1, "仅支持群聊");
         return;
@@ -1056,13 +1056,13 @@ void showVoiceSendDialog(Object data) {
     final String groupName = (data.data != null && data.data.peerName != null)
             ? (String) data.data.peerName : "未知群";
 
-    // 解析音色列表（从 JSON 字符串）
+    
     final JSONArray voiceArray;
     try {
         String jsonStr = "{\n" +
                 "  \"code\": 0,\n" +
                 "  \"status\": \"success\",\n" +
-                "  \"msg\": \"音色列表\",\n" + //此音色列表取自冷雨
+                "  \"msg\": \"音色列表\",\n" + 
                 "  \"data\": [\n" +
                 "    {\"name\": \"小新\", \"id\": \"lucy-voice-laibixiaoxin\"},\n" +
                 "    {\"name\": \"猴哥\", \"id\": \"lucy-voice-houge\"},\n" +
@@ -1108,7 +1108,7 @@ void showVoiceSendDialog(Object data) {
                 root.setOrientation(LinearLayout.VERTICAL);
                 root.setPadding(dp(act, 16), dp(act, 20), dp(act, 16), dp(act, 16));
 
-                // 群信息
+                
                 TextView groupInfo = new TextView(act);
                 groupInfo.setText("群聊：" + groupName + "(" + groupUin + ")");
                 groupInfo.setTextSize(15);
@@ -1116,7 +1116,7 @@ void showVoiceSendDialog(Object data) {
                 groupInfo.setPadding(0, 0, 0, dp(act, 16));
                 root.addView(groupInfo);
 
-                // 音色ID输入行
+                
                 LinearLayout voiceRow = new LinearLayout(act);
                 voiceRow.setOrientation(LinearLayout.HORIZONTAL);
                 voiceRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -1139,14 +1139,14 @@ void showVoiceSendDialog(Object data) {
 
                 root.addView(voiceRow);
 
-                // 可选显示选中的音色名称
+                
                 final TextView tvVoiceName = new TextView(act);
                 tvVoiceName.setTextSize(12);
                 tvVoiceName.setTextColor(subTextColor);
                 tvVoiceName.setPadding(dp(act, 4), 0, 0, dp(act, 12));
                 root.addView(tvVoiceName);
 
-                // 文本输入
+                
                 TextView textLabel = new TextView(act);
                 textLabel.setText("语音文本：");
                 textLabel.setTextSize(14);
@@ -1159,7 +1159,7 @@ void showVoiceSendDialog(Object data) {
                 etText.setMinLines(3);
                 root.addView(etText);
 
-                // 按钮行
+                
                 LinearLayout btnRow = new LinearLayout(act);
                 btnRow.setOrientation(LinearLayout.HORIZONTAL);
                 btnRow.setPadding(0, dp(act, 20), 0, 0);
@@ -1186,14 +1186,14 @@ void showVoiceSendDialog(Object data) {
                 ref[0].show();
                 applyUiTheme(act, ref[0], 0);
 
-                // 选择按钮点击：弹出音色列表
+                
                 selectBtn.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         showVoiceListDialog(act, voiceArray, etVoiceId, tvVoiceName);
                     }
                 });
 
-                // 发送按钮点击
+                
                 sendBtn.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         String voiceId = etVoiceId.getText().toString().trim();
@@ -1285,7 +1285,7 @@ void showVoiceListDialog(final Activity act, final JSONArray voiceArray,
                         listContainer.addView(itemView);
 
                     } catch (Exception e) {
-                        // 跳过错误项
+                        
                     }
                 }
 
@@ -1316,19 +1316,19 @@ void showVoiceListDialog(final Activity act, final JSONArray voiceArray,
 
 void sendVoiceMessage(String groupUin, String voiceId, String text) {
     try {
-        // 构造 JSON 结构
-        // {
-        //   "1": 37531,
-        //   "2": 0,
-        //   "4": {
-        //     "1": 群号,
-        //     "2": "音色ID",
-        //     "3": "文本",
-        //     "4": 1,
-        //     "5": { "1": 1773685283 },
-        //     "12": 0
-        //   }
-        // }
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         JSONObject body = new JSONObject();
         body.put("1", Long.parseLong(groupUin));
         body.put("2", voiceId);

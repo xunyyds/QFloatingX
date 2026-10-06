@@ -32,7 +32,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.util.HashSet;
 
-// 引入基类
+
 import me.yxp.qfun.activity.BaseComposeActivity;
 
 public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnClickListener, View.OnTouchListener {
@@ -43,14 +43,14 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
     private FrameLayout rootFrame;
     private LinearLayout contentWrapper;
     
-    // 底栏相关
+    
     private LinearLayout bottomSheetLayout;
     private View dragHandle;
     private LinearLayout headerContainer; 
     private LinearLayout controlsContainer;
     private SnifferWindow snifferWindow;
     
-    // 动画状态变量
+    
     private float initialY;
     private float startTranslationY;
     private int maxDragRange = 0;
@@ -60,7 +60,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
     private static final long TAP_TIMEOUT = 180;
     private boolean isTranslationActive = false;
     
-    // 按钮
+    
     private TextView btnBack, btnForward, btnRefresh, btnSniff, btnTranslate, btnZoomIn, btnZoomOut, btnClose;
     private HashSet sniffedResources = new HashSet();
 
@@ -71,28 +71,28 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
             final String filePath = getIntent().getStringExtra("filePath");
             boolean isDark = isThemeDark(this);
 
-            // 沉浸式状态栏
+            
             getWindow().getDecorView().setSystemUiVisibility(
                 View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_STABLE | (isDark ? 0 : View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR)
             );
             getWindow().setStatusBarColor(Color.TRANSPARENT);
 
-            // --- 1. 根布局 ---
+            
             rootFrame = new FrameLayout(this);
             rootFrame.setBackgroundColor(tc(this, "background"));
 
-            // --- 2. 内容容器 ---
+            
             contentWrapper = new LinearLayout(this);
             contentWrapper.setOrientation(1);
             contentWrapper.setLayoutParams(new FrameLayout.LayoutParams(-1, -1));
             
-            // 状态栏占位
+            
             View statusBarSpacer = new View(this);
             statusBarSpacer.setLayoutParams(new LinearLayout.LayoutParams(-1, getStatusBarHeight()));
             statusBarSpacer.setBackgroundColor(Color.TRANSPARENT);
             contentWrapper.addView(statusBarSpacer);
 
-            // WebView
+            
             webView = new WebView(this);
             LinearLayout.LayoutParams webParams = new LinearLayout.LayoutParams(-1, -1);
             webParams.bottomMargin = dp(60);
@@ -103,7 +103,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
             contentWrapper.addView(webView);
             rootFrame.addView(contentWrapper);
 
-            // --- 3. 中心加载圈 ---
+            
             centerSpinner = new ProgressBar(this);
             FrameLayout.LayoutParams spinnerParams = new FrameLayout.LayoutParams(dp(50), dp(50));
             spinnerParams.gravity = Gravity.CENTER;
@@ -111,7 +111,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
             centerSpinner.setVisibility(View.GONE);
             rootFrame.addView(centerSpinner);
 
-            // --- 4. 底部抽屉 (默认收起) ---
+            
             bottomSheetLayout = new LinearLayout(this);
             bottomSheetLayout.setOrientation(1);
             
@@ -124,13 +124,13 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
             bottomParams.gravity = Gravity.BOTTOM;
             bottomSheetLayout.setLayoutParams(bottomParams);
 
-            // 4.1 头部容器
+            
             headerContainer = new LinearLayout(this);
             headerContainer.setOrientation(1);
             headerContainer.setPadding(0, dp(10), 0, 0);
             headerContainer.setOnTouchListener(this);
             
-            // 小横条
+            
             dragHandle = new View(this);
             LinearLayout.LayoutParams handleParams = new LinearLayout.LayoutParams(dp(40), dp(5));
             handleParams.gravity = Gravity.CENTER_HORIZONTAL;
@@ -142,7 +142,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
             dragHandle.setBackground(handleBg);
             headerContainer.addView(dragHandle);
 
-            // 标题行
+            
             LinearLayout titleRow = new LinearLayout(this);
             titleRow.setOrientation(0);
             titleRow.setGravity(16);
@@ -166,12 +166,12 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
             headerContainer.addView(titleRow);
             bottomSheetLayout.addView(headerContainer);
 
-            // 4.2 功能按钮区
+            
             controlsContainer = new LinearLayout(this);
             controlsContainer.setOrientation(1);
             controlsContainer.setPadding(dp(10), 0, dp(10), dp(20));
             
-            // 第一行
+            
             LinearLayout row1 = new LinearLayout(this);
             row1.setOrientation(0);
             int gridBg = tc(this, "outline");
@@ -185,7 +185,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
             row1.addView(btnBack); row1.addView(btnForward);
             row1.addView(btnZoomOut); row1.addView(btnZoomIn);
             
-            // 第二行
+            
             LinearLayout row2 = new LinearLayout(this);
             row2.setOrientation(0);
             row2.setPadding(0, dp(8), 0, 0);
@@ -196,7 +196,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
             btnClose.setTextColor(tc(this, "error"));
             row2.addView(btnSniff); row2.addView(btnTranslate); row2.addView(btnClose);
 
-            // 绑定事件
+            
             btnBack.setOnClickListener(this); btnForward.setOnClickListener(this);
             btnZoomIn.setOnClickListener(this); btnZoomOut.setOnClickListener(this);
             btnSniff.setOnClickListener(this); btnTranslate.setOnClickListener(this);
@@ -208,14 +208,14 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
             
             rootFrame.addView(bottomSheetLayout);
 
-            // --- 5. 嗅探小窗 ---
+            
             snifferWindow = new SnifferWindow(this);
             rootFrame.addView(snifferWindow.getView());
 
             setContentView(rootFrame);
             traceLog("api7_log", "[onCreate] ContentView设置完成");
 
-            // --- 6. 延迟初始化 (默认收起底栏) ---
+            
             bottomSheetLayout.post(new Runnable() {
                 public void run() {
                     try {
@@ -233,7 +233,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                 }
             });
 
-            // --- 7. 加载逻辑 ---
+            
             if (filePath != null && !filePath.equals("")) {
                 if (filePath.startsWith("http")) {
                     titleView.setText("网络页面");
@@ -260,11 +260,6 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
         }
     }
 
-    
-    public int dp(float d) {
-        return (int) (d * getResources().getDisplayMetrics().density);
-    }
-    
     public int getStatusBarHeight() {
         int r = getResources().getIdentifier("status_bar_height", "dimen", "android");
         return r > 0 ? getResources().getDimensionPixelSize(r) : dp(25);
@@ -481,7 +476,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                 }
             }
             else if (v == btnTranslate) {
-                toggleTranslation(); // 直接调用翻译切换
+                toggleTranslation(); 
             }
             else if (v == btnClose) finish();
         } catch (Throwable e) {
@@ -599,7 +594,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
         return null;
     }
 
-    // 网格按钮共享布局：weight=1 等分、38dp 高、4dp 外边距（样式本体走 uitools.createButton）
+    
     private void applyGridBtnParams(TextView btn) {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(38));
         params.weight = 1.0f;
@@ -932,191 +927,4 @@ private void saveUriToFile(final Activity activity, Uri uri, File target) {
         final String err = e.getMessage();
         Toast("保存失败: " + err);
     }
-}
-
-// ===== HTML 浏览器设置页（设置入口调用，实现留在本文件） =====
-View buildHtmlPageView(final Activity activity) {
-    if (activity == null) return null;
-
-    LinearLayout root = new LinearLayout(activity);
-    root.setOrientation(LinearLayout.VERTICAL);
-    root.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
-
-    LinearLayout urlRow = new LinearLayout(activity);
-    urlRow.setOrientation(LinearLayout.HORIZONTAL);
-    urlRow.setGravity(Gravity.CENTER_VERTICAL);
-
-    final EditText urlInput = makeInput(activity, "输入网址或 HTML 代码", null);
-    urlInput.setTextSize(13);
-    urlInput.setSingleLine(true);
-    urlInput.setImeOptions(EditorInfo.IME_ACTION_GO);
-    urlInput.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
-    urlRow.addView(urlInput);
-
-    TextView openBtn = createButton(activity, "打开", Color.WHITE, pc(getSettingsThemeColor(activity, "primary")), 13f, 8, 14, 8, false, 0, 0, null);
-    LinearLayout.LayoutParams openLp = new LinearLayout.LayoutParams(-2, -2);
-    openLp.leftMargin = dp(activity, 8);
-    openBtn.setLayoutParams(openLp);
-    urlRow.addView(openBtn);
-    root.addView(urlRow);
-
-    final Runnable openUrl = new Runnable() {
-        public void run() {
-            try {
-                String url = urlInput.getText().toString().trim();
-                if (url.length() == 0) { Toast("请输入网址或 HTML 代码"); return; }
-                if (!url.startsWith("http") && !url.startsWith("file")) url = "http://" + url;
-                launchHtmlActivity(activity, url);
-            } catch (Throwable e) { Toast("打开失败: " + e.getMessage()); }
-        }
-    };
-    openBtn.setOnClickListener(new View.OnClickListener() {
-        public void onClick(View v) { openUrl.run(); }
-    });
-    urlInput.setOnEditorActionListener(new TextView.OnEditorActionListener() {
-        public boolean onEditorAction(TextView tv, int actionId, KeyEvent keyEvent) {
-            if (actionId == EditorInfo.IME_ACTION_GO || actionId == EditorInfo.IME_ACTION_DONE) {
-                openUrl.run();
-                return true;
-            }
-            return false;
-        }
-    });
-
-    View divider = new View(activity);
-    divider.setBackgroundColor(pc(getSettingsThemeColor(activity, "outline")));
-    LinearLayout.LayoutParams dividerLp = new LinearLayout.LayoutParams(-1, dp(activity, 1));
-    dividerLp.topMargin = dp(activity, 12);
-    divider.setLayoutParams(dividerLp);
-    root.addView(divider);
-
-    LinearLayout listHeader = new LinearLayout(activity);
-    listHeader.setOrientation(LinearLayout.HORIZONTAL);
-    listHeader.setGravity(Gravity.CENTER_VERTICAL);
-    LinearLayout.LayoutParams headerLp = new LinearLayout.LayoutParams(-1, -2);
-    headerLp.topMargin = dp(activity, 12);
-    listHeader.setLayoutParams(headerLp);
-
-    TextView listTitle = new TextView(activity);
-    listTitle.setText("本地文件");
-    listTitle.setTextSize(14);
-    listTitle.setTypeface(null, Typeface.BOLD);
-    listTitle.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
-    listTitle.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
-    listHeader.addView(listTitle);
-
-    TextView importBtn = new TextView(activity);
-    importBtn.setText("导入新文件");
-    importBtn.setTextSize(13);
-    importBtn.setTextColor(pc(getSettingsThemeColor(activity, "primary")));
-    importBtn.setPadding(dp(activity, 8), dp(activity, 4), 0, dp(activity, 4));
-    importBtn.setClickable(true);
-    importBtn.setOnClickListener(new View.OnClickListener() {
-        public void onClick(View v) {
-            vibrate(activity, 32);
-            startHtmlFilePicker(activity);
-        }
-    });
-    listHeader.addView(importBtn);
-    root.addView(listHeader);
-
-    ScrollView sv = new ScrollView(activity);
-    sv.setVerticalScrollBarEnabled(false);
-    sv.setLayoutParams(new LinearLayout.LayoutParams(-1, 0, 1.0f));
-    LinearLayout list = new LinearLayout(activity);
-    list.setOrientation(LinearLayout.VERTICAL);
-    list.setPadding(0, dp(activity, 4), 0, dp(activity, 12));
-    sv.addView(list);
-    root.addView(sv);
-
-    refreshHtmlFileList(activity, list);
-    return root;
-}
-
-void refreshHtmlFileList(Activity activity, LinearLayout list) {
-    if (activity == null || list == null) return;
-    list.removeAllViews();
-    try {
-        File dir = new File(htmlPath);
-        if (!dir.exists()) dir.mkdirs();
-        File[] files = dir.listFiles();
-        if (files == null || files.length == 0) {
-            TextView empty = new TextView(activity);
-            empty.setText("暂无文件，点右上角「导入新文件」添加");
-            empty.setTextSize(13);
-            empty.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
-            empty.setPadding(0, dp(activity, 20), 0, 0);
-            list.addView(empty);
-            return;
-        }
-        for (int i = 0; i < files.length; i++) {
-            File f = files[i];
-            if (f == null || !f.isFile()) continue;
-            String lower = f.getName().toLowerCase();
-            if (!(lower.endsWith(".html") || lower.endsWith(".zip") || lower.endsWith(".php"))) continue;
-            list.addView(buildHtmlFileRow(activity, f, list));
-        }
-    } catch (Throwable e) {
-        traceLog("setwindow_log", "[refreshHtmlFileList] 异常: " + e);
-    }
-}
-
-View buildHtmlFileRow(final Activity activity, final File f, final LinearLayout list) {
-    final String path = f.getAbsolutePath();
-
-    LinearLayout row = new LinearLayout(activity);
-    row.setOrientation(LinearLayout.HORIZONTAL);
-    row.setGravity(Gravity.CENTER_VERTICAL);
-    row.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 8), dp(activity, 12));
-    row.setBackground(makeFeedbackBg(getAdaptiveCardBg(activity), pc(getSettingsThemeColor(activity, "ripple")), dp(activity, 14)));
-    row.setClipToOutline(true);
-    LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(-1, -2);
-    rowLp.setMargins(0, dp(activity, 5), 0, dp(activity, 5));
-    row.setLayoutParams(rowLp);
-
-    LinearLayout textArea = new LinearLayout(activity);
-    textArea.setOrientation(LinearLayout.VERTICAL);
-    textArea.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
-
-    TextView nameTv = new TextView(activity);
-    nameTv.setText(f.getName());
-    nameTv.setTextSize(15);
-    nameTv.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
-    textArea.addView(nameTv);
-
-    TextView sizeTv = new TextView(activity);
-    sizeTv.setText(formatSize(f.length()));
-    sizeTv.setTextSize(12);
-    sizeTv.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
-    sizeTv.setPadding(0, dp(activity, 3), 0, 0);
-    textArea.addView(sizeTv);
-    row.addView(textArea);
-
-    TextView delBtn = new TextView(activity);
-    delBtn.setText("删除");
-    delBtn.setTextSize(13);
-    delBtn.setTextColor(pc(getSettingsThemeColor(activity, "error")));
-    delBtn.setPadding(dp(activity, 12), dp(activity, 8), dp(activity, 12), dp(activity, 8));
-    delBtn.setClickable(true);
-    delBtn.setOnClickListener(new View.OnClickListener() {
-        public void onClick(View v) {
-            vibrate(activity, 32);
-            showSettingsConfirmDialog(activity, "确认删除", "确定要删除「" + f.getName() + "」吗？", new Runnable() {
-                public void run() {
-                    try {
-                        删除(path);
-                        Toast("已删除");
-                    } catch (Throwable e) { Toast("删除失败: " + e.getMessage()); }
-                    refreshHtmlFileList(activity, list);
-                }
-            });
-        }
-    });
-    row.addView(delBtn);
-
-    row.setClickable(true);
-    row.setOnClickListener(new View.OnClickListener() {
-        public void onClick(View v) { launchHtmlActivity(activity, path); }
-    });
-    return row;
 }
