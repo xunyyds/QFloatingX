@@ -66,29 +66,29 @@ void saveFavoriteColors(Activity activity, ArrayList favorites) {
 }
 
 class ColorSeekBar extends LinearLayout {
-    private android.widget.SeekBar seekBar; // 滑块控件
-    private TextView valueLabel; // 数值显示标签
-    private OnColorChangedListener listener; // 颜色变化监听器
-    private int index; // 索引
+    private android.widget.SeekBar seekBar; 
+    private TextView valueLabel; 
+    private OnColorChangedListener listener; 
+    private int index; 
 
     public ColorSeekBar(Context context, String label, int color, int initialValue, int max) {
         super(context);
         setOrientation(LinearLayout.HORIZONTAL);
         setGravity(Gravity.CENTER_VERTICAL);
-        setPadding(0, dpxc(context, 8), 0, dpxc(context, 8));
+        setPadding(0, dp(context, 8), 0, dp(context, 8));
         
         TextView labelView = new TextView(context);
         labelView.setText(label);
         labelView.setTextSize(16);
         labelView.setTextColor(color);
         labelView.setTypeface(null, Typeface.BOLD);
-        labelView.setLayoutParams(new LinearLayout.LayoutParams(dpxc(context, 32), -2));
+        labelView.setLayoutParams(new LinearLayout.LayoutParams(dp(context, 32), -2));
         addView(labelView);
         
         LinearLayout seekContainer = new LinearLayout(context);
         seekContainer.setOrientation(LinearLayout.VERTICAL);
         seekContainer.setGravity(Gravity.CENTER_VERTICAL);
-        seekContainer.setPadding(dpxc(context, 8), 0, dpxc(context, 8), 0);
+        seekContainer.setPadding(dp(context, 8), 0, dp(context, 8), 0);
         seekContainer.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
         
         seekBar = new android.widget.SeekBar(context);
@@ -106,7 +106,7 @@ class ColorSeekBar extends LinearLayout {
         valueLabel.setTextSize(14);
         valueLabel.setTextColor(pc(getSettingsThemeColor(context, "on_surface_variant")));
         valueLabel.setTypeface(Typeface.MONOSPACE);
-        valueLabel.setLayoutParams(new LinearLayout.LayoutParams(dpxc(context, 40), -2));
+        valueLabel.setLayoutParams(new LinearLayout.LayoutParams(dp(context, 40), -2));
         valueLabel.setGravity(Gravity.RIGHT);
         addView(valueLabel);
         
@@ -122,22 +122,22 @@ class ColorSeekBar extends LinearLayout {
         });
     }
     
-    // 获取当前进度值   
+    
      public int getProgress() {
         return seekBar.getProgress();
     }
     
-    // 设置颜色变化监听器   
+    
      public void setOnColorChangedListener(OnColorChangedListener l) {
         listener = l;
     }
 }
 
 class MagnifierView extends View {
-    private Paint paint; // 主画笔
-    private Paint borderPaint; // 边框画笔
+    private Paint paint; 
+    private Paint borderPaint; 
     private Paint crossPaint;
-    private Bitmap magnifiedBitmap; // 放大后的位图（固定 60x60，复用不重建）
+    private Bitmap magnifiedBitmap; 
     
     public MagnifierView(Context context) {
         super(context);
@@ -156,15 +156,15 @@ class MagnifierView extends View {
     
     public void update(Bitmap source, int srcX, int srcY, int currentColor) {
         try {
-            int size = 30; // 放大尺寸
-            int scale = 4; // 缩放倍数
+            int size = 30; 
+            int scale = 4; 
             
-            // 安全检查：防止 source 为 null
+            
             if (source == null || source.isRecycled() || source.getWidth() <= 0 || source.getHeight() <= 0) {
                 return;
             }
             
-            // 确保尺寸有效
+            
             if (size <= 0 || scale <= 0) return;
             
             if (magnifiedBitmap == null || magnifiedBitmap.isRecycled()) {
@@ -181,7 +181,7 @@ class MagnifierView extends View {
                 Math.min(source.getHeight(), srcY + size)
             );
             
-            // 确保源矩形有效
+            
             if (srcRect.width() <= 0 || srcRect.height() <= 0) {
                 return;
             }
@@ -225,12 +225,12 @@ class MagnifierView extends View {
 View createRgbView(Activity activity, int initialColor, final OnColorChangedListener listener) {
     LinearLayout layout = new LinearLayout(activity);
     layout.setOrientation(LinearLayout.VERTICAL);
-    layout.setPadding(dpx(activity, 16), dpx(activity, 24), dpx(activity, 16), dpx(activity, 24));
+    layout.setPadding(dp(activity, 16), dp(activity, 24), dp(activity, 16), dp(activity, 24));
     layout.setGravity(Gravity.CENTER_VERTICAL);
     
     final int[] rgb = {Color.red(initialColor), Color.green(initialColor), Color.blue(initialColor)};
     
-    // R
+    
     final ColorSeekBar redBar = new ColorSeekBar(activity, "R", pc("#FFFF3B30"), rgb[0], 255);
     redBar.setOnColorChangedListener(new OnColorChangedListener() {
         public void onColorChanged(int progress) {
@@ -240,7 +240,7 @@ View createRgbView(Activity activity, int initialColor, final OnColorChangedList
     });
     layout.addView(redBar);
     
-    // G
+    
     final ColorSeekBar greenBar = new ColorSeekBar(activity, "G", pc("#FF34C759"), rgb[1], 255);
     greenBar.setOnColorChangedListener(new OnColorChangedListener() {
         public void onColorChanged(int progress) {
@@ -250,7 +250,7 @@ View createRgbView(Activity activity, int initialColor, final OnColorChangedList
     });
     layout.addView(greenBar);
     
-    // B
+    
     final ColorSeekBar blueBar = new ColorSeekBar(activity, "B", pc("#FF007AFF"), rgb[2], 255);
     blueBar.setOnColorChangedListener(new OnColorChangedListener() {
         public void onColorChanged(int progress) {
@@ -299,14 +299,14 @@ Bitmap createHsvBitmap(int width, int height, int hue) {
 View createHsvView(Activity activity, int initialColor, final OnColorChangedListener listener) {
     final float[] hsv = new float[3];
     Color.colorToHSV(initialColor, hsv);
-    final int W = dpx(activity, 280);
-    final int H = dpx(activity, 200);
+    final int W = dp(activity, 280);
+    final int H = dp(activity, 200);
     final int hueW = W / 6;
     final int gap = W / 20;
     final int svW = W - hueW - gap - 16;
     final int hueLeft = svW + gap + 8;
     final FrameLayout layout = new FrameLayout(activity);
-    layout.setPadding(dpx(activity, 4), dpx(activity, 4), dpx(activity, 4), dpx(activity, 4));
+    layout.setPadding(dp(activity, 4), dp(activity, 4), dp(activity, 4), dp(activity, 4));
     final ImageView img = new ImageView(activity);
     img.setScaleType(ImageView.ScaleType.FIT_XY);
     Bitmap bmp = createHsvBitmap(W, H, (int)hsv[0]);
@@ -314,24 +314,24 @@ View createHsvView(Activity activity, int initialColor, final OnColorChangedList
     layout.addView(img, new FrameLayout.LayoutParams(W, H));
     final View svCursor = new View(activity);
     svCursor.setBackgroundColor(pc("#00000000"));
-    final FrameLayout.LayoutParams svParams = new FrameLayout.LayoutParams(dpx(activity, 16), dpx(activity, 16));
+    final FrameLayout.LayoutParams svParams = new FrameLayout.LayoutParams(dp(activity, 16), dp(activity, 16));
     svCursor.setLayoutParams(svParams);
     layout.addView(svCursor);
     final View hueCursor = new View(activity);
     hueCursor.setBackgroundColor(pc("#FFFFFFFF"));
-    final FrameLayout.LayoutParams hueParams = new FrameLayout.LayoutParams(dpx(activity, 40), dpx(activity, 3));
+    final FrameLayout.LayoutParams hueParams = new FrameLayout.LayoutParams(dp(activity, 40), dp(activity, 3));
     hueCursor.setLayoutParams(hueParams);
     layout.addView(hueCursor);
     final int[] svPos = {0, 0};
     final int[] huePos = {0};
     final int[] lastHue = {(int)hsv[0]};
-    svPos[0] = (int)(8 + svW * hsv[1] - dpx(activity, 8));
-    svPos[1] = (int)(8 + (H - 16) * (1 - hsv[2]) - dpx(activity, 8));
+    svPos[0] = (int)(8 + svW * hsv[1] - dp(activity, 8));
+    svPos[1] = (int)(8 + (H - 16) * (1 - hsv[2]) - dp(activity, 8));
     svParams.leftMargin = svPos[0];
     svParams.topMargin = svPos[1];
     svCursor.setLayoutParams(svParams);
-    huePos[0] = (int)(8 + (H - 16) * (hsv[0] / 360) - dpx(activity, 1.5f));
-    hueParams.leftMargin = hueLeft - dpx(activity, 2);
+    huePos[0] = (int)(8 + (H - 16) * (hsv[0] / 360) - dp(activity, 1.5f));
+    hueParams.leftMargin = hueLeft - dp(activity, 2);
     hueParams.topMargin = huePos[0];
     hueCursor.setLayoutParams(hueParams);
     img.setOnTouchListener(new View.OnTouchListener() {
@@ -357,14 +357,14 @@ View createHsvView(Activity activity, int initialColor, final OnColorChangedList
                         }
                     }
                 }
-                huePos[0] = (int)(8 + (H - 16) * (hsv[0] / 360) - dpx(activity, 1.5f));
+                huePos[0] = (int)(8 + (H - 16) * (hsv[0] / 360) - dp(activity, 1.5f));
                 hueParams.topMargin = huePos[0];
                 hueCursor.setLayoutParams(hueParams);
             } else if (x >= 8 && x <= svW + 8 && y >= 8 && y <= H - 8) {
                 hsv[1] = Math.max(0, Math.min(1, (x - 8) / svW));
                 hsv[2] = Math.max(0, Math.min(1, 1 - (y - 8) / (H - 16)));
-                svPos[0] = (int)(8 + svW * hsv[1] - dpx(activity, 8));
-                svPos[1] = (int)(8 + (H - 16) * (1 - hsv[2]) - dpx(activity, 8));
+                svPos[0] = (int)(8 + svW * hsv[1] - dp(activity, 8));
+                svPos[1] = (int)(8 + (H - 16) * (1 - hsv[2]) - dp(activity, 8));
                 svParams.leftMargin = svPos[0];
                 svParams.topMargin = svPos[1];
                 svCursor.setLayoutParams(svParams);
@@ -401,10 +401,10 @@ Bitmap createColorWheelBitmap(int size) {
 View createColorWheelView(Activity activity, int initialColor, final OnColorChangedListener listener) {
     final float[] hsv = new float[3];
     Color.colorToHSV(initialColor, hsv);
-    final int SIZE = dpx(activity, 200);
+    final int SIZE = dp(activity, 200);
     final int maxR = SIZE / 2 - 4;
     final FrameLayout layout = new FrameLayout(activity);
-    layout.setPadding(dpx(activity, 8), dpx(activity, 8), dpx(activity, 8), dpx(activity, 8));
+    layout.setPadding(dp(activity, 8), dp(activity, 8), dp(activity, 8), dp(activity, 8));
     final ImageView img = new ImageView(activity);
     img.setScaleType(ImageView.ScaleType.FIT_CENTER);
     Bitmap bmp = createColorWheelBitmap(SIZE);
@@ -412,13 +412,13 @@ View createColorWheelView(Activity activity, int initialColor, final OnColorChan
     layout.addView(img, new FrameLayout.LayoutParams(SIZE, SIZE));
     final View cursor = new View(activity);
     cursor.setBackgroundColor(pc("#00000000"));
-    final FrameLayout.LayoutParams cursorParams = new FrameLayout.LayoutParams(dpx(activity, 16), dpx(activity, 16));
+    final FrameLayout.LayoutParams cursorParams = new FrameLayout.LayoutParams(dp(activity, 16), dp(activity, 16));
     cursor.setLayoutParams(cursorParams);
     layout.addView(cursor);
     float initR = hsv[1] * maxR;
     float initAngle = (float)Math.toRadians(hsv[0]);
-    cursorParams.leftMargin = (int)(SIZE / 2 + Math.cos(initAngle) * initR - dpx(activity, 8));
-    cursorParams.topMargin = (int)(SIZE / 2 + Math.sin(initAngle) * initR - dpx(activity, 8));
+    cursorParams.leftMargin = (int)(SIZE / 2 + Math.cos(initAngle) * initR - dp(activity, 8));
+    cursorParams.topMargin = (int)(SIZE / 2 + Math.sin(initAngle) * initR - dp(activity, 8));
     cursor.setLayoutParams(cursorParams);
     img.setOnTouchListener(new View.OnTouchListener() {
         public boolean onTouch(View v, MotionEvent event) {
@@ -438,8 +438,8 @@ View createColorWheelView(Activity activity, int initialColor, final OnColorChan
             if (angle < 0) angle += 360;
             hsv[0] = angle;
             hsv[2] = 1.0f;
-            cursorParams.leftMargin = (int)(SIZE / 2 + dx - dpx(activity, 8));
-            cursorParams.topMargin = (int)(SIZE / 2 + dy - dpx(activity, 8));
+            cursorParams.leftMargin = (int)(SIZE / 2 + dx - dp(activity, 8));
+            cursorParams.topMargin = (int)(SIZE / 2 + dy - dp(activity, 8));
             cursor.setLayoutParams(cursorParams);
             if (listener != null) listener.onColorChanged(hsvColor(hsv[0], hsv[1], hsv[2]));
             return true;
@@ -465,14 +465,14 @@ Bitmap createColorBarBitmap(int width, int height) {
 View createColorBarView(Activity activity, int initialColor, final OnColorChangedListener listener) {
     final float[] hsv = new float[3];
     Color.colorToHSV(initialColor, hsv);
-    final int BAR_H = dpx(activity, 180);
-    final int BAR_W = dpx(activity, 48);
+    final int BAR_H = dp(activity, 180);
+    final int BAR_W = dp(activity, 48);
     LinearLayout layout = new LinearLayout(activity);
     layout.setOrientation(LinearLayout.HORIZONTAL);
-    layout.setPadding(dpx(activity, 16), dpx(activity, 16), dpx(activity, 16), dpx(activity, 16));
+    layout.setPadding(dp(activity, 16), dp(activity, 16), dp(activity, 16), dp(activity, 16));
     final View preview = new View(activity);
-    LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(dpx(activity, 80), BAR_H);
-    previewParams.rightMargin = dpx(activity, 16);
+    LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(dp(activity, 80), BAR_H);
+    previewParams.rightMargin = dp(activity, 16);
     preview.setLayoutParams(previewParams);
     preview.setBackgroundColor(initialColor);
     layout.addView(preview);
@@ -485,9 +485,9 @@ View createColorBarView(Activity activity, int initialColor, final OnColorChange
     barContainer.addView(barImg, new FrameLayout.LayoutParams(BAR_W, BAR_H));
     final View barCursor = new View(activity);
     barCursor.setBackgroundColor(pc("#FFFFFFFF"));
-    final FrameLayout.LayoutParams barCursorParams = new FrameLayout.LayoutParams(dpx(activity, 56), dpx(activity, 3));
-    barCursorParams.leftMargin = -dpx(activity, 4);
-    barCursorParams.topMargin = (int)(BAR_H * (hsv[0] / 360) - dpx(activity, 1.5f));
+    final FrameLayout.LayoutParams barCursorParams = new FrameLayout.LayoutParams(dp(activity, 56), dp(activity, 3));
+    barCursorParams.leftMargin = -dp(activity, 4);
+    barCursorParams.topMargin = (int)(BAR_H * (hsv[0] / 360) - dp(activity, 1.5f));
     barCursor.setLayoutParams(barCursorParams);
     barContainer.addView(barCursor);
     layout.addView(barContainer);
@@ -498,7 +498,7 @@ View createColorBarView(Activity activity, int initialColor, final OnColorChange
             hsv[1] = 1.0f;
             hsv[2] = 1.0f;
             int color = hsvColor(hsv[0], hsv[1], hsv[2]);
-            barCursorParams.topMargin = (int)(y - dpx(activity, 1.5f));
+            barCursorParams.topMargin = (int)(y - dp(activity, 1.5f));
             barCursor.setLayoutParams(barCursorParams);
             preview.setBackgroundColor(color);
             if (listener != null) listener.onColorChanged(color);
@@ -515,7 +515,7 @@ void showFavoritesView(Activity activity, FrameLayout container, ArrayList favor
     
     LinearLayout list = new LinearLayout(activity);
     list.setOrientation(LinearLayout.VERTICAL);
-    list.setPadding(dpx(activity, 16), dpx(activity, 8), dpx(activity, 16), dpx(activity, 8));
+    list.setPadding(dp(activity, 16), dp(activity, 8), dp(activity, 16), dp(activity, 8));
     
     if (favorites.isEmpty()) {
         TextView empty = new TextView(activity);
@@ -523,30 +523,30 @@ void showFavoritesView(Activity activity, FrameLayout container, ArrayList favor
         empty.setTextSize(14);
         empty.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
         empty.setGravity(Gravity.CENTER);
-        empty.setPadding(0, dpx(activity, 40), 0, 0);
+        empty.setPadding(0, dp(activity, 40), 0, 0);
         list.addView(empty);
     } else {
         for (int i = 0; i < favorites.size(); i++) {
             final String colorStr = favorites.get(i).toString();
             
-            // 每项容器
+            
             LinearLayout item = new LinearLayout(activity);
             item.setOrientation(LinearLayout.HORIZONTAL);
             item.setGravity(Gravity.CENTER_VERTICAL);
-            item.setPadding(dpx(activity, 12), dpx(activity, 12), dpx(activity, 12), dpx(activity, 12));
+            item.setPadding(dp(activity, 12), dp(activity, 12), dp(activity, 12), dp(activity, 12));
             item.setBackground(getSelectableBg(activity));
             
-            // 颜色方块
+            
             View colorBlock = new View(activity);
-            LinearLayout.LayoutParams blockParams = new LinearLayout.LayoutParams(dpx(activity, 40), dpx(activity, 40));
+            LinearLayout.LayoutParams blockParams = new LinearLayout.LayoutParams(dp(activity, 40), dp(activity, 40));
             colorBlock.setLayoutParams(blockParams);
             
             try {
                 int color = pc(colorStr);
                 GradientDrawable bg = new GradientDrawable();
                 bg.setColor(color);
-                bg.setCornerRadius(dpx(activity, 8));
-                // 添加边框
+                bg.setCornerRadius(dp(activity, 8));
+                
                 bg.setStroke(2, pc("#20FFFFFF"));
                 colorBlock.setBackgroundDrawable(bg);
             } catch (Exception e) {
@@ -554,21 +554,21 @@ void showFavoritesView(Activity activity, FrameLayout container, ArrayList favor
             }
             item.addView(colorBlock);
             
-            // 颜色代码文本
+            
             TextView codeText = new TextView(activity);
             codeText.setText(colorStr.toUpperCase());
             codeText.setTextSize(16);
             codeText.setTypeface(Typeface.MONOSPACE);
             codeText.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
-            codeText.setPadding(dpx(activity, 16), 0, 0, 0);
+            codeText.setPadding(dp(activity, 16), 0, 0, 0);
             codeText.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
             item.addView(codeText);
             
-            // 删除按钮
+            
             TextView deleteBtn = createButton(activity, "×", pc(getSettingsThemeColor(activity, "on_surface_variant")), Color.TRANSPARENT, 24f, 0, 8, 0, false, 0, 0, null);
             item.addView(deleteBtn);
             
-            // 点击选择
+            
             item.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
                     try {
@@ -578,7 +578,7 @@ void showFavoritesView(Activity activity, FrameLayout container, ArrayList favor
                 }
             });
             
-            // 点击删除
+            
             deleteBtn.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
                     favorites.remove(colorStr);
@@ -590,7 +590,7 @@ void showFavoritesView(Activity activity, FrameLayout container, ArrayList favor
             
             list.addView(item);
             
-            // 分隔线
+            
             if (i < favorites.size() - 1) {
                 View line = new View(activity);
                 line.setBackgroundColor(pc("#1AFFFFFF"));
@@ -632,31 +632,31 @@ void showImagePickerDialog(final Activity activity, final OnColorPickedListener 
         final Bitmap[] bmpHolder = new Bitmap[1];
         final String decodePath = imgPath;
         
-        // 图片视图 (限制最大高度；短屏取屏幕一半，保证底部确认栏不被裁掉)
+        
         final ImageView imageView = new ImageView(activity);
         imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        int imgHeight = (int) Math.min(dpx(activity, 400), activity.getResources().getDisplayMetrics().heightPixels * 0.5f);
+        int imgHeight = (int) Math.min(dp(activity, 400), activity.getResources().getDisplayMetrics().heightPixels * 0.5f);
         FrameLayout.LayoutParams imgParams = new FrameLayout.LayoutParams(-1, imgHeight);
         imgParams.gravity = Gravity.CENTER;
         root.addView(imageView, imgParams);
         
-        // 放大镜
+        
         final MagnifierView magnifier = new MagnifierView(activity);
         magnifier.setVisibility(View.GONE);
-        root.addView(magnifier, new FrameLayout.LayoutParams(dpx(activity, 120), dpx(activity, 120)));
+        root.addView(magnifier, new FrameLayout.LayoutParams(dp(activity, 120), dp(activity, 120)));
         
-        // 底部颜色预览栏
+        
         LinearLayout bottomBar = new LinearLayout(activity);
         bottomBar.setOrientation(LinearLayout.HORIZONTAL);
         bottomBar.setGravity(Gravity.CENTER_VERTICAL);
         bottomBar.setBackgroundColor(pc(getSettingsThemeColor(activity, "surface")));
-        bottomBar.setPadding(dpx(activity, 16), dpx(activity, 12), dpx(activity, 16), dpx(activity, 12));
+        bottomBar.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
         FrameLayout.LayoutParams barParams = new FrameLayout.LayoutParams(-1, -2);
         barParams.gravity = Gravity.BOTTOM;
         bottomBar.setLayoutParams(barParams);
         
         final View colorPreview = new View(activity);
-        LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(dpx(activity, 48), dpx(activity, 48));
+        LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(dp(activity, 48), dp(activity, 48));
         colorPreview.setLayoutParams(previewParams);
         colorPreview.setBackgroundColor(pc("#FFFFFFFF"));
         bottomBar.addView(colorPreview);
@@ -666,7 +666,7 @@ void showImagePickerDialog(final Activity activity, final OnColorPickedListener 
         hexText.setTextSize(18);
         hexText.setTypeface(Typeface.MONOSPACE);
         hexText.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
-        hexText.setPadding(dpx(activity, 16), 0, 0, 0);
+        hexText.setPadding(dp(activity, 16), 0, 0, 0);
         hexText.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
         bottomBar.addView(hexText);
         
@@ -675,7 +675,7 @@ void showImagePickerDialog(final Activity activity, final OnColorPickedListener 
         
         root.addView(bottomBar);
         
-        // 取消按钮 (左上角)
+        
         TextView closeBtn = createButton(activity, "✕", pc("#FFFFFFFF"), Color.TRANSPARENT, 24f, 0, 16, 16, false, 0, 0, null);
         FrameLayout.LayoutParams closeParams = new FrameLayout.LayoutParams(-2, -2);
         closeParams.gravity = Gravity.TOP | Gravity.RIGHT;
@@ -713,8 +713,8 @@ void showImagePickerDialog(final Activity activity, final OnColorPickedListener 
                         case MotionEvent.ACTION_MOVE:
                             magnifier.setVisibility(View.VISIBLE);
                             
-                            int magX = (int) x - dpx(activity, 60);
-                            int magY = (int) y - dpx(activity, 140);
+                            int magX = (int) x - dp(activity, 60);
+                            int magY = (int) y - dp(activity, 140);
                             if (magX < 0) magX = 0;
                             if (magY < 0) magY = 0;
                             magnifier.setX(magX);
@@ -790,7 +790,7 @@ void showImagePickerDialog(final Activity activity, final OnColorPickedListener 
 }
 
 void showColorPickerDialog(final Activity activity, final String initialColor, final OnColorPickedListener callback) {
-    // 兼容壳:解析 hex 字符串为 int,失败回退到中灰,再走 int 主入口
+    
     int parsedColor = pc("#FF808080");
     if (initialColor != null && !initialColor.isEmpty()) {
         try {
@@ -806,7 +806,7 @@ void showColorPickerDialog(final Activity activity, final String initialColor, f
 
 void showColorPickerDialog(final Activity activity, final int initialColor, final OnColorPickedListener callback) {
     try {
-        // 主入口:直接接收已解析的 int 颜色,杜绝 String 解析失败导致颜色丢失
+        
         final int[] currentColor = {initialColor};
         
         final ArrayList favoriteColors = loadFavoriteColors(activity);
@@ -814,13 +814,13 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
         
         AlertDialog.Builder builder = new AlertDialog.Builder(activity, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
         
-        // 根布局
+        
         final LinearLayout root = new LinearLayout(activity);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(pc(getSettingsThemeColor(activity, "surface")));
-        root.setPadding(dpx(activity, 16), dpx(activity, 16), dpx(activity, 16), dpx(activity, 16));
+        root.setPadding(dp(activity, 16), dp(activity, 16), dp(activity, 16), dp(activity, 16));
         
-        // 顶部标题栏
+        
         LinearLayout header = new LinearLayout(activity);
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
@@ -833,33 +833,33 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
         title.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
         header.addView(title);
         
-        // 收藏夹按钮
+        
         final TextView favBtn = createButton(activity, "收藏夹", pc("#FFFFFFFF"), pc(getSettingsThemeColor(activity, "primary")), 14f, 16, 16, 8, false, 0, 0, null);
         header.addView(favBtn);
 
-        // 取色按钮
+        
         final TextView pickBtn = createButton(activity, "取色", pc("#FFFFFFFF"), pc("#FF5A5A5A"), 14f, 16, 16, 8, false, 0, 0, null);
         LinearLayout.LayoutParams pickParams = new LinearLayout.LayoutParams(-2, -2);
-        pickParams.leftMargin = dpx(activity, 12);
+        pickParams.leftMargin = dp(activity, 12);
         pickBtn.setLayoutParams(pickParams);
         header.addView(pickBtn);
         
         root.addView(header);
         
-        // 颜色预览
+        
         LinearLayout previewRow = new LinearLayout(activity);
         previewRow.setOrientation(LinearLayout.HORIZONTAL);
         previewRow.setGravity(Gravity.CENTER_VERTICAL);
-        previewRow.setPadding(0, dpx(activity, 16), 0, dpx(activity, 16));
+        previewRow.setPadding(0, dp(activity, 16), 0, dp(activity, 16));
         
         final View colorPreview = new View(activity);
-        LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(dpx(activity, 56), dpx(activity, 56));
-        previewParams.rightMargin = dpx(activity, 16);
+        LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(dp(activity, 56), dp(activity, 56));
+        previewParams.rightMargin = dp(activity, 16);
         colorPreview.setLayoutParams(previewParams);
         
         GradientDrawable previewBg = new GradientDrawable();
         previewBg.setColor(currentColor[0]);
-        previewBg.setCornerRadius(dpx(activity, 12));
+        previewBg.setCornerRadius(dp(activity, 12));
         previewBg.setStroke(2, pc("#40FFFFFF"));
         colorPreview.setBackgroundDrawable(previewBg);
         previewRow.addView(colorPreview);
@@ -868,8 +868,8 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
         hexInput.setText(colorToHex(currentColor[0]));
         hexInput.setTextSize(16);
         hexInput.setTypeface(Typeface.MONOSPACE);
-        hexInput.setPadding(dpx(activity, 12), dpx(activity, 8), dpx(activity, 12), dpx(activity, 8));
-        hexInput.setBackground(roundRect(pc(getSettingsThemeColor(activity, "surface")), dpx(activity, 8)));
+        hexInput.setPadding(dp(activity, 12), dp(activity, 8), dp(activity, 12), dp(activity, 8));
+        hexInput.setBackground(roundRect(pc(getSettingsThemeColor(activity, "surface")), dp(activity, 8)));
         hexInput.setSingleLine(true);
         hexInput.setSelectAllOnFocus(true);
         final boolean[] isUpdatingFromInput = {false};
@@ -908,11 +908,11 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
         
         root.addView(previewRow);
         
-        // 模式标签栏
+        
         LinearLayout tabRow = new LinearLayout(activity);
         tabRow.setOrientation(LinearLayout.HORIZONTAL);
-        tabRow.setBackground(roundRect(pc(getSettingsThemeColor(activity, "background")), dpx(activity, 8)));
-        tabRow.setPadding(dpx(activity, 4), dpx(activity, 4), dpx(activity, 4), dpx(activity, 4));
+        tabRow.setBackground(roundRect(pc(getSettingsThemeColor(activity, "background")), dp(activity, 8)));
+        tabRow.setPadding(dp(activity, 4), dp(activity, 4), dp(activity, 4), dp(activity, 4));
         
         final String[] modes = {"RGB", "HSV", "色轮", "颜色条"};
         final TextView[] tabViews = new TextView[4];
@@ -924,13 +924,13 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
             tab.setText(modes[i]);
             tab.setTextSize(14);
             tab.setGravity(Gravity.CENTER);
-            tab.setPadding(0, dpx(activity, 8), 0, dpx(activity, 8));
+            tab.setPadding(0, dp(activity, 8), 0, dp(activity, 8));
             tab.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
             
             if (i == currentMode[0]) {
                 tab.setTextColor(pc(getSettingsThemeColor(activity, "surface")));
                 tab.setTypeface(null, Typeface.BOLD);
-                tab.setBackground(roundRect(pc(getSettingsThemeColor(activity, "primary")), dpx(activity, 6)));
+                tab.setBackground(roundRect(pc(getSettingsThemeColor(activity, "primary")), dp(activity, 6)));
             } else {
                 tab.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
                 tab.setBackground(null);
@@ -944,7 +944,7 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
                         if (j == index) {
                             tabViews[j].setTextColor(pc(getSettingsThemeColor(activity, "surface")));
                             tabViews[j].setTypeface(null, Typeface.BOLD);
-                            tabViews[j].setBackground(roundRect(pc(getSettingsThemeColor(activity, "primary")), dpx(activity, 6)));
+                            tabViews[j].setBackground(roundRect(pc(getSettingsThemeColor(activity, "primary")), dp(activity, 6)));
                         } else {
                             tabViews[j].setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
                             tabViews[j].setTypeface(null, Typeface.NORMAL);
@@ -966,16 +966,16 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
         
         root.addView(tabRow);
         
-        // 内容容器 - 固定高度确保显示完整（降低高度以缓解短屏滚动）
+        
         final FrameLayout contentContainer = new FrameLayout(activity);
-        LinearLayout.LayoutParams contentParams = new LinearLayout.LayoutParams(-1, dpx(activity, 240));
-        contentParams.topMargin = dpx(activity, 12);
-        contentParams.bottomMargin = dpx(activity, 12);
+        LinearLayout.LayoutParams contentParams = new LinearLayout.LayoutParams(-1, dp(activity, 240));
+        contentParams.topMargin = dp(activity, 12);
+        contentParams.bottomMargin = dp(activity, 12);
         contentContainer.setLayoutParams(contentParams);
-        contentContainer.setBackground(roundRect(pc(getSettingsThemeColor(activity, "background")), dpx(activity, 12)));
+        contentContainer.setBackground(roundRect(pc(getSettingsThemeColor(activity, "background")), dp(activity, 12)));
         root.addView(contentContainer);
         
-        // 初始化
+        
         showModeContent(activity, contentContainer, 1, currentColor[0], new OnColorChangedListener() {
             public void onColorChanged(int color) {
                 currentColor[0] = color;
@@ -983,17 +983,17 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
             }
         });
         
-        // 透明度滑块
+        
         LinearLayout alphaRow = new LinearLayout(activity);
         alphaRow.setOrientation(LinearLayout.HORIZONTAL);
         alphaRow.setGravity(Gravity.CENTER_VERTICAL);
-        alphaRow.setPadding(0, dpx(activity, 8), 0, dpx(activity, 8));
+        alphaRow.setPadding(0, dp(activity, 8), 0, dp(activity, 8));
         
         TextView alphaLabel = new TextView(activity);
         alphaLabel.setText("透明度");
         alphaLabel.setTextSize(14);
         alphaLabel.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
-        alphaLabel.setLayoutParams(new LinearLayout.LayoutParams(dpx(activity, 60), -2));
+        alphaLabel.setLayoutParams(new LinearLayout.LayoutParams(dp(activity, 60), -2));
         alphaRow.addView(alphaLabel);
         
         final android.widget.SeekBar alphaSeek = new android.widget.SeekBar(activity);
@@ -1010,7 +1010,7 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
         alphaValue.setTextSize(14);
         alphaValue.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
         alphaValue.setTypeface(Typeface.MONOSPACE);
-        alphaValue.setLayoutParams(new LinearLayout.LayoutParams(dpx(activity, 40), -2));
+        alphaValue.setLayoutParams(new LinearLayout.LayoutParams(dp(activity, 40), -2));
         alphaValue.setGravity(Gravity.RIGHT);
         alphaRow.addView(alphaValue);
         
@@ -1033,11 +1033,11 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
             public void onStopTrackingTouch(SeekBar seekBar) {}
         });
         
-        // 底部按钮：固定在最外层底部，不随内容滚动，短屏上也不会被裁掉
+        
         LinearLayout buttonRow = new LinearLayout(activity);
         buttonRow.setOrientation(LinearLayout.HORIZONTAL);
         buttonRow.setGravity(Gravity.END);
-        buttonRow.setPadding(dpx(activity, 16), dpx(activity, 8), dpx(activity, 16), dpx(activity, 12));
+        buttonRow.setPadding(dp(activity, 16), dp(activity, 8), dp(activity, 16), dp(activity, 12));
 
         TextView cancelBtn = createButton(activity, "取消", pc(getSettingsThemeColor(activity, "primary")), -1, 16f, 20, 24, 12, false);
         buttonRow.addView(cancelBtn);
@@ -1045,7 +1045,7 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
         TextView confirmBtn = createButton(activity, "确定", pc("#FFFFFFFF"), pc(getSettingsThemeColor(activity, "primary")), 16f, 20, 24, 12, true);
         buttonRow.addView(confirmBtn);
 
-        // 内容包进 ScrollView，按钮行钉在最外层底部：内容超高时可上下滚动，取消/确定始终可见
+        
         ScrollView contentScroll = new ScrollView(activity);
         contentScroll.addView(root);
         LinearLayout dialogRoot = new LinearLayout(activity);
@@ -1057,7 +1057,7 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
         builder.setView(dialogRoot);
         final AlertDialog dialog = builder.create();
         
-        // 按钮事件
+        
         cancelBtn.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 dialog.dismiss();
@@ -1078,7 +1078,7 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
                 showingFavorites[0] = !showingFavorites[0];
                 if (showingFavorites[0]) {
                     favBtn.setText("返回");
-                    favBtn.setBackground(createRippleBg(activity, pc("#FF5A5A5A"), dpx(activity, 16)));
+                    favBtn.setBackground(createRippleBg(activity, pc("#FF5A5A5A"), dp(activity, 16)));
                     showFavoritesView(activity, contentContainer, favoriteColors, new OnColorPickedListener() {
                         public void onColorPicked(int color) {
                             currentColor[0] = color;
@@ -1089,7 +1089,7 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
                     });
                 } else {
                     favBtn.setText("收藏夹");
-                    favBtn.setBackground(createRippleBg(activity, pc(getSettingsThemeColor(activity, "primary")), dpx(activity, 16)));
+                    favBtn.setBackground(createRippleBg(activity, pc(getSettingsThemeColor(activity, "primary")), dp(activity, 16)));
                     showModeContent(activity, contentContainer, currentMode[0], currentColor[0], new OnColorChangedListener() {
                         public void onColorChanged(int color) {
                             currentColor[0] = color;
@@ -1136,7 +1136,7 @@ void showColorPickerDialog(final Activity activity, final int initialColor, fina
             if (window != null) {
                 boolean cpDark = isThemeDark(activity);
                 int elevated = mixTowardElevated(pc(getSettingsThemeColor(activity, "background")), cpDark);
-                window.setBackgroundDrawable(roundRect(elevated, dpx(activity, 16)));
+                window.setBackgroundDrawable(roundRect(elevated, dp(activity, 16)));
                 clearWindowShadow(activity, window);
             }
         } catch (Exception e) { traceLog("colorpicker_log", "[showColorPickerDialog] " + e.getMessage()); }
@@ -1185,12 +1185,12 @@ interface ColorListCallback {
     void onColorListSaved(String csv);
 }
 
-/** 内置默认轮换色（文字/纯色背景共用起点，互不影响） */
+
 String getDefaultRotColorList() {
     return "#FF5252,#4DB6AC,#448AFF,#66BB6A,#AB47BC,#FF9800,#FFEE58";
 }
 
-/** 读颜色列表，空则回退默认 */
+
 String loadRotColorList(String key) {
     String s = getString("settings", key, "");
     if (s == null || s.trim().isEmpty()) {
@@ -1201,10 +1201,7 @@ String loadRotColorList(String key) {
     return s;
 }
 
-/**
- * 颜色列表编辑器：快捷增删，可限制数量
- * @param maxColors 0=不限制
- */
+
 void showColorListEditor(final Activity activity, String title, final int maxColors, String currentCsv, final ColorListCallback callback) {
     if (activity == null || activity.isFinishing()) return;
     activity.runOnUiThread(new Runnable() {
@@ -1230,29 +1227,29 @@ void showColorListEditor(final Activity activity, String title, final int maxCol
 
                 LinearLayout root = new LinearLayout(activity);
                 root.setOrientation(LinearLayout.VERTICAL);
-                root.setPadding(dpx(activity, 20), dpx(activity, 18), dpx(activity, 20), dpx(activity, 12));
-                root.setBackground(roundRect(pc(getSettingsThemeColor(activity, "surface")), dpx(activity, 16)));
+                root.setPadding(dp(activity, 20), dp(activity, 18), dp(activity, 20), dp(activity, 12));
+                root.setBackground(roundRect(pc(getSettingsThemeColor(activity, "surface")), dp(activity, 16)));
 
                 TextView titleTv = new TextView(activity);
                 titleTv.setText(title != null ? title : "颜色列表");
                 titleTv.setTextSize(17);
                 titleTv.setTypeface(null, Typeface.BOLD);
                 titleTv.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
-                titleTv.setPadding(0, 0, 0, dpx(activity, 8));
+                titleTv.setPadding(0, 0, 0, dp(activity, 8));
                 root.addView(titleTv);
 
                 TextView tip = new TextView(activity);
                 tip.setText(maxColors > 0 ? ("最多 " + maxColors + " 个，点击色块编辑，长按删除") : "点击色块编辑，长按删除");
                 tip.setTextSize(12);
                 tip.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
-                tip.setPadding(0, 0, 0, dpx(activity, 10));
+                tip.setPadding(0, 0, 0, dp(activity, 10));
                 root.addView(tip);
 
                 final LinearLayout listWrap = new LinearLayout(activity);
                 listWrap.setOrientation(LinearLayout.VERTICAL);
                 ScrollView sc = new ScrollView(activity);
                 sc.addView(listWrap);
-                sc.setLayoutParams(new LinearLayout.LayoutParams(-1, dpx(activity, 220)));
+                sc.setLayoutParams(new LinearLayout.LayoutParams(-1, dp(activity, 220)));
                 root.addView(sc);
 
                 final Runnable[] refresh = new Runnable[1];
@@ -1265,15 +1262,15 @@ void showColorListEditor(final Activity activity, String title, final int maxCol
                             LinearLayout row = new LinearLayout(activity);
                             row.setOrientation(LinearLayout.HORIZONTAL);
                             row.setGravity(Gravity.CENTER_VERTICAL);
-                            row.setPadding(dpx(activity, 8), dpx(activity, 8), dpx(activity, 8), dpx(activity, 8));
+                            row.setPadding(dp(activity, 8), dp(activity, 8), dp(activity, 8), dp(activity, 8));
 
                             View sw = new View(activity);
                             GradientDrawable sgd = new GradientDrawable();
                             sgd.setColor(pc(hex));
-                            sgd.setCornerRadius(dpx(activity, 8));
+                            sgd.setCornerRadius(dp(activity, 8));
                             sw.setBackground(sgd);
-                            LinearLayout.LayoutParams swp = new LinearLayout.LayoutParams(dpx(activity, 36), dpx(activity, 36));
-                            swp.rightMargin = dpx(activity, 12);
+                            LinearLayout.LayoutParams swp = new LinearLayout.LayoutParams(dp(activity, 36), dp(activity, 36));
+                            swp.rightMargin = dp(activity, 12);
                             row.addView(sw, swp);
 
                             TextView hexTv = new TextView(activity);
@@ -1310,7 +1307,7 @@ void showColorListEditor(final Activity activity, String title, final int maxCol
                 LinearLayout btnRow = new LinearLayout(activity);
                 btnRow.setOrientation(LinearLayout.HORIZONTAL);
                 btnRow.setGravity(Gravity.CENTER_VERTICAL);
-                btnRow.setPadding(0, dpx(activity, 12), 0, 0);
+                btnRow.setPadding(0, dp(activity, 12), 0, 0);
 
                 TextView addBtn = createButton(activity, "+ 添加颜色", Color.WHITE, pc(getSettingsThemeColor(activity, "primary")), 14f, 8, 16, 8, false, 0, 0, null);
                 TextView okBtn = createButton(activity, "确定", Color.WHITE, pc(getSettingsThemeColor(activity, "primary")), 14f, 8, 16, 8, false, 0, 0, null);
@@ -1367,7 +1364,7 @@ void addSettingsColorItem(String categoryName, String itemName, String descripti
 
     LinearLayout itemLayout = new LinearLayout(activity);
     itemLayout.setOrientation(LinearLayout.VERTICAL);
-    itemLayout.setPadding(dpx(activity, 16), dpx(activity, 12), dpx(activity, 16), dpx(activity, 12));
+    itemLayout.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
 
     TextView nameView = new TextView(activity);
     nameView.setText(itemName);
@@ -1380,7 +1377,7 @@ void addSettingsColorItem(String categoryName, String itemName, String descripti
         descView.setText(descriptionText);
         descView.setTextSize(12);
         descView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
-        descView.setPadding(0, dpx(activity, 2), 0, dpx(activity, 8));
+        descView.setPadding(0, dp(activity, 2), 0, dp(activity, 8));
         itemLayout.addView(descView);
     }
 
@@ -1389,12 +1386,12 @@ void addSettingsColorItem(String categoryName, String itemName, String descripti
     colorRow.setGravity(Gravity.CENTER_VERTICAL);
 
     final View colorPreview = new View(activity);
-    int previewSize = dpx(activity, 36);
+    int previewSize = dp(activity, 36);
     LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(previewSize, previewSize);
-    previewParams.rightMargin = dpx(activity, 12);
+    previewParams.rightMargin = dp(activity, 12);
     colorPreview.setLayoutParams(previewParams);
     GradientDrawable previewBackground = new GradientDrawable();
-    previewBackground.setCornerRadius(dpx(activity, 6));
+    previewBackground.setCornerRadius(dp(activity, 6));
     if (isValidHexColor(currentValue)) {
         previewBackground.setColor(pc(currentValue));
     } else {
@@ -1426,7 +1423,7 @@ void addSettingsColorItem(String categoryName, String itemName, String descripti
                 boolean isDark = isThemeDark(act);
                 currentColor = isDark ? "#f7efffef" : "#FF1A1A1A";
             }
-            // 在调用方把 hex 字符串解析成 int,避免 ColorPicker 内部 String 解析失败导致颜色丢失
+            
             int parsedColor = pc("#FF808080");
             try {
                 if (currentColor != null && !currentColor.isEmpty()) {
