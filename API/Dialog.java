@@ -24,12 +24,15 @@ String timestampToDate(long timestamp) {
 }
 
 String getGagStatus(String timestamp) {
+    return getGagStatus(timestamp, System.currentTimeMillis() / 1000);
+}
+
+String getGagStatus(String timestamp, long currentTime) {
     try {
         long ts = Long.parseLong(timestamp);
-        long currentTime = System.currentTimeMillis() / 1000;
         if (ts == 0) return "未禁言";
-        if (ts > 4102358400L) return "永久禁言";
-        if (ts > currentTime) return "禁言中，剩余: " + formatRemainingTime(ts - currentTime);
+        if (ts > 4102358400L) return "禁言中：永久";
+        if (ts > currentTime) return "禁言中：剩余" + formatRemainingTime(ts - currentTime);
         return "未禁言";
     } catch (Throwable e) {
         return "未知";
@@ -155,8 +158,8 @@ void showShutUpDialog(Activity activity, String qun, String uin, String nickName
                 final AlertDialog[]ref = new AlertDialog[1];
                 LinearLayout btnBox = new LinearLayout(activity);
                 btnBox.setOrientation(LinearLayout.HORIZONTAL);
-                btnBox.setPadding(0, dp(activity, 20), 0, 0);
-                btnBox.setGravity(Gravity.RIGHT);
+                btnBox.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+                btnBox.setPadding(0, dp(activity, 4), 0, 0);
                 TextView cancel = createButton(activity, "取消", subTextColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 cancel.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
@@ -193,6 +196,7 @@ void showShutUpDialog(Activity activity, String qun, String uin, String nickName
                 ref[0].show();
                 applyUiTheme(activity, ref[0], 0);
             } catch (Throwable e) {
+                traceLog("dialog_log", "[showShutUpDialog] 异常: " + e);
                 Toast("弹窗显示失败");
             }
         }
@@ -239,7 +243,7 @@ public void showMuteAllDialog(Activity activity, String qun) {
                 LinearLayout btnBox = new LinearLayout(activity);
                 btnBox.setOrientation(LinearLayout.HORIZONTAL);
                 btnBox.setPadding(0, dp(activity, 20), 0, 0);
-                btnBox.setGravity(Gravity.RIGHT);
+                btnBox.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
                 TextView cancel = createButton(activity, "取消", subTextColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 cancel.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
@@ -416,7 +420,7 @@ public void showZanDialog(Activity activity, String targetUin) {
                 LinearLayout btnBox = new LinearLayout(activity);
                 btnBox.setOrientation(LinearLayout.HORIZONTAL);
                 btnBox.setPadding(0, dp(activity, 20), 0, 0);
-                btnBox.setGravity(Gravity.RIGHT);
+                btnBox.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
                 TextView cancel = createButton(activity, "取消", subTextColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 cancel.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
@@ -491,7 +495,7 @@ public void showPaiDialog(Activity activity, String targetUin, String peerUin, i
                 LinearLayout btnBox = new LinearLayout(activity);
                 btnBox.setOrientation(LinearLayout.HORIZONTAL);
                 btnBox.setPadding(0, dp(activity, 20), 0, 0);
-                btnBox.setGravity(Gravity.RIGHT);
+                btnBox.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
                 TextView cancel = createButton(activity, "取消", subTextColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 cancel.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
@@ -581,10 +585,7 @@ public void showEncryptDecryptDialog(Activity activity, Object data) {
                 input.setPadding(dp(activity, 12), dp(activity, 10), dp(activity, 12), dp(activity, 10));
                 input.setGravity(Gravity.TOP | Gravity.LEFT);
                 input.setTypeface(Typeface.MONOSPACE);
-                GradientDrawable inputBg = new GradientDrawable();
-                inputBg.setCornerRadius(dp(activity, 8));
-                inputBg.setColor(inputBgColor);
-                inputBg.setStroke(dp(activity, 1), borderColor);
+                GradientDrawable inputBg = makeDialogInnerCard(activity, inputBgColor);
                 input.setBackground(inputBg);
                 if (isTooLong) input.setFocusable(false);
                 GestureDetector gd = new GestureDetector(activity, new GestureDetector.SimpleOnGestureListener() {
@@ -751,7 +752,7 @@ public void showEncryptDecryptDialog(Activity activity, Object data) {
                 LinearLayout btnBox = new LinearLayout(activity);
                 btnBox.setOrientation(LinearLayout.HORIZONTAL);
                 btnBox.setPadding(0, dp(activity, 16), 0, 0);
-                btnBox.setGravity(Gravity.RIGHT);
+                btnBox.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
                 TextView cancel = createButton(activity, "关闭", subTextColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 cancel.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
@@ -812,10 +813,7 @@ public void showCodeConsoleDialog(Activity activity, Object data) {
                 resultView.setTextSize(12);
                 resultView.setTextColor(textColor);
                 resultView.setPadding(dp(activity, 12), dp(activity, 10), dp(activity, 12), dp(activity, 10));
-                GradientDrawable resultBg = new GradientDrawable();
-                resultBg.setCornerRadius(dp(activity, 8));
-                resultBg.setColor(inputBgColor);
-                resultBg.setStroke(dp(activity, 1), borderColor);
+                GradientDrawable resultBg = makeDialogInnerCard(activity, inputBgColor);
                 resultView.setBackground(resultBg);
                 resultView.setTypeface(Typeface.MONOSPACE);
                 resultView.setTextIsSelectable(true);
@@ -856,7 +854,6 @@ public void showCodeConsoleDialog(Activity activity, Object data) {
                 GradientDrawable inputBg = new GradientDrawable();
                 inputBg.setCornerRadius(dp(activity, 8));
                 inputBg.setColor(inputBgColor);
-                inputBg.setStroke(dp(activity, 1), borderColor);
                 input.setBackground(inputBg);
                 root.addView(input);
                 final AlertDialog[]ref = new AlertDialog[1];
@@ -930,7 +927,7 @@ public void showCodeConsoleDialog(Activity activity, Object data) {
                 root.addView(execBtn);
                 LinearLayout btnBox = new LinearLayout(activity);
                 btnBox.setOrientation(LinearLayout.HORIZONTAL);
-                btnBox.setGravity(Gravity.RIGHT);
+                btnBox.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
                 TextView cancel = createButton(activity, "关闭", subTextColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 cancel.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
@@ -978,10 +975,7 @@ public void showExpandedResultDialog(Activity activity, String content, boolean 
                 contentView.setPadding(dp(activity, 12), dp(activity, 10), dp(activity, 12), dp(activity, 10));
                 contentView.setTypeface(Typeface.MONOSPACE);
                 contentView.setTextIsSelectable(true);
-                GradientDrawable contentBg = new GradientDrawable();
-                contentBg.setCornerRadius(dp(activity, 8));
-                contentBg.setColor(inputBgColor);
-                contentBg.setStroke(dp(activity, 1), borderColor);
+                GradientDrawable contentBg = makeDialogInnerCard(activity, inputBgColor);
                 contentView.setBackground(contentBg);
                 ScrollView scrollView = new ScrollView(activity);
                 LinearLayout
@@ -994,7 +988,7 @@ public void showExpandedResultDialog(Activity activity, String content, boolean 
                 final AlertDialog[]ref = new AlertDialog[1];
                 LinearLayout btnBox = new LinearLayout(activity);
                 btnBox.setOrientation(LinearLayout.HORIZONTAL);
-                btnBox.setGravity(Gravity.RIGHT);
+                btnBox.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
                 TextView copyBtn = createButton(activity, "复制全部", isDark ? pc("#FF8AB4F8") : pc("#FF2196F3"),
                     Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 copyBtn.setOnClickListener(new View.OnClickListener() {
@@ -1057,7 +1051,7 @@ public void showTitleDialog(Activity activity, String qun, String uin, String ni
                 LinearLayout btnBox = new LinearLayout(activity);
                 btnBox.setOrientation(LinearLayout.HORIZONTAL);
                 btnBox.setPadding(0, dp(activity, 20), 0, 0);
-                btnBox.setGravity(Gravity.RIGHT);
+                btnBox.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
                 TextView cancel = createButton(activity, "取消", subTextColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 cancel.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
@@ -1123,7 +1117,7 @@ public void showSetAdminDialog(Activity activity, String qun, String uin, String
                 LinearLayout btnBox = new LinearLayout(activity);
                 btnBox.setOrientation(LinearLayout.HORIZONTAL);
                 btnBox.setPadding(0, dp(activity, 20), 0, 0);
-                btnBox.setGravity(Gravity.RIGHT);
+                btnBox.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
                 TextView cancel = createButton(activity, "取消", subTextColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 cancel.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
@@ -1209,7 +1203,7 @@ public void showChangeCardDialog(Activity activity, String qun, String uin, Stri
                 LinearLayout btnBox = new LinearLayout(activity);
                 btnBox.setOrientation(LinearLayout.HORIZONTAL);
                 btnBox.setPadding(0, dp(activity, 20), 0, 0);
-                btnBox.setGravity(Gravity.RIGHT);
+                btnBox.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
                 TextView cancel = createButton(activity, "取消", subTextColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 cancel.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
@@ -1513,10 +1507,7 @@ void showCopyConfirmDialog(Activity act, String title, String text, boolean isDa
                 contentView.setTextColor(textColor);
                 contentView.setPadding(dp(act, 12), dp(act, 10), dp(act, 12), dp(act, 10));
                 contentView.setTextIsSelectable(true);
-                GradientDrawable contentBg = new GradientDrawable();
-                contentBg.setCornerRadius(dp(act, 8));
-                contentBg.setColor(inputBgColor);
-                contentBg.setStroke(dp(act, 1), borderColor);
+                GradientDrawable contentBg = makeDialogInnerCard(act, inputBgColor);
                 contentView.setBackground(contentBg);
                 ScrollView scroll = new ScrollView(act);
                 LinearLayout
@@ -1542,7 +1533,7 @@ void showCopyConfirmDialog(Activity act, String title, String text, boolean isDa
                 final AlertDialog[]ref = new AlertDialog[1];
                 LinearLayout btnBox = new LinearLayout(act);
                 btnBox.setOrientation(LinearLayout.HORIZONTAL);
-                btnBox.setGravity(Gravity.RIGHT);
+                btnBox.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
                 TextView copyAll = new TextView(act);
                 copyAll.setText("复制全部");
                 copyAll.setTextSize(15);
@@ -1610,7 +1601,7 @@ void showKickConfirmDialog(Activity activity, String qun, String uin, String nic
                 LinearLayout btnBox = new LinearLayout(activity);
                 btnBox.setOrientation(LinearLayout.HORIZONTAL);
                 btnBox.setPadding(0, dp(activity, 20), 0, 0);
-                btnBox.setGravity(Gravity.RIGHT);
+                btnBox.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
                 TextView cancel = createButton(activity, "取消", subTextColor, Color.TRANSPARENT, 15f, 0, 16, 12, false, 0, 0, null);
                 cancel.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
@@ -1713,7 +1704,7 @@ void showAtListDialog(Object atListData) {
                 });
                 LinearLayout btnBox = new LinearLayout(activity);
                 btnBox.setOrientation(LinearLayout.HORIZONTAL);
-                btnBox.setGravity(Gravity.RIGHT);
+                btnBox.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
                 btnBox.addView(closeBtn);
                 root.addView(btnBox);
                 AlertDialog.Builder builder = new AlertDialog.Builder(activity,
@@ -1884,13 +1875,11 @@ void showMemberInfoDialog(Activity activity, String peerUin, String userUin, int
                 StringBuilder sb = new StringBuilder();
                 Object card = null;
                 Object member = null;
-                Object troopInfo = null;
                 Object friend = null;
                 try {
                     card = GetCard(userUin);
                     if (chatType == 2) {
                         member = getMemberInfo(peerUin, userUin);
-                        troopInfo = findTroopInfo(peerUin);
                     }
                     friend = card;
                 } catch (Throwable ignored) {
@@ -2069,49 +2058,34 @@ void showMemberInfoDialog(Activity activity, String peerUin, String userUin, int
                         traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + ignored);
                     }
                     try {
-                        long gagTime = Long.parseLong(String.valueOf(member.gagTimeStamp));
-                        sb.append("禁言状态: ").append(getGagStatus(String.valueOf(gagTime))).append("\n");
+                        List gagList = (List) getProhibitList(peerUin);
+                        String gagStatus = "";
+                        if (gagList != null) {
+                            for (Object gag : gagList) {
+                                if (gag == null) continue;
+                                if (userUin.equals(String.valueOf(gag.user))) {
+                                    gagStatus = getGagStatus(String.valueOf(gag.endTime));
+                                    break;
+                                }
+                            }
+                        }
+                        if (gagStatus != null && !gagStatus.isEmpty()) sb.append("禁言状态: ").append(gagStatus).append("\n");
                     } catch (Throwable ignored) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + ignored);
-                    }
-                }
-                if (chatType == 2 && troopInfo != null) {
-                    try {
-                        sb.append("群号: ").append(peerUin).append("\n");
-                    } catch (Throwable ignored) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + ignored);
-                    }
-                    try {
-                        sb.append("群名: ").append(String.valueOf(troopInfo.troopname)).append("\n");
-                    } catch (Throwable ignored) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + ignored);
-                    }
-                    try {
-                        sb.append("群主: ").append(String.valueOf(troopInfo.troopowneruin)).append("\n");
-                    } catch (Throwable ignored) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + ignored);
-                    }
-                    try {
-                        sb.append("最大人数: ").append(String.valueOf(troopInfo.wMemberMax)).append("\n");
-                    } catch (Throwable ignored) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + ignored);
-                    }
-                    try {
-                        sb.append("当前人数: ").append(String.valueOf(troopInfo.wMemberNum)).append("\n");
-                    } catch (Throwable ignored) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + ignored);
-                    }
-                    try {
-                        long createTime = Long.parseLong(String.valueOf(troopInfo.troopCreateTime));
-                        if (createTime > 0) sb.append("创建时间: ").append(timestampToDate(createTime * 1000)).append("\n");
-                    } catch (Throwable ignored) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + ignored);
+                        traceLog("dialog_log", "[showMemberInfoDialog] 获取禁言状态异常: " + ignored);
                     }
                 }
                 final String result = sb.toString();
                 final boolean isDark = isThemeDark(activity);
-                uiHandler.post(new Runnable() { public void run() { showCopyConfirmDialog(activity, "详细信息", result, isDark); } });
+                uiHandler.post(new Runnable() { public void run() {
+                    try {
+                        showCopyConfirmDialog(activity, "详细信息", result, isDark);
+                    } catch (Throwable e) {
+                        traceLog("dialog_log", "[showMemberInfoDialog.ui] 异常: " + e);
+                        Toast("弹窗打开失败: " + e.getMessage());
+                    }
+                } });
             } catch (Throwable e) {
+                traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + e);
                 uiHandler.post(new Runnable() { public void run() { Toast("获取失败: " + e.getMessage()); } });
             }
         }
@@ -2739,10 +2713,7 @@ public void showExtractAudioDialog(Activity activity, Object data) {
                             urlView.setTextSize(13);
                             urlView.setTextColor(textColor);
                             urlView.setPadding(dp(activity, 12), dp(activity, 10), dp(activity, 12), dp(activity, 10));
-                            GradientDrawable bg = new GradientDrawable();
-                            bg.setCornerRadius(dp(activity, 8));
-                            bg.setColor(inputBgColor);
-                            bg.setStroke(dp(activity, 1), borderColor);
+                            GradientDrawable bg = makeDialogInnerCard(activity, inputBgColor);
                             urlView.setBackground(bg);
                             root.addView(urlView);
                             final MediaPlayer[]player = new MediaPlayer[1];
@@ -2956,11 +2927,7 @@ FrameLayout createMemberInfoCard(Activity activity,
     cardWrapper.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
         LinearLayout.LayoutParams.WRAP_CONTENT));
     cardWrapper.setPadding(dp(activity, 12), dp(activity, 12), dp(activity, 12), dp(activity, 8));
-    GradientDrawable cardBg = new GradientDrawable();
-    cardBg.setShape(GradientDrawable.RECTANGLE);
-    cardBg.setCornerRadius(dp(activity, 16));
-    cardBg.setColor(isDark ? pc("#FF252525") : pc("#FFF0F0F0"));
-    cardBg.setStroke(dp(activity, 1), isDark ? pc("#33FFFFFF") : pc("#18000000"));
+    GradientDrawable cardBg = makeDialogInnerCard(activity, isDark ? pc("#FF252525") : pc("#FFF0F0F0"));
     LinearLayout cardContent = new LinearLayout(activity);
     cardContent.setOrientation(LinearLayout.VERTICAL);
     cardContent.setPadding(dp(activity, 16), dp(activity, 14), dp(activity, 16), dp(activity, 14));
@@ -3233,7 +3200,6 @@ FrameLayout createMenuItem(Activity activity,
     itemBg.setShape(GradientDrawable.RECTANGLE);
     itemBg.setCornerRadius(dp(activity, 12));
     itemBg.setColor(colorCardBg);
-    itemBg.setStroke(dp(activity, 1), borderColor);
     LinearLayout itemContent = new LinearLayout(activity);
     itemContent.setOrientation(LinearLayout.VERTICAL);
     itemContent.setGravity(Gravity.CENTER);
@@ -4066,46 +4032,65 @@ String groupDisplayName(String qun) {
 }
 
 View buildSimpleListItem(Activity activity,
-    Object[]itemData,
+    Object[] itemData,
     int listMode,
     String groupUin,
     boolean isDark) {
-    String uin = (String) itemData[0];
-    String name = (String) itemData[1];
-    String sub = (String) itemData[2];
+    String uin = String.valueOf(itemData[0]);
+    String name = String.valueOf(itemData[1]);
     LinearLayout item = new LinearLayout(activity);
     item.setOrientation(LinearLayout.HORIZONTAL);
     item.setGravity(Gravity.CENTER_VERTICAL);
-    item.setMinimumHeight(dp(activity, 56));
-    item.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+    item.setMinimumHeight(dp(activity, 58));
+    item.setPadding(dp(activity, 14), dp(activity, 8), dp(activity, 10), dp(activity, 8));
     item.setClickable(true);
-    int itemRadius = dp(activity, 8);
-    item.setBackground(new RippleDrawable(ColorStateList.valueOf(adjustAlpha(pc(getSettingsThemeColor(activity, "on_surface")), 0.14f)), roundRect(Color.TRANSPARENT, itemRadius), roundRect(-1, itemRadius)));
+    item.setBackground(makeAdaptiveRippleBg(activity, Color.TRANSPARENT, 12));
     item.setClipToOutline(true);
+
     LinearLayout textBox = new LinearLayout(activity);
     textBox.setOrientation(LinearLayout.VERTICAL);
     textBox.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
+
     TextView titleView = new TextView(activity);
     titleView.setText(name);
     titleView.setTextSize(16);
+    titleView.setMaxLines(1);
+    titleView.setEllipsize(android.text.TextUtils.TruncateAt.END);
     titleView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
     textBox.addView(titleView);
-    TextView subView = new TextView(activity);
-    subView.setText(sub);
-    subView.setTextSize(13);
-    subView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
-    LinearLayout.LayoutParams subParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-    subParams.topMargin = dp(activity, 2);
-    textBox.addView(subView, subParams);
+
+    TextView uinView = new TextView(activity);
+    uinView.setText(uin);
+    uinView.setTextSize(11);
+    uinView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
+    uinView.setSingleLine(true);
+    uinView.setIncludeFontPadding(false);
+    LinearLayout.LayoutParams uinParams = new LinearLayout.LayoutParams(-1, -2);
+    uinParams.topMargin = dp(activity, 2);
+    textBox.addView(uinView, uinParams);
+
+    TextView infoView = new TextView(activity);
+    infoView.setTextSize(11);
+    infoView.setMaxLines(1);
+    infoView.setIncludeFontPadding(false);
+    infoView.setEllipsize(android.text.TextUtils.TruncateAt.END);
+    infoView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
+    LinearLayout.LayoutParams infoParams = new LinearLayout.LayoutParams(-2, -2);
+    infoParams.topMargin = dp(activity, 2);
+    textBox.addView(infoView, infoParams);
+
     item.addView(textBox);
-    TextView trailingView = new TextView(activity);
-    trailingView.setTextSize(13);
-    trailingView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
-    trailingView.setGravity(Gravity.END);
-    LinearLayout.LayoutParams trailParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-    trailParams.leftMargin = dp(activity, 12);
-    item.addView(trailingView, trailParams);
-    item.setTag(new Object[] { titleView, subView, trailingView });
+
+    TextView roleView = new TextView(activity);
+    roleView.setTextSize(11);
+    roleView.setGravity(Gravity.CENTER);
+    roleView.setIncludeFontPadding(false);
+    roleView.setPadding(dp(activity, 9), dp(activity, 4), dp(activity, 9), dp(activity, 4));
+    LinearLayout.LayoutParams roleParams = new LinearLayout.LayoutParams(-2, -2);
+    roleParams.leftMargin = dp(activity, 10);
+    item.addView(roleView, roleParams);
+
+    item.setTag(new Object[] {titleView, uinView, infoView, roleView});
     bindSimpleListItem(activity, item, itemData, listMode, groupUin, isDark);
     return item;
 }
@@ -4147,7 +4132,7 @@ void scheduleProgressiveListRender(final BaseAdapter adapter,
 
 void bindSimpleListItem(Activity activity,
     View cv,
-    Object[]itemData,
+    Object[] itemData,
     int listMode,
     String groupUin,
     boolean isDark) {
@@ -4155,25 +4140,42 @@ void bindSimpleListItem(Activity activity,
     Object tag = item.getTag();
     if (!(tag instanceof Object[])) return;
     Object[] holder = (Object[]) tag;
-    if (holder.length < 3) return;
-    if (!(holder[0] instanceof TextView) || !(holder[1] instanceof TextView) || !(holder[2] instanceof TextView)) return;
+    if (holder.length < 4) return;
+    if (!(holder[0] instanceof TextView) || !(holder[1] instanceof TextView) || !(holder[2] instanceof TextView) || !(holder[3] instanceof TextView)) return;
+
     TextView titleView = (TextView) holder[0];
-    TextView subView = (TextView) holder[1];
-    TextView trailingView = (TextView) holder[2];
+    TextView uinView = (TextView) holder[1];
+    TextView infoView = (TextView) holder[2];
+    TextView roleView = (TextView) holder[3];
     String uin = String.valueOf(itemData[0]);
     String name = String.valueOf(itemData[1]);
-    String sub = String.valueOf(itemData[2]);
+    String info = itemData.length > 2 && itemData[2] != null ? String.valueOf(itemData[2]) : "";
+    String role = itemData.length > 3 && itemData[3] != null ? String.valueOf(itemData[3]) : "";
+
     titleView.setText(name);
-    subView.setText(sub);
-    if (listMode <= 1) {
-        trailingView.setText(uin);
-        trailingView.setVisibility(View.VISIBLE);
+    uinView.setText("QQ · " + uin);
+    if (listMode == 0 && info != null && !info.isEmpty()) {
+        infoView.setText(info);
+        infoView.setTextColor(tc(activity, "error"));
+        infoView.setBackground(null);
+        infoView.setPadding(0, 0, 0, 0);
+        infoView.setVisibility(View.VISIBLE);
     } else {
-        trailingView.setText("");
-        trailingView.setVisibility(View.GONE);
+        infoView.setText("");
+        infoView.setBackground(null);
+        infoView.setPadding(0, 0, 0, 0);
+        infoView.setVisibility(View.GONE);
     }
+
+    if (listMode == 1 && role != null && !role.isEmpty()) {
+        applyRolePill(activity, roleView, role);
+    } else {
+        roleView.setText("");
+        roleView.setVisibility(View.GONE);
+    }
+
     final String finalUin = uin;
-    final String finalName = sub;
+    final String finalName = name;
     item.setOnClickListener(new View.OnClickListener() {
         public void onClick(View v) {
             if (listMode == 0) showShutUpDialog(activity, groupUin, finalUin, finalName);
@@ -4198,24 +4200,24 @@ void showSimpleListDialog(Activity act0,
         final String countUnit = listMode == 2 ? "个" : "人";
         LinearLayout root = new LinearLayout(dlgAct);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(dlgAct, 16), dp(dlgAct, 20), dp(dlgAct, 16), dp(dlgAct, 16));
+        root.setPadding(dp(dlgAct, 14), dp(dlgAct, 14), dp(dlgAct, 14), dp(dlgAct, 10));
         final TextView titleView = new TextView(dlgAct);
         titleView.setText(title);
         titleView.setTextSize(18);
         titleView.setTypeface(null, Typeface.BOLD);
         titleView.setTextColor(textColor);
-        titleView.setPadding(0, 0, 0, dp(dlgAct, 8));
+        titleView.setPadding(0, 0, 0, dp(dlgAct, 4));
         root.addView(titleView);
         final EditText search = makeInput(dlgAct,
             listMode == 0 || listMode == 1 ? "搜索昵称或QQ号" : listMode == 2 ? "搜索群名或群号" : "搜索昵称或QQ号",
             null);
         search.setSingleLine(true);
-        root.addView(search, new LinearLayout.LayoutParams(-1, dp(dlgAct, 46)));
+        root.addView(search, new LinearLayout.LayoutParams(-1, dp(dlgAct, 42)));
         search.setVisibility(View.GONE);
         FrameLayout listFrame = new FrameLayout(dlgAct);
         LinearLayout.LayoutParams listFrameParams = new LinearLayout.LayoutParams(-1, 0, 1f);
-        listFrameParams.topMargin = dp(dlgAct, 12);
-        listFrameParams.bottomMargin = dp(dlgAct, 4);
+        listFrameParams.topMargin = dp(dlgAct, 8);
+        listFrameParams.bottomMargin = dp(dlgAct, 2);
         root.addView(listFrame, listFrameParams);
         final ListView lv = new ListView(dlgAct);
         lv.setDivider(null);
@@ -4232,7 +4234,8 @@ void showSimpleListDialog(Activity act0,
         listFrame.addView(emptyView, new FrameLayout.LayoutParams(-1, -1));
         LinearLayout btnBox = new LinearLayout(dlgAct);
         btnBox.setOrientation(LinearLayout.HORIZONTAL);
-        btnBox.setGravity(Gravity.RIGHT);
+        btnBox.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        btnBox.setMinimumHeight(dp(dlgAct, 44));
         TextView closeBtn = createButton(dlgAct, "关闭", pc(getSettingsThemeColor(dlgAct, "primary")), Color.TRANSPARENT,
             15f, 0, 16, 12, false, 0, 0, null);
         btnBox.addView(closeBtn);
@@ -4248,6 +4251,20 @@ void showSimpleListDialog(Activity act0,
         });
         dialog.show();
         applyUiTheme(dlgAct, dialog, 0);
+        try {
+            Window win = dialog.getWindow();
+            if (win != null) {
+                int screenW = dlgAct.getResources().getDisplayMetrics().widthPixels;
+                int screenH = dlgAct.getResources().getDisplayMetrics().heightPixels;
+                int width = Math.min(dp(dlgAct, 420), screenW - dp(dlgAct, 32));
+                int maxHeight = Math.min(dp(dlgAct, 400), (int)(screenH * 0.52f));
+                int minHeight = Math.min(dp(dlgAct, 280), Math.max(1, screenH - dp(dlgAct, 64)));
+                int height = Math.max(minHeight, maxHeight);
+                if (height > 0) win.setLayout(width, height);
+            }
+        } catch (Throwable e) {
+            traceLog("dialog_log", "[showSimpleListDialog.window] 异常: " + e);
+        }
         final ArrayList allData = new ArrayList();
         final ArrayList displayData = new ArrayList();
         final boolean[] closed = new boolean[] {false};
@@ -4307,7 +4324,7 @@ void showSimpleListDialog(Activity act0,
                 try {
                     if (cv instanceof LinearLayout) {
                         Object t = ((LinearLayout) cv).getTag();
-                        if (!(t instanceof Object[]) || ((Object[]) t).length < 3 || !(((Object[]) t)[0] instanceof TextView) || !(((Object[]) t)[1] instanceof TextView) || !(((Object[]) t)[2] instanceof TextView)) cv = null;
+                        if (!(t instanceof Object[]) || ((Object[]) t).length < 4 || !(((Object[]) t)[0] instanceof TextView) || !(((Object[]) t)[1] instanceof TextView) || !(((Object[]) t)[2] instanceof TextView) || !(((Object[]) t)[3] instanceof TextView)) cv = null;
                     } else {
                         cv = null;
                     }
@@ -4395,6 +4412,7 @@ void showSimpleListDialog(Activity act0,
             public void run() {
                 try {
                     List source = null;
+                    final long listNow = System.currentTimeMillis() / 1000;
                     if (listMode == 0) source = (List) getProhibitList(groupUin);
                     else if (listMode == 1) source = (List) getGroupMemberList(groupUin);
                     else if (listMode == 2) source = (List) getGroupList();
@@ -4410,20 +4428,21 @@ void showSimpleListDialog(Activity act0,
                                 String gUin = String.valueOf(o.user);
                                 String gName = String.valueOf(o.userName);
                                 String gRemark = getUserRemark(gUin);
-                                item = new Object[] {gUin, (gRemark == null || gRemark.isEmpty()) ? gName : gRemark + "(" + gName + ")", getGagStatus(String.valueOf(o.endTime))};
+                                item = new Object[] {gUin, (gRemark == null || gRemark.isEmpty()) ? gName : gRemark + "(" + gName + ")", getGagStatus(String.valueOf(o.endTime), listNow), ""};
                             } else if (listMode == 1) {
                                 String mUin = String.valueOf(o.uin);
                                 String mName = String.valueOf(o.uinName);
                                 String mRemark = getMemberRemark(o);
-                                item = new Object[] {mUin, (mRemark == null || mRemark.isEmpty()) ? mName : mRemark + "(" + mName + ")", mName};
+                                String role = convertRole(o.role == null ? "" : String.valueOf(o.role));
+                                item = new Object[] {mUin, (mRemark == null || mRemark.isEmpty()) ? mName : mRemark + "(" + mName + ")", "", role};
                             } else if (listMode == 2) {
                                 String gUin = String.valueOf(o.group);
-                                item = new Object[] {gUin, groupDisplayName(gUin), "群号: " + gUin};
+                                item = new Object[] {gUin, groupDisplayName(gUin), "", ""};
                             } else {
                                 String uin = String.valueOf(o.uin);
                                 String uName = String.valueOf(o.name);
                                 String uRemark = getUserRemark(uin);
-                                item = new Object[] {uin, (uRemark == null || uRemark.isEmpty()) ? uName : uRemark + "(" + uName + ")", uin};
+                                item = new Object[] {uin, (uRemark == null || uRemark.isEmpty()) ? uName : uRemark + "(" + uName + ")", "", ""};
                             }
                             readyBatch.add(item);
                             if (readyBatch.size() >= dataBatchSize) {
