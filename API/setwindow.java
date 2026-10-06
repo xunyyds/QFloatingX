@@ -5,7 +5,6 @@ import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.EditorInfo;
 
 
-// ===== 类型与全局状态 =====
 class SettingsItemMeta {
     String name;
     String description;
@@ -107,7 +106,6 @@ class SettingsPage {
 interface SoftSliderListener {
     void onSoftSliderChanged(int value, boolean fromUser);
 }
-// 自绘滑轨：细轨道 + 主色进度 + 白钮描边，替换原生 SeekBar 的气泡定位写法
 class SoftSliderView extends View {
     private Paint trackPaint;
     private Paint fillPaint;
@@ -247,7 +245,6 @@ private Bitmap cachedBottomIconGithub = null;
 private Bitmap cachedBottomIconQq = null;
 
 
-// ===== 主题与基础工具 =====
 Activity getSettingsCurrentActivity() {
     Activity ref = SettingsState.settingsCurrentActivityRef;
     if (ref instanceof SettingsActivity && !ref.isFinishing()) {
@@ -492,7 +489,6 @@ int getSettingsFooterBg(Activity activity) {
 }
 
 
-// ===== 设置项控件工厂（增删设置项只动这一节） =====
 String settingsAutoItemKey(String itemName) {
     String l1 = SettingsState.settingsCurrentLevel1;
     String l2 = SettingsState.settingsCurrentLevel2;
@@ -897,7 +893,6 @@ void addSettingsInputItemWithConfig(String itemName, String descriptionText, fin
         container.addView(itemLayout);
     }
 }
-// 滑轨 + 输入框的通用设置项：宽度/高度/DPI 共用，allowEmpty 表示允许留空=自适应
 void addSettingsValueSliderItem(String itemName, String descriptionText, String keyName, String hintText, int minValue, int maxValue, int fallbackValue, boolean allowEmpty, String syncKey, String syncTemplate) {
     String itemKey = settingsAutoItemKey(itemName);
     if (SettingsState.settingsIndexMode) { registerSettingsIndexEntry(itemKey, itemName, descriptionText, "input"); return; }
@@ -976,7 +971,6 @@ void addSettingsValueSliderItem(String itemName, String descriptionText, String 
         slider.setValue(value);
         syncing[0] = false;
         putString("settings", finalKeyName, String.valueOf(value));
-        if ("ui_dialog_custom_dpi".equals(finalKeyName)) refreshPluginUiDensity(activity);
         if (finalSyncKey != null && finalSyncTemplate != null) {
             updateSettingsItemText(finalSyncKey, finalSyncTemplate.replace("%d", String.valueOf(value)));
         }
@@ -989,8 +983,7 @@ void addSettingsValueSliderItem(String itemName, String descriptionText, String 
             valueInput.setText(String.valueOf(value));
             syncing[0] = false;
             putString("settings", finalKeyName, String.valueOf(value));
-            if ("ui_dialog_custom_dpi".equals(finalKeyName)) refreshPluginUiDensity(activity);
-            if (finalSyncKey != null && finalSyncTemplate != null) {
+                if (finalSyncKey != null && finalSyncTemplate != null) {
                 updateSettingsItemText(finalSyncKey, finalSyncTemplate.replace("%d", String.valueOf(value)));
             }
         }
@@ -1037,7 +1030,6 @@ void addSettingsValueSliderItem(String itemName, String descriptionText, String 
 }
 
 
-// ===== 页面内容构建（一个二级页一个方法，改哪页进哪个） =====
 void buildSettingsMenuContent(Activity activity, String level1Title, String level2Title, String level3Title) {
     if (activity == null) return;
     if (level1Title == null) {
@@ -1194,7 +1186,6 @@ void buildLevel2MenuContent(Activity activity, String level1Title) {
         }});
     }
 }
-// 二级页分发入口：新增页面在这里挂一个 buildXxxPage(activity) 即可
 void buildLevel3MenuContent(Activity activity, String level1Title, String level2Title, String level3Title) {
     if (activity == null || level1Title == null || level2Title == null) return;
     if (level1Title != null) {
@@ -1601,6 +1592,471 @@ void addSettingsFeaturePage(final String categoryName, final String pageName, St
     registerSettingsIndexEntry(itemKey, pageName, descriptionText, "page");
     ((SettingsItemMeta) SettingsState.settingsItemMeta.get(itemKey)).targetPage = pageName;
 }
+
+public LinearLayout buildStatsContentView(Activity activity) {
+    if (activity == null) return null;
+    readFullStats();
+
+    LinearLayout contentLayout = new LinearLayout(activity);
+    contentLayout.setOrientation(LinearLayout.VERTICAL);
+    contentLayout.setPadding(dp(activity, 16), dp(activity, 16), dp(activity, 16), dp(activity, 16));
+
+    contentLayout.addView(createRangeSpinner(activity));
+    contentLayout.addView(createSpaceView(activity, 12));
+
+    LinearLayout wlCard = createWhitelistCard(activity);
+    if (wlCard != null) {
+        contentLayout.addView(wlCard);
+        contentLayout.addView(createSpaceView(activity, 12));
+    }
+
+    contentLayout.addView(createTotalStatsCard(activity, "📈 累计统计"));
+    contentLayout.addView(createSpaceView(activity, 12));
+    contentLayout.addView(createTodayCoreStatsCard(activity, "📊  今日统计"));
+    contentLayout.addView(createSpaceView(activity, 12));
+    contentLayout.addView(createCategoryStatsCard(activity, "📥 接收消息统计", "receive", true));
+    contentLayout.addView(createSpaceView(activity, 12));
+    contentLayout.addView(createCategoryStatsCard(activity, "📤 发送消息统计", "send", false));
+    contentLayout.addView(createSpaceView(activity, 18));
+
+    LinearLayout entry = new LinearLayout(activity);
+    entry.setOrientation(LinearLayout.HORIZONTAL);
+    entry.setGravity(Gravity.CENTER_VERTICAL);
+    entry.setPadding(dp(activity, 16), dp(activity, 14), dp(activity, 16), dp(activity, 14));
+    entry.setBackground(makeFeedbackBg(getAdaptiveCardBg(activity), pc(getSettingsThemeColor(activity, "ripple")), dp(activity, 16)));
+    entry.setClipToOutline(true);
+    entry.setClickable(true);
+
+    TextView entryLabel = new TextView(activity);
+    entryLabel.setText("消息统计设置");
+    entryLabel.setTextSize(16);
+    entryLabel.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
+    entryLabel.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
+    entry.addView(entryLabel);
+
+    TextView entryArrow = new TextView(activity);
+    entryArrow.setText("›");
+    entryArrow.setTextSize(20);
+    entryArrow.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
+    entry.addView(entryArrow);
+
+    entry.setOnClickListener(new View.OnClickListener() {
+        public void onClick(View v) {
+            Activity act = getSettingsCurrentActivity();
+            if (act != null) showSettingsMenu(act, "消息与互动", "消息统计设置", null);
+        }
+    });
+    contentLayout.addView(entry);
+    return contentLayout;
+}
+
+void buildStatsSettingsView(Activity activity) {
+    if (activity == null) return;
+
+    boolean wlOn = getBoolean("settings", "msg_stats_whitelist_enabled", false);
+
+    addSettingsCategory("统计范围", "");
+    addSettingsItemSwitchWithKey("按好友/群聊单独统计", "settings", "msg_stats_whitelist_enabled",
+        "开启后仅白名单内的群/好友单独统计，其他仍汇总", wlOn, new Runnable() {
+            public void run() { rebuildStatsSettingsPage(); }
+        });
+
+    String gs = getString("settings", "msg_stats_whitelist_groups", "");
+    String fs = getString("settings", "msg_stats_whitelist_friends", "");
+    int gCount = 0, fCount = 0;
+    if (gs != null && !gs.isEmpty()) {
+        String[] p = gs.split(",");
+        for (int i = 0; i < p.length; i++) if (!p[i].trim().isEmpty()) gCount++;
+    }
+    if (fs != null && !fs.isEmpty()) {
+        String[] p = fs.split(",");
+        for (int i = 0; i < p.length; i++) if (!p[i].trim().isEmpty()) fCount++;
+    }
+
+    addSettingsItemClickWithKey("群聊白名单", wlOn ? ("已选 " + gCount + " 个群") : "需先开启上方开关", new Runnable() {
+        public void run() {
+            Activity act = getSettingsCurrentActivity();
+            if (act == null) return;
+            String cur = getString("settings", "msg_stats_whitelist_groups", "");
+            ArrayList init = new ArrayList();
+            if (cur != null && !cur.isEmpty()) {
+                String[] p = cur.split(",");
+                for (int i = 0; i < p.length; i++) if (!p[i].trim().isEmpty()) init.add(p[i].trim());
+            }
+            showGroupSelector(act, 2, init, new GroupSelectCallback() {
+                public void onSelected(List selected) {
+                    StringBuilder sb = new StringBuilder();
+                    if (selected != null) {
+                        for (int i = 0; i < selected.size(); i++) {
+                            if (i > 0) sb.append(",");
+                            sb.append(selected.get(i));
+                        }
+                    }
+                    putString("settings", "msg_stats_whitelist_groups", sb.toString());
+                    Toast("已保存 " + (selected == null ? 0 : selected.size()) + " 个群");
+                    rebuildStatsSettingsPage();
+                }
+            });
+        }
+    });
+    String groupKey = settingsAutoItemKey("群聊白名单");
+    View groupView = (SettingsState.settingsItemViews == null) ? null : (View) SettingsState.settingsItemViews.get(groupKey);
+    if (groupView != null && !wlOn) {
+        groupView.setAlpha(0.4f);
+        groupView.setOnClickListener(null);
+        groupView.setClickable(false);
+    }
+
+    addSettingsItemClickWithKey("好友白名单", wlOn ? ("已选 " + fCount + " 个好友") : "需先开启上方开关", new Runnable() {
+        public void run() {
+            Activity act = getSettingsCurrentActivity();
+            if (act == null) return;
+            String cur = getString("settings", "msg_stats_whitelist_friends", "");
+            ArrayList init = new ArrayList();
+            if (cur != null && !cur.isEmpty()) {
+                String[] p = cur.split(",");
+                for (int i = 0; i < p.length; i++) if (!p[i].trim().isEmpty()) init.add(p[i].trim());
+            }
+            showGroupSelector(act, 1, init, new GroupSelectCallback() {
+                public void onSelected(List selected) {
+                    StringBuilder sb = new StringBuilder();
+                    if (selected != null) {
+                        for (int i = 0; i < selected.size(); i++) {
+                            if (i > 0) sb.append(",");
+                            sb.append(selected.get(i));
+                        }
+                    }
+                    putString("settings", "msg_stats_whitelist_friends", sb.toString());
+                    Toast("已保存 " + (selected == null ? 0 : selected.size()) + " 个好友");
+                    rebuildStatsSettingsPage();
+                }
+            });
+        }
+    });
+    String friendKey = settingsAutoItemKey("好友白名单");
+    View friendView = (SettingsState.settingsItemViews == null) ? null : (View) SettingsState.settingsItemViews.get(friendKey);
+    if (friendView != null && !wlOn) {
+        friendView.setAlpha(0.4f);
+        friendView.setOnClickListener(null);
+        friendView.setClickable(false);
+    }
+
+    addSettingsCategory("收发总开关", "");
+    addSettingsItemSwitchWithKey("接收统计", "settings", "msg_stats_receive_enabled",
+        "关闭后不统计任何接收数据", getBoolean("settings", "msg_stats_receive_enabled", true), null);
+    addSettingsItemSwitchWithKey("发送统计", "settings", "msg_stats_send_enabled",
+        "关闭后不统计任何发送数据", getBoolean("settings", "msg_stats_send_enabled", true), null);
+
+    addSettingsCategory("统计类别", "");
+    for (int i = 0; i < STAT_CATEGORIES.length; i++) {
+        String catKey = STAT_CATEGORIES[i][0];
+        String catLabel = STAT_CATEGORIES[i][1];
+        addSettingsItemSwitchWithKey(catLabel, "settings", "msg_stats_cat_" + catKey, null,
+            getBoolean("settings", "msg_stats_cat_" + catKey, true), null);
+    }
+
+    addSettingsCategory("每日目标", "");
+    addSettingsInputItem("每日消息目标", "默认 100", "msg_stats_daily_target", "如: 100", "100", null);
+
+    addSettingsCategory("数据操作", "");
+    addSettingsItemClickWithKey("重置今日数据", "清空今日所有统计", new Runnable() {
+        public void run() {
+            Activity act = getSettingsCurrentActivity();
+            if (act != null) resetTodayStats(act);
+        }
+    });
+    addSettingsItemClickWithKey("重置累计数据", "清空所有累计统计", new Runnable() {
+        public void run() {
+            Activity act = getSettingsCurrentActivity();
+            if (act != null) resetTotalStats(act);
+        }
+    });
+    addSettingsItemClickWithKey("修复数据", "重算所有 total 键", new Runnable() {
+        public void run() {
+            Activity act = getSettingsCurrentActivity();
+            if (act != null) repairStatsData(act);
+        }
+    });
+}
+
+SettingsFeatureBuilder statsBoardFeatureBuilder() {
+    return new SettingsFeatureBuilder() {
+        public View build(Activity activity) {
+            if (SettingsState.settingsIndexMode) return null;
+            LinearLayout board = buildStatsContentView((activity != null) ? activity : getSettingsCurrentActivity());
+            if (board != null) bindStatsViewCache(board);
+            return board;
+        }
+    };
+}
+
+SettingsFeatureBuilder statsSettingsFeatureBuilder() {
+    return new SettingsFeatureBuilder() {
+        public View build(Activity activity) {
+            buildStatsSettingsView((activity != null) ? activity : getSettingsCurrentActivity());
+            return null;
+        }
+    };
+}
+
+void rebuildStatsSettingsPage() {
+    Activity act = getSettingsCurrentActivity();
+    if (act == null) return;
+    LinearLayout listContainer = SettingsState.settingsListContainer;
+    if (listContainer == null) return;
+    try {
+        listContainer.removeAllViews();
+        if (SettingsState.settingsCategoryContainers != null) SettingsState.settingsCategoryContainers.clear();
+        if (SettingsState.settingsItemViews != null) SettingsState.settingsItemViews.clear();
+        if (SettingsState.settingsItemTextViews != null) SettingsState.settingsItemTextViews.clear();
+        SettingsState.settingsCurrentCategory = null;
+        buildStatsSettingsView(act);
+    } catch (Throwable e) {
+        traceLog("setwindow_log", "[rebuildStatsSettingsPage] 异常: " + e);
+    }
+}
+
+public void refreshStatsBoardOnReturn() {
+    Activity act = getSettingsCurrentActivity();
+    if (!(act instanceof SettingsActivity)) {
+        unbindStatsViewCache();
+        return;
+    }
+    SettingsActivity sa = (SettingsActivity) act;
+    if (sa.settingsPageStack == null || sa.settingsPageStack.isEmpty()) {
+        unbindStatsViewCache();
+        return;
+    }
+    Object topObj = sa.settingsPageStack.get(sa.settingsPageStack.size() - 1);
+    if (topObj == null) {
+        unbindStatsViewCache();
+        return;
+    }
+    try {
+        java.lang.reflect.Field l2Field = topObj.getClass().getDeclaredField("level2");
+        l2Field.setAccessible(true);
+        Object l2 = l2Field.get(topObj);
+        if (!"消息统计".equals(l2)) {
+            unbindStatsViewCache();
+            return;
+        }
+        java.lang.reflect.Field pvField = topObj.getClass().getDeclaredField("pageView");
+        pvField.setAccessible(true);
+        Object pvObj = pvField.get(topObj);
+        if (!(pvObj instanceof LinearLayout)) {
+            unbindStatsViewCache();
+            return;
+        }
+        LinearLayout pageLayout = (LinearLayout) pvObj;
+        if (pageLayout.getChildCount() < 2) {
+            unbindStatsViewCache();
+            return;
+        }
+        View scrollChild = pageLayout.getChildAt(1);
+        if (!(scrollChild instanceof ScrollView)) {
+            unbindStatsViewCache();
+            return;
+        }
+        unbindStatsViewCache();
+        LinearLayout newContent = buildStatsContentView(act);
+        if (newContent == null) return;
+        ScrollView sv = (ScrollView) scrollChild;
+        sv.removeAllViews();
+        sv.addView(newContent);
+        bindStatsViewCache(newContent);
+    } catch (Throwable e) {
+        traceLog("setwindow_log", "[refreshStatsBoardOnReturn] 异常: " + e);
+        unbindStatsViewCache();
+    }
+}
+
+
+View buildHtmlPageView(final Activity activity) {
+    if (activity == null) return null;
+
+    LinearLayout root = new LinearLayout(activity);
+    root.setOrientation(LinearLayout.VERTICAL);
+    root.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+
+    LinearLayout urlRow = new LinearLayout(activity);
+    urlRow.setOrientation(LinearLayout.HORIZONTAL);
+    urlRow.setGravity(Gravity.CENTER_VERTICAL);
+
+    final EditText urlInput = makeInput(activity, "输入网址或 HTML 代码", null);
+    urlInput.setTextSize(13);
+    urlInput.setSingleLine(true);
+    urlInput.setImeOptions(EditorInfo.IME_ACTION_GO);
+    urlInput.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
+    urlRow.addView(urlInput);
+
+    TextView openBtn = createButton(activity, "打开", Color.WHITE, pc(getSettingsThemeColor(activity, "primary")), 13f, 8, 14, 8, false, 0, 0, null);
+    LinearLayout.LayoutParams openLp = new LinearLayout.LayoutParams(-2, -2);
+    openLp.leftMargin = dp(activity, 8);
+    openBtn.setLayoutParams(openLp);
+    urlRow.addView(openBtn);
+    root.addView(urlRow);
+
+    final Runnable openUrl = new Runnable() {
+        public void run() {
+            try {
+                String url = urlInput.getText().toString().trim();
+                if (url.length() == 0) { Toast("请输入网址或 HTML 代码"); return; }
+                if (!url.startsWith("http") && !url.startsWith("file")) url = "http://" + url;
+                launchHtmlActivity(activity, url);
+            } catch (Throwable e) { Toast("打开失败: " + e.getMessage()); }
+        }
+    };
+    openBtn.setOnClickListener(new View.OnClickListener() {
+        public void onClick(View v) { openUrl.run(); }
+    });
+    urlInput.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+        public boolean onEditorAction(TextView tv, int actionId, KeyEvent keyEvent) {
+            if (actionId == EditorInfo.IME_ACTION_GO || actionId == EditorInfo.IME_ACTION_DONE) {
+                openUrl.run();
+                return true;
+            }
+            return false;
+        }
+    });
+
+    View divider = new View(activity);
+    divider.setBackgroundColor(pc(getSettingsThemeColor(activity, "outline")));
+    LinearLayout.LayoutParams dividerLp = new LinearLayout.LayoutParams(-1, dp(activity, 1));
+    dividerLp.topMargin = dp(activity, 12);
+    divider.setLayoutParams(dividerLp);
+    root.addView(divider);
+
+    LinearLayout listHeader = new LinearLayout(activity);
+    listHeader.setOrientation(LinearLayout.HORIZONTAL);
+    listHeader.setGravity(Gravity.CENTER_VERTICAL);
+    LinearLayout.LayoutParams headerLp = new LinearLayout.LayoutParams(-1, -2);
+    headerLp.topMargin = dp(activity, 12);
+    listHeader.setLayoutParams(headerLp);
+
+    TextView listTitle = new TextView(activity);
+    listTitle.setText("本地文件");
+    listTitle.setTextSize(14);
+    listTitle.setTypeface(null, Typeface.BOLD);
+    listTitle.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
+    listTitle.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
+    listHeader.addView(listTitle);
+
+    TextView importBtn = new TextView(activity);
+    importBtn.setText("导入新文件");
+    importBtn.setTextSize(13);
+    importBtn.setTextColor(pc(getSettingsThemeColor(activity, "primary")));
+    importBtn.setPadding(dp(activity, 8), dp(activity, 4), 0, dp(activity, 4));
+    importBtn.setClickable(true);
+    importBtn.setOnClickListener(new View.OnClickListener() {
+        public void onClick(View v) {
+            vibrate(activity, 32);
+            startHtmlFilePicker(activity);
+        }
+    });
+    listHeader.addView(importBtn);
+    root.addView(listHeader);
+
+    ScrollView sv = new ScrollView(activity);
+    sv.setVerticalScrollBarEnabled(false);
+    sv.setLayoutParams(new LinearLayout.LayoutParams(-1, 0, 1.0f));
+    LinearLayout list = new LinearLayout(activity);
+    list.setOrientation(LinearLayout.VERTICAL);
+    list.setPadding(0, dp(activity, 4), 0, dp(activity, 12));
+    sv.addView(list);
+    root.addView(sv);
+
+    refreshHtmlFileList(activity, list);
+    return root;
+}
+
+void refreshHtmlFileList(Activity activity, LinearLayout list) {
+    if (activity == null || list == null) return;
+    list.removeAllViews();
+    try {
+        File dir = new File(htmlPath);
+        if (!dir.exists()) dir.mkdirs();
+        File[] files = dir.listFiles();
+        if (files == null || files.length == 0) {
+            TextView empty = new TextView(activity);
+            empty.setText("暂无文件，点右上角「导入新文件」添加");
+            empty.setTextSize(13);
+            empty.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
+            empty.setPadding(0, dp(activity, 20), 0, 0);
+            list.addView(empty);
+            return;
+        }
+        for (int i = 0; i < files.length; i++) {
+            File f = files[i];
+            if (f == null || !f.isFile()) continue;
+            String lower = f.getName().toLowerCase();
+            if (!(lower.endsWith(".html") || lower.endsWith(".zip") || lower.endsWith(".php"))) continue;
+            list.addView(buildHtmlFileRow(activity, f, list));
+        }
+    } catch (Throwable e) {
+        traceLog("setwindow_log", "[refreshHtmlFileList] 异常: " + e);
+    }
+}
+
+View buildHtmlFileRow(final Activity activity, final File f, final LinearLayout list) {
+    final String path = f.getAbsolutePath();
+
+    LinearLayout row = new LinearLayout(activity);
+    row.setOrientation(LinearLayout.HORIZONTAL);
+    row.setGravity(Gravity.CENTER_VERTICAL);
+    row.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 8), dp(activity, 12));
+    row.setBackground(makeFeedbackBg(getAdaptiveCardBg(activity), pc(getSettingsThemeColor(activity, "ripple")), dp(activity, 14)));
+    row.setClipToOutline(true);
+    LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(-1, -2);
+    rowLp.setMargins(0, dp(activity, 5), 0, dp(activity, 5));
+    row.setLayoutParams(rowLp);
+
+    LinearLayout textArea = new LinearLayout(activity);
+    textArea.setOrientation(LinearLayout.VERTICAL);
+    textArea.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
+
+    TextView nameTv = new TextView(activity);
+    nameTv.setText(f.getName());
+    nameTv.setTextSize(15);
+    nameTv.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
+    textArea.addView(nameTv);
+
+    TextView sizeTv = new TextView(activity);
+    sizeTv.setText(formatSize(f.length()));
+    sizeTv.setTextSize(12);
+    sizeTv.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
+    sizeTv.setPadding(0, dp(activity, 3), 0, 0);
+    textArea.addView(sizeTv);
+    row.addView(textArea);
+
+    TextView delBtn = new TextView(activity);
+    delBtn.setText("删除");
+    delBtn.setTextSize(13);
+    delBtn.setTextColor(pc(getSettingsThemeColor(activity, "error")));
+    delBtn.setPadding(dp(activity, 12), dp(activity, 8), dp(activity, 12), dp(activity, 8));
+    delBtn.setClickable(true);
+    delBtn.setOnClickListener(new View.OnClickListener() {
+        public void onClick(View v) {
+            vibrate(activity, 32);
+            showSettingsConfirmDialog(activity, "确认删除", "确定要删除「" + f.getName() + "」吗？", new Runnable() {
+                public void run() {
+                    try {
+                        删除(path);
+                        Toast("已删除");
+                    } catch (Throwable e) { Toast("删除失败: " + e.getMessage()); }
+                    refreshHtmlFileList(activity, list);
+                }
+            });
+        }
+    });
+    row.addView(delBtn);
+
+    row.setClickable(true);
+    row.setOnClickListener(new View.OnClickListener() {
+        public void onClick(View v) { launchHtmlActivity(activity, path); }
+    });
+    return row;
+}
+
 void buildSettingsHomeContent(Activity activity) {
     if (activity == null) return;
     if (!SettingsState.settingsIndexMode && SettingsState.settingsListContainer == null) return;
@@ -2004,7 +2460,6 @@ void onVariablePoolPick(final Activity activity, final String varName, String va
 }
 
 
-// ===== 搜索与索引 =====
 void registerSettingsIndexEntry(String itemKey, String itemName, String descriptionText, String type) {
     if (itemKey == null || itemKey.length() == 0) return;
     if (SettingsState.settingsItemMeta == null) SettingsState.settingsItemMeta = new HashMap();
@@ -2387,7 +2842,6 @@ void addSearchResultItem(final Activity activity, LinearLayout container, String
 }
 
 
-// ===== 弹窗 =====
 void showChoiceDialogEx(Activity activity, String title, String[] names, String[] values, String configKey, String defaultVal, int checkedInit, int toastMode, String toastMsg, Runnable onDone) {
 	if (activity == null || activity.isFinishing()) return;
 	String cur = getString("settings", configKey, defaultVal);
@@ -2475,7 +2929,6 @@ void showDpiModeChoiceDialog(final Activity activity) {
     builder.setSingleChoiceItems(names, checked, new DialogInterface.OnClickListener() {
         public void onClick(DialogInterface dialog, int which) {
             putString("settings", "ui_dialog_dpi_mode", values[which]);
-            refreshPluginUiDensity(activity);
             String label = names[which];
             if ("custom".equals(values[which])) {
                 String d = getString("settings", "ui_dialog_custom_dpi", "320");
@@ -2928,7 +3381,6 @@ void showUiCornerPicker(final Activity activity) {
     activity.runOnUiThread(new Runnable() {
         public void run() {
             try {
-                final boolean dark = isThemeDark(activity);
                 final int textColor = pc(getSettingsThemeColor(activity, "on_surface"));
                 final int subColor = pc(getSettingsThemeColor(activity, "on_surface_variant"));
                 final int accentColor = pc(getSettingsThemeColor(activity, "primary"));
@@ -2944,7 +3396,7 @@ void showUiCornerPicker(final Activity activity) {
 
                 LinearLayout root = new LinearLayout(activity);
                 root.setOrientation(LinearLayout.VERTICAL);
-                root.setPadding(dp(activity, 20), dp(activity, 10), dp(activity, 20), dp(activity, 12));
+                root.setPadding(dp(activity, 18), dp(activity, 14), dp(activity, 18), dp(activity, 8));
                 root.setBackground(roundRect(getAdaptiveSheetBg(activity), dp(activity, radius[0])));
 
                 LinearLayout body = new LinearLayout(activity);
@@ -2952,25 +3404,13 @@ void showUiCornerPicker(final Activity activity) {
                 body.setClipChildren(false);
                 body.setClipToPadding(false);
 
-                FrameLayout grabberWrap = new FrameLayout(activity);
-                grabberWrap.setLayoutParams(new LinearLayout.LayoutParams(-1, dp(activity, 8)));
-                View grabber = new View(activity);
-                GradientDrawable grabberBg = new GradientDrawable();
-                grabberBg.setColor(tca(activity, "on_surface", dark ? 64 : 38));
-                grabberBg.setCornerRadius(dp(activity, 3));
-                grabber.setBackground(grabberBg);
-                FrameLayout.LayoutParams grabberLp = new FrameLayout.LayoutParams(dp(activity, 36), dp(activity, 5));
-                grabberLp.gravity = Gravity.CENTER;
-                grabberWrap.addView(grabber, grabberLp);
-                body.addView(grabberWrap);
-
                 TextView title = new TextView(activity);
                 title.setText("弹窗圆角");
                 title.setTextSize(17);
                 title.setTypeface(null, Typeface.BOLD);
                 title.setTextColor(textColor);
                 title.setGravity(Gravity.CENTER);
-                title.setPadding(0, dp(activity, 6), 0, dp(activity, 10));
+                title.setPadding(0, dp(activity, 2), 0, dp(activity, 8));
                 body.addView(title);
 
                 LinearLayout valueRow = new LinearLayout(activity);
@@ -3081,8 +3521,8 @@ void showUiCornerPicker(final Activity activity) {
                     chip.setTextSize(13);
                     chip.setGravity(Gravity.CENTER);
                     LinearLayout.LayoutParams chipLp = new LinearLayout.LayoutParams(0, dp(activity, 32), 1.0f);
-                    chipLp.leftMargin = dp(activity, 3);
-                    chipLp.rightMargin = dp(activity, 3);
+                    chipLp.leftMargin = dp(activity, 2);
+                    chipLp.rightMargin = dp(activity, 2);
                     chip.setLayoutParams(chipLp);
                     chip.setOnClickListener(new View.OnClickListener() {
                         public void onClick(View v) {
@@ -3109,7 +3549,7 @@ void showUiCornerPicker(final Activity activity) {
                 btnRow.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
                 btnRow.setClipChildren(false);
                 btnRow.setClipToPadding(false);
-                btnRow.setPadding(0, dp(activity, 8), 0, 0);
+                btnRow.setPadding(0, dp(activity, 4), 0, 0);
                 btnRow.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
 
                 TextView cancelBtn = createButton(activity, "取消", subColor, Color.TRANSPARENT, 14f, 8, 16, 8, false, 0, 0, new Runnable() {
@@ -3139,7 +3579,7 @@ void showUiCornerPicker(final Activity activity) {
                 root.setClipChildren(false);
                 root.setClipToPadding(false);
                 scrollWrap.addView(body);
-                root.addView(scrollWrap, new LinearLayout.LayoutParams(-1, 0, 1.0f));
+                root.addView(scrollWrap, new LinearLayout.LayoutParams(-1, -2));
                 root.addView(btnRow);
                 d.setContentView(root);
                 d.show();
@@ -3148,10 +3588,7 @@ void showUiCornerPicker(final Activity activity) {
                     Window sizeWin = d.getWindow();
                     if (sizeWin != null) {
                         int wantW = Math.min(dp(activity, 300), activity.getResources().getDisplayMetrics().widthPixels - dp(activity, 48));
-                        int maxHeight = activity.getResources().getDisplayMetrics().heightPixels - dp(activity, 32);
-                        if (maxHeight <= 0) maxHeight = activity.getResources().getDisplayMetrics().heightPixels;
-                        int wantedHeight = Math.min(dp(activity, 460), maxHeight);
-                        if (wantW > 0) sizeWin.setLayout(wantW, wantedHeight);
+                        if (wantW > 0) sizeWin.setLayout(wantW, -2);
                     }
                 } catch (Throwable ignore) {}
                 updateAll.run();
@@ -3248,7 +3685,6 @@ int resetAllSettingsToDefault() {
 }
 
 
-// ===== Activity 启动、缓存与清理 =====
 void ensureSettingsActivityRegistered() {
     if (SettingsState.settingsActivityRegistered) return;
     try {
@@ -3267,7 +3703,6 @@ void launchSettingsActivity(Activity activity, int chatType, String peerUin, Str
     try {
         ensureSettingsActivityRegistered();
         try {
-            refreshPluginUiDensity(activity);
             SettingsState.settingsHostDensity = getPluginUiDensity(activity);
         } catch (Throwable ignore) {
             SettingsState.settingsHostDensity = activity.getResources().getDisplayMetrics().density;
@@ -3492,7 +3927,6 @@ void releaseSettingsIconCache() {
 }
 
 
-// ===== 设置页 Activity（页面栈 / 搜索态 / 生命周期） =====
 class SettingsActivity extends BaseComposeActivity {
     FrameLayout settingsActivityRoot;
     FrameLayout settingsPageContainer;
