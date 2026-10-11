@@ -1,25 +1,15 @@
 {
-  "version": "2.6.0",
+  "version": "2.6.1",
   "versionType": "正式版",
   "updateType": "补丁",
-  "updateTime": "2026-10-06 12:56:30",
-  "changelog": "- 修复部分系统dp换算问题导致的弹窗异常\n- 优化列表类弹窗UI\n- 去除全部弹窗的黑边\n- 精简群成员信息\n- 扩展好友\/成员信息\n- 优化统一了部分UI底层方法",
+  "updateTime": "2026-10-11 08:48:18",
+  "changelog": "- 优化菜单界面\n- 优化解析**markdown**不再依赖任何外部API\n- 优化并行访问速度\n- 新增是否接收测试版推送开关",
   "files": [
-    "QFloatingX\/API\/ColorPicker.java",
-    "QFloatingX\/API\/api3.java",
-    "QFloatingX\/API\/uitools.java",
     "QFloatingX\/API\/Dialog.java",
     "QFloatingX\/API\/api.java",
     "QFloatingX\/API\/setwindow.java",
-    "QFloatingX\/API\/api4.java",
-    "QFloatingX\/API\/api9.java",
-    "QFloatingX\/API\/api6.java",
-    "QFloatingX\/API\/api7.java",
-    "QFloatingX\/API\/api8.java",
     "QFloatingX\/API\/function.java",
-    "QFloatingX\/API\/import.java",
-    "QFloatingX\/main.java",
-    "QFloatingX\/info.prop",
-    "QFloatingX\/更新日志.txt"
+    "QFloatingX\/更新日志.txt",
+    "QFloatingX\/info.prop"
   ]
 }
