@@ -690,26 +690,14 @@ int getAdaptiveMenuItemBg(Activity a) {
 	String bgType = getString("settings", "ui_bg_type", "color");
 	int base;
 	if ("image".equals(bgType)) {
-		return dark ? Color.argb(90, 255, 255, 255) : Color.argb(70, 255, 255, 255);
+		return dark ? Color.argb(100, 255, 255, 255) : Color.argb(82, 255, 255, 255);
 	}
 	if ("gradient".equals(bgType)) {
 		base = pc(getSettingsThemeColor(a, "surface"));
 	} else {
 		base = pc(getSettingsThemeColor(a, "background"));
 	}
-	int r = Color.red(base);
-	int g = Color.green(base);
-	int b = Color.blue(base);
-	if (dark) {
-		return Color.argb(255,
-			Math.min(255, r + 52),
-			Math.min(255, g + 52),
-			Math.min(255, b + 52));
-	}
-	return Color.argb(255,
-		r + (255 - r) * 45 / 100,
-		g + (255 - g) * 45 / 100,
-		b + (255 - b) * 45 / 100);
+	return mixTowardElevated(base, dark);
 }
 
 int mixTowardElevated(int color, boolean dark) {
@@ -2973,6 +2961,136 @@ boolean zipDirectory(String sourceDir, String zipPath, String entryPrefix, Strin
     }
 }
 
+public String markdownToHtml(String markdown) {
+    if (markdown == null || markdown.isEmpty()) return "";
+    String[] lines = markdown.replace("\r\n", "\n").replace('\r', '\n').split("\n", -1);
+    StringBuilder html = new StringBuilder(markdown.length() + 128);
+    StringBuilder code = new StringBuilder();
+    int listType = 0;
+    boolean inCode = false;
+    for (int i = 0; i < lines.length; i++) {
+        String line = lines[i];
+        String trimmed = line.trim();
+        if (trimmed.startsWith("```")) {
+            if (listType != 0) {
+                html.append(listType == 1 ? "</ul>" : "</ol>");
+                listType = 0;
+            }
+            if (inCode) {
+                String escapedCode = code.toString().replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
+                html.append("<pre><code>").append(escapedCode).append("</code></pre>");
+                code.setLength(0);
+                inCode = false;
+            } else {
+                inCode = true;
+            }
+            continue;
+        }
+        if (inCode) {
+            if (code.length() > 0) code.append('\n');
+            code.append(line);
+            continue;
+        }
+        if (trimmed.isEmpty()) {
+            if (listType != 0) {
+                html.append(listType == 1 ? "</ul>" : "</ol>");
+                listType = 0;
+            }
+            continue;
+        }
+        if (trimmed.matches("-{2,}|\\*{3,}|_{3,}")) {
+            if (listType != 0) {
+                html.append(listType == 1 ? "</ul>" : "</ol>");
+                listType = 0;
+            }
+            html.append("<hr/>");
+            continue;
+        }
+        String content = trimmed;
+        int lineType = 0;
+        Matcher heading = Pattern.compile("^(#{1,6})\\s+(.+)$").matcher(trimmed);
+        Matcher bullet = Pattern.compile("^[-+*]\\s+(.+)$").matcher(trimmed);
+        Matcher numbered = Pattern.compile("^\\d+[.)]\\s+(.+)$").matcher(trimmed);
+        if (heading.matches()) {
+            if (listType != 0) {
+                html.append(listType == 1 ? "</ul>" : "</ol>");
+                listType = 0;
+            }
+            lineType = Math.min(heading.group(1).length(), 3);
+            content = heading.group(2);
+        } else if (bullet.matches() || numbered.matches()) {
+            int nextType = bullet.matches() ? 1 : 2;
+            if (listType != nextType) {
+                if (listType != 0) html.append(listType == 1 ? "</ul>" : "</ol>");
+                html.append(nextType == 1 ? "<ul>" : "<ol>");
+                listType = nextType;
+            }
+            lineType = 4;
+            content = bullet.matches() ? bullet.group(1) : numbered.group(1);
+        } else {
+            if (listType != 0) {
+                html.append(listType == 1 ? "</ul>" : "</ol>");
+                listType = 0;
+            }
+            if (trimmed.startsWith(">")) {
+                lineType = 5;
+                content = trimmed.substring(1).trim();
+            }
+        }
+        String value = content.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
+        ArrayList codeBlocks = new ArrayList();
+        Matcher codeMatcher = Pattern.compile("`([^`]+)`").matcher(value);
+        StringBuffer codeBuffer = new StringBuffer();
+        int codeIndex = 0;
+        while (codeMatcher.find()) {
+            String token = "@@MDINLINECODE" + codeIndex++ + "@@";
+            codeBlocks.add("<code>" + codeMatcher.group(1) + "</code>");
+            codeMatcher.appendReplacement(codeBuffer, Matcher.quoteReplacement(token));
+        }
+        codeMatcher.appendTail(codeBuffer);
+        value = codeBuffer.toString();
+        Matcher linkMatcher = Pattern.compile("\\[([^\\]]+)\\]\\((https?://[^\\s)]+|mailto:[^\\s)]+)\\)").matcher(value);
+        StringBuffer linkBuffer = new StringBuffer();
+        while (linkMatcher.find()) {
+            String replacement = "<a href=\"" + linkMatcher.group(2) + "\">" + linkMatcher.group(1) + "</a>";
+            linkMatcher.appendReplacement(linkBuffer, Matcher.quoteReplacement(replacement));
+        }
+        linkMatcher.appendTail(linkBuffer);
+        value = linkBuffer.toString();
+        Matcher boldA = Pattern.compile("\\*\\*(.+?)\\*\\*").matcher(value);
+        StringBuffer formatBuffer = new StringBuffer();
+        while (boldA.find()) boldA.appendReplacement(formatBuffer, Matcher.quoteReplacement("<strong>" + boldA.group(1) + "</strong>"));
+        boldA.appendTail(formatBuffer);
+        value = formatBuffer.toString();
+        Matcher boldB = Pattern.compile("__(.+?)__").matcher(value);
+        formatBuffer = new StringBuffer();
+        while (boldB.find()) boldB.appendReplacement(formatBuffer, Matcher.quoteReplacement("<strong>" + boldB.group(1) + "</strong>"));
+        boldB.appendTail(formatBuffer);
+        value = formatBuffer.toString();
+        Matcher italicA = Pattern.compile("(?<!\\*)\\*([^*]+)\\*(?!\\*)").matcher(value);
+        formatBuffer = new StringBuffer();
+        while (italicA.find()) italicA.appendReplacement(formatBuffer, Matcher.quoteReplacement("<em>" + italicA.group(1) + "</em>"));
+        italicA.appendTail(formatBuffer);
+        value = formatBuffer.toString();
+        Matcher italicB = Pattern.compile("(?<!_)_([^_]+)_(?!_)").matcher(value);
+        formatBuffer = new StringBuffer();
+        while (italicB.find()) italicB.appendReplacement(formatBuffer, Matcher.quoteReplacement("<em>" + italicB.group(1) + "</em>"));
+        italicB.appendTail(formatBuffer);
+        value = formatBuffer.toString();
+        for (int j = 0; j < codeBlocks.size(); j++) value = value.replace("@@MDINLINECODE" + j + "@@", (String) codeBlocks.get(j));
+        if (lineType >= 1 && lineType <= 3) html.append("<h").append(lineType).append(">").append(value).append("</h").append(lineType).append(">");
+        else if (lineType == 4) html.append("<li>").append(value).append("</li>");
+        else if (lineType == 5) html.append("<blockquote><p>").append(value).append("</p></blockquote>");
+        else html.append("<p>").append(value).append("</p>");
+    }
+    if (inCode) {
+        String escapedCode = code.toString().replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
+        html.append("<pre><code>").append(escapedCode).append("</code></pre>");
+    }
+    if (listType != 0) html.append(listType == 1 ? "</ul>" : "</ol>");
+    return html.toString();
+}
+
 void showUpdateDialog(final String version, final String versionType, final String updateType, final String changelog, final List updateFiles, final JSONObject checksums) {
 
     final Activity activity = getNowActivity();
@@ -3049,7 +3167,12 @@ void showUpdateDialog(final String version, final String versionType, final Stri
     ScrollView updScroll = new ScrollView(activity);
     TextView updBody = new TextView(activity);
     String bodyText = changelog == null || changelog.trim().isEmpty() ? "暂无更新说明" : changelog.trim();
-    updBody.setText(bodyText);
+    try {
+        updBody.setText(Html.fromHtml(markdownToHtml(bodyText)));
+    } catch (Throwable e) {
+        updBody.setText(bodyText);
+        traceLog("api_log", "[showUpdateDialog] Markdown格式化失败，使用纯文本: " + e.getMessage());
+    }
     updBody.setTextSize(13);
     updBody.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
     updBody.setLineSpacing(0, 1.15f);
@@ -3480,6 +3603,7 @@ String fetchFirstValidUpdateJson(final String[] urls) {
     if (urls == null || urls.length == 0) return null;
     java.util.concurrent.ExecutorService mirrorPool = null;
     java.util.ArrayList futures = new java.util.ArrayList();
+    final java.util.concurrent.atomic.AtomicBoolean stopRequests = new java.util.concurrent.atomic.AtomicBoolean(false);
     try {
         int taskCount = Math.max(1, urls.length);
         mirrorPool = java.util.concurrent.Executors.newFixedThreadPool(taskCount);
@@ -3494,16 +3618,18 @@ String fetchFirstValidUpdateJson(final String[] urls) {
                     java.net.HttpURLConnection conn = null;
                     java.io.InputStream in = null;
                     try {
+                        if (stopRequests.get() || Thread.currentThread().isInterrupted()) return null;
                         conn = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
                         conn.setRequestMethod("GET");
-                        conn.setConnectTimeout(2500);
+                        conn.setConnectTimeout(3500);
                         conn.setReadTimeout(5000);
-                        conn.setUseCaches(true);
+                        conn.setUseCaches(false);
+                        conn.setRequestProperty("Connection", "close");
                         conn.setRequestProperty("User-Agent", "QFloatingX-Updater");
                         conn.setRequestProperty("Accept", "application/json, text/plain, */*");
                         int code = conn.getResponseCode();
                         if (code < 200 || code >= 300) {
-                            traceLog("api_log", "[fetchFirstValidUpdateJson] up.json HTTP " + code + " #" + index + ": " + url);
+                            if (!stopRequests.get()) traceLog("api_log", "[fetchFirstValidUpdateJson] up.json HTTP " + code + " #" + index + ": " + url);
                             return null;
                         }
                         in = conn.getInputStream();
@@ -3511,25 +3637,31 @@ String fetchFirstValidUpdateJson(final String[] urls) {
                         StringBuilder sb = new StringBuilder();
                         char[] buf = new char[8192];
                         int read;
-                        while ((read = reader.read(buf)) != -1) sb.append(buf, 0, read);
+                        while ((read = reader.read(buf)) != -1) {
+                            if (stopRequests.get() || Thread.currentThread().isInterrupted()) return null;
+                            sb.append(buf, 0, read);
+                        }
                         String body = sb.toString().trim();
                         if (body.isEmpty()) return null;
                         try {
                             new JSONObject(body);
                         } catch (Throwable e) {
-                            traceLog("api_log", "[fetchFirstValidUpdateJson] up.json JSON无效 #" + index + ": " + url);
+                            if (!stopRequests.get()) traceLog("api_log", "[fetchFirstValidUpdateJson] up.json JSON无效 #" + index + ": " + url);
                             return null;
                         }
-                        return new String[]{body, url};
+                        if (stopRequests.compareAndSet(false, true)) return new String[]{body, url};
+                        return null;
                     } catch (java.io.InterruptedIOException e) {
-                        if (e instanceof java.net.SocketTimeoutException) {
-                            traceLog("api_log", "[fetchFirstValidUpdateJson] up.json 请求超时 #" + index + ": " + e);
-                        } else if (!Thread.currentThread().isInterrupted()) {
-                            traceLog("api_log", "[fetchFirstValidUpdateJson] up.json 请求中断 #" + index + ": " + e);
+                        if (!stopRequests.get() && !Thread.currentThread().isInterrupted()) {
+                            if (e instanceof java.net.SocketTimeoutException) {
+                                traceLog("api_log", "[fetchFirstValidUpdateJson] up.json 请求超时 #" + index + ": " + e);
+                            } else {
+                                traceLog("api_log", "[fetchFirstValidUpdateJson] up.json 请求中断 #" + index + ": " + e);
+                            }
                         }
                         return null;
                     } catch (Throwable e) {
-                        traceLog("api_log", "[fetchFirstValidUpdateJson] up.json 请求失败 #" + index + ": " + e);
+                        if (!stopRequests.get()) traceLog("api_log", "[fetchFirstValidUpdateJson] up.json 请求失败 #" + index + ": " + e);
                         return null;
                     } finally {
                         try { if (in != null) in.close(); } catch (Throwable e) {}
@@ -3542,12 +3674,13 @@ String fetchFirstValidUpdateJson(final String[] urls) {
         for (int i = 0; i < futures.size(); i++) {
             java.util.concurrent.Future future = null;
             try {
-                future = completion.poll(6000, java.util.concurrent.TimeUnit.MILLISECONDS);
+                future = completion.poll(10000, java.util.concurrent.TimeUnit.MILLISECONDS);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+                stopRequests.set(true);
                 break;
             } catch (Throwable e) {
-                traceLog("api_log", "[fetchFirstValidUpdateJson] 等待镜像结果异常: " + e);
+                if (!stopRequests.get()) traceLog("api_log", "[fetchFirstValidUpdateJson] 等待镜像结果异常: " + e);
             }
             if (future == null) break;
             try {
@@ -3559,18 +3692,19 @@ String fetchFirstValidUpdateJson(final String[] urls) {
                 }
             } catch (java.util.concurrent.CancellationException e) {
             } catch (Throwable e) {
-                traceLog("api_log", "[fetchFirstValidUpdateJson] 解析线程结果异常: " + e);
+                if (!stopRequests.get()) traceLog("api_log", "[fetchFirstValidUpdateJson] 解析线程结果异常: " + e);
             }
         }
     } catch (Throwable e) {
-        traceLog("api_log", "[fetchFirstValidUpdateJson] 并行请求异常: " + e);
+        if (!stopRequests.get()) traceLog("api_log", "[fetchFirstValidUpdateJson] 并行请求异常: " + e);
     } finally {
+        stopRequests.set(true);
         try {
             for (int i = 0; i < futures.size(); i++) {
-                try { ((java.util.concurrent.Future) futures.get(i)).cancel(true); } catch (Throwable e) {}
+                try { ((java.util.concurrent.Future) futures.get(i)).cancel(false); } catch (Throwable e) {}
             }
         } catch (Throwable e) {}
-        try { if (mirrorPool != null) mirrorPool.shutdownNow(); } catch (Throwable e) {}
+        try { if (mirrorPool != null) mirrorPool.shutdown(); } catch (Throwable e) {}
     }
     return null;
 }
@@ -3629,6 +3763,13 @@ void runQFXUpdateCheck(final boolean manual) {
                 String versionType = json.optString("versionType", "正式版");
                 String updateType = json.optString("updateType", "全量");
                 String changelog = json.optString("changelog", "");
+                boolean isTestVersion = versionType != null && (
+                    versionType.contains("测试") ||
+                    versionType.toLowerCase().contains("beta") ||
+                    versionType.toLowerCase().contains("pre-release") ||
+                    versionType.toLowerCase().contains("preview")
+                );
+                if (!manual && isTestVersion && !getBoolean("settings", "receive_beta_update_notice", false)) return;
 
                 java.util.List files = new java.util.ArrayList();
                 org.json.JSONArray filesArray = json.optJSONArray("files");
