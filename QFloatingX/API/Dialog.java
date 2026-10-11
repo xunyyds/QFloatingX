@@ -1873,217 +1873,106 @@ void showMemberInfoDialog(Activity activity, String peerUin, String userUin, int
         public void run() {
             try {
                 StringBuilder sb = new StringBuilder();
-                Object card = null;
-                Object member = null;
-                Object friend = null;
-                try {
-                    card = GetCard(userUin);
-                    if (chatType == 2) {
-                        member = getMemberInfo(peerUin, userUin);
-                    }
-                    friend = card;
-                } catch (Throwable ignored) {
-                    traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + ignored);
-                }
+                Object card = GetCard(userUin);
+                Object member = chatType == 2 ? getMemberInfo(peerUin, userUin) : null;
                 sb.append("QQ: ").append(userUin).append("\n");
+
                 String nick = "未知";
-                if (card != null) {
-                    try {
-                        String cn = String.valueOf(card.strNick);
-                        if (cn != null && !cn.contains("*") && !cn.equals("null")) nick = cn;
-                    } catch (Throwable t) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + t);
-                    }
-                }
+                String cn = card?.strNick ?: "";
+                if (!cn.isEmpty() && !cn.contains("*") && !"null".equals(cn)) nick = cn;
                 if ("未知".equals(nick) && member != null) {
-                    try {
-                        String mn = String.valueOf(member.uinName);
-                        if (mn != null && !mn.isEmpty() && !mn.contains("*") && !mn.equals("null")) nick = mn;
-                    } catch (Throwable ignored) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + ignored);
-                    }
+                    String mn = member?.uinName ?: "";
+                    if (!mn.isEmpty() && !mn.contains("*") && !"null".equals(mn)) nick = mn;
                 }
                 sb.append("昵称: ").append(nick).append("\n");
-                if (friend != null) {
-                    try {
-                        String rm = String.valueOf(friend.remark);
-                        if (rm != null && !rm .isEmpty() && !rm .equals("null")) sb
-                            .append("备注: ")
-                            .append(rm)
-                            .append("\n");
-                    } catch (Throwable ignored) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + ignored);
-                    }
-                }
+
+                String rm = card?.remark ?: "";
+                if (!rm.isEmpty() && !"null".equals(rm)) sb.append("备注: ").append(rm).append("\n");
+
                 if (card != null) {
-                    try {
-                        String qid = String.valueOf(card.qid);
-                        if (qid != null && !qid .isEmpty() && !qid .equals("null")) sb
-                            .append("QID: ")
-                            .append(qid)
-                            .append("\n");
-                    } catch (Throwable ignored) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + ignored);
-                    }
-                    try {
-                        int age = (int) card.age;
-                        if (age > 0) sb.append("年龄: ").append(age).append("\n");
-                    } catch (Throwable ignored) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + ignored);
-                    }
-                    try {
-                        String loc = "";
-                        String ctry = String.valueOf(card.strCountry);
-                        if (ctry != null && !ctry.isEmpty() && !ctry.equals("null")) loc += ctry + " ";
-                        String prov = String.valueOf(card.strProvince);
-                        if (prov != null && !prov.isEmpty() && !prov.equals("null")) loc += prov + " ";
-                        String city = String.valueOf(card.strCity);
-                        if (city != null && !city.isEmpty() && !city.equals("null")) loc += city;
-                        loc = loc.trim();
-                        if (!loc.isEmpty()) sb.append("地区: ").append(loc).append("\n");
-                    } catch (Throwable ignored) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + ignored);
-                    }
-                    try {
-                        String school = String.valueOf(card.strSchool);
-                        if (school != null && !school .isEmpty() && !school .equals("null")) sb
-                            .append("学校: ")
-                            .append(school)
-                            .append("\n");
-                    } catch (Throwable ignored) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + ignored);
-                    }
-                    try {
-                        String company = String.valueOf(card.strCompany);
-                        if (company != null && !company .isEmpty() && !company .equals("null")) sb
-                            .append("公司: ")
-                            .append(company)
-                            .append("\n");
-                    } catch (Throwable ignored) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + ignored);
-                    }
-                    try {
-                        String email = String.valueOf(card.strEmail);
-                        if (email != null && !email .isEmpty() && !email .equals("null")) sb
-                            .append("邮箱: ")
-                            .append(email)
-                            .append("\n");
-                    } catch (Throwable ignored) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + ignored);
-                    }
-                    try {
-                        String sign = String.valueOf(card.strSign);
-                        if (sign != null && !sign .isEmpty() && !sign .equals("null")) sb
-                            .append("签名: ")
-                            .append(sign)
-                            .append("\n");
-                    } catch (Throwable ignored) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + ignored);
-                    }
+                    String qid = card?.qid ?: "";
+                    if (!qid.isEmpty() && !"null".equals(qid)) sb.append("QID: ").append(qid).append("\n");
+
+                    int age = card?.age ?: 0;
+                    if (age > 0) sb.append("年龄: ").append(age).append("\n");
+
+                    String loc = ((card?.strCountry ?: "") + " " + (card?.strProvince ?: "") + " " + (card?.strCity ?: "")).trim();
+                    if (!loc.isEmpty() && !"null".equals(loc)) sb.append("地区: ").append(loc).append("\n");
+
+                    String school = card?.strSchool ?: "";
+                    if (!school.isEmpty() && !"null".equals(school)) sb.append("学校: ").append(school).append("\n");
+
+                    String company = card?.strCompany ?: "";
+                    if (!company.isEmpty() && !"null".equals(company)) sb.append("公司: ").append(company).append("\n");
+
+                    String email = card?.strEmail ?: "";
+                    if (!email.isEmpty() && !"null".equals(email)) sb.append("邮箱: ").append(email).append("\n");
+
+                    String sign = card?.strSign ?: "";
+                    if (!sign.isEmpty() && !"null".equals(sign)) sb.append("签名: ").append(sign).append("\n");
                 }
-                int qqLevel = 0;
-                if (card != null) {
-                    try {
-                        qqLevel = (int) card.iQQLevel;
-                    } catch (Throwable t) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + t);
-                    }
-                }
-                if (qqLevel == 0 && member != null) {
-                    try {
-                        qqLevel = (int) member.uinLevel;
-                    } catch (Throwable ignored) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + ignored);
-                    }
-                }
+
+                int qqLevel = card?.iQQLevel ?: member?.uinLevel ?: 0;
                 sb.append("QQ等级: Lv.").append(qqLevel).append("\n");
                 if (card != null) {
-                    try {
-                        int iQQVipLevel = (int) card.iQQVipLevel;
-                        if (iQQVipLevel > 0) sb.append("QQ会员: Lv.").append(iQQVipLevel).append("\n");
-                    } catch (Throwable t) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + t);
-                    }
-                    try {
-                        int iSuperVipLevel = (int) card.iSuperVipLevel;
-                        if (iSuperVipLevel > 0) sb.append("超级会员: Lv.").append(iSuperVipLevel).append("\n");
-                    } catch (Throwable t) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + t);
-                    }
-                    try {
-                        long lVoteCount = (long) card.lVoteCount;
-                        sb.append("名片赞: ").append(lVoteCount).append("\n");
-                    } catch (Throwable t) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + t);
-                    }
-                    try {
-                        long lLoginDays = (long) card.lLoginDays;
-                        sb.append("登录天数: ").append(lLoginDays).append("\n");
-                    } catch (Throwable t) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + t);
-                    }
-                    try {
-                        boolean isForbid = (boolean) card.isForbidAccount;
-                        if (isForbid) sb.append("账号状态: 已封禁\n");
-                    } catch (Throwable ignored) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + ignored);
-                    }
+                    int iQQVipLevel = card?.iQQVipLevel ?: 0;
+                    if (iQQVipLevel > 0) sb.append("QQ会员: Lv.").append(iQQVipLevel).append("\n");
+
+                    int iSuperVipLevel = card?.iSuperVipLevel ?: 0;
+                    if (iSuperVipLevel > 0) sb.append("超级会员: Lv.").append(iSuperVipLevel).append("\n");
+
+                    long lVoteCount = card?.lVoteCount ?: 0L;
+                    sb.append("名片赞: ").append(lVoteCount).append("\n");
+
+                    long lLoginDays = card?.lLoginDays ?: 0L;
+                    sb.append("登录天数: ").append(lLoginDays).append("\n");
+
+                    boolean isForbid = card?.isForbidAccount ?: false;
+                    if (isForbid) sb.append("账号状态: 已封禁\n");
                 }
+
                 if (chatType == 2 && member != null) {
-                    try {
-                        sb.append("群名片: ").append(String.valueOf(member.uinName)).append("\n");
-                    } catch (Throwable ignored) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + ignored);
-                    }
-                    try {
-                        sb.append("群等级: Lv.").append(String.valueOf(member.uinLevel)).append("\n");
-                    } catch (Throwable ignored) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + ignored);
-                    }
-                    try {
-                        sb.append("角色: ").append(convertRole(String.valueOf(member.role))).append("\n");
-                    } catch (Throwable ignored) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + ignored);
-                    }
-                    try {
-                        long joinTime = Long.parseLong(String.valueOf(member.joinGroupTime));
-                        if (joinTime > 0) sb.append("入群时间: ").append(timestampToDate(joinTime * 1000)).append("\n");
-                    } catch (Throwable ignored) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + ignored);
-                    }
-                    try {
-                        long lastTime = Long.parseLong(String.valueOf(member.lastActiveTime));
-                        if (lastTime > 0) sb.append("最后活跃: ").append(timestampToDate(lastTime * 1000)).append("\n");
-                    } catch (Throwable ignored) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + ignored);
-                    }
-                    try {
-                        List gagList = (List) getProhibitList(peerUin);
-                        String gagStatus = "";
-                        if (gagList != null) {
-                            for (Object gag : gagList) {
-                                if (gag == null) continue;
-                                if (userUin.equals(String.valueOf(gag.user))) {
-                                    gagStatus = getGagStatus(String.valueOf(gag.endTime));
-                                    break;
-                                }
+                    String memberName = member?.uinName ?: "";
+                    if (!memberName.isEmpty() && !"null".equals(memberName)) sb.append("群名片: ").append(memberName).append("\n");
+
+                    int memberLevel = member?.uinLevel ?: 0;
+                    sb.append("群等级: Lv.").append(memberLevel).append("\n");
+
+                    String role = member?.role ?: "";
+                    if (!role.isEmpty() && !"null".equals(role)) sb.append("角色: ").append(convertRole(role)).append("\n");
+
+                    long joinTime = member?.joinGroupTime ?: 0L;
+                    if (joinTime > 0) sb.append("入群时间: ").append(timestampToDate(joinTime * 1000)).append("\n");
+
+                    long lastTime = member?.lastActiveTime ?: 0L;
+                    if (lastTime > 0) sb.append("最后活跃: ").append(timestampToDate(lastTime * 1000)).append("\n");
+
+                    List gagList = (List) getProhibitList(peerUin);
+                    String gagStatus = "";
+                    if (gagList != null) {
+                        for (Object gag : gagList) {
+                            if (gag == null) continue;
+                            if (userUin.equals(String.valueOf(gag.user))) {
+                                gagStatus = getGagStatus(String.valueOf(gag.endTime));
+                                break;
                             }
                         }
-                        if (gagStatus != null && !gagStatus.isEmpty()) sb.append("禁言状态: ").append(gagStatus).append("\n");
-                    } catch (Throwable ignored) {
-                        traceLog("dialog_log", "[showMemberInfoDialog] 获取禁言状态异常: " + ignored);
                     }
+                    if (!gagStatus.isEmpty()) sb.append("禁言状态: ").append(gagStatus).append("\n");
                 }
+
                 final String result = sb.toString();
                 final boolean isDark = isThemeDark(activity);
-                uiHandler.post(new Runnable() { public void run() {
-                    try {
-                        showCopyConfirmDialog(activity, "详细信息", result, isDark);
-                    } catch (Throwable e) {
-                        traceLog("dialog_log", "[showMemberInfoDialog.ui] 异常: " + e);
-                        Toast("弹窗打开失败: " + e.getMessage());
+                uiHandler.post(new Runnable() {
+                    public void run() {
+                        try {
+                            showCopyConfirmDialog(activity, "详细信息", result, isDark);
+                        } catch (Throwable e) {
+                            traceLog("dialog_log", "[showMemberInfoDialog.ui] 异常: " + e);
+                            Toast("弹窗打开失败: " + e.getMessage());
+                        }
                     }
-                } });
+                });
             } catch (Throwable e) {
                 traceLog("dialog_log", "[showMemberInfoDialog] 异常: " + e);
                 uiHandler.post(new Runnable() { public void run() { Toast("获取失败: " + e.getMessage()); } });
@@ -2865,10 +2754,11 @@ LinearLayout createInfoRow(Activity activity,
     row.setOrientation(LinearLayout.HORIZONTAL);
     row.setPadding(dp(activity, 4), dp(activity, 7), dp(activity, 4), dp(activity, 7));
     row.setClickable(true);
-    int borderColor = adjustAlpha(colorText, 0.15f);
+    int normalColor = getAdaptiveMenuItemBg(activity);
+    int pressedColor = getAdaptivePressedColor(normalColor);
     final GradientDrawable rowBg = new GradientDrawable();
-    rowBg.setCornerRadius(dp(activity, 6));
-    rowBg.setColor(Color.TRANSPARENT);
+    rowBg.setCornerRadius(dp(activity, 8));
+    rowBg.setColor(normalColor);
     row.setBackground(rowBg);
     final TextView valueView = new TextView(activity);
     valueView.setText(value);
@@ -2876,22 +2766,34 @@ LinearLayout createInfoRow(Activity activity,
     valueView.setTextColor(colorText);
     valueView.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
         LinearLayout.LayoutParams.WRAP_CONTENT));
+    final boolean[] pressed = new boolean[] { false };
     row.setOnTouchListener(new View.OnTouchListener() {
         public boolean onTouch(View v, MotionEvent event) {
             switch (event.getAction()) {
                 case MotionEvent.ACTION_DOWN:
-                rowBg.setColor(borderColor);
-                row.setBackground(rowBg);
-                return true;
+                    pressed[0] = true;
+                    rowBg.setColor(pressedColor);
+                    row.setBackground(rowBg);
+                    return true;
+                case MotionEvent.ACTION_MOVE:
+                    if (pressed[0] && (event.getX() < 0 || event.getY() < 0 || event.getX() > row.getWidth() || event.getY() > row.getHeight())) {
+                        pressed[0] = false;
+                        rowBg.setColor(normalColor);
+                        row.setBackground(rowBg);
+                    }
+                    return true;
                 case MotionEvent.ACTION_UP:
-                rowBg.setColor(Color.TRANSPARENT);
-                row.setBackground(rowBg);
-                v.performClick();
-                return true;
+                    boolean click = pressed[0];
+                    pressed[0] = false;
+                    rowBg.setColor(normalColor);
+                    row.setBackground(rowBg);
+                    if (click) v.performClick();
+                    return true;
                 case MotionEvent.ACTION_CANCEL:
-                rowBg.setColor(Color.TRANSPARENT);
-                row.setBackground(rowBg);
-                return true;
+                    pressed[0] = false;
+                    rowBg.setColor(normalColor);
+                    row.setBackground(rowBg);
+                    return true;
             }
             return false;
         }
@@ -2927,7 +2829,8 @@ FrameLayout createMemberInfoCard(Activity activity,
     cardWrapper.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
         LinearLayout.LayoutParams.WRAP_CONTENT));
     cardWrapper.setPadding(dp(activity, 12), dp(activity, 12), dp(activity, 12), dp(activity, 8));
-    GradientDrawable cardBg = makeDialogInnerCard(activity, isDark ? pc("#FF252525") : pc("#FFF0F0F0"));
+    int cardBackgroundColor = getAdaptiveMenuItemBg(activity);
+    GradientDrawable cardBg = makeDialogInnerCard(activity, cardBackgroundColor);
     LinearLayout cardContent = new LinearLayout(activity);
     cardContent.setOrientation(LinearLayout.VERTICAL);
     cardContent.setPadding(dp(activity, 16), dp(activity, 14), dp(activity, 16), dp(activity, 14));
@@ -2983,10 +2886,11 @@ FrameLayout createMemberInfoCard(Activity activity,
     msgRow.setOrientation(LinearLayout.HORIZONTAL);
     msgRow.setPadding(dp(activity, 4), dp(activity, 7), dp(activity, 4), dp(activity, 7));
     msgRow.setClickable(true);
-    int borderColor = adjustAlpha(colorText, 0.15f);
+    int msgRowNormalColor = getAdaptiveMenuItemBg(activity);
+    int msgRowPressedColor = getAdaptivePressedColor(msgRowNormalColor);
     final GradientDrawable msgRowBg = new GradientDrawable();
-    msgRowBg.setCornerRadius(dp(activity, 6));
-    msgRowBg.setColor(Color.TRANSPARENT);
+    msgRowBg.setCornerRadius(dp(activity, 8));
+    msgRowBg.setColor(msgRowNormalColor);
     msgRow.setBackground(msgRowBg);
     TextView msgLabelView = new TextView(activity);
     msgLabelView.setText("消息内容");
@@ -3001,22 +2905,34 @@ FrameLayout createMemberInfoCard(Activity activity,
         LinearLayout.LayoutParams.WRAP_CONTENT));
     msgRow.addView(msgLabelView);
     msgRow.addView(msgValueView);
+    final boolean[] msgRowPressed = new boolean[] { false };
     msgRow.setOnTouchListener(new View.OnTouchListener() {
         public boolean onTouch(View v, MotionEvent event) {
             switch (event.getAction()) {
                 case MotionEvent.ACTION_DOWN:
-                msgRowBg.setColor(borderColor);
-                msgRow.setBackground(msgRowBg);
-                return true;
+                    msgRowPressed[0] = true;
+                    msgRowBg.setColor(msgRowPressedColor);
+                    msgRow.setBackground(msgRowBg);
+                    return true;
+                case MotionEvent.ACTION_MOVE:
+                    if (msgRowPressed[0] && (event.getX() < 0 || event.getY() < 0 || event.getX() > msgRow.getWidth() || event.getY() > msgRow.getHeight())) {
+                        msgRowPressed[0] = false;
+                        msgRowBg.setColor(msgRowNormalColor);
+                        msgRow.setBackground(msgRowBg);
+                    }
+                    return true;
                 case MotionEvent.ACTION_UP:
-                msgRowBg.setColor(Color.TRANSPARENT);
-                msgRow.setBackground(msgRowBg);
-                v.performClick();
-                return true;
+                    boolean click = msgRowPressed[0];
+                    msgRowPressed[0] = false;
+                    msgRowBg.setColor(msgRowNormalColor);
+                    msgRow.setBackground(msgRowBg);
+                    if (click) v.performClick();
+                    return true;
                 case MotionEvent.ACTION_CANCEL:
-                msgRowBg.setColor(Color.TRANSPARENT);
-                msgRow.setBackground(msgRowBg);
-                return true;
+                    msgRowPressed[0] = false;
+                    msgRowBg.setColor(msgRowNormalColor);
+                    msgRow.setBackground(msgRowBg);
+                    return true;
             }
             return false;
         }
@@ -3050,12 +2966,8 @@ FrameLayout createMemberInfoCard(Activity activity,
                 try {
                     Object card = GetCard(userUin);
                     if (card != null) {
-                        try {
-                            String strNick = String.valueOf(card.strNick);
-                            if (strNick != null && !strNick .isEmpty() && !strNick .contains("*") && !strNick .equals("null")) nick = strNick;
-                        } catch (Throwable t) {
-                            traceLog("dialog_log", "[onClick] 异常: " + t);
-                        }
+                        String strNick = card?.strNick ?: "";
+                        if (!strNick.isEmpty() && !strNick.contains("*") && !"null".equals(strNick)) nick = strNick;
                     }
                 } catch (Throwable ignored) {
                     traceLog("dialog_log", "[onClick] 异常: " + ignored);
@@ -3187,52 +3099,86 @@ FrameLayout createMenuItem(Activity activity,
     String title,
     boolean isDark,
     int colorPrimary,
-    int colorCardBg,
+    int colorContainer,
     Dialog parentDialog,
     Runnable callback,
     boolean skipDismiss) {
     FrameLayout itemWrapper = new FrameLayout(activity);
     itemWrapper.setLayoutParams(new GridLayout.LayoutParams(GridLayout.spec(GridLayout.UNDEFINED, 1f),
         GridLayout.spec(GridLayout.UNDEFINED, 1f)));
-    itemWrapper.setPadding(dp(activity, 4), dp(activity, 4), dp(activity, 4), dp(activity, 4));
-    int borderColor = colorPrimary;
+    itemWrapper.setPadding(dp(activity, 7), dp(activity, 6), dp(activity, 7), dp(activity, 6));
+    itemWrapper.setClipToPadding(false);
+    itemWrapper.setClipChildren(false);
+    itemWrapper.setElevation(dp(activity, 3.5f));
+
+    int backgroundColor = pc(getSettingsThemeColor(activity, "background"));
+    if (Color.alpha(backgroundColor) < 255) {
+        backgroundColor = getAdaptiveMenuItemBg(activity);
+    }
+    final int normalColor = isDark
+        ? blendColor(backgroundColor, Color.WHITE, 0.065f)
+        : blendColor(backgroundColor, Color.BLACK, 0.038f);
+    final int pressedColor = isDark
+        ? blendColor(normalColor, Color.WHITE, 0.055f)
+        : blendColor(normalColor, Color.BLACK, 0.065f);
     final GradientDrawable itemBg = new GradientDrawable();
     itemBg.setShape(GradientDrawable.RECTANGLE);
-    itemBg.setCornerRadius(dp(activity, 12));
-    itemBg.setColor(colorCardBg);
+    itemBg.setCornerRadius(dp(activity, getUiCornerDp()));
+    itemBg.setColor(normalColor);
+
     LinearLayout itemContent = new LinearLayout(activity);
-    itemContent.setOrientation(LinearLayout.VERTICAL);
+    itemContent.setOrientation(LinearLayout.HORIZONTAL);
     itemContent.setGravity(Gravity.CENTER);
-    itemContent.setPadding(dp(activity, 12), dp(activity, 14), dp(activity, 12), dp(activity, 14));
+    itemContent.setMinimumHeight(dp(activity, 54));
+    itemContent.setPadding(dp(activity, 12), dp(activity, 5), dp(activity, 12), dp(activity, 5));
     itemContent.setBackground(itemBg);
+    itemContent.setElevation(dp(activity, 4.5f));
+
     final TextView titleView = new TextView(activity);
     titleView.setText(title);
-    titleView.setTextSize(13);
-    titleView.setTextColor(colorPrimary);
+    titleView.setTextSize(14);
+    titleView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
     titleView.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
     titleView.setGravity(Gravity.CENTER);
     titleView.setMaxLines(2);
+    titleView.setEllipsize(android.text.TextUtils.TruncateAt.END);
+    titleView.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
+        LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
     itemContent.addView(titleView);
+
     itemWrapper.addView(itemContent);
+    final boolean[] itemPressed = new boolean[] { false };
     itemWrapper.setOnTouchListener(new View.OnTouchListener() {
         public boolean onTouch(View v, MotionEvent event) {
             switch (event.getAction()) {
                 case MotionEvent.ACTION_DOWN:
-                itemBg.setColor(borderColor);
-                titleView.setTextColor(colorCardBg);
-                itemContent.setBackground(itemBg);
-                return true;
+                    itemPressed[0] = true;
+                    itemBg.setColor(pressedColor);
+                    itemContent.setBackground(itemBg);
+                    itemContent.animate().scaleX(0.992f).scaleY(0.992f).setDuration(70).start();
+                    return true;
+                case MotionEvent.ACTION_MOVE:
+                    if (itemPressed[0] && (event.getX() < 0 || event.getY() < 0 || event.getX() > itemWrapper.getWidth() || event.getY() > itemWrapper.getHeight())) {
+                        itemPressed[0] = false;
+                        itemBg.setColor(normalColor);
+                        itemContent.setBackground(itemBg);
+                        itemContent.animate().scaleX(1f).scaleY(1f).setDuration(70).start();
+                    }
+                    return true;
                 case MotionEvent.ACTION_UP:
-                itemBg.setColor(colorCardBg);
-                titleView.setTextColor(colorPrimary);
-                itemContent.setBackground(itemBg);
-                v.performClick();
-                return true;
+                    boolean click = itemPressed[0];
+                    itemPressed[0] = false;
+                    itemBg.setColor(normalColor);
+                    itemContent.setBackground(itemBg);
+                    itemContent.animate().scaleX(1f).scaleY(1f).setDuration(90).start();
+                    if (click) v.performClick();
+                    return true;
                 case MotionEvent.ACTION_CANCEL:
-                itemBg.setColor(colorCardBg);
-                titleView.setTextColor(colorPrimary);
-                itemContent.setBackground(itemBg);
-                return true;
+                    itemPressed[0] = false;
+                    itemBg.setColor(normalColor);
+                    itemContent.setBackground(itemBg);
+                    itemContent.animate().scaleX(1f).scaleY(1f).setDuration(90).start();
+                    return true;
             }
             return false;
         }
@@ -3245,7 +3191,6 @@ FrameLayout createMenuItem(Activity activity,
     });
     return itemWrapper;
 }
-
 TextView createCategoryTitle(Activity activity, String category, int colorPrimary) {
     TextView tv = new TextView(activity);
     tv.setText(category);
@@ -3256,24 +3201,24 @@ TextView createCategoryTitle(Activity activity, String category, int colorPrimar
     return tv;
 }
 String[][]CATEGORY_COLOR_STRS = new String[6][3];
-CATEGORY_COLOR_STRS[0][0] = "#2196F3";
-CATEGORY_COLOR_STRS[0][1] = "#1976D2";
-CATEGORY_COLOR_STRS[0][2] = "#BBDEFB";
-CATEGORY_COLOR_STRS[1][0] = "#4CAF50";
-CATEGORY_COLOR_STRS[1][1] = "#388E3C";
-CATEGORY_COLOR_STRS[1][2] = "#C8E6C9";
-CATEGORY_COLOR_STRS[2][0] = "#9C27B0";
-CATEGORY_COLOR_STRS[2][1] = "#7B1FA2";
-CATEGORY_COLOR_STRS[2][2] = "#E1BEE7";
-CATEGORY_COLOR_STRS[3][0] = "#FF9800";
-CATEGORY_COLOR_STRS[3][1] = "#F57C00";
-CATEGORY_COLOR_STRS[3][2] = "#FFE0B2";
-CATEGORY_COLOR_STRS[4][0] = "#00BCD4";
-CATEGORY_COLOR_STRS[4][1] = "#0097A7";
-CATEGORY_COLOR_STRS[4][2] = "#B2EBF2";
-CATEGORY_COLOR_STRS[5][0] = "#607D8B";
-CATEGORY_COLOR_STRS[5][1] = "#455A64";
-CATEGORY_COLOR_STRS[5][2] = "#CFD8DC";
+CATEGORY_COLOR_STRS[0][0] = "#26384A";
+CATEGORY_COLOR_STRS[0][1] = "#D7E4F3";
+CATEGORY_COLOR_STRS[0][2] = "#A7B5C7";
+CATEGORY_COLOR_STRS[1][0] = "#304634";
+CATEGORY_COLOR_STRS[1][1] = "#D9E9DC";
+CATEGORY_COLOR_STRS[1][2] = "#A9B9AB";
+CATEGORY_COLOR_STRS[2][0] = "#48365E";
+CATEGORY_COLOR_STRS[2][1] = "#E5D9F2";
+CATEGORY_COLOR_STRS[2][2] = "#B4A9C0";
+CATEGORY_COLOR_STRS[3][0] = "#563E24";
+CATEGORY_COLOR_STRS[3][1] = "#F0DFCA";
+CATEGORY_COLOR_STRS[3][2] = "#C4B69E";
+CATEGORY_COLOR_STRS[4][0] = "#2D5558";
+CATEGORY_COLOR_STRS[4][1] = "#D8ECEE";
+CATEGORY_COLOR_STRS[4][2] = "#A6B9BB";
+CATEGORY_COLOR_STRS[5][0] = "#30353C";
+CATEGORY_COLOR_STRS[5][1] = "#E0E3E8";
+CATEGORY_COLOR_STRS[5][2] = "#A6A9AF";
 
 void addMenuItem(List list, String category, String title, Runnable callback) {
     list.add(new Object[] { category, title, callback });
@@ -3287,8 +3232,9 @@ int[]getCategoryColorInts(String category, boolean isDark) {
     else if ("其他".equals(category)) index = 4;
     else if ("设置".equals(category)) index = 5;
     String[]colorStrs = CATEGORY_COLOR_STRS[index];
+    int titleColor = pc(isDark ? colorStrs[1] : colorStrs[0]);
     return new int[] {
-        pc(isDark ? colorStrs[1] : colorStrs[0]), pc(isDark ? colorStrs[2] : colorStrs[1])
+        titleColor, titleColor
     };
 }
 class ArrowDrawable extends Drawable {
@@ -3454,7 +3400,6 @@ public void 长按消息菜单(Activity activity, Object data) {
     }
     int colorText = tc(activity, "on_surface");
     int colorSubtext = tc(activity, "on_surface_variant");
-    int colorCardBg = getAdaptiveMenuItemBg(activity);
     int sheetBg = getAdaptiveSheetBg(activity);
     final Dialog bottomSheet = new Dialog(activity);
     bottomSheet.requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -3477,9 +3422,12 @@ public void 长按消息菜单(Activity activity, Object data) {
     scrollView.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 380)));
     scrollView.setOverScrollMode(View.OVER_SCROLL_NEVER);
     scrollView.setVerticalScrollBarEnabled(false);
+    scrollView.setClipChildren(true);
+    scrollView.setClipToPadding(true);
     final LinearLayout menuContainer = new LinearLayout(activity);
     menuContainer.setOrientation(LinearLayout.VERTICAL);
-    menuContainer.setPadding(dp(activity, 8), dp(activity, 4), dp(activity, 8), dp(activity, 16));
+    menuContainer.setPadding(dp(activity, 8), dp(activity, 6), dp(activity, 8), dp(activity, 20));
+    menuContainer.setClipChildren(false);
     List menuItems = new ArrayList();
     final String finalQuntext = quntext;
     final int finalChatType = chatType;
@@ -3683,7 +3631,6 @@ public void 长按消息菜单(Activity activity, Object data) {
         public void run() {
             fetchRealMsgRecord(finalMsgid, finalChatType, finalPeerUin, new MsgLoadedCallback() {
                 public void onLoaded(MsgData msgData) {
-                    弹窗等待标记 = 0;
                     Activity target = activity;
                     if (target == null || target.isFinishing()) target = getNowActivity();
                     showActionDialog(target, msgData, null, null);
@@ -3803,6 +3750,8 @@ public void 长按消息菜单(Activity activity, Object data) {
                 int[]colorInts = getCategoryColorInts(cat, isDark);
                 LinearLayout catLayout = new LinearLayout(activity);
                 catLayout.setOrientation(LinearLayout.VERTICAL);
+                catLayout.setClipChildren(false);
+                catLayout.setClipToPadding(false);
                 catLayout.setTag(new Object[] { "cat", cat });
                 LinearLayout titleRow = new LinearLayout(activity);
                 titleRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -3827,13 +3776,15 @@ public void 长按消息菜单(Activity activity, Object data) {
                 catLayout.addView(titleRow);
                 GridLayout gridLayout = new GridLayout(activity);
                 gridLayout.setColumnCount(2);
+                gridLayout.setClipChildren(false);
+                gridLayout.setClipToPadding(false);
                 gridLayout.setPadding(0, 0, 0, dp(activity, 8));
                 List items = (List) catItems.get(cat);
                 for (int j = 0; j < items.size(); j++) {
                     Object[]itemObj = (Object[]) items.get(j);
                     String title = (String) itemObj[1];
                     Runnable callback = (Runnable) itemObj[2];
-                    FrameLayout menuItem = createMenuItem(activity, title, isDark, colorInts[0], colorCardBg, bottomSheet, callback, false);
+                    FrameLayout menuItem = createMenuItem(activity, title, isDark, colorInts[1], isDark ? colorInts[1] : colorInts[0], bottomSheet, callback, false);
                     menuItem.setTag(new Object[] { "item", cat, title });
                     if (isEditMode[0]) {
                         menuItem.setOnDragListener(dragListener);
@@ -3875,6 +3826,8 @@ public void 长按消息菜单(Activity activity, Object data) {
             int[]settingColorInts = getCategoryColorInts("设置", isDark);
             LinearLayout settingLayout = new LinearLayout(activity);
             settingLayout.setOrientation(LinearLayout.VERTICAL);
+            settingLayout.setClipChildren(false);
+            settingLayout.setClipToPadding(false);
             settingLayout.setTag(new Object[] { "cat", "设置" });
             LinearLayout settingTitleRow = new LinearLayout(activity);
             settingTitleRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -3899,8 +3852,10 @@ public void 长按消息菜单(Activity activity, Object data) {
             settingLayout.addView(settingTitleRow);
             GridLayout settingGrid = new GridLayout(activity);
             settingGrid.setColumnCount(2);
+            settingGrid.setClipChildren(false);
+            settingGrid.setClipToPadding(false);
             settingGrid.setPadding(0, 0, 0, dp(activity, 8));
-            FrameLayout sortMenuItem = createMenuItem(activity, "自定义排序", isDark, settingColorInts[0], colorCardBg, bottomSheet, new Runnable() {
+            FrameLayout sortMenuItem = createMenuItem(activity, "自定义排序", isDark, settingColorInts[1], isDark ? settingColorInts[1] : settingColorInts[0], bottomSheet, new Runnable() {
                 public void run() {
                     isEditMode[0] = true;
                     if (renderMenuWrapper[0] != null) renderMenuWrapper[0].run();
@@ -3989,37 +3944,6 @@ public void 长按消息菜单(Activity activity, Object data) {
             applyUiTheme(activity, bottomSheet, 5);
         }
         applyWindowBlurBehind(window);
-    }
-}
-
-Activity resolveDialogActivity(Activity act, String tag) {
-    if (act != null && !act.isFinishing()) return act;
-    Activity fallback = null;
-    try {
-        fallback = getNowActivity();
-    } catch (Throwable ignored) {}
-    if (fallback == null || fallback.isFinishing()) {
-        try {
-            fallback = getSettingsCurrentActivity();
-        } catch (Throwable ignored) {
-            fallback = null;
-        }
-    }
-    if (fallback == null || fallback.isFinishing()) {
-        traceLog("dialog_log", "[" + tag + "] 无可用 Activity，弹窗放弃显示");
-        return null;
-    }
-    traceLog("dialog_log", "[" + tag + "] 传入 Activity 无效，已回退: " + fallback.getClass().getSimpleName());
-    return fallback;
-}
-
-String getMemberRemark(Object memberInfo) {
-    if (memberInfo == null) return "";
-    try {
-        return getUserRemark(String.valueOf(memberInfo.uin));
-    } catch (Throwable e) {
-        traceLog("dialog_log", "[getMemberRemark] 异常: " + e);
-        return "";
     }
 }
 
@@ -4191,8 +4115,23 @@ void showSimpleListDialog(Activity act0,
     final int listMode,
     final String groupUin,
     final boolean isDark) {
-    Activity dlgAct = resolveDialogActivity(act0, "showSimpleListDialog");
-    if (dlgAct == null) return;
+    Activity dlgAct = act0;
+    if (dlgAct == null || dlgAct.isFinishing()) {
+        try {
+            dlgAct = getNowActivity();
+        } catch (Throwable ignored) {}
+    }
+    if (dlgAct == null || dlgAct.isFinishing()) {
+        try {
+            dlgAct = getSettingsCurrentActivity();
+        } catch (Throwable ignored) {
+            dlgAct = null;
+        }
+    }
+    if (dlgAct == null || dlgAct.isFinishing()) {
+        traceLog("dialog_log", "[showSimpleListDialog] 无可用 Activity，弹窗放弃显示");
+        return;
+    }
     try {
         final int textColor = pc(getSettingsThemeColor(dlgAct, "on_surface"));
         final int subTextColor = pc(getSettingsThemeColor(dlgAct, "on_surface_variant"));
@@ -4432,7 +4371,7 @@ void showSimpleListDialog(Activity act0,
                             } else if (listMode == 1) {
                                 String mUin = String.valueOf(o.uin);
                                 String mName = String.valueOf(o.uinName);
-                                String mRemark = getMemberRemark(o);
+                                String mRemark = getUserRemark(String.valueOf(o.uin));
                                 String role = convertRole(o.role == null ? "" : String.valueOf(o.role));
                                 item = new Object[] {mUin, (mRemark == null || mRemark.isEmpty()) ? mName : mRemark + "(" + mName + ")", "", role};
                             } else if (listMode == 2) {
@@ -4627,261 +4566,150 @@ public void ts(Activity activity, String title, String content) {
         }
     });
 }
-import com.tencent.qqnt.aio.markdown.api.IMarkdownFeatureCompatApi;
-
-private Object markdownParser;
-
-private java.lang.reflect.Method markdownParseMethod;
-
-private int markdownParseArgCount = - 1;
-
-private java.lang.reflect.Method resolveMarkdownMethod(Object parser) {
-    String[]names = new String[] {
-        "b", "a"
-    };
-    Class[][]paramVariants = new Class[3][];
-    paramVariants[0] = new Class[1];
-    paramVariants[0][0] = String.class;
-    paramVariants[1] = new Class[1];
-    paramVariants[1][0] = CharSequence.class;
-    paramVariants[2] = new Class[0];
-    for (int i = 0; i < names.length; i++) {
-        for (int j = 0; j < paramVariants.length; j++) {
-            try {
-                java.lang.reflect.Method m = parser.getClass().getMethod(names[i], paramVariants[j]);
-                if (CharSequence.class.isAssignableFrom(m.getReturnType())) {
-                    m.setAccessible(true);
-                    markdownParseArgCount = paramVariants[j].length;
-                    return m;
-                }
-            } catch (NoSuchMethodException e) {
-            }
-        }
-    }
-    return null;
-}
-
-private String parseMarkdownToHtml(String markdown) throws Exception {
-    if (markdownParser == null) {
-        IMarkdownFeatureCompatApi svc = QRoute.api(IMarkdownFeatureCompatApi.class);
-        java.lang.reflect.Field f = svc.getClass().getDeclaredField("$$delegate_1");
-        f.setAccessible(true);
-        markdownParser = f.get(svc);
-        markdownParseMethod = resolveMarkdownMethod(markdownParser);
-        if (markdownParseMethod == null) {
-            throw new NoSuchMethodException("未找到可用的 Markdown 解析方法 (" + markdownParser.getClass().getName() + ")");
-        }
-    }
-    Object result = markdownParseArgCount == 0 ? markdownParseMethod
-        .invoke(markdownParser) : markdownParseMethod
-        .invoke(markdownParser, markdown);
-    if (!(result instanceof CharSequence)) {
-        throw new Exception("解析结果不是 CharSequence，实际: " + (result == null ? "null" : result.getClass().getName()));
-    }
-    CharSequence cs = (CharSequence) result;
-    if (cs instanceof Spanned) {
-        String html = Html.toHtml((Spanned) cs, Html.TO_HTML_PARAGRAPH_LINES_CONSECUTIVE);
-        html = decodeNumericEntities(html);
-        html = html.replaceAll("\\n{2,}", "\n");
-        return html;
-    } else {
-        throw new Exception("解析结果不是 Spanned");
-    }
-}
-
-private String decodeNumericEntities(String input) {
-    Pattern pattern = Pattern.compile("&#(\\d+);");
-    Matcher matcher = pattern.matcher(input);
-    StringBuffer sb = new StringBuffer();
-    while (matcher.find()) {
-        int code = Integer.parseInt(matcher.group(1));
-        String replacement = new String(Character.toChars(code));
-        matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement));
-    }
-    matcher.appendTail(sb);
-    return sb.toString();
-}
-
 public void mkts(final Activity activity, final String title, final String markdownContent) {
     if (activity == null || activity.isFinishing()) {
         traceLog("dialog_log", "[mkts] Activity无效");
         return;
     }
-    final String finalMarkdown = markdownContent == null ? "" : markdownContent;
+    final String markdown = markdownContent == null ? "" : markdownContent;
     final boolean isDark = isThemeDark(activity);
-    ThreadPool.execute(new Runnable() {
+    Runnable parseTask = new Runnable() {
         public void run() {
+            final String htmlContent;
             try {
-                traceLog("dialog_log", "[mkts] 开始解析，长度: " + finalMarkdown.length());
-                String htmlContent = parseMarkdownToHtml(finalMarkdown);
-                traceLog("dialog_log", "[mkts] 解析成功，输出长度: " + htmlContent.length());
-                final String finalHtml = htmlContent;
-                activity.runOnUiThread(new Runnable() {
-                    public void run() {
-                        createMarkdownDialog(activity, title, finalMarkdown, finalHtml, true, isDark);
-                    }
-                });
+                htmlContent = markdownToHtml(markdown);
+                traceLog("dialog_log", "[mkts] 解析完成，输入长度: " + markdown.length());
             } catch (Throwable e) {
-                traceLog("dialog_log", "[mkts] 解析失败: " + e.getClass().getSimpleName() + " - " + e.getMessage());
-                String fallbackHtml = "<pre style='background:" + (isDark ? "#2D2D2D" : "#f4f4f4") + ";padding:6px;border-radius:3px;overflow-x:auto;font-family:monospace;font-size:13px;color:" + (isDark ? "#EFEFEF" : "#333") + ";'>" + escapeHtml(finalMarkdown) + "</pre>";
-                final String finalFallback = fallbackHtml;
+                traceLog("dialog_log", "[mkts] 解析异常: " + e.getClass().getSimpleName() + " - " + e.getMessage());
                 activity.runOnUiThread(new Runnable() {
                     public void run() {
-                        createMarkdownDialog(activity, title, finalMarkdown, finalFallback, false, isDark);
+                        if (!activity.isFinishing()) createMarkdownDialog(activity, title, markdown, "<pre>" + markdown.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;") + "</pre>", isDark);
                     }
                 });
+                return;
             }
+            activity.runOnUiThread(new Runnable() {
+                public void run() {
+                    if (!activity.isFinishing()) createMarkdownDialog(activity, title, markdown, htmlContent, isDark);
+                }
+            });
         }
-    });
+    };
+    try {
+        if (ThreadPool != null && !ThreadPool.isShutdown()) ThreadPool.execute(parseTask);
+        else parseTask.run();
+    } catch (Throwable e) {
+        traceLog("dialog_log", "[mkts] 线程调度失败，直接解析: " + e.getMessage());
+        parseTask.run();
+    }
 }
 
-private void createMarkdownDialog(final Activity activity,
-    final String title,
-    final String originalMarkdown,
-    final String initialHtml,
-    final boolean parseSuccess,
-    final boolean isDark) {
-    if (activity == null) return;
-    final boolean[]isReversed = {
-        false
-    };
+private void createMarkdownDialog(final Activity activity, final String title, final String originalMarkdown, final String initialHtml, final boolean isDark) {
+    if (activity == null || activity.isFinishing()) return;
+    final boolean[] isReversed = {false};
     final WebView webView = new WebView(activity);
     webView.setBackgroundColor(Color.TRANSPARENT);
     webView.setVerticalScrollBarEnabled(true);
-    webView.setHorizontalScrollBarEnabled(true);
+    webView.setHorizontalScrollBarEnabled(false);
     webView.getSettings().setJavaScriptEnabled(false);
     webView.getSettings().setDefaultTextEncodingName("UTF-8");
+
     final Runnable loadContent = new Runnable() {
         public void run() {
-            String htmlToShow;
-            if (!parseSuccess) {
-                htmlToShow = initialHtml;
-            } else {
-                String markdownToRender = originalMarkdown;
-                if (isReversed[0]) {
-                    markdownToRender = reverseMarkdownBlocks(originalMarkdown);
-                }
-                try {
-                    htmlToShow = parseMarkdownToHtml(markdownToRender);
-                } catch (Exception e) {
-                    traceLog("dialog_log", "[createMarkdownDialog] 倒序解析失败: " + e.getMessage());
-                    htmlToShow = "<pre style='background:" + (isDark ? "#2D2D2D" : "#f4f4f4") + ";padding:6px;border-radius:3px;overflow-x:auto;font-family:monospace;font-size:13px;color:" + (isDark ? "#EFEFEF" : "#333") + ";'>" + escapeHtml(originalMarkdown) + "</pre>";
-                }
-            }
-            String wrappedHtml = wrapHtmlWithCss(htmlToShow, isDark);
-            webView.loadDataWithBaseURL(null, wrappedHtml, "text/html", "UTF-8", null);
+            String htmlContent = isReversed[0] ? markdownToHtml(reverseMarkdownBlocks(originalMarkdown)) : initialHtml;
+            webView.loadDataWithBaseURL(null, wrapHtmlWithCss(htmlContent, isDark), "text/html", "UTF-8", null);
         }
     };
+
     int screenHeight = activity.getWindowManager().getDefaultDisplay().getHeight();
     int webViewHeight = Math.min(screenHeight * 2 / 3, dp(activity, 800));
-    webView.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, webViewHeight));
     LinearLayout container = new LinearLayout(activity);
     container.setOrientation(LinearLayout.VERTICAL);
-    container.addView(webView);
+    container.setPadding(dp(activity, 8), 0, dp(activity, 8), 0);
+    container.addView(webView, new LinearLayout.LayoutParams(-1, webViewHeight));
+
     LinearLayout btnRow = new LinearLayout(activity);
     btnRow.setOrientation(LinearLayout.HORIZONTAL);
-    btnRow.setGravity(Gravity.END);
-    btnRow.setPadding(0, dp(activity, 12), 0, dp(activity, 4));
-    final TextView btnClose = createButton(activity, "我知道了", tc(activity, "on_surface_variant"), Color.TRANSPARENT, 14f,
-        0, 16, 8, false, 0, 0, null);
-    btnRow.addView(btnClose);
-    container.addView(btnRow);
+    btnRow.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+    btnRow.setPadding(dp(activity, 12), dp(activity, 10), dp(activity, 12), dp(activity, 10));
+    TextView btnClose = createButton(activity, "我知道了", tc(activity, "primary"), Color.TRANSPARENT, 14f, 12, 18, 10, false, 0, 0, null);
+    btnRow.addView(btnClose, new LinearLayout.LayoutParams(-2, -2));
+    container.addView(btnRow, new LinearLayout.LayoutParams(-1, -2));
+
     LinearLayout titleLayout = new LinearLayout(activity);
     titleLayout.setOrientation(LinearLayout.HORIZONTAL);
-    titleLayout.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
-        LinearLayout.LayoutParams.WRAP_CONTENT));
-    int paddingPx = dp(activity, 16);
-    titleLayout.setPadding(paddingPx, paddingPx, paddingPx, paddingPx);
+    titleLayout.setGravity(Gravity.CENTER_VERTICAL);
+    int titlePadding = dp(activity, 16);
+    titleLayout.setPadding(titlePadding, titlePadding, titlePadding, titlePadding);
     TextView titleText = new TextView(activity);
-    titleText.setText(parseSuccess ? title : title + " (显示异常)");
+    titleText.setText(title == null ? "内容" : title);
     titleText.setTextSize(18);
     titleText.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
     titleText.setTextColor(isDark ? Color.WHITE : Color.BLACK);
-    titleText.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
-    TextView orderButton = createButton(activity, "⇅", isDark ? pc("#BBBBBB") : pc("#666666"), Color.TRANSPARENT, 20f,
-        0, 8, 0, false, 0, 0, null);
+    titleLayout.addView(titleText, new LinearLayout.LayoutParams(0, -2, 1));
+    final TextView orderButton = createButton(activity, "⇅", tc(activity, "on_surface_variant"), Color.TRANSPARENT, 20f, 8, 8, 0, false, 0, 0, null);
+    orderButton.setContentDescription(isReversed[0] ? "按原顺序显示" : "反转更新日志顺序");
     orderButton.setOnClickListener(new View.OnClickListener() {
         public void onClick(View v) {
             isReversed[0] = !isReversed[0];
+            orderButton.setContentDescription(isReversed[0] ? "按原顺序显示" : "反转更新日志顺序");
             loadContent.run();
         }
     });
-    titleLayout.addView(titleText);
-    titleLayout.addView(orderButton);
-    AlertDialog.Builder builder = new AlertDialog.Builder(activity,
-        isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
+    titleLayout.addView(orderButton, new LinearLayout.LayoutParams(-2, -2));
+
+    AlertDialog.Builder builder = new AlertDialog.Builder(activity, isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
     builder.setCustomTitle(titleLayout);
     builder.setView(container);
-    builder.setCancelable(false);
-    final AlertDialog alertDialog = builder.create();
+    builder.setCancelable(true);
+    final AlertDialog dialog = builder.create();
     btnClose.setOnClickListener(new View.OnClickListener() {
         public void onClick(View v) {
-            try {
-                alertDialog.dismiss();
-            } catch (Exception e) {
-                traceLog("dialog_log", "[createMarkdownDialog] 关闭弹窗异常: " + e.getMessage());
-            }
+            Toast("你知道啥了");
+            try { dialog.dismiss(); } catch (Throwable e) { traceLog("dialog_log", "[mkts] 关闭弹窗失败: " + e.getMessage()); }
         }
     });
-    alertDialog.show();
-    applyUiTheme(activity, alertDialog, 1);
+    dialog.show();
+    applyUiTheme(activity, dialog, 1);
     loadContent.run();
-    traceLog("dialog_log", "[createMarkdownDialog] Dialog显示成功，解析状态: " + parseSuccess);
+    traceLog("dialog_log", "[mkts] 弹窗显示成功");
 }
 
 private String reverseMarkdownBlocks(String markdown) {
-    if (markdown == null || markdown.isEmpty()) return markdown;
-    Pattern pattern = Pattern
-        .compile("(?m)^### \\*\\*\\[v\\d+\\.\\d+\\.\\d+(?:\\.\\d+)?\\] - \\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}\\*\\*");
-    Matcher matcher = pattern.matcher(markdown);
+    if (markdown == null || markdown.trim().isEmpty()) return markdown;
+    Pattern headerPattern = Pattern.compile("(?m)^###\\s+\\*\\*\\[v?[^\\]]+\\]\\s*-\\s*\\d{4}-\\d{2}-\\d{2}(?:\\s+\\d{2}:\\d{2})?\\*\\*.*$");
+    Matcher matcher = headerPattern.matcher(markdown);
+    ArrayList starts = new ArrayList();
+    while (matcher.find()) starts.add(Integer.valueOf(matcher.start()));
+    if (starts.size() < 2) return markdown;
     ArrayList blocks = new ArrayList();
-    int lastPos = 0;
-    while (matcher.find()) {
-        if (lastPos < matcher.start()) {
-            String textBefore = markdown.substring(lastPos, matcher.start());
-            if (!textBefore.trim().isEmpty()) {
-                blocks.add(textBefore);
-            }
-        }
-        int start = matcher.start();
-        int end = markdown.length();
-        Matcher next = pattern.matcher(markdown);
-        if (next.find(start + 1)) {
-            end = next.start();
-        }
-        String block = markdown.substring(start, end);
-        blocks.add(block);
-        lastPos = end;
+    int prefixEnd = ((Integer) starts.get(0)).intValue();
+    if (prefixEnd > 0 && !markdown.substring(0, prefixEnd).trim().isEmpty()) blocks.add(markdown.substring(0, prefixEnd));
+    for (int i = 0; i < starts.size(); i++) {
+        int start = ((Integer) starts.get(i)).intValue();
+        int end = i + 1 < starts.size() ? ((Integer) starts.get(i + 1)).intValue() : markdown.length();
+        blocks.add(markdown.substring(start, end));
     }
-    if (lastPos < markdown.length()) {
-        String tail = markdown.substring(lastPos);
-        if (!tail.trim().isEmpty()) {
-            blocks.add(tail);
-        }
-    }
-    ArrayList reversedBlocks = new ArrayList();
-    for (int i = blocks.size() - 1; i >= 0; i--) {
-        reversedBlocks.add(blocks.get(i));
-    }
-    StringBuilder sb = new StringBuilder();
-    for (int i = 0; i < reversedBlocks.size(); i++) {
-        sb.append(reversedBlocks.get(i));
-    }
-    return sb.toString();
+    StringBuilder result = new StringBuilder(markdown.length());
+    for (int i = blocks.size() - 1; i >= 0; i--) result.append((String) blocks.get(i));
+    return result.toString();
 }
 
 private String wrapHtmlWithCss(String htmlContent, boolean isDark) {
-    String titleColor = isDark ? "#FFFFFF" : "#000000";
     String textColor = isDark ? "#E9EDF0" : "#1C1B1F";
-    String codeBgColor = isDark ? "#1C1C1E" : "#F5F5F5";
-    String borderColor = isDark ? "#3A3A3C" : "#E2E2E6";
-    return "<html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'>" + "<style>" + "*{margin:0;padding:0;box-sizing:border-box;}" + "body{font-family:'Google Sans','Roboto Flex',Roboto,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px;line-height:1.2;color:" + textColor + ";background:transparent;padding-left:2em;padding-right:2em;}" + "h1,h2,h3,h4{font-family:'Google Sans','Roboto Flex',Roboto,sans-serif;font-weight:bold;letter-spacing:-0.01em;margin-top:10px;margin-bottom:6px;color:" + titleColor + ";}" + "h1{font-size:20px;margin-top:4px;}h2{font-size:18px;}h3{font-size:16px;font-weight:bold;}" + "p{margin-bottom:8px;color:" + textColor + ";}" + "ul,ol{padding-left:0;margin:4px 0 8px 0;}" + "li{margin:3px 0;line-height:1.2;}" + "code{font-family:'JetBrains Mono','SF Mono','Fira Code',monospace;font-size:12px;background:" + codeBgColor + ";padding:1px 4px;border-radius:6px;color:" + (isDark ? "#FFB86C" : "#C01C2E") + ";}" + "pre{background:" + codeBgColor + ";padding:10px;border-radius:12px;overflow-x:auto;margin:8px 0;border:0.5px solid " + borderColor + ";}" + "pre code{background:transparent;padding:0;color:" + textColor + ";font-size:12px;}" + "blockquote{margin:8px 0;padding-left:0;border-left:3px solid " + (isDark ? "#5C5CFF" : "#6750A4") + ";color:" + (isDark ? "#BDBDC2" : "#4A4A4F") + ";font-style:normal;}" + "a{color:" + (isDark ? "#8AB4F8" : "#6750A4") + ";text-decoration:none;font-weight:500;}" + "img{max-width:100%;border-radius:12px;margin:8px 0;}" + "table{border-collapse:collapse;width:100%;margin:8px 0;border-radius:12px;overflow:hidden;}th,td{border:0.5px solid " + borderColor + ";padding:8px 10px;text-align:left;}th{background:" + (isDark ? "#1C1C1E" : "#F5F5F5") + ";font-weight:500;}" + "hr{margin:12px 0;border:none;height:1px;background:" + borderColor + ";}" + "</style></head><body>" + htmlContent + "</body></html>";
+    String titleColor = isDark ? "#FFFFFF" : "#111111";
+    String codeBg = isDark ? "#252529" : "#F2F3F5";
+    String border = isDark ? "#424249" : "#DADCE0";
+    String link = isDark ? "#8AB4F8" : "#1769AA";
+    return "<html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'><style>" +
+        "*{box-sizing:border-box;}body{font-family:Roboto,'Noto Sans',sans-serif;font-size:15px;line-height:1.55;color:" + textColor + ";background:transparent;padding:8px 12px;margin:0;overflow-wrap:anywhere;}" +
+        "h1,h2,h3{color:" + titleColor + ";line-height:1.3;margin:14px 0 7px;font-weight:700;}h1{font-size:21px;}h2{font-size:19px;}h3{font-size:17px;}p{margin:5px 0 9px;}" +
+        "ul,ol{padding-left:23px;margin:6px 0 10px;}li{padding-left:2px;margin:3px 0;}blockquote{margin:8px 0;padding:2px 0 2px 10px;border-left:3px solid " + link + ";color:" + textColor + ";}hr{border:0;border-top:1px solid " + border + ";margin:12px 0;}" +
+        "code{font-family:monospace;font-size:12px;background:" + codeBg + ";padding:2px 5px;border-radius:5px;}pre{white-space:pre-wrap;word-break:break-word;background:" + codeBg + ";padding:10px;border-radius:9px;overflow-x:auto;}pre code{background:transparent;padding:0;}a{color:" + link + ";text-decoration:none;}strong{font-weight:700;}" +
+        "</style></head><body>" + htmlContent + "</body></html>";
 }
 
-private String escapeHtml(String text) {
-    if (text == null) return "";
-    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
-}
+
 interface GroupSelectCallback {
     void onSelected(List selected);
 }
