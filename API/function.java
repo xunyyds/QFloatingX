@@ -281,7 +281,7 @@ void saveFunc(String n, String content, boolean isFile, boolean[] cb, boolean ha
     if (isFile) {
         code = readExtFile(content);
         if (code.equals("")) {
-            toast("文件读取失败");
+            Toast("文件读取失败");
             return;
         }
     } else {
@@ -1665,7 +1665,7 @@ EditText addTimeRow(Activity a, LinearLayout parent, String timeVal) {
             catchOn[0] = !catchOn[0];
             putBoolean("settings", "补一次执行", catchOn[0]);
             setSwitch(catchSw, catchOn[0], tc(a, "primary"));
-            toast(catchOn[0] ? "过点补执行已开" : "过点补执行已关");
+            Toast(catchOn[0] ? "过点补执行已开" : "过点补执行已关");
         }
     });
     catchRow.addView(catchSw);
@@ -2167,7 +2167,7 @@ void testCode(String funcName, String code, String originalFunc) {
     ThreadPool.execute(new Runnable() {
     public void run() {
     if (code == null || code.equals("")) code = readCodeFile(funcName);
-    if (code.equals("")) { toast("代码为空"); return; }
+    if (code.equals("")) { Toast("代码为空"); return; }
     try {
         this.interpreter.set("this", this);
         this.interpreter.set("qq", myUin);
@@ -2179,10 +2179,10 @@ void testCode(String funcName, String code, String originalFunc) {
         this.interpreter.set("msgType", 0);
         this.interpreter.set("type", 2);
         scriptLoader.loadAndExecute(funcName, this.interpreter);
-        toast("✓ 测试完成");
+        Toast("✓ 测试完成");
     } catch (Throwable e) {
         traceLog("function_log", "[testCode]" + e);
-        toast("✗ 失败");
+        Toast("✗ 失败");
   		   }
  	   }
 	});
@@ -2307,7 +2307,7 @@ void showEdit(Activity a, final String func, final String gid, final String gn) 
                 String newName = etName.getText().toString().trim();
                 String ct = etCode.getText().toString();
                 if (newName.equals("") || (ct.equals("") && !cks[6])) {
-                    toast("名称和内容不能为空(选择预处理时可不填代码)");
+                    Toast("名称和内容不能为空(选择预处理时可不填代码)");
                     return;
                 }
                 boolean hasCb = false;
@@ -2326,7 +2326,7 @@ void showEdit(Activity a, final String func, final String gid, final String gn) 
                 
                 if (!hasCb) {
                     try { intervalVal = Long.parseLong(fc.etInterval.getText().toString()); } 
-                    catch (Throwable e) { toast("间隔格式错误"); return; }
+                    catch (Throwable e) { Toast("间隔格式错误"); return; }
                     try { countVal = Integer.parseInt(fc.etCount.getText().toString()); } 
                     catch (Throwable e) { countVal = 0; }
                 }
@@ -2354,7 +2354,7 @@ void showEdit(Activity a, final String func, final String gid, final String gn) 
                     cks[7], rawTime, intervalVal, 
                     Boolean.TRUE.equals(fc.chipLoop.getTag()), countVal, preTypeVal, preTailVal, repeatSendVal, repeatConcatVal);
                 
-                toast("已保存");
+                Toast("已保存");
                 isAdding = false;
                 animateDialogOut(d, null);
             }
@@ -2363,7 +2363,7 @@ void showEdit(Activity a, final String func, final String gid, final String gn) 
         tst.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 String ct = etCode.getText().toString();
-                if (ct.equals("")) { toast("代码为空"); return; }
+                if (ct.equals("")) { Toast("代码为空"); return; }
                 testCode(func, ct, func);
             }
         });
@@ -2387,7 +2387,7 @@ void showEdit(Activity a, final String func, final String gid, final String gn) 
         
     } catch (Throwable e) {
         isAdding = false;
-        toast("打开编辑失败: " + e.getMessage());
+        Toast("打开编辑失败: " + e.getMessage());
     }
 }
 
@@ -2560,7 +2560,7 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
                 LinearLayout rLoop = new LinearLayout(a); rLoop.setOrientation(LinearLayout.HORIZONTAL); rLoop.setGravity(Gravity.CENTER_VERTICAL); rLoop.setPadding(0, dp(a, 8), 0, 0); exp.addView(rLoop);
                 TextView l2 = new TextView(a); String countText = loopCount > 0 ? (" (剩" + loopCount + "次)") : ""; l2.setText("循环执行" + countText); l2.setTextSize(13); l2.setTextColor(tc(a, "on_surface_variant")); l2.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f)); rLoop.addView(l2);
                 final boolean[] loopOn = {getLoop(f)}; final TextView btnLoop = makeSwitch(a, loopOn[0], pc("#FF9800")); rLoop.addView(btnLoop);
-                btnLoop.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { loopOn[0] = !loopOn[0]; setLoop(f, loopOn[0]); setSwitch(btnLoop, loopOn[0], pc("#FF9800")); toast(loopOn[0] ? "循环已开" : "循环已关"); }});
+                btnLoop.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { loopOn[0] = !loopOn[0]; setLoop(f, loopOn[0]); setSwitch(btnLoop, loopOn[0], pc("#FF9800")); Toast(loopOn[0] ? "循环已开" : "循环已关"); }});
              }
         }
         
@@ -2568,7 +2568,7 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
              LinearLayout rGrp = new LinearLayout(a); rGrp.setOrientation(LinearLayout.HORIZONTAL); rGrp.setGravity(Gravity.CENTER_VERTICAL); rGrp.setPadding(0, dp(a, 8), 0, 0); exp.addView(rGrp);
              TextView l = new TextView(a); l.setText("本群运行"); l.setTextSize(13); l.setTextColor(tc(a, "on_surface_variant")); l.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f)); rGrp.addView(l);
              final boolean[] grpOn = {getGrp(f, gid)}; final TextView btnGrp = makeSwitch(a, grpOn[0], pc("#FF9800")); rGrp.addView(btnGrp);
-             btnGrp.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { grpOn[0] = !grpOn[0]; setGrp(f, gid, grpOn[0]); setSwitch(btnGrp, grpOn[0], pc("#FF9800")); toast(grpOn[0] ? "本群已开启" : "本群已关闭"); }});
+             btnGrp.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { grpOn[0] = !grpOn[0]; setGrp(f, gid, grpOn[0]); setSwitch(btnGrp, grpOn[0], pc("#FF9800")); Toast(grpOn[0] ? "本群已开启" : "本群已关闭"); }});
         }
 
         final LinearLayout itemWrapper = new LinearLayout(a);
@@ -2678,11 +2678,11 @@ void createItem(final Activity a, LinearLayout c, final String f, final String g
                 if (hasAnyCallback) {
                     setRun(f, mainOn[0]);
                     setSwitch(btnMain, mainOn[0], pc("#00C853"));
-                    toast(mainOn[0] ? "运行已开" : "运行已关");
+                    Toast(mainOn[0] ? "运行已开" : "运行已关");
                 } else {
                     setLoad(f, mainOn[0]);
                     setSwitch(btnMain, mainOn[0], tc(a, "primary"));
-                    toast(mainOn[0] ? "加载已开" : "加载已关");
+                    Toast(mainOn[0] ? "加载已开" : "加载已关");
                 }
                 if (refresh != null) refresh.run();
             }
@@ -2745,7 +2745,7 @@ void showDeleteConfirm(Activity a, final String f, final View itemView, final Li
         public void onClick(View v) {
             delFunc(f);
             parent.removeView(itemView);
-            toast("已删除");
+            Toast("已删除");
             if (refresh != null) refresh.run();
             confirmDialog.dismiss();
         }
@@ -3212,7 +3212,7 @@ public View buildHotPlugContentView(final Activity a, String gid, String uname, 
                 String n = etN.getText().toString().trim();
                 String c = etC.getText().toString();
                 if (n.equals("") || (c.equals("") && !cks[6])) {
-                    toast("名称和内容不能为空(选择预处理时可不填代码)");
+                    Toast("名称和内容不能为空(选择预处理时可不填代码)");
                     return;
                 }
                 boolean hasCb = false;
@@ -3229,7 +3229,7 @@ public View buildHotPlugContentView(final Activity a, String gid, String uname, 
                     try {
                         intervalVal = Long.parseLong(fc.etInterval.getText().toString());
                     } catch (Throwable e) {
-                        toast("间隔格式错误");
+                        Toast("间隔格式错误");
                         return;
                     }
                     try {
@@ -3259,7 +3259,7 @@ public View buildHotPlugContentView(final Activity a, String gid, String uname, 
 
                 try {
                     saveFunc(n, c, isFileState[0], new boolean[]{cks[0], cks[1], cks[2], cks[3], cks[4], cks[5], cks[6]}, cks[7], rawTime, intervalVal, Boolean.TRUE.equals(fc.chipLoop.getTag()), countVal, preTypeVal, preTailVal, repeatSendVal, repeatConcatVal);
-                    toast("已添加:" + n);
+                    Toast("已添加:" + n);
                     editorContainer.animate().scaleY(0.8f).alpha(0f).setDuration(300).withEndAction(new Runnable() {
                         public void run() {
                             editorContainer.setVisibility(View.GONE);
@@ -3269,7 +3269,7 @@ public View buildHotPlugContentView(final Activity a, String gid, String uname, 
                     }).start();
                 } catch (Throwable e) {
                     traceLog("function_log", "[btnSave] 保存异常: " + e);
-                    toast("保存失败");
+                    Toast("保存失败");
                 }
             }
         });
@@ -3278,7 +3278,7 @@ public View buildHotPlugContentView(final Activity a, String gid, String uname, 
             public void onClick(View v) {
                 String c = etC.getText().toString();
                 if (c.equals("")) {
-                    toast("代码为空");
+                    Toast("代码为空");
                     return;
                 }
                 testCode(etN.getText().toString().trim(), c, "新建测试");
@@ -3299,7 +3299,7 @@ public View buildHotPlugContentView(final Activity a, String gid, String uname, 
         btnAdd.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 if (isAdding && editorContainer.getVisibility() == View.VISIBLE) {
-                    toast("已有未保存的编辑");
+                    Toast("已有未保存的编辑");
                     return;
                 }
 
