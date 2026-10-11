@@ -1175,11 +1175,14 @@ void buildLevel2MenuContent(Activity activity, String level1Title) {
             }
         }});
 
-        addSettingsCategory("其他", "");
+        addSettingsCategory("更新", "");
         addSettingsItemChoiceWithKey( "更新通道", "update_channel", (("github".equals(getString("settings", "update_channel", "github")) ? "GitHub（推荐）" : "Gitee")), new Runnable() { public void run() {
             Activity act = getSettingsCurrentActivity();
             if (act != null) showUpdateChannelChoiceDialog(act);
         }});
+        addSettingsItemSwitchWithKey("接收测试版更新提示", "settings", "receive_beta_update_notice", "接收测试版更新的自动提示", getBoolean("settings", "receive_beta_update_notice", false), null);
+
+        addSettingsCategory("其他", "");
         addSettingsItemClickWithKey( "重置所有设置", "恢复默认设置", new Runnable() { public void run() {
             Activity act = getSettingsCurrentActivity();
             if (act != null) showResetAllSettingsConfirmDialog(act);
