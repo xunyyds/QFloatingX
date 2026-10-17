@@ -2,6 +2,7 @@
 import com.tencent.common.app.BaseApplicationImpl;
 import com.tencent.mobileqq.activity.shortvideo.d;
 import com.tencent.mobileqq.app.BaseActivity;
+import com.tencent.mobileqq.app.BusinessObserver;
 import com.tencent.mobileqq.jump.api.IJumpApi;
 import com.tencent.mobileqq.onlinestatus.api.IOnlineStatusService;
 import com.tencent.mobileqq.qroute.QRoute;
@@ -251,6 +252,10 @@ import org.json.JSONObject;
 
 
 import me.yxp.qfun.hook.api.OnGetRKey;
+import me.yxp.qfun.hook.api.OnAIOViewUpdate;
+import me.yxp.qfun.hook.api.AIOViewUpdateListener;
+import me.yxp.qfun.hook.chat.ShowMsgTime;
+import me.yxp.qfun.hook.msg.AntiRevoke;
 import me.yxp.qfun.plugin.bean.MsgData;
 import me.yxp.qfun.utils.qq.FriendTool;
 import me.yxp.qfun.utils.qq.QQCurrentEnv;
@@ -258,6 +263,8 @@ import me.yxp.qfun.loader.hookapi.HookEngineManager;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XC_MethodHook.MethodHookParam;
+import me.yxp.qfun.utils.reflect.ClassUtils;
+import com.tencent.mobileqq.app.BusinessObserver;
 
 
 import android.graphics.Bitmap.CompressFormat;
