@@ -24,7 +24,6 @@
  * 开源许可证：Apache-2.0
 */
 
-//有bug或者建议可以大胆向我反馈
 
 String iconBase        = pluginPath + "/API/icon";
 String iconPath        = new java.io.File(iconBase + ".png").exists() ? iconBase + ".png" :
@@ -32,7 +31,6 @@ String iconPath        = new java.io.File(iconBase + ".png").exists() ? iconBase
                         iconBase + ".png";
 String closeIconPath   = pluginPath + "/API/closeIcon.png";
 
-// 不要改！不要改！不要改！
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -46,8 +44,12 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Calendar;
 import java.lang.reflect.Method;
+import java.lang.reflect.Field;
+import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import android.app.ActivityManager;
 import android.app.AlarmManager;
 import android.app.Application;
@@ -132,7 +134,7 @@ void traceLog(String name, String txt) {
         if (!name.endsWith(".txt")) {
             文件名 = name + ".txt";
         }
-        log("/Log/" + 文件名, getTime() + "    " + txt);
+        logDedup("/Log/" + 文件名, 文件名, getTime() + "    " + txt);
     } catch (Exception e) {
         log("/Log/" + 文件名, "    " + txt);
     }
@@ -140,8 +142,79 @@ void traceLog(String name, String txt) {
 
 void traceLog(String txt) {
     try {
-        log("/Log/api_log.txt", getTime() + "    " + txt);
-    } catch (Throwable e) {}
+        logDedup("/Log/api_log.txt", "api_log.txt", getTime() + "    " + txt);
+    } catch (Throwable e) {
+        log("/Log/api_log.txt", "    " + txt);
+    }
+}
+
+Map logDedupState = new ConcurrentHashMap();
+Object logDedupLock = new Object();
+
+void logDedup(String logPath, String logName, String line) {
+    if (line == null) return;
+    String content = line;
+    int markIdx = content.indexOf("    ");
+    if (markIdx >= 0) content = content.substring(markIdx + 4);
+    String key = logName + "\u0000" + content;
+    synchronized (logDedupLock) {
+        Object[] prev = (Object[]) logDedupState.get(key);
+        if (prev != null) {
+            String prevPath = (String) prev[0];
+            int prevCount = ((Integer) prev[1]).intValue();
+            if (rewriteLastLogLine(prevPath, content, prevCount + 1)) {
+                logDedupState.put(key, new Object[]{prevPath, Integer.valueOf(prevCount + 1)});
+                return;
+            }
+            logDedupState.remove(key);
+        }
+        try {
+            log(logPath, line);
+        } catch (Throwable e) {
+            return;
+        }
+        logDedupState.put(key, new Object[]{logPath, Integer.valueOf(1)});
+    }
+}
+
+boolean rewriteLastLogLine(String logPath, String content, int count) {
+    File file = new File(pluginPath + logPath);
+    if (!file.exists()) return false;
+    long size = file.length();
+    if (size <= 0) return false;
+    String suffix = count > 1 ? (" *" + count) : "";
+    String newLine = getTime() + "    " + content + suffix;
+    RandomAccessFile raf = null;
+    try {
+        raf = new RandomAccessFile(file, "rw");
+        int tailLen = (int) Math.min(size, 4096L);
+        long tailStart = size - tailLen;
+        byte[] buf = new byte[tailLen];
+        raf.seek(tailStart);
+        raf.readFully(buf);
+        int end = tailLen;
+        if (end > 0 && buf[end - 1] == '\n') end--;
+        if (end > 0 && buf[end - 1] == '\r') end--;
+        int lineStart = 0;
+        for (int i = end - 1; i >= 0; i--) {
+            if (buf[i] == '\n') { lineStart = i + 1; break; }
+        }
+        String last = new String(buf, lineStart, end - lineStart, "UTF-8");
+        int m = last.indexOf("    ");
+        String lastContent = m >= 0 ? last.substring(m + 4) : last;
+        int star = lastContent.lastIndexOf(" *");
+        if (star > 0) lastContent = lastContent.substring(0, star);
+        if (!content.equals(lastContent)) return false;
+        long keep = tailStart + lineStart;
+        raf.setLength(keep);
+        raf.seek(keep);
+        raf.write((newLine + "\n").getBytes("UTF-8"));
+        return true;
+    } catch (Throwable e) {
+        return false;
+    } finally {
+        if (raf != null) try { raf.close(); } catch (Throwable closeErr) { log("/Log/main_log.txt", getTime() + "    [logDedup] 关闭文件失败: " + closeErr); }
+    }
 }
 
 void initThreadPool() {
@@ -204,12 +277,14 @@ initThreadPool();
 
 ThreadPool.execute(new Runnable() {
     public void run() {
+        int stage = 0;
         try {
             for (int i = 0; i < coreFiles.length; i++) {
                 loadJava(coreFiles[i]);
-                
             }
+            traceLog("main_log", "[apiLoad] 核心文件加载完成");
 
+            stage = 2;
             final CountDownLatch latch = new CountDownLatch(parallelFiles.length);
             for (int i = 0; i < parallelFiles.length; i++) {
                 final String currentFile = parallelFiles[i];
@@ -217,8 +292,8 @@ ThreadPool.execute(new Runnable() {
                     public void run() {
                         try {
                             loadJava(currentFile);
-                        } catch (Exception e) {
-                            traceLog("main_log", "[apiLoad] 非核心API加载失败：" + currentFile + " " + e.getMessage());
+                        } catch (Throwable e) {
+                            traceLog("main_log", "[apiLoad] 非核心API加载失败：" + currentFile + " " + e);
                         } finally {
                             latch.countDown();
                         }
@@ -236,8 +311,13 @@ ThreadPool.execute(new Runnable() {
                 }
             });
 
-        } catch (Exception e) {
-            traceLog("main_log", "[apiLoad] API加载异常：" + e.getMessage());
+        } catch (Throwable e) {
+            traceLog("main_log", "[apiLoad] API加载异常 stage=" + stage + " : " + e);
+            try {
+                java.io.StringWriter sw = new java.io.StringWriter();
+                e.printStackTrace(new java.io.PrintWriter(sw));
+                traceLog("main_log", "[apiLoad] 堆栈: " + sw.toString());
+            } catch (Throwable ignore) {}
         }
     }
 });
@@ -245,11 +325,9 @@ ThreadPool.execute(new Runnable() {
 String currentPackageName = context.getPackageName();
 
 
-volatile boolean 悬浮窗显示状态 = false;
 volatile boolean 应用前台状态 = false;
 volatile boolean 非UI初始化完成 = false;
 volatile boolean UI初始化完成 = false;
-volatile boolean 允许触摸 = true;
 
 
 static volatile int resumedActivityCount = 0;
@@ -261,6 +339,12 @@ Activity 最后Activity = null;
 boolean dialogVisible = false;
 Activity activity = null;
 volatile boolean Hook已调用 = false;
+
+Activity safeActivity() {
+    Activity a = getNowActivity();
+    if (a == null) a = 最后Activity;
+    return a;
+}
 
 
 void checkAndUpdateForegroundState(final Activity activity) {
@@ -277,13 +361,12 @@ void checkAndUpdateForegroundState(final Activity activity) {
     if (!应用前台状态) {
         
         应用前台状态 = true;
-        允许触摸 = true;
         最后Activity = activity;
 		if (getBoolean("settings", "常驻通知", false)) {
         toggleKeepNotify(false);
         }
 
-        if (UI初始化完成 && !悬浮窗显示状态 && getBoolean("settings", "开关", false)) {
+        if (UI初始化完成 && !悬浮窗可见() && getBoolean("settings", "开关", false)) {
             启动悬浮窗(activity);
         }
     }
@@ -299,8 +382,7 @@ void checkAndUpdateBackgroundState() {
             if (应用前台状态) {
                 
                 应用前台状态 = false;
-                允许触摸 = false;
-                if (悬浮窗显示状态) 停止悬浮窗();
+                if (悬浮窗可见()) 停止悬浮窗();
                 if (getBoolean("settings", "常驻通知", false)) {
                 toggleKeepNotify(true);
                 }
@@ -310,31 +392,241 @@ void checkAndUpdateBackgroundState() {
 }
 
 static final ConcurrentHashMap METHOD_CACHE = new ConcurrentHashMap();
+static final ConcurrentHashMap FIELD_CACHE = new ConcurrentHashMap();
 List hookloveList = new ArrayList();
 Map hookTagMap = new ConcurrentHashMap();
 
+String typesSignature(Class[] types) {
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < types.length; i++) {
+        if (types[i] == null) return null;
+        sb.append(types[i].getName());
+        if (i < types.length - 1) sb.append(",");
+    }
+    return sb.toString();
+}
+
 Method getCachedMethod(Class clazz, String methodName, Class[] paramTypes) {
-    if (clazz == null) return null;
-    StringBuilder sb = new StringBuilder(clazz.getName()).append("#").append(methodName).append("(");
-    if (paramTypes != null) {
-        for (int i = 0; i < paramTypes.length; i++) {
-            sb.append(paramTypes[i].getName());
-            if (i < paramTypes.length - 1) sb.append(",");
+    if (clazz == null || methodName == null) return null;
+    Class[] types = paramTypes != null ? paramTypes : new Class[0];
+    String sig = typesSignature(types);
+    if (sig == null) return null;
+    String key = clazz.getName() + "#" + methodName + "(" + sig + ")";
+    Object cached = METHOD_CACHE.get(key);
+    if (cached instanceof Method) return (Method) cached;
+    Method m = findCompatibleMethod(clazz, methodName, types);
+    if (m != null) METHOD_CACHE.put(key, m);
+    return m;
+}
+
+Method findCompatibleMethod(Class clazz, String methodName, Class[] paramTypes) {
+    if (clazz == null || methodName == null) return null;
+    Class[] types = paramTypes != null ? paramTypes : new Class[0];
+    Class c = clazz;
+    while (c != null) {
+        Method m = qfunCachedMethod(c, methodName, types);
+        if (m != null) return m;
+        c = c.getSuperclass();
+    }
+    return null;
+}
+
+Method qfunCachedMethod(final Class clazz, final String methodName, final Class[] paramTypes) {
+    try {
+        ClassLoader mcl = ClassUtils.INSTANCE.getModuleClassLoader();
+        Class rc = Class.forName("me.yxp.qfun.utils.reflect.ReflectCache", false, mcl);
+        Object inst = rc.getField("INSTANCE").get(null);
+        Class fn0 = Class.forName("kotlin.jvm.functions.Function0", false, mcl);
+        java.lang.reflect.Method gm = rc.getMethod("getMethod", new Class[]{String.class, fn0});
+        gm.setAccessible(true);
+        Object fn = new kotlin.jvm.functions.Function0() {
+            public Object invoke() {
+                return pickBestOverload(clazz, methodName, paramTypes);
+            }
+        };
+        Object got = gm.invoke(inst, new Object[]{methodName + "|" + typesSignature(paramTypes), fn});
+        if (got instanceof Method) return (Method) got;
+    } catch (Throwable t) {
+        traceLog("main_log", "[qfunCachedMethod] 复用 QFun 缓存失败: " + t);
+    }
+    return null;
+}
+
+Method pickBestOverload(Class clazz, String methodName, Class[] paramTypes) {
+    Method[] all = null;
+    try { all = clazz.getDeclaredMethods(); } catch (Throwable e) { return null; }
+    if (all == null) return null;
+    Method best = null;
+    int bestScore = Integer.MAX_VALUE;
+    for (int i = 0; i < all.length; i++) {
+        Method cand = all[i];
+        if (!methodName.equals(cand.getName())) continue;
+        int score = overloadScore(cand.getParameterTypes(), paramTypes);
+        if (score < 0) continue;
+        if (score < bestScore) { bestScore = score; best = cand; }
+    }
+    if (best != null) {
+        try { best.setAccessible(true); } catch (Throwable e) { traceLog("main_log", "[pickBestOverload] setAccessible 失败: " + e); }
+    }
+    return best;
+}
+
+int overloadScore(Class[] actual, Class[] expected) {
+    if (actual.length != expected.length) return -1;
+    int score = 0;
+    for (int i = 0; i < actual.length; i++) {
+        Class a = actual[i];
+        Class e = expected[i];
+        if (e == null) { score += 50; continue; }
+        if (a == e) continue;
+        if (a.isAssignableFrom(e)) { score += 1; continue; }
+        Class boxed = boxPrimitive(a);
+        if (boxed != null && boxed == e) { score += 3; continue; }
+        return -1;
+    }
+    return score;
+}
+
+Class boxPrimitive(Class p) {
+    if (p == null || !p.isPrimitive()) return null;
+    if (p == int.class) return Integer.class;
+    if (p == long.class) return Long.class;
+    if (p == boolean.class) return Boolean.class;
+    if (p == double.class) return Double.class;
+    if (p == float.class) return Float.class;
+    if (p == short.class) return Short.class;
+    if (p == byte.class) return Byte.class;
+    if (p == char.class) return Character.class;
+    return null;
+}
+
+Object callRuntimeService(Object appInterface, Class serviceClass) {
+    if (appInterface == null || serviceClass == null) return null;
+    Method two = getCachedMethod(appInterface.getClass(), "getRuntimeService", new Class[]{Class.class, String.class});
+    if (two != null) {
+        try { return two.invoke(appInterface, new Object[]{serviceClass, ""}); } catch (Exception e) { traceLog("main_log", "[callRuntimeService] 两参调用失败: " + e); }
+    }
+    Method one = getCachedMethod(appInterface.getClass(), "getRuntimeService", new Class[]{Class.class});
+    if (one != null) {
+        try { return one.invoke(appInterface, new Object[]{serviceClass}); } catch (Exception e) { traceLog("main_log", "[callRuntimeService] 单参调用失败: " + e); }
+    }
+    return null;
+}
+
+Field getCachedField(Class clazz, String fieldName) {
+    if (clazz == null || fieldName == null) return null;
+    String key = clazz.getName() + "#f:" + fieldName;
+    Object cached = FIELD_CACHE.get(key);
+    if (cached instanceof Field) return (Field) cached;
+    Class c = clazz;
+    while (c != null) {
+        try {
+            Field f = c.getDeclaredField(fieldName);
+            f.setAccessible(true);
+            FIELD_CACHE.put(key, f);
+            return f;
+        } catch (Throwable e) {
+            c = c.getSuperclass();
         }
     }
-    sb.append(")");
-    String key = sb.toString();
-    Method method = (Method) METHOD_CACHE.get(key);
-    if (method != null) return method;
+    return null;
+}
+
+Object fieldGet(Object target, String fieldName) {
+    if (target == null || fieldName == null) return null;
+    boolean isStatic = target instanceof Class;
+    Class owner = isStatic ? (Class) target : target.getClass();
     try {
-        method = clazz.getDeclaredMethod(methodName, paramTypes != null ? paramTypes : new Class[0]);
-        method.setAccessible(true);
-        METHOD_CACHE.put(key, method);
-        return method;
+        Field field = getCachedField(owner, fieldName);
+        if (field == null) return null;
+        return field.get(isStatic ? null : target);
     } catch (Exception e) {
-        traceLog("main_log", "[getCachedMethod] 反射失败: " + e);
+        traceLog("main_log", "[fieldGet] " + fieldName + " 失败: " + e);
         return null;
     }
+}
+
+Object invokeCached(Object target, String methodName, Class[] paramTypes, Object[] params) {
+    if (target == null || methodName == null) return null;
+    Class owner = (target instanceof Class) ? (Class) target : target.getClass();
+    Method method = getCachedMethod(owner, methodName, paramTypes);
+    if (method == null) return null;
+    try {
+        return method.invoke((target instanceof Class) ? null : target, params);
+    } catch (Exception e) {
+        traceLog("main_log", "[invokeCached] " + methodName + " 失败: " + e);
+        return null;
+    }
+}
+
+Method findMethodByCount(Class clazz, String methodName, int paramCount) {
+    if (clazz == null || methodName == null) return null;
+    Class c = clazz;
+    while (c != null) {
+        Method[] all = null;
+        try { all = c.getDeclaredMethods(); } catch (Throwable e) { traceLog("main_log", "[findMethodByCount] " + c.getName() + " 失败: " + e); }
+        if (all != null) {
+            Method best = null;
+            for (int i = 0; i < all.length; i++) {
+                Method cand = all[i];
+                if (!methodName.equals(cand.getName())) continue;
+                if (cand.getParameterTypes().length != paramCount) continue;
+                try { cand.setAccessible(true); } catch (Throwable e) { traceLog("main_log", "[findMethodByCount] setAccessible 失败: " + e); }
+                if (best == null) best = cand;
+            }
+            if (best != null) return best;
+        }
+        c = c.getSuperclass();
+    }
+    return null;
+}
+
+Method[] findMethodsByName(Class clazz, String methodName) {
+    if (clazz == null || methodName == null) return new Method[0];
+    List hit = new ArrayList();
+    Class c = clazz;
+    while (c != null) {
+        List got = qfunFindMethods(c, methodName);
+        if (got != null) hit.addAll(got);
+        c = c.getSuperclass();
+    }
+    return (Method[]) hit.toArray(new Method[0]);
+}
+
+List qfunFindMethods(Class clazz, final String methodName) {
+    try {
+        Object fn = new kotlin.jvm.functions.Function1() {
+            public Object invoke(Object searcher) {
+                try {
+                    searcher.getClass().getMethod("setName", new Class[]{String.class}).invoke(searcher, new Object[]{methodName});
+                } catch (Throwable t) {
+                    traceLog("main_log", "[qfunFindMethods] 配置 searcher 失败: " + t);
+                }
+                return null;
+            }
+        };
+        Class dsl = Class.forName("me.yxp.qfun.utils.reflect.ReflectDSLKt", false, ClassUtils.INSTANCE.getModuleClassLoader());
+        java.lang.reflect.Method[] all = dsl.getDeclaredMethods();
+        for (int i = 0; i < all.length; i++) {
+            if (!"findMethods".equals(all[i].getName())) continue;
+            all[i].setAccessible(true);
+            Object got = all[i].invoke(null, new Object[]{clazz, fn});
+            if (got instanceof List) return (List) got;
+            return null;
+        }
+    } catch (Throwable t) {
+        traceLog("main_log", "[qfunFindMethods] 调用 QFun 反射失败: " + t);
+    }
+    return null;
+}
+
+int hookAll(String tag, Class clazz, String methodName, XC_MethodHook callback) {
+    if (callback == null || clazz == null) return 0;
+    Method[] methods = findMethodsByName(clazz, methodName);
+    for (int i = 0; i < methods.length; i++) {
+        hook(tag, methods[i], callback);
+    }
+    return methods.length;
 }
 
 void hook(Class clazz, String methodName, Class[] paramTypes, XC_MethodHook callback) {
@@ -343,8 +635,19 @@ void hook(Class clazz, String methodName, Class[] paramTypes, XC_MethodHook call
     hook(null, method, callback);
 }
 
-void hook(String tag, Method method, XC_MethodHook callback) {
+void hookByName(String tag, Class clazz, String methodName, int paramCount, XC_MethodHook callback) {
+    Method method = findMethodByCount(clazz, methodName, paramCount);
     if (method == null) return;
+    hook(tag, method, callback);
+}
+
+void hook(String tag, Method method, XC_MethodHook callback) {
+    if (method == null || callback == null) return;
+    try {
+        if (!method.isAccessible()) method.setAccessible(true);
+    } catch (Exception e) {
+        traceLog("main_log", "[hook] " + method.getName() + " setAccessible 失败: " + e);
+    }
     try {
         Object unhook = XposedBridge.hookMethod(method, callback);
         hookloveList.add(unhook);
@@ -399,9 +702,7 @@ void Hook生命周期() {
         Method resumeM = getCachedMethod(Activity.class, "onResume", new Class[0]);
         Method pauseM = getCachedMethod(Activity.class, "onPause", new Class[0]);
         if (resumeM == null || pauseM == null) {
-            Activity failAct = getNowActivity();
-            if (failAct == null) failAct = 最后Activity;
-            showApiProtectGuide(failAct);
+            showApiProtectGuide(safeActivity());
             return;
         }
 
@@ -436,9 +737,7 @@ void Hook生命周期() {
 
     } catch (Exception e) {
         traceLog("main_log", "[Hook生命周期] Hook生命周期异常: " + e);
-        Activity failAct = getNowActivity();
-        if (failAct == null) failAct = 最后Activity;
-        showApiProtectGuide(failAct);
+        showApiProtectGuide(safeActivity());
     }
 }
 

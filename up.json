@@ -1,19 +1,23 @@
 {
-  "version": "2.6.2",
+  "version": "2.6.3",
   "versionType": "测试版",
   "updateType": "补丁",
-  "updateTime": "2026-10-17 08:45:22",
-  "changelog": "- 合并撤回提示重定向脚本，并增加了n个自定义设置\n- 双击消息菜单新增翻译功能，使用QQ自带接口\n- 新增配置导入与备份\n- 优化功能热插拔管理界面\n-",
+  "updateTime": "2026-10-18 00:09:12",
+  "changelog": "- 优化反射以及hook的系统兼容性",
   "files": [
+    "QFloatingX\/API\/api3.java",
     "QFloatingX\/API\/uitools.java",
     "QFloatingX\/API\/Dialog.java",
     "QFloatingX\/API\/api5.java",
     "QFloatingX\/API\/api.java",
+    "QFloatingX\/API\/api2.java",
     "QFloatingX\/API\/setwindow.java",
     "QFloatingX\/API\/api4.java",
+    "QFloatingX\/API\/api9.java",
+    "QFloatingX\/API\/api6.java",
     "QFloatingX\/API\/function.java",
-    "QFloatingX\/API\/import.java",
+    "QFloatingX\/更新日志.txt",
     "QFloatingX\/info.prop",
-    "QFloatingX\/更新日志.txt"
+    "QFloatingX\/main.java"
   ]
 }

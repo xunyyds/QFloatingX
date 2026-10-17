@@ -32,7 +32,11 @@ private Runnable fadeRunnable = null;
 
 
 private int 悬浮窗状态 = STATE_DESTROYED; 
-private boolean 允许触摸 = false; 
+
+boolean 悬浮窗可见() {
+    return 悬浮窗状态 == STATE_VISIBLE;
+}
+
 private WindowManager wm = null; 
 private WindowManager.LayoutParams params = null; 
 private FrameLayout floatingView = null; 
@@ -116,13 +120,6 @@ private static class GifImageView extends ImageView {
     }
 }
 
-private Activity 获取安全Activity() {
-    Activity activity = getNowActivity();
-    if (activity == null && 最后Activity != null) {
-        activity = 最后Activity;
-    }
-    return activity;
-}
 
 private int 获取悬浮窗大小(Activity activity) {
     if (activity == null) {
@@ -257,7 +254,6 @@ private String 获取动态图标路径() {
 }
 
 private boolean 是否使用动态图标() {
-    // 自定义图标本身就是 GIF：直接按动态图标处理（此时静态/动态两个 getter 都返回同一文件，时间戳比较恒为 false）
     String customIcon = getString("settings", "iconPath", "");
     if (customIcon != null && customIcon.toLowerCase().endsWith(".gif") && new java.io.File(customIcon).exists()) {
         return true;
@@ -824,8 +820,6 @@ void 添加到窗口管理器(Activity activity) {
             iconImageView.setImageAlpha(currentAlpha);
         }
         悬浮窗状态 = STATE_VISIBLE;
-        悬浮窗显示状态 = true;
-        允许触摸 = true;
     } catch (Exception e) {
         traceLog("api4_log", "[添加到窗口管理器] 异常: " + e);
         悬浮窗状态 = STATE_CREATED;
@@ -856,9 +850,7 @@ void 销毁悬浮窗资源() {
         floatingView = null;
         iconImageView = null;
         悬浮窗状态 = STATE_DESTROYED;
-        悬浮窗显示状态 = false;
-        允许触摸 = false;
-        isLongClickScheduled = false;
+            isLongClickScheduled = false;
         isDragging = false;
         isInCloseRange = false;
     } catch (Throwable e) { traceLog("api4_log", "[销毁悬浮窗资源] 异常: " + e); }
@@ -877,7 +869,7 @@ void 设置触摸事件(final Activity activity) {
         fadeRunnable = new Runnable() {
             public void run() {
                 try {
-                    if (isLongClickScheduled && currentAlpha > 100 && 悬浮窗显示状态 && 允许触摸 && iconImageView != null) {
+                    if (isLongClickScheduled && currentAlpha > 100 && 悬浮窗可见() && iconImageView != null) {
                         currentAlpha -= 10;
                         iconImageView.setImageAlpha(currentAlpha);
                         if (isLongClickScheduled) {
@@ -894,14 +886,14 @@ void 设置触摸事件(final Activity activity) {
             public void run() {
                 try {
                     isLongClickScheduled = false;
-                    if (悬浮窗显示状态 && 允许触摸) {
+                    if (悬浮窗可见()) {
                         long pressDuration = System.currentTimeMillis() - touchStartTime;
                         if (pressDuration >= longClickThreshold) {
                             activity.runOnUiThread(new Runnable() {
                                 public void run() {
-                                    if (悬浮窗显示状态) {
+                                    if (悬浮窗可见()) {
                                         Toast("长按关闭悬浮窗");
-                                        停止悬浮窗(activity);
+                                        停止悬浮窗();
                                     }
                                 }
                             });
@@ -914,7 +906,7 @@ void 设置触摸事件(final Activity activity) {
 
     iconImageView.setOnTouchListener(new View.OnTouchListener() {
         public boolean onTouch(View v, MotionEvent event) {
-            if (!允许触摸 || floatingView == null || !悬浮窗显示状态 || params == null || wm == null) {
+            if (floatingView == null || !悬浮窗可见() || params == null || wm == null) {
                 return false;
             }
             boolean handled = false;
@@ -993,7 +985,7 @@ void 设置触摸事件(final Activity activity) {
                             保存悬浮窗位置(activity);
                             if (isInCloseRange) {
                                 Toast("已关闭悬浮窗");
-                                停止悬浮窗(activity);
+                                停止悬浮窗();
                             }
                             隐藏关闭区域(activity);
                         } else if (event.getAction() == MotionEvent.ACTION_UP) {
@@ -1048,7 +1040,7 @@ void 处理图标点击(Activity activity) {
 }
 
 public void 悬浮窗开关(int chatType, String peerUin, String name) {
-    Activity activity = 获取安全Activity();
+    Activity activity = safeActivity();
     if (activity == null) {
         return;
     }
@@ -1067,7 +1059,7 @@ public void 悬浮窗开关(int chatType, String peerUin, String name) {
                     }
                     启动悬浮窗(finalActivity);
                 } else {
-                    停止悬浮窗(finalActivity);
+                    停止悬浮窗();
                 }
             } catch (Throwable e) { traceLog("api4_log", "[悬浮窗开关] 异常: " + e); }
         }
@@ -1076,7 +1068,6 @@ public void 悬浮窗开关(int chatType, String peerUin, String name) {
 
 public void 启动悬浮窗(final Activity activity) {
     try {
-        // 开关由 api4 自己判断：关闭状态下任何流程（如保存图标后的刷新）都不允许把悬浮窗打开
         if (!getBoolean("settings", "开关", false)) {
             return;
         }
@@ -1102,18 +1093,13 @@ public void 启动悬浮窗(final Activity activity) {
 
         switch (悬浮窗状态) {
             case STATE_DESTROYED:
+            default:
                 创建悬浮窗视图(activity);
                 if (悬浮窗状态 == STATE_CREATED) {
                     添加到窗口管理器(activity);
                 }
                 break;
             case STATE_HIDDEN:
-                currentAlpha = 255;
-                if (iconImageView != null) {
-                    iconImageView.setImageAlpha(currentAlpha);
-                }
-                添加到窗口管理器(activity);
-                break;
             case STATE_CREATED:
                 currentAlpha = 255;
                 if (iconImageView != null) {
@@ -1126,22 +1112,12 @@ public void 启动悬浮窗(final Activity activity) {
                     iconImageView.setImageAlpha(255);
                 }
                 break;
-            default:
-                创建悬浮窗视图(activity);
-                if (悬浮窗状态 == STATE_CREATED) {
-                    添加到窗口管理器(activity);
-                }
-                break;
-        }
-
-        if (悬浮窗状态 == STATE_VISIBLE) {
-            允许触摸 = true;
         }
     } catch (Throwable e) { traceLog("api4_log", "[启动悬浮窗] 异常: " + e); }
 }
 
 public void 启动悬浮窗() {
-    Activity activity = getNowActivity();
+    Activity activity = safeActivity();
     if (activity == null) {
         activity = 最后Activity;
     }
@@ -1150,54 +1126,18 @@ public void 启动悬浮窗() {
     }
 }
 
-public void 停止悬浮窗(final Activity activity) {
-    if (activity == null || activity.isFinishing()) {
-        停止悬浮窗();
-        return;
-    }
-    最后Activity = activity;
-
-    xfcHandler.removeCallbacksAndMessages(null);
-    isLongClickScheduled = false;
-    isDragging = false;
-    isInCloseRange = false;
-    允许触摸 = false;
-
-    停止持续振动();
-    隐藏关闭区域(activity);
-    保存悬浮窗位置(activity);
-
-    if (悬浮窗状态 == STATE_VISIBLE || 悬浮窗状态 == STATE_CREATED) {
-        if (floatingView != null && wm != null) {
-            try {
-                if (floatingView.isAttachedToWindow()) {
-                    if (iconImageView instanceof GifImageView) {
-                        ((GifImageView) iconImageView).stopAnimation();
-                    }
-                    wm.removeView(floatingView);
-                }
-            } catch (Throwable e) { traceLog("api4_log", "[停止悬浮窗] 异常: " + e); }
-        }
-        悬浮窗状态 = STATE_HIDDEN;
-        悬浮窗显示状态 = false;
-    }
-}
-
 public void 停止悬浮窗() {
-    Activity activity = getNowActivity();
-    if (activity == null) {
-        activity = 最后Activity;
-    }
-    if (activity != null && !activity.isFinishing()) {
-        停止悬浮窗(activity);
-        return;
-    }
+    Activity activity = safeActivity();
     xfcHandler.removeCallbacksAndMessages(null);
-    停止持续振动();
     isLongClickScheduled = false;
     isDragging = false;
     isInCloseRange = false;
-    允许触摸 = false;
+    停止持续振动();
+    if (activity != null && !activity.isFinishing()) {
+        最后Activity = activity;
+        隐藏关闭区域(activity);
+        保存悬浮窗位置(activity);
+    }
     if (悬浮窗状态 == STATE_VISIBLE || 悬浮窗状态 == STATE_CREATED) {
         try {
             if (floatingView != null && wm != null && floatingView.isAttachedToWindow()) {
@@ -1209,7 +1149,6 @@ public void 停止悬浮窗() {
         } catch (Throwable e) { traceLog("api4_log", "[停止悬浮窗] 异常: " + e); }
         悬浮窗状态 = STATE_HIDDEN;
     }
-    悬浮窗显示状态 = false;
 }
 
 public void 卸载悬浮窗() {
@@ -1244,8 +1183,6 @@ public void 卸载悬浮窗() {
     wm = null;
     params = null;
     悬浮窗状态 = STATE_DESTROYED;
-    悬浮窗显示状态 = false;
-    允许触摸 = false;
     isLongClickScheduled = false;
     isDragging = false;
     isInCloseRange = false;
@@ -1267,7 +1204,7 @@ public void 卸载悬浮窗() {
 }
 
 public void 刷新悬浮窗() {
-    final Activity activity = 获取安全Activity();
+    final Activity activity = safeActivity();
     if (activity == null || activity.isFinishing()) {
         return;
     }
@@ -1277,7 +1214,6 @@ public void 刷新悬浮窗() {
                 if (wm == null) wm = (WindowManager) activity.getSystemService(Context.WINDOW_SERVICE);
                 if (wm == null) return;
                 if (floatingView == null || params == null || 悬浮窗状态 != STATE_VISIBLE) {
-                    // 视图不存在或已创建但未显示：先销毁旧视图，确保按新图标重建；是否显示仍由 启动悬浮窗 按开关判断
                     traceLog("api4_log", "[刷新悬浮窗] 视图未显示 state=" + 悬浮窗状态 + "，销毁旧视图后按新图标重建");
                     销毁悬浮窗资源();
                     启动悬浮窗(activity);

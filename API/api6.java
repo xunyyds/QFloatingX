@@ -87,16 +87,9 @@ String get在线状态() {
     try {
         Object appInterface = QQCurrentEnv.INSTANCE.getQQAppInterface();
         if (appInterface == null) return "未知";
-        Class[] argTypes = new Class[2];
-        argTypes[0] = Class.class;
-        argTypes[1] = String.class;
-        java.lang.reflect.Method m = appInterface.getClass().getMethod("getRuntimeService", argTypes);
-        Object[] invokeArgs = new Object[2];
-        invokeArgs[0] = IOnlineStatusService.class;
-        invokeArgs[1] = "";
-        Object statusObj = m.invoke(appInterface, invokeArgs);
-        java.lang.reflect.Method ms = statusObj.getClass().getMethod("getOnlineStatus");
-        Object status = ms.invoke(statusObj, new Object[0]);
+        Object statusObj = callRuntimeService(appInterface, IOnlineStatusService.class);
+        if (statusObj == null) return "未知";
+        Object status = invokeCached(statusObj, "getOnlineStatus", new Class[0], new Object[0]);
         String StatusString = status + "";
         if (StatusString.equals("null")) return "未知";
         if (StatusString.equals("away")) return "离开";

@@ -126,13 +126,10 @@ class HotPlugClassLoader {
 
     
     bsh.NameSpace getObjNameSpace(bsh.This scriptObj) {
-        try {
-            java.lang.reflect.Method m = scriptObj.getClass().getMethod("getNameSpace", new Class[0]);
-            return (bsh.NameSpace) m.invoke(scriptObj, new Object[0]);
-        } catch (Throwable e) {
-            traceLog("function_log", "[getObjNameSpace] 反射获取 NameSpace 失败: " + e);
-            return null;
-        }
+        Object ns = invokeCached(scriptObj, "getNameSpace", new Class[0], new Object[0]);
+        if (ns instanceof bsh.NameSpace) return (bsh.NameSpace) ns;
+        traceLog("function_log", "[getObjNameSpace] 反射获取 NameSpace 失败");
+        return null;
     }
 
     
