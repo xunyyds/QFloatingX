@@ -96,8 +96,7 @@ void 菜单(Object data) {
         traceLog("dialog_log", "[菜单] 菜单调用时延迟启动未完成");
         return;
     }
-    Activity activity = getNowActivity();
-    if (activity == null) activity = 最后Activity;
+    Activity activity = safeActivity();
     if (activity == null) {
         traceLog("dialog_log", "[菜单] 菜单调用时无法获取Activity");
         return;
@@ -118,19 +117,12 @@ void showShutUpDialog(Activity activity, String qun, String uin, String nickName
         public void run() {
             try {
                 boolean isDark = isThemeDark(activity);
-                int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
-                int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
-                int inputBgColor = isDark ? pc("#1AFFFFFF") : pc("#0D000000");
+                int textColor = tc(activity, "on_surface_strong");
+                int subTextColor = tc(activity, "on_surface_sub");
+                int inputBgColor = tc(activity, "input_bg");
                 int borderColor = adjustAlpha(textColor, 0.3f);
-                LinearLayout root = new LinearLayout(activity);
-                root.setOrientation(LinearLayout.VERTICAL);
-                root.setPadding(dp(activity, 16), dp(activity, 20), dp(activity, 16), dp(activity, 16));
-                TextView titleView = new TextView(activity);
-                titleView.setText("设置禁言时长");
-                titleView.setTextSize(18);
-                titleView.setTypeface(null, Typeface.BOLD);
-                titleView.setTextColor(textColor);
-                titleView.setPadding(0, 0, 0, dp(activity, 8));
+                LinearLayout root = makeDialogRoot(activity);
+                TextView titleView = makeDialogTitle(activity, "设置禁言时长", 8);
                 root.addView(titleView);
                 TextView subView = new TextView(activity);
                 subView.setText(nickName + "(" + uin + ")");
@@ -208,19 +200,12 @@ public void showMuteAllDialog(Activity activity, String qun) {
         public void run() {
             try {
                 boolean isDark = isThemeDark(activity);
-                int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
-                int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
-                int inputBgColor = isDark ? pc("#1AFFFFFF") : pc("#0D000000");
+                int textColor = tc(activity, "on_surface_strong");
+                int subTextColor = tc(activity, "on_surface_sub");
+                int inputBgColor = tc(activity, "input_bg");
                 int borderColor = adjustAlpha(textColor, 0.3f);
-                LinearLayout root = new LinearLayout(activity);
-                root.setOrientation(LinearLayout.VERTICAL);
-                root.setPadding(dp(activity, 16), dp(activity, 20), dp(activity, 16), dp(activity, 16));
-                TextView titleView = new TextView(activity);
-                titleView.setText("全体禁言设置");
-                titleView.setTextSize(18);
-                titleView.setTypeface(null, Typeface.BOLD);
-                titleView.setTextColor(textColor);
-                titleView.setPadding(0, 0, 0, dp(activity, 16));
+                LinearLayout root = makeDialogRoot(activity);
+                TextView titleView = makeDialogTitle(activity, "全体禁言设置", 16);
                 root.addView(titleView);
                 LinearLayout inputRow = new LinearLayout(activity);
                 inputRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -391,19 +376,12 @@ public void showZanDialog(Activity activity, String targetUin) {
         public void run() {
             try {
                 boolean isDark = isThemeDark(activity);
-                int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
-                int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
-                int inputBgColor = isDark ? pc("#1AFFFFFF") : pc("#0D000000");
+                int textColor = tc(activity, "on_surface_strong");
+                int subTextColor = tc(activity, "on_surface_sub");
+                int inputBgColor = tc(activity, "input_bg");
                 int borderColor = adjustAlpha(textColor, 0.3f);
-                LinearLayout root = new LinearLayout(activity);
-                root.setOrientation(LinearLayout.VERTICAL);
-                root.setPadding(dp(activity, 16), dp(activity, 20), dp(activity, 16), dp(activity, 16));
-                TextView titleView = new TextView(activity);
-                titleView.setText("为Ta点赞");
-                titleView.setTextSize(18);
-                titleView.setTypeface(null, Typeface.BOLD);
-                titleView.setTextColor(textColor);
-                titleView.setPadding(0, 0, 0, dp(activity, 4));
+                LinearLayout root = makeDialogRoot(activity);
+                TextView titleView = makeDialogTitle(activity, "为Ta点赞", 4);
                 root.addView(titleView);
                 TextView subView = new TextView(activity);
                 subView.setText("范围: 1-50次");
@@ -466,19 +444,12 @@ public void showPaiDialog(Activity activity, String targetUin, String peerUin, i
         public void run() {
             try {
                 boolean isDark = isThemeDark(activity);
-                int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
-                int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
-                int inputBgColor = isDark ? pc("#1AFFFFFF") : pc("#0D000000");
+                int textColor = tc(activity, "on_surface_strong");
+                int subTextColor = tc(activity, "on_surface_sub");
+                int inputBgColor = tc(activity, "input_bg");
                 int borderColor = adjustAlpha(textColor, 0.3f);
-                LinearLayout root = new LinearLayout(activity);
-                root.setOrientation(LinearLayout.VERTICAL);
-                root.setPadding(dp(activity, 16), dp(activity, 20), dp(activity, 16), dp(activity, 16));
-                TextView titleView = new TextView(activity);
-                titleView.setText("拍一拍");
-                titleView.setTextSize(18);
-                titleView.setTypeface(null, Typeface.BOLD);
-                titleView.setTextColor(textColor);
-                titleView.setPadding(0, 0, 0, dp(activity, 4));
+                LinearLayout root = makeDialogRoot(activity);
+                TextView titleView = makeDialogTitle(activity, "拍一拍", 4);
                 root.addView(titleView);
                 TextView subView = new TextView(activity);
                 subView.setText("范围: 1-200次");
@@ -563,19 +534,12 @@ public void showEncryptDecryptDialog(Activity activity, Object data) {
                 java.util.Stack undoStack = new java.util.Stack();
                 java.util.Stack redoStack = new java.util.Stack();
                 boolean isDark = isThemeDark(activity);
-                int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
-                int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
-                int inputBgColor = isDark ? pc("#1AFFFFFF") : pc("#0D000000");
+                int textColor = tc(activity, "on_surface_strong");
+                int subTextColor = tc(activity, "on_surface_sub");
+                int inputBgColor = tc(activity, "input_bg");
                 int borderColor = adjustAlpha(textColor, 0.3f);
-                LinearLayout root = new LinearLayout(activity);
-                root.setOrientation(LinearLayout.VERTICAL);
-                root.setPadding(dp(activity, 16), dp(activity, 20), dp(activity, 16), dp(activity, 16));
-                TextView titleView = new TextView(activity);
-                titleView.setText("加解密工具");
-                titleView.setTextSize(18);
-                titleView.setTypeface(null, Typeface.BOLD);
-                titleView.setTextColor(textColor);
-                titleView.setPadding(0, 0, 0, dp(activity, 12));
+                LinearLayout root = makeDialogRoot(activity);
+                TextView titleView = makeDialogTitle(activity, "加解密工具", 12);
                 root.addView(titleView);
                 final EditText input = new EditText(activity);
                 input.setText(displayText);
@@ -781,32 +745,22 @@ public void showCodeConsoleDialog(Activity activity, Object data) {
         return;
     }
     String initialCode = "";
-    try {
-        initialCode = String.valueOf(data.getClass().getField("msg").get(data));
-    } catch (Throwable e) {
-        traceLog("dialog_log", "[showCodeConsoleDialog] 异常: " + e);
-    }
+    Object msgValue = fieldGet(data, "msg");
+    if (msgValue != null) initialCode = String.valueOf(msgValue);
     final String finalCode = initialCode;
     final Object outerInterpreter = this.interpreter;
     activity.runOnUiThread(new Runnable() {
         public void run() {
             try {
                 boolean isDark = isThemeDark(activity);
-                int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
-                int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
-                int inputBgColor = isDark ? pc("#1AFFFFFF") : pc("#0D000000");
+                int textColor = tc(activity, "on_surface_strong");
+                int subTextColor = tc(activity, "on_surface_sub");
+                int inputBgColor = tc(activity, "input_bg");
                 int borderColor = adjustAlpha(textColor, 0.3f);
                 int successColor = isDark ? pc("#81C784") : pc("#2E7D32");
                 int errorColor = isDark ? pc("#FF8A80") : pc("#C62828");
-                LinearLayout root = new LinearLayout(activity);
-                root.setOrientation(LinearLayout.VERTICAL);
-                root.setPadding(dp(activity, 16), dp(activity, 20), dp(activity, 16), dp(activity, 16));
-                TextView titleView = new TextView(activity);
-                titleView.setText("代码控制台");
-                titleView.setTextSize(18);
-                titleView.setTypeface(null, Typeface.BOLD);
-                titleView.setTextColor(textColor);
-                titleView.setPadding(0, 0, 0, dp(activity, 12));
+                LinearLayout root = makeDialogRoot(activity);
+                TextView titleView = makeDialogTitle(activity, "代码控制台", 12);
                 root.addView(titleView);
                 final TextView resultView = new TextView(activity);
                 resultView.setText("等待执行...");
@@ -888,15 +842,11 @@ public void showCodeConsoleDialog(Activity activity, Object data) {
                                         }
                                     });
                                     outerInterpreter.set("data", data);
-                                    try {
-                                        outerInterpreter.set("msg", data.getClass().getField("data").get(data));
-                                        outerInterpreter.set("qun", data.getClass().getField("peerUin").get(data));
-                                        outerInterpreter.set("uin", data.getClass().getField("userUin").get(data));
-                                        outerInterpreter.set("type", data.getClass().getField("type").get(data));
-                                        outerInterpreter.set("msgtype", data.getClass().getField("msgType").get(data));
-                                    } catch (Throwable t) {
-                                        traceLog("dialog_log", "[showCodeConsoleDialog] 异常: " + t);
-                                    }
+                                    outerInterpreter.set("msg", fieldGet(data, "data"));
+                                    outerInterpreter.set("qun", fieldGet(data, "peerUin"));
+                                    outerInterpreter.set("uin", fieldGet(data, "userUin"));
+                                    outerInterpreter.set("type", fieldGet(data, "type"));
+                                    outerInterpreter.set("msgtype", fieldGet(data, "msgType"));
                                     outerInterpreter.set("qq", myUin);
                                     Object result = outerInterpreter.eval(code);
                                     String resultStr = result != null ? String.valueOf(result) : "执行成功 (无返回值)";
@@ -954,19 +904,12 @@ public void showExpandedResultDialog(Activity activity, String content, boolean 
     activity.runOnUiThread(new Runnable() {
         public void run() {
             try {
-                int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
-                int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
-                int inputBgColor = isDark ? pc("#1AFFFFFF") : pc("#0D000000");
+                int textColor = tc(activity, "on_surface_strong");
+                int subTextColor = tc(activity, "on_surface_sub");
+                int inputBgColor = tc(activity, "input_bg");
                 int borderColor = adjustAlpha(textColor, 0.3f);
-                LinearLayout root = new LinearLayout(activity);
-                root.setOrientation(LinearLayout.VERTICAL);
-                root.setPadding(dp(activity, 16), dp(activity, 20), dp(activity, 16), dp(activity, 16));
-                TextView titleView = new TextView(activity);
-                titleView.setText("完整内容");
-                titleView.setTextSize(18);
-                titleView.setTypeface(null, Typeface.BOLD);
-                titleView.setTextColor(textColor);
-                titleView.setPadding(0, 0, 0, dp(activity, 12));
+                LinearLayout root = makeDialogRoot(activity);
+                TextView titleView = makeDialogTitle(activity, "完整内容", 12);
                 root.addView(titleView);
                 TextView contentView = new TextView(activity);
                 contentView.setText(content != null ? content : "");
@@ -1025,18 +968,11 @@ public void showTitleDialog(Activity activity, String qun, String uin, String ni
         public void run() {
             try {
                 boolean isDark = isThemeDark(activity);
-                int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
-                int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
+                int textColor = tc(activity, "on_surface_strong");
+                int subTextColor = tc(activity, "on_surface_sub");
                 int borderColor = adjustAlpha(textColor, 0.3f);
-                LinearLayout root = new LinearLayout(activity);
-                root.setOrientation(LinearLayout.VERTICAL);
-                root.setPadding(dp(activity, 16), dp(activity, 20), dp(activity, 16), dp(activity, 16));
-                TextView titleView = new TextView(activity);
-                titleView.setText("设置群头衔");
-                titleView.setTextSize(18);
-                titleView.setTypeface(null, Typeface.BOLD);
-                titleView.setTextColor(textColor);
-                titleView.setPadding(0, 0, 0, dp(activity, 8));
+                LinearLayout root = makeDialogRoot(activity);
+                TextView titleView = makeDialogTitle(activity, "设置群头衔", 8);
                 root.addView(titleView);
                 TextView subView = new TextView(activity);
                 subView.setText(nickName + "(" + uin + ")");
@@ -1097,15 +1033,8 @@ public void showSetAdminDialog(Activity activity, String qun, String uin, String
                 boolean isDark = isThemeDark(activity);
                 int textColor = isDark ? pc("#FFE0E0E0") : pc("#FF202020");
                 int subTextColor = isDark ? pc("#FFA0A0A0") : pc("#FF707070");
-                LinearLayout root = new LinearLayout(activity);
-                root.setOrientation(LinearLayout.VERTICAL);
-                root.setPadding(dp(activity, 16), dp(activity, 20), dp(activity, 16), dp(activity, 16));
-                TextView titleView = new TextView(activity);
-                titleView.setText("设置管理员");
-                titleView.setTextSize(18);
-                titleView.setTypeface(null, Typeface.BOLD);
-                titleView.setTextColor(textColor);
-                titleView.setPadding(0, 0, 0, dp(activity, 8));
+                LinearLayout root = makeDialogRoot(activity);
+                TextView titleView = makeDialogTitle(activity, "设置管理员", 8);
                 root.addView(titleView);
                 TextView sub = new TextView(activity);
                 sub.setText(nickName + "(" + uin + ")");
@@ -1177,18 +1106,11 @@ public void showChangeCardDialog(Activity activity, String qun, String uin, Stri
         public void run() {
             try {
                 boolean isDark = isThemeDark(activity);
-                int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
-                int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
+                int textColor = tc(activity, "on_surface_strong");
+                int subTextColor = tc(activity, "on_surface_sub");
                 int borderColor = adjustAlpha(textColor, 0.3f);
-                LinearLayout root = new LinearLayout(activity);
-                root.setOrientation(LinearLayout.VERTICAL);
-                root.setPadding(dp(activity, 16), dp(activity, 20), dp(activity, 16), dp(activity, 16));
-                TextView titleView = new TextView(activity);
-                titleView.setText("修改群名片");
-                titleView.setTextSize(18);
-                titleView.setTypeface(null, Typeface.BOLD);
-                titleView.setTextColor(textColor);
-                titleView.setPadding(0, 0, 0, dp(activity, 8));
+                LinearLayout root = makeDialogRoot(activity);
+                TextView titleView = makeDialogTitle(activity, "修改群名片", 8);
                 root.addView(titleView);
                 TextView sub = new TextView(activity);
                 sub.setText(nickName + "(" + uin + ")");
@@ -1487,9 +1409,9 @@ void showCopyConfirmDialog(Activity act, String title, String text, boolean isDa
     act.runOnUiThread(new Runnable() {
         public void run() {
             try {
-                int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
-                int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
-                int inputBgColor = isDark ? pc("#1AFFFFFF") : pc("#0D000000");
+                int textColor = tc(activity, "on_surface_strong");
+                int subTextColor = tc(activity, "on_surface_sub");
+                int inputBgColor = tc(activity, "input_bg");
                 int borderColor = adjustAlpha(textColor, 0.3f);
                 LinearLayout root = new LinearLayout(act);
                 root.setOrientation(LinearLayout.VERTICAL);
@@ -1581,15 +1503,8 @@ void showKickConfirmDialog(Activity activity, String qun, String uin, String nic
             try {
                 int textColor = isDark ? pc("#FFE0E0E0") : pc("#FF202020");
                 int subTextColor = isDark ? pc("#FFA0A0A0") : pc("#FF707070");
-                LinearLayout root = new LinearLayout(activity);
-                root.setOrientation(LinearLayout.VERTICAL);
-                root.setPadding(dp(activity, 16), dp(activity, 20), dp(activity, 16), dp(activity, 16));
-                TextView titleView = new TextView(activity);
-                titleView.setText("确认踢出成员");
-                titleView.setTextSize(18);
-                titleView.setTypeface(null, Typeface.BOLD);
-                titleView.setTextColor(textColor);
-                titleView.setPadding(0, 0, 0, dp(activity, 8));
+                LinearLayout root = makeDialogRoot(activity);
+                TextView titleView = makeDialogTitle(activity, "确认踢出成员", 8);
                 root.addView(titleView);
                 TextView sub = new TextView(activity);
                 sub.setText(nickName + "(" + uin + ")\n请选择踢出方式");
@@ -1652,35 +1567,28 @@ void showKickConfirmDialog(Activity activity, String qun, String uin, String nic
 }
 
 void showRawMessageDialog(Object msgData) {
+    Activity activity = safeActivity();
+    if (activity == null) return;
+    String rawText = "获取失败";
     try {
-        String rawText = "获取失败";
-        if (msgData != null) {
-            rawText = prettyPrint(msgData);
-        }
-        showCopyConfirmDialog(getNowActivity(), "原始消息", rawText, isThemeDark(getNowActivity()));
+        if (msgData != null) rawText = prettyPrint(msgData);
     } catch (Throwable e) {
-        showCopyConfirmDialog(getNowActivity(), "原始消息", "获取失败: " + e.getMessage(), isThemeDark(getNowActivity()));
+        rawText = "获取失败: " + e.getMessage();
     }
+    showCopyConfirmDialog(activity, "原始消息", rawText, isThemeDark(activity));
 }
 
 void showAtListDialog(Object atListData) {
-    Activity activity = getNowActivity();
+    Activity activity = safeActivity();
     if (activity == null || activity.isFinishing()) return;
     boolean isDark = isThemeDark(activity);
-    int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
-    int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
+    int textColor = tc(activity, "on_surface_strong");
+    int subTextColor = tc(activity, "on_surface_sub");
     activity.runOnUiThread(new Runnable() {
         public void run() {
             try {
-                LinearLayout root = new LinearLayout(activity);
-                root.setOrientation(LinearLayout.VERTICAL);
-                root.setPadding(dp(activity, 16), dp(activity, 20), dp(activity, 16), dp(activity, 16));
-                TextView titleView = new TextView(activity);
-                titleView.setText("艾特列表");
-                titleView.setTextSize(18);
-                titleView.setTypeface(null, Typeface.BOLD);
-                titleView.setTextColor(textColor);
-                titleView.setPadding(0, 0, 0, dp(activity, 12));
+                LinearLayout root = makeDialogRoot(activity);
+                TextView titleView = makeDialogTitle(activity, "艾特列表", 12);
                 root.addView(titleView);
                 LinearLayout listContainer = new LinearLayout(activity);
                 listContainer.setOrientation(LinearLayout.VERTICAL);
@@ -1790,7 +1698,7 @@ LinearLayout createModernLoading(Activity activity, boolean isDark) {
     TextView loadingText = new TextView(activity);
     loadingText.setText("加载中...");
     loadingText.setTextSize(13);
-    loadingText.setTextColor(isDark ? pc("#99EFEFEF") : pc("#99000000"));
+    loadingText.setTextColor(tc(activity, "on_surface_sub"));
     loadingText.setPadding(0, dp(activity, 12), 0, 0);
     loadingText.setGravity(Gravity.CENTER);
     container.addView(loadingText);
@@ -2057,21 +1965,14 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
     activity.runOnUiThread(new Runnable() {
         public void run() {
             try {
-                int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
-                int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
+                int textColor = tc(activity, "on_surface_strong");
+                int subTextColor = tc(activity, "on_surface_sub");
                 int accentColor = isDark ? pc("#FF8AB4F8") : pc("#FF2196F3");
-                int inputBgColor = isDark ? pc("#1AFFFFFF") : pc("#0D000000");
+                int inputBgColor = tc(activity, "input_bg");
                 int borderColor = adjustAlpha(textColor, 0.3f);
                 ScrollView scrollView = new ScrollView(activity);
-                LinearLayout root = new LinearLayout(activity);
-                root.setOrientation(LinearLayout.VERTICAL);
-                root.setPadding(dp(activity, 16), dp(activity, 20), dp(activity, 16), dp(activity, 16));
-                TextView titleView = new TextView(activity);
-                titleView.setText("Cookie & 请求工具");
-                titleView.setTextSize(18);
-                titleView.setTypeface(null, Typeface.BOLD);
-                titleView.setTextColor(textColor);
-                titleView.setPadding(0, 0, 0, dp(activity, 8));
+                LinearLayout root = makeDialogRoot(activity);
+                TextView titleView = makeDialogTitle(activity, "Cookie & 请求工具", 8);
                 root.addView(titleView);
                 final boolean[]isCkMode = new boolean[] {
                     true
@@ -2211,7 +2112,7 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
                             resultBody.removeAllViews();
                             TextView tv = new TextView(activity);
                             tv.setTextSize(13);
-                            tv.setTextColor(isDark ? pc("#99EFEFEF") : pc("#99000000"));
+                            tv.setTextColor(tc(activity, "on_surface_sub"));
                             tv.setPadding(dp(activity, 8), dp(activity, 8), dp(activity, 8), dp(activity, 8));
                             tv.setTextIsSelectable(true);
                             tv.setText(text);
@@ -2307,7 +2208,7 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
                             TextView contentTv = new TextView(activity);
                             contentTv.setText(baseText);
                             contentTv.setTextSize(13);
-                            contentTv.setTextColor(isDark ? pc("#99EFEFEF") : pc("#99000000"));
+                            contentTv.setTextColor(tc(activity, "on_surface_sub"));
                             contentTv.setPadding(dp(activity, 8), dp(activity, 8), dp(activity, 8), dp(activity, 8));
                             contentTv.setTextIsSelectable(true);
                             resultBody.addView(contentTv);
@@ -2369,7 +2270,7 @@ public void showGetCookieDialog(final Activity activity, final boolean isDark) {
                                                     TextView tv = new TextView(activity);
                                                     tv.setText(display);
                                                     tv.setTextSize(13);
-                                                    tv.setTextColor(isDark ? pc("#99EFEFEF") : pc("#99000000"));
+                                                    tv.setTextColor(tc(activity, "on_surface_sub"));
                                                     tv.setPadding(dp(activity, 8), dp(activity, 8), dp(activity, 8), dp(activity, 8));
                                                     tv.setTextIsSelectable(true);
                                                     resultBody.addView(tv);
@@ -2583,19 +2484,12 @@ public void showExtractAudioDialog(Activity activity, Object data) {
                     public void run() {
                         try {
                             boolean isDark = isThemeDark(activity);
-                            int textColor = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
-                            int subTextColor = isDark ? pc("#99EFEFEF") : pc("#99000000");
-                            int inputBgColor = isDark ? pc("#1AFFFFFF") : pc("#0D000000");
+                            int textColor = tc(activity, "on_surface_strong");
+                            int subTextColor = tc(activity, "on_surface_sub");
+                            int inputBgColor = tc(activity, "input_bg");
                             int borderColor = adjustAlpha(textColor, 0.3f);
-                            LinearLayout root = new LinearLayout(activity);
-                            root.setOrientation(LinearLayout.VERTICAL);
-                            root.setPadding(dp(activity, 16), dp(activity, 20), dp(activity, 16), dp(activity, 16));
-                            TextView titleView = new TextView(activity);
-                            titleView.setText("提取音频");
-                            titleView.setTextSize(18);
-                            titleView.setTypeface(null, Typeface.BOLD);
-                            titleView.setTextColor(textColor);
-                            titleView.setPadding(0, 0, 0, dp(activity, 12));
+                            LinearLayout root = makeDialogRoot(activity);
+                            TextView titleView = makeDialogTitle(activity, "提取音频", 12);
                             root.addView(titleView);
                             TextView urlView = new TextView(activity);
                             urlView.setText(finalUrl.isEmpty() ? "未检测到音频链接" : finalUrl);
@@ -4514,7 +4408,7 @@ public void ts(Activity activity, String title, String content) {
             textView.setSingleLine(false);
             textView.setMaxLines(Integer.MAX_VALUE);
             textView.setEllipsize(null);
-            textView.setTextColor(isDark ? pc("#FFEFEFEF") : pc("#FF000000"));
+            textView.setTextColor(tc(activity, "on_surface_strong"));
             try {
                 if (!finalContent.isEmpty()) {
                     SpannableStringBuilder ssb = new SpannableStringBuilder();
@@ -4719,8 +4613,8 @@ void showGroupSelector(final Activity act, final int mode, final List initSelect
     try {
         final boolean isDark = isThemeDark(act);
         final int colorAccent = isDark ? pc("#FF8AB4F8") : pc("#FF2196F3");
-        final int colorOnSurface = isDark ? pc("#FFEFEFEF") : pc("#FF000000");
-        final int colorOnSurfaceVar = isDark ? pc("#99EFEFEF") : pc("#99000000");
+        final int colorOnSurface = tc(activity, "on_surface_strong");
+        final int colorOnSurfaceVar = tc(activity, "on_surface_sub");
         LinearLayout root = new LinearLayout(act);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(act, 24), dp(act, 24), dp(act, 24), dp(act, 24));
