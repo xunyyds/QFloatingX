@@ -338,7 +338,7 @@ public class PacketHelper {
 }
 
 void showPBSenderDialog() {
-    Activity act = getNowActivity();
+    Activity act = safeActivity();
     if (act == null) return;
     
     act.runOnUiThread(() -> {
@@ -788,7 +788,7 @@ private List parseFaceConfig(String cfg) {
 }
 
 void showFaceReplyConfigDialog(Object data) {
-    Activity act = getNowActivity();
+    Activity act = safeActivity();
     if (act == null || act.isFinishing()) return;
 
     String nick = (data.data != null && data.data.sendNickName != null)
@@ -1042,7 +1042,7 @@ void showFaceReplyConfigDialog(Object data) {
 }
 
 void showVoiceSendDialog(Object data) {
-    Activity act = getNowActivity();
+    Activity act = safeActivity();
     if (act == null || act.isFinishing()) return;
 
     
@@ -1374,7 +1374,7 @@ void showTrafficRedPacketDialog(Object data) {
         qqToast(1, "无法获取群号");
         return;
     }
-    Activity act = getNowActivity();
+    Activity act = safeActivity();
     if (act == null) return;
     act.runOnUiThread(new Runnable() {
         public void run() {
@@ -1784,7 +1784,7 @@ void sendSuperFacePB(Object data, String faceName) {
     } catch (Throwable e) { traceLog("api9_log", "[sendSuperFacePB] 异常: " + e); }
 }
 void showSuperFaceSendDialog(Object data) {
-    Activity act = getNowActivity();
+    Activity act = safeActivity();
     String savedFaceName = getString("config", "super_face_display_name", "");
     act?.runOnUiThread(new Runnable() {
         public void run() {

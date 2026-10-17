@@ -250,7 +250,7 @@ Activity getSettingsCurrentActivity() {
     if (ref instanceof SettingsActivity && !ref.isFinishing()) {
         return ref;
     }
-    Activity activity = getNowActivity();
+    Activity activity = safeActivity();
     if (activity != null) {
         return activity;
     }
@@ -291,6 +291,9 @@ String resolveSettingsThemeColor(Activity activity, String colorName) {
         case "surface_variant": return isDarkTheme ? "#FF303030" : "#FFE8E8E8";
         case "background": return hasCustomBg ? customBg : (isDarkTheme ? "#FF000000" : "#FFFFFFFF");
         case "on_surface": return hasCustomText ? customText : autoTextColor;
+        case "on_surface_strong": return isDarkTheme ? "#FFEFEFEF" : "#FF000000";
+        case "on_surface_sub": return isDarkTheme ? "#99EFEFEF" : "#99000000";
+        case "input_bg": return isDarkTheme ? "#1AFFFFFF" : "#0D000000";
         case "on_surface_variant": return isDarkTheme ? "#99FFFFFF" : "#99000000";
         case "primary": return isDarkTheme ? "#FF8AB4F8" : "#FF2196F3";
         case "primary_container": return isDarkTheme ? "#1A8AB4F8" : "#1A2196F3";
@@ -792,12 +795,6 @@ void addSettingsItemSwitchWithKey(String itemName, String configName, String key
 
 	container.addView(itemWrapper);
 }
-void addSettingsSwitchItem(String itemName, String descriptionText, String keyName, boolean currentValue, final Runnable onChangeCallback) {
-	addSettingsItemSwitchWithKey(itemName, "settings", keyName, descriptionText, currentValue, onChangeCallback);
-}
-void addSettingsInputItem(String itemName, String descriptionText, String keyName, String hintText, String defaultValue, final Runnable onValueChanged) {
-    addSettingsInputItemWithConfig(itemName, descriptionText, "settings", keyName, hintText, defaultValue, false, false, onValueChanged);
-}
 void addSettingsInputItemWithConfig(String itemName, String descriptionText, final String configName, final String keyName, String hintText, String defaultValue, boolean multiLine, boolean numeric, final Runnable onValueChanged) {
     String itemKey = settingsAutoItemKey(itemName);
     if (SettingsState.settingsIndexMode) { registerSettingsIndexEntry(itemKey, itemName, descriptionText, "input"); return; }
@@ -1057,7 +1054,7 @@ void buildLevel2MenuContent(Activity activity, String level1Title) {
             boolean on = getBoolean("settings", "开关", false);
             try {
                 if (on) 启动悬浮窗(act);
-                else 停止悬浮窗(act);
+                else 停止悬浮窗();
                 applyFloatWindowMenuText();
             } catch (Throwable e) { traceLog("setwindow_log", "[快捷开关悬浮窗] 异常: " + e); }
         }});
@@ -1140,7 +1137,7 @@ void buildLevel2MenuContent(Activity activity, String level1Title) {
         addSettingsSubPageEntry("界面与显示", "字体样式", "字体风格、大小、颜色", "item_font_style", "字体样式");
 
         addSettingsCategory("首页", "");
-        addSettingsInputItem( "欢迎语", "首页顶部显示的文字，留空则显示「欢迎使用」", "welcome_text", "如: 欢迎使用", "欢迎使用", new Runnable() { public void run() {
+        addSettingsInputItemWithConfig("欢迎语", "首页顶部显示的文字，留空则显示「欢迎使用」", "settings", "welcome_text", "如: 欢迎使用", "欢迎使用", false, false, new Runnable() { public void run() {
             if (SettingsState.settingsWelcomeView != null) {
                 String wt = getString("settings", "welcome_text", "欢迎使用");
                 if (wt == null || wt.trim().isEmpty()) wt = "欢迎使用";
@@ -1315,9 +1312,9 @@ void buildBasicModePage(Activity activity) {
         addSettingsValueSliderItem( "自定义 DPI", "范围 160-640，越大显示越大", "ui_dialog_custom_dpi", "如 320", 160, 640, 320, false, "ui_dialog_dpi_mode", "自定义 %d dpi");
     }
     boolean vibrationFeedbackState = getBoolean("settings", "振动反馈", false);
-    addSettingsSwitchItem( "振动反馈", null, "振动反馈", vibrationFeedbackState, null);
+    addSettingsItemSwitchWithKey("振动反馈", "settings", "振动反馈", null, vibrationFeedbackState, null);
     boolean bgBlurState = getBoolean("settings", "背景模糊", false);
-    addSettingsSwitchItem( "背景模糊", "系统模糊窗体后方内容(Android 12+)", "背景模糊", bgBlurState, null);
+    addSettingsItemSwitchWithKey("背景模糊", "settings", "背景模糊", "系统模糊窗体后方内容(Android 12+)", bgBlurState, null);
     addSettingsItemClickWithKey( "弹窗圆角", ("当前 " + getUiCornerDp() + "dp"), new Runnable() { public void run() {
         Activity act = getSettingsCurrentActivity();
         if (act != null) showUiCornerPicker(act);
@@ -1404,8 +1401,8 @@ void buildBackgroundStylePage(Activity activity) {
             });
             Toast("选择后自动居中裁剪应用");
         }});
-        addSettingsInputItem( "图片模糊 (0-25)", "0为不模糊", "ui_img_blur", "0-25", "0", null);
-        addSettingsInputItem( "遮罩浓度 (0-255)", "越大越暗", "ui_img_alpha", "0-255", isDark ? "180" : "100", null);
+        addSettingsInputItemWithConfig("图片模糊 (0-25)", "0为不模糊", "settings", "ui_img_blur", "0-25", "0", false, false, null);
+        addSettingsInputItemWithConfig("遮罩浓度 (0-255)", "越大越暗", "settings", "ui_img_alpha", "0-255", isDark ? "180" : "100", false, false, null);
     }
 }
 void buildFontStylePage(Activity activity) {
@@ -1472,7 +1469,7 @@ void buildToastStylePage(Activity activity) {
             });
         }});
     }
-    addSettingsInputItem( "弹出时长(ms)", "500-10000", "toast_duration", "2000", "2000", null);
+    addSettingsInputItemWithConfig("弹出时长(ms)", "500-10000", "settings", "toast_duration", "2000", "2000", false, false, null);
 
     addSettingsCategory("Toast位置", null);
     addSettingsItemChoiceWithKey( "弹出位置", "toast_pos", (("top".equals(getString("settings", "toast_pos", "bottom")) ? "顶部" : "center".equals(getString("settings", "toast_pos", "bottom")) ? "居中" : "custom".equals(getString("settings", "toast_pos", "bottom")) ? "自定义" : "底部")), new Runnable() { public void run() {
@@ -1501,7 +1498,7 @@ void buildToastStylePage(Activity activity) {
             });
         }});
         boolean adaptiveOn = getBoolean("settings", "toast_adaptive", false);
-        addSettingsSwitchItem( "自适应", "开：气泡贴合内容+框内位置；关：气泡撑满框+文字填充", "toast_adaptive", adaptiveOn, new Runnable() { public void run() {
+        addSettingsItemSwitchWithKey("自适应", "settings", "toast_adaptive", "开：气泡贴合内容+框内位置；关：气泡撑满框+文字填充", adaptiveOn, new Runnable() { public void run() {
 refreshCurrentSettingsPage();
         }});
         addSettingsItemChoiceWithKey( "气泡在框内位置", "toast_box_gravity", (("left".equals(getString("settings", "toast_box_gravity", "center")) ? "靠左" : "right".equals(getString("settings", "toast_box_gravity", "center")) ? "靠右" : "top".equals(getString("settings", "toast_box_gravity", "center")) ? "靠上" : "bottom".equals(getString("settings", "toast_box_gravity", "center")) ? "靠下" : "top_left".equals(getString("settings", "toast_box_gravity", "center")) ? "左上" : "top_right".equals(getString("settings", "toast_box_gravity", "center")) ? "右上" : "bottom_left".equals(getString("settings", "toast_box_gravity", "center")) ? "左下" : "bottom_right".equals(getString("settings", "toast_box_gravity", "center")) ? "右下" : "居中")), new Runnable() { public void run() {
@@ -1515,8 +1512,8 @@ refreshCurrentSettingsPage();
     }
 
     addSettingsCategory("Toast文字", null);
-    addSettingsInputItem( "前缀", "显示在文字前", "toast_prefix", "可留空", "", null);
-    addSettingsInputItem( "后缀", "显示在文字后", "toast_suffix", "可留空", "", null);
+    addSettingsInputItemWithConfig("前缀", "显示在文字前", "settings", "toast_prefix", "可留空", "", false, false, null);
+    addSettingsInputItemWithConfig("后缀", "显示在文字后", "settings", "toast_suffix", "可留空", "", false, false, null);
     addSettingsItemClickWithKey( "测试Toast", "预览当前配置", new Runnable() { public void run() {
         Toast("这是一条测试 Toast");
     }});
@@ -1529,8 +1526,8 @@ void buildThreadPoolPage(Activity activity) {
             showThreadPriorityChoiceDialog(act);
         }
     }});
-    addSettingsInputItem( "任务队列容量", "默认50", "thread_pool_queue_capacity", "数字", "50", null);
-    addSettingsInputItem( "核心线程存活(秒)", "默认30", "thread_pool_keep_alive", "秒数", "30", null);
+    addSettingsInputItemWithConfig("任务队列容量", "默认50", "settings", "thread_pool_queue_capacity", "数字", "50", false, false, null);
+    addSettingsInputItemWithConfig("核心线程存活(秒)", "默认30", "settings", "thread_pool_keep_alive", "秒数", "30", false, false, null);
     addSettingsItemChoiceWithKey( "任务满载策略", "thread_pool_reject_policy", (("1".equals(getString("settings", "thread_pool_reject_policy", "0")) ? "丢弃最新任务" : "2".equals(getString("settings", "thread_pool_reject_policy", "0")) ? "抛出异常" : "3".equals(getString("settings", "thread_pool_reject_policy", "0")) ? "调用者执行" : "丢弃最旧任务 (默认)")), new Runnable() { public void run() {
         Activity act = getSettingsCurrentActivity();
         if (act != null) {
@@ -1552,11 +1549,11 @@ void buildFloatingWindowPage(Activity activity) {
         });
         Toast("选择后将自动保存并刷新");
     }});
-    addSettingsInputItem( "悬浮窗大小", "默认48", "悬浮窗大小", "dp", "48", null);
-    addSettingsInputItem( "关闭图标大小", "默认24", "关闭区域图标大小", "dp", "24", null);
-    addSettingsInputItem( "拖拽灵敏度", "数值越小越灵敏", "拖拽灵敏度", "数字", "12", null);
-    addSettingsInputItem( "长按关闭阈值", "默认650ms", "长按关闭阈值", "毫秒", "650", null);
-    addSettingsInputItem( "图标透明度", "0-255", "iconAlpha", "0-255", "255", null);
+    addSettingsInputItemWithConfig("悬浮窗大小", "默认48", "settings", "悬浮窗大小", "dp", "48", false, false, null);
+    addSettingsInputItemWithConfig("关闭图标大小", "默认24", "settings", "关闭区域图标大小", "dp", "24", false, false, null);
+    addSettingsInputItemWithConfig("拖拽灵敏度", "数值越小越灵敏", "settings", "拖拽灵敏度", "数字", "12", false, false, null);
+    addSettingsInputItemWithConfig("长按关闭阈值", "默认650ms", "settings", "长按关闭阈值", "毫秒", "650", false, false, null);
+    addSettingsInputItemWithConfig("图标透明度", "0-255", "settings", "iconAlpha", "0-255", "255", false, false, null);
 
     String iconPath = getString("settings", "iconPath", "");
     boolean isAnimatedIcon = iconPath != null && iconPath.toLowerCase().endsWith(".gif");
@@ -1576,7 +1573,7 @@ void buildRevokeMarkPage(Activity activity) {
     else if (!timeOn) markDesc = "当前状态不可用，请先打开「显示消息时间」开关";
     else if (!revokeOn) markDesc = "当前状态不可用，请先打开「防撤回」开关";
     addSettingsItemSwitchWithKey("已撤回标记", "settings", "revoke_mark", markDesc, getBoolean("settings", "revoke_mark", false), null);
-    addSettingsInputItem( "标记文本", "默认「已撤回」，追加在消息时间后面", "revoke_mark_text", "如: 已撤回", "已撤回", null);
+    addSettingsInputItemWithConfig("标记文本", "默认「已撤回」，追加在消息时间后面", "settings", "revoke_mark_text", "如: 已撤回", "已撤回", false, false, null);
     addSettingsItemChoiceWithKey( "标记位置", "revoke_mark_pos", ("top".equals(getString("settings", "revoke_mark_pos", "bottom")) ? "气泡上方" : "气泡下方"), new Runnable() { public void run() {
         Activity act = getSettingsCurrentActivity();
         if (act == null) return;
@@ -1604,7 +1601,6 @@ void buildRevokeMarkPage(Activity activity) {
         });
     }});
 
-    // 预览：直接画在本页（模拟气泡 + 时间+标记，随文本/位置/颜色实时重建）
     LinearLayout pvBox = settingsCurrentCategoryContainer();
     if (pvBox != null) {
         TextView pvLabel = new TextView(activity);
@@ -1663,7 +1659,7 @@ void buildDebugPage(Activity activity) {
         }
     }});
     String logThreshold = getString("settings", "log_delete_threshold", "1");
-    addSettingsInputItem( "日志大小阈值(MB)", "日志文件夹超过此大小自动清理", "log_delete_threshold", "如: 1", logThreshold, null);
+    addSettingsInputItemWithConfig("日志大小阈值(MB)", "日志文件夹超过此大小自动清理", "settings", "log_delete_threshold", "如: 1", logThreshold, false, false, null);
 }
 void addSettingsCategoryEntry(String cardIcon, String cardTitle, String cardDesc, final String targetCategory) {
     if (targetCategory == null) return;
@@ -1889,7 +1885,7 @@ void buildStatsSettingsView(Activity activity) {
     }
 
     addSettingsCategory("每日目标", "");
-    addSettingsInputItem("每日消息目标", "默认 100", "msg_stats_daily_target", "如: 100", "100", null);
+    addSettingsInputItemWithConfig("每日消息目标", "默认 100", "settings", "msg_stats_daily_target", "如: 100", "100", false, false, null);
 
     addSettingsCategory("数据操作", "");
     addSettingsItemClickWithKey("重置今日数据", "清空今日所有统计", new Runnable() {
@@ -1966,16 +1962,12 @@ public void refreshStatsBoardOnReturn() {
         return;
     }
     try {
-        java.lang.reflect.Field l2Field = topObj.getClass().getDeclaredField("level2");
-        l2Field.setAccessible(true);
-        Object l2 = l2Field.get(topObj);
+        Object l2 = fieldGet(topObj, "level2");
         if (!"消息统计".equals(l2)) {
             unbindStatsViewCache();
             return;
         }
-        java.lang.reflect.Field pvField = topObj.getClass().getDeclaredField("pageView");
-        pvField.setAccessible(true);
-        Object pvObj = pvField.get(topObj);
+        Object pvObj = fieldGet(topObj, "pageView");
         if (!(pvObj instanceof LinearLayout)) {
             unbindStatsViewCache();
             return;
@@ -5438,12 +5430,7 @@ void startSettingsBackupExport(final Activity activity) {
 void ensureSettingsBackupExportHook() {
     if (qfxSettingsBackupExportHooked) return;
     try {
-        java.lang.reflect.Method[] methods = Activity.class.getDeclaredMethods();
-        int hooked = 0;
-        for (int i = 0; i < methods.length; i++) {
-            if (!"dispatchActivityResult".equals(methods[i].getName())) continue;
-            try {
-                XposedBridge.hookMethod(methods[i], new XC_MethodHook() {
+        int hooked = hookAll("settings_backup", Activity.class, "dispatchActivityResult", new XC_MethodHook() {
                     protected void afterHookedMethod(final XC_MethodHook.MethodHookParam param) throws Throwable {
                         try {
                             if (param.args == null || param.args.length < 4 || !(param.args[1] instanceof Integer) || !(param.args[2] instanceof Integer)) return;
@@ -5485,11 +5472,6 @@ void ensureSettingsBackupExportHook() {
                         }
                     }
                 });
-                hooked++;
-            } catch (Throwable e) {
-                traceLog("setwindow_log", "[配置备份] 注册结果回调失败: " + e);
-            }
-        }
         qfxSettingsBackupExportHooked = hooked > 0;
         traceLog("setwindow_log", "[配置备份] 结果回调注册数: " + hooked);
     } catch (Throwable e) {

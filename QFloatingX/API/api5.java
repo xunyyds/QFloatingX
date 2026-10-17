@@ -12,22 +12,19 @@ private final long[] rkeyCacheTime = new long[]{0L, 0L};
 
 Object trGetOcrHandler() {
     try {
-        Class handlerClass = ClassUtils.INSTANCE.getModuleClassLoader()
-            .loadClass("com.tencent.mobileqq.ocr.api.impl.OCRHandler");
-        try {
-        } catch (Throwable ignore) {}
         if (app == null) {
             try {
-                Object mobileQQ = Class.forName("mqq.app.MobileQQ").getField("sMobileQQ").get(null);
-                app = mobileQQ.getClass()
-                    .getMethod("waitAppRuntime", Class.forName("mqq.app.BaseActivity"))
-                    .invoke(mobileQQ, new Object[]{null});
+                Class mobileQQCls = Class.forName("mqq.app.MobileQQ");
+                Object mobileQQ = fieldGet(mobileQQCls, "sMobileQQ");
+                if (mobileQQ != null) {
+                    app = invokeCached(mobileQQ, "waitAppRuntime",
+                        new Class[]{Class.forName("mqq.app.BaseActivity")}, new Object[]{null});
+                }
             } catch (Throwable ignore) {}
         }
         if (app == null) return null;
-        java.lang.reflect.Method m = app.getClass().getMethod("getBusinessHandler", String.class);
-        m.setAccessible(true);
-        return m.invoke(app, "com.tencent.mobileqq.ocr.api.impl.OCRHandler");
+        return invokeCached(app, "getBusinessHandler", new Class[]{String.class},
+            new Object[]{"com.tencent.mobileqq.ocr.api.impl.OCRHandler"});
     } catch (Throwable t) {
         traceLog("api5_log", "[翻译] 获取OCRHandler失败: " + t);
         return null;
@@ -687,10 +684,14 @@ void trStartRequest(final Object handler, final String text, final String from, 
         final Class handlerClass = handler.getClass();
         ClassLoader cl = ClassUtils.INSTANCE.getModuleClassLoader();
         Class bhCls = cl.loadClass("com.tencent.mobileqq.app.BusinessHandler");
-        final Method nu = bhCls.getMethod("notifyUI", new Class[]{int.class, boolean.class, Object.class});
-        nu.setAccessible(true);
+        final Method nu = getCachedMethod(bhCls, "notifyUI", new Class[]{int.class, boolean.class, Object.class});
+        if (nu == null) {
+            busy[0] = false;
+            statusView.setText("QQ 翻译服务暂不可用");
+            return;
+        }
 
-        final Object[] unhookRef = new Object[1];
+        final String trHookTag = "api5_translate";
 
         XC_MethodHook hook = new XC_MethodHook() {
             protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) {
@@ -698,6 +699,7 @@ void trStartRequest(final Object handler, final String text, final String from, 
                     Object thisObj = param.thisObject;
                     if (thisObj == null) return;
                     if (thisObj.getClass().getName().indexOf("OCRHandler") < 0) return;
+                    if (param.args == null || param.args.length < 3) return;
 
                     int type = ((Integer) param.args[0]).intValue();
                     if (type != 2) return;
@@ -712,41 +714,27 @@ void trStartRequest(final Object handler, final String text, final String from, 
                         Object[] arr = (Object[]) data;
                         Object result = arr.length > 1 ? arr[1] : (arr.length > 0 ? arr[0] : null);
                         if (result != null) {
-                            Class rc = result.getClass();
-                            try {
-                                java.lang.reflect.Field errField = rc.getDeclaredField("o");
-                                errField.setAccessible(true);
-                                Object errValue = errField.get(result);
-                                if (errValue != null && !"0".equals(errValue.toString())) {
-                                    java.lang.reflect.Field msgField = rc.getDeclaredField("p");
-                                    msgField.setAccessible(true);
-                                    Object msgValue = msgField.get(result);
-                                    error = msgValue == null ? ("翻译失败(" + errValue + ")") : msgValue.toString();
-                                }
-                            } catch (Throwable ignored) {}
+                            Object errValue = fieldGet(result, "o");
+                            if (errValue != null && !"0".equals(errValue.toString())) {
+                                Object msgValue = fieldGet(result, "p");
+                                error = msgValue == null ? ("翻译失败(" + errValue + ")") : msgValue.toString();
+                            }
 
-                            try {
-                                java.lang.reflect.Field listField = rc.getDeclaredField("h");
-                                listField.setAccessible(true);
-                                Object listObj = listField.get(result);
-                                if (listObj instanceof java.util.List) {
-                                    java.util.List records = (java.util.List) listObj;
-                                    StringBuffer sb = new StringBuffer();
-                                    for (int i = 0; i < records.size(); i++) {
-                                        Object record = records.get(i);
-                                        if (record == null) continue;
-                                        Class rr = record.getClass();
-                                        java.lang.reflect.Field valueField = rr.getDeclaredField("e");
-                                        valueField.setAccessible(true);
-                                        Object value = valueField.get(record);
-                                        if (value != null) {
-                                            if (sb.length() > 0) sb.append("\n");
-                                            sb.append(value.toString());
-                                        }
+                            Object listObj = fieldGet(result, "h");
+                            if (listObj instanceof java.util.List) {
+                                java.util.List records = (java.util.List) listObj;
+                                StringBuffer sb = new StringBuffer();
+                                for (int i = 0; i < records.size(); i++) {
+                                    Object record = records.get(i);
+                                    if (record == null) continue;
+                                    Object value = fieldGet(record, "e");
+                                    if (value != null) {
+                                        if (sb.length() > 0) sb.append("\n");
+                                        sb.append(value.toString());
                                     }
-                                    if (sb.length() > 0) translated = sb.toString();
                                 }
-                            } catch (Throwable ignored) {}
+                                if (sb.length() > 0) translated = sb.toString();
+                            }
                         }
                     }
 
@@ -756,9 +744,7 @@ void trStartRequest(final Object handler, final String text, final String from, 
                     final String finalError = error;
 
                     try {
-                        if (unhookRef[0] != null) ((XC_MethodHook.Unhook) unhookRef[0]).unhook();
-                        hookloveList.remove(unhookRef[0]);
-                        unhookRef[0] = null;
+                        unhook(trHookTag);
                     } catch (Throwable ignored) {}
 
                     uiHandler.post(new Runnable() {
@@ -784,21 +770,24 @@ void trStartRequest(final Object handler, final String text, final String from, 
             }
         };
 
-        unhookRef[0] = XposedBridge.hookMethod(nu, hook);
-        hookloveList.add(unhookRef[0]);
+        hook(trHookTag, nu, hook);
 
-        Method batch = handlerClass.getMethod("batchTranslate", new Class[]{String.class, String.class, String.class});
+        Method batch = getCachedMethod(handlerClass, "batchTranslate", new Class[]{String.class, String.class, String.class});
+        if (batch == null) {
+            busy[0] = false;
+            statusView.setText("当前 QQ 版本不支持翻译");
+            unhook(trHookTag);
+            return;
+        }
         batch.invoke(handler, new Object[]{text, from, to});
 
         uiHandler.postDelayed(new Runnable() {
             public void run() {
-                if (unhookRef[0] != null && busy[0]) {
+                if (busy[0]) {
                     busy[0] = false;
                     statusView.setText("翻译超时");
                     try {
-                        ((XC_MethodHook.Unhook) unhookRef[0]).unhook();
-                        hookloveList.remove(unhookRef[0]);
-                        unhookRef[0] = null;
+                        unhook(trHookTag);
                     } catch (Throwable ignored) {}
                 }
             }
@@ -874,9 +863,7 @@ void showTranslateDialog(final Activity activity, final MsgData msgData) {
     try {
         Class configClass = ClassUtils.INSTANCE.getModuleClassLoader()
             .loadClass("com.tencent.mobileqq.ocr.data.OcrConfig");
-        java.lang.reflect.Field namesField = configClass.getDeclaredField("d");
-        namesField.setAccessible(true);
-        Object namesObj = namesField.get(null);
+        Object namesObj = fieldGet(configClass, "d");
         java.util.LinkedHashSet codeSet = new java.util.LinkedHashSet();
         if (namesObj instanceof java.util.Map) {
             java.util.Map names = (java.util.Map) namesObj;
@@ -889,7 +876,6 @@ void showTranslateDialog(final Activity activity, final MsgData msgData) {
         java.util.ArrayList codes = new java.util.ArrayList(codeSet);
         java.util.Collections.sort(codes);
         if (codes.remove("zh")) codes.add(0, "zh");
-        java.lang.reflect.Method getName = configClass.getDeclaredMethod("getDefaultLanguageName", new Class[]{String.class});
         java.util.HashSet seenCode = new java.util.HashSet();
         java.util.HashSet seenName = new java.util.HashSet();
         seenCode.add("auto");
@@ -899,10 +885,8 @@ void showTranslateDialog(final Activity activity, final MsgData msgData) {
             String code = codes.get(i).toString();
             if (seenCode.contains(code)) continue;
             String name = code;
-            try {
-                Object v = getName.invoke(null, new Object[]{code});
-                if (v != null && !v.toString().trim().isEmpty()) name = v.toString();
-            } catch (Throwable ignored) {}
+            Object v = invokeCached(configClass, "getDefaultLanguageName", new Class[]{String.class}, new Object[]{code});
+            if (v != null && !v.toString().trim().isEmpty()) name = v.toString();
             if (seenName.contains(name)) continue;
             seenCode.add(code);
             seenName.add(name);
@@ -998,8 +982,8 @@ void showTranslateDialog(final Activity activity, final MsgData msgData) {
             try {
                 Class configClass = ClassUtils.INSTANCE.getModuleClassLoader()
                     .loadClass("com.tencent.mobileqq.ocr.data.OcrConfig");
-                java.lang.reflect.Method method = configClass.getDeclaredMethod("getDefaultSupportLanguages", new Class[]{String.class});
-                Object result = method.invoke(null, new Object[]{("auto".equals(srcCode) ? "zh" : srcCode)});
+                Object result = invokeCached(configClass, "getDefaultSupportLanguages",
+                    new Class[]{String.class}, new Object[]{("auto".equals(srcCode) ? "zh" : srcCode)});
                 if (result instanceof java.util.List) {
                     java.util.List list = (java.util.List) result;
                     java.util.HashSet seen = new java.util.HashSet();
@@ -1167,8 +1151,8 @@ void showTranslateDialog(final Activity activity, final MsgData msgData) {
                 try {
                     Class configClass = ClassUtils.INSTANCE.getModuleClassLoader()
                         .loadClass("com.tencent.mobileqq.ocr.data.OcrConfig");
-                    java.lang.reflect.Method method = configClass.getDeclaredMethod("getDefaultSupportLanguages", new Class[]{String.class});
-                    Object result = method.invoke(null, new Object[]{tgtCode});
+                    Object result = invokeCached(configClass, "getDefaultSupportLanguages",
+                        new Class[]{String.class}, new Object[]{tgtCode});
                     if (result instanceof java.util.List) {
                         java.util.List list = (java.util.List) result;
                         for (int i = 0; i < list.size(); i++) {
@@ -1796,21 +1780,8 @@ void showRepeatCountDialog(final Activity activity, final MsgData data, final St
 }
 
 void initdoublemsg() {
-    Class[] sig9 = new Class[]{Context.class, IBinder.class, IBinder.class, Activity.class, Intent.class, int.class, Bundle.class, int.class, int.class};
-    Class[] sig8 = new Class[]{Context.class, IBinder.class, IBinder.class, Activity.class, Intent.class, int.class, Bundle.class, int.class};
-    Class[] sig7 = new Class[]{Context.class, IBinder.class, IBinder.class, Activity.class, Intent.class, int.class, Bundle.class};
-    Method execStartActivity = getCachedMethod(Instrumentation.class, "execStartActivity", sig9);
-    if (execStartActivity == null) execStartActivity = getCachedMethod(Instrumentation.class, "execStartActivity", sig8);
-    if (execStartActivity == null) execStartActivity = getCachedMethod(Instrumentation.class, "execStartActivity", sig7);
-    if (execStartActivity == null) {
-        traceLog("api5_log", "[initdoublemsg] 安装失败: execStartActivity方法未找到");
-        Activity failAct = getNowActivity();
-        if (failAct == null) failAct = 最后Activity;
-        showApiProtectGuide(failAct);
-        return;
-    }
     try {
-        hookloveList.add(XposedBridge.hookMethod(execStartActivity, new XC_MethodHook() {
+        int hooked = hookAll("double_msg", Instrumentation.class, "execStartActivity", new XC_MethodHook() {
             protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) {
                 if (!getBoolean("settings", "双击消息开关", false)) return;
                 if (isReplayingClick) return;
@@ -1874,12 +1845,14 @@ void initdoublemsg() {
                     }
                 });
             }
-        }));
+        });
+        if (hooked == 0) {
+            traceLog("api5_log", "[initdoublemsg] 安装失败: execStartActivity方法未找到");
+            showApiProtectGuide(safeActivity());
+        }
     } catch (Throwable t) {
         traceLog("api5_log", "[initdoublemsg] 安装失败: " + t.getMessage());
-        Activity failAct = getNowActivity();
-        if (failAct == null) failAct = 最后Activity;
-        showApiProtectGuide(failAct);
+        showApiProtectGuide(safeActivity());
     }
 }
 

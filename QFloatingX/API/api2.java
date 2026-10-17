@@ -7,8 +7,7 @@ private volatile boolean locationGetterHooked = false;
 private volatile boolean locationDispatchRunning = false;
 
 public void 模拟定位开关() {
-    Activity activity = getNowActivity();
-    if (activity == null) activity = 最后Activity;
+    Activity activity = safeActivity();
     if (activity == null) return;
     boolean state = !getBoolean("模拟定位开关", "模拟定位开关", false);
     putBoolean("模拟定位开关", "模拟定位开关", state);
@@ -64,7 +63,6 @@ private Location createFreshLocation(String provider) {
 }
 
 private void dispatchLocationToListener(final LocationListener listener, final Location loc) {
-    Object dispatcher = listenerDispatchers.get(listener);
     final String p = loc.getProvider() != null ? loc.getProvider() : LocationManager.GPS_PROVIDER;
     Runnable r = new Runnable() {
         public void run() {
@@ -72,93 +70,40 @@ private void dispatchLocationToListener(final LocationListener listener, final L
             try { listener.onLocationChanged(loc); } catch (Throwable t) {}
         }
     };
-    if (dispatcher instanceof Handler) ((Handler) dispatcher).post(r);
-    else if (dispatcher instanceof java.util.concurrent.Executor) ((java.util.concurrent.Executor) dispatcher).execute(r);
-    else new Handler(Looper.getMainLooper()).post(r);
+    postToDispatcher(listenerDispatchers.get(listener), r);
 }
 
-private Method findMethodByCount(Class cls, String name, int paramCount) {
-    try {
-        Method[] methods = cls.getDeclaredMethods();
-        for (int i = 0; i < methods.length; i++) {
-            if (methods[i].getName().equals(name) && methods[i].getParameterTypes().length == paramCount) return methods[i];
-        }
-    } catch (Throwable e) {}
-    try {
-        Method[] methods = cls.getMethods();
-        for (int i = 0; i < methods.length; i++) {
-            if (methods[i].getName().equals(name) && methods[i].getParameterTypes().length == paramCount) return methods[i];
-        }
-    } catch (Throwable e) {}
-    return null;
-}
+String[] MOCK_GETTERS = {"getLatitude", "getLongitude", "getAccuracy", "getTime", "getSpeed", "getBearing", "isFromMockProvider", "isMock"};
 
 private boolean hookLocationGetters() {
     if (locationGetterHooked) return true;
     locationGetterHooked = true;
-    Method[] methods;
-    try { methods = Location.class.getDeclaredMethods(); } catch (Throwable e) { locationGetterHooked = false; return false; }
     boolean any = false;
-    for (int i = 0; i < methods.length; i++) {
-        final Method m = methods[i];
-        final String mn = m.getName();
-        if (m.getParameterTypes().length != 0) continue;
-        try {
-            m.setAccessible(true);
-            if ("getLatitude".equals(mn)) {
-                hook("mock_location", m, new XC_MethodHook() {
-                    protected void afterHookedMethod(MethodHookParam param) {
-                        if (param.thisObject == fakeLocation) return;
-                        param.setResult(fakeLocation.getLatitude());
-                    }
-                });
-                any = true;
-            } else if ("getLongitude".equals(mn)) {
-                hook("mock_location", m, new XC_MethodHook() {
-                    protected void afterHookedMethod(MethodHookParam param) {
-                        if (param.thisObject == fakeLocation) return;
-                        param.setResult(fakeLocation.getLongitude());
-                    }
-                });
-            } else if ("getAccuracy".equals(mn)) {
-                hook("mock_location", m, new XC_MethodHook() {
-                    protected void afterHookedMethod(MethodHookParam param) {
-                        if (param.thisObject == fakeLocation) return;
-                        param.setResult(10f);
-                    }
-                });
-            } else if ("getTime".equals(mn)) {
-                hook("mock_location", m, new XC_MethodHook() {
-                    protected void afterHookedMethod(MethodHookParam param) {
-                        if (param.thisObject == fakeLocation) return;
-                        param.setResult(System.currentTimeMillis());
-                    }
-                });
-            } else if ("getSpeed".equals(mn)) {
-                hook("mock_location", m, new XC_MethodHook() {
-                    protected void afterHookedMethod(MethodHookParam param) {
-                        if (param.thisObject == fakeLocation) return;
-                        param.setResult(0.0f);
-                    }
-                });
-            } else if ("getBearing".equals(mn)) {
-                hook("mock_location", m, new XC_MethodHook() {
-                    protected void afterHookedMethod(MethodHookParam param) {
-                        if (param.thisObject == fakeLocation) return;
-                        param.setResult(0.0f);
-                    }
-                });
-            } else if ("isFromMockProvider".equals(mn) || "isMock".equals(mn)) {
-                hook("mock_location", m, new XC_MethodHook() {
-                    protected void afterHookedMethod(MethodHookParam param) {
-                        param.setResult(false);
-                    }
-                });
-                any = true;
+    for (int i = 0; i < MOCK_GETTERS.length; i++) {
+        String mn = MOCK_GETTERS[i];
+        Method m = findMethodByCount(Location.class, mn, 0);
+        if (m == null) continue;
+        final String[] nameRef = new String[]{mn};
+        hook("mock_location", m, new XC_MethodHook() {
+            protected void afterHookedMethod(MethodHookParam param) {
+                if (param.thisObject == fakeLocation) return;
+                param.setResult(mockGetterValue(nameRef[0]));
             }
-        } catch (Throwable e) {}
+        });
+        if ("getLatitude".equals(mn) || "isFromMockProvider".equals(mn) || "isMock".equals(mn)) any = true;
     }
     return any;
+}
+
+Object mockGetterValue(String mn) {
+    if ("getLatitude".equals(mn)) return new Double(fakeLocation.getLatitude());
+    if ("getLongitude".equals(mn)) return new Double(fakeLocation.getLongitude());
+    if ("getAccuracy".equals(mn)) return new Float(10f);
+    if ("getTime".equals(mn)) return new Long(System.currentTimeMillis());
+    if ("getSpeed".equals(mn)) return new Float(0f);
+    if ("getBearing".equals(mn)) return new Float(0f);
+    if ("isFromMockProvider".equals(mn) || "isMock".equals(mn)) return Boolean.FALSE;
+    return null;
 }
 
 private boolean hookLocation() {
@@ -167,205 +112,169 @@ private boolean hookLocation() {
     Class cls = LocationManager.class;
     boolean any = false;
 
-    Method m;
-    m = findMethodByCount(cls, "getLastLocation", 0);
-    if (m != null) try {
-        m.setAccessible(true);
-        hook("mock_location", m, new XC_MethodHook() {
-            protected void beforeHookedMethod(MethodHookParam param) {
-                param.setResult(createFreshLocation(LocationManager.GPS_PROVIDER));
-            }
-        });
-        any = true;
-    } catch (Throwable e) {}
-
-    m = findMethodByCount(cls, "getLastKnownLocation", 1);
-    if (m != null) try {
-        m.setAccessible(true);
-        hook("mock_location", m, new XC_MethodHook() {
-            protected void beforeHookedMethod(MethodHookParam param) {
-                param.setResult(createFreshLocation(String.valueOf(param.args[0])));
-            }
-        });
-        any = true;
-    } catch (Throwable e) {}
-
-    m = findMethodByCount(cls, "getProvider", 1);
-    if (m != null) try {
-        m.setAccessible(true);
-        hook("mock_location", m, new XC_MethodHook() {
-            protected void afterHookedMethod(MethodHookParam param) {
-                if (LocationManager.GPS_PROVIDER.equals(param.args[0])) {
-                    param.setResult(new LocationProvider("gps", null) {
-                        public boolean isEnabled() { return true; }
-                        public boolean meetsCriteria(Criteria criteria) { return true; }
-                        public String getName() { return LocationManager.GPS_PROVIDER; }
-                        public int getAccuracy() { return Criteria.ACCURACY_FINE; }
-                        public int getPowerRequirement() { return Criteria.POWER_LOW; }
-                        public boolean hasMonetaryCost() { return false; }
-                        public boolean supportsAltitude() { return true; }
-                        public boolean supportsSpeed() { return true; }
-                        public boolean supportsBearing() { return true; }
-                    });
-                }
-            }
-        });
-    } catch (Throwable e) {}
-
-    m = findMethodByCount(cls, "getAllProviders", 0);
-    if (m != null) try {
-        m.setAccessible(true);
-        hook("mock_location", m, new XC_MethodHook() {
-            protected void afterHookedMethod(MethodHookParam param) {
-                List l = new ArrayList();
-                l.add(LocationManager.GPS_PROVIDER);
-                l.add(LocationManager.NETWORK_PROVIDER);
-                param.setResult(l);
-            }
-        });
-    } catch (Throwable e) {}
-
-    m = findMethodByCount(cls, "isProviderEnabled", 1);
-    if (m != null) try {
-        m.setAccessible(true);
-        hook("mock_location", m, new XC_MethodHook() {
-            protected void afterHookedMethod(MethodHookParam param) {
-                String p = String.valueOf(param.args[0]);
-                if (LocationManager.GPS_PROVIDER.equals(p) || LocationManager.NETWORK_PROVIDER.equals(p)) {
-                    param.setResult(true);
-                }
-            }
-        });
-    } catch (Throwable e) {}
-
-    m = findMethodByCount(cls, "hasProvider", 1);
-    if (m != null) try {
-        m.setAccessible(true);
-        hook("mock_location", m, new XC_MethodHook() {
-            protected void afterHookedMethod(MethodHookParam param) {
-                String p = String.valueOf(param.args[0]);
-                if (LocationManager.GPS_PROVIDER.equals(p) || LocationManager.NETWORK_PROVIDER.equals(p)) {
-                    param.setResult(true);
-                }
-            }
-        });
-    } catch (Throwable e) {}
-
-    try {
-        Method[] allMethods = cls.getDeclaredMethods();
-        for (int i = 0; i < allMethods.length; i++) {
-            final Method method = allMethods[i];
-            String name = method.getName();
-            try {
-                method.setAccessible(true);
-                if ("getCurrentLocation".equals(name)) {
-                    hook("mock_location", method, new XC_MethodHook() {
-                        protected void beforeHookedMethod(MethodHookParam param) {
-                            Object executor = null;
-                            Object consumer = null;
-                            for (int j = 0; j < param.args.length; j++) {
-                                Object a = param.args[j];
-                                if (a == null) continue;
-                                String cn = a.getClass().getName();
-                                if (cn.contains("Executor")) executor = a;
-                                else if (cn.contains("Consumer") || cn.contains("OutcomeReceiver") || cn.contains("Function")) consumer = a;
-                            }
-                            if (consumer != null) {
-                                final Object fc = consumer;
-                                final Location loc = createFreshLocation(LocationManager.GPS_PROVIDER);
-                                Runnable cb = new Runnable() {
-                                    public void run() {
-                                        try {
-                                            Method[] cm = fc.getClass().getMethods();
-                                            for (int k = 0; k < cm.length; k++) {
-                                                String nm = cm[k].getName();
-                                                if ((nm.equals("accept") || nm.equals("invoke") || nm.equals("onResult"))
-                                                    && cm[k].getParameterTypes().length == 1) {
-                                                    cm[k].setAccessible(true);
-                                                    cm[k].invoke(fc, new Object[]{loc});
-                                                    break;
-                                                }
-                                            }
-                                        } catch (Throwable t) {}
-                                    }
-                                };
-                                if (executor != null) {
-                                    try {
-                                        Method em = executor.getClass().getMethod("execute", Runnable.class);
-                                        em.invoke(executor, cb);
-                                    } catch (Throwable t) {
-                                        new Handler(Looper.getMainLooper()).post(cb);
-                                    }
-                                } else {
-                                    new Handler(Looper.getMainLooper()).post(cb);
-                                }
-                            }
-                            param.setResult(null);
-                        }
-                    });
-                } else if ("requestLocationUpdates".equals(name)) {
-                    hook("mock_location", method, new XC_MethodHook() {
-                        protected void beforeHookedMethod(MethodHookParam param) {
-                            LocationListener listener = null;
-                            Looper looper = null;
-                            Object dispatcher = null;
-                            String provider = null;
-                            for (int j = 0; j < param.args.length; j++) {
-                                Object arg = param.args[j];
-                                if (arg == null) continue;
-                                if (arg instanceof LocationListener) listener = (LocationListener) arg;
-                                else if (arg instanceof Looper) looper = (Looper) arg;
-                                else if (arg instanceof Handler) dispatcher = arg;
-                                else if (arg instanceof java.util.concurrent.Executor) dispatcher = arg;
-                                else if (arg instanceof String && provider == null) provider = (String) arg;
-                            }
-                            if (dispatcher == null) {
-                                if (looper != null) dispatcher = new Handler(looper);
-                                else {
-                                    Looper cl = Looper.myLooper();
-                                    dispatcher = new Handler(cl != null ? cl : Looper.getMainLooper());
-                                }
-                            }
-                            if (listener != null) {
-                                synchronized (activeListeners) {
-                                    boolean exists = false;
-                                    for (int k = 0; k < activeListeners.size(); k++) {
-                                        if (activeListeners.get(k) == listener) { exists = true; break; }
-                                    }
-                                    if (!exists) activeListeners.add(listener);
-                                }
-                                listenerDispatchers.put(listener, dispatcher);
-                                final LocationListener fl = listener;
-                                final String fp = provider != null ? provider : LocationManager.GPS_PROVIDER;
-                                Runnable firstCb = new Runnable() {
-                                    public void run() {
-                                        try { fl.onProviderEnabled(fp); } catch (Throwable t) {}
-                                        try { fl.onStatusChanged(fp, LocationProvider.AVAILABLE, null); } catch (Throwable t) {}
-                                        try { fl.onLocationChanged(createFreshLocation(fp)); } catch (Throwable t) {}
-                                    }
-                                };
-                                if (dispatcher instanceof Handler) ((Handler) dispatcher).post(firstCb);
-                                else if (dispatcher instanceof java.util.concurrent.Executor) ((java.util.concurrent.Executor) dispatcher).execute(firstCb);
-                                else new Handler(Looper.getMainLooper()).post(firstCb);
-                            }
-                            param.setResult(null);
-                        }
-                    });
-                } else if ("removeUpdates".equals(name)) {
-                    hook("mock_location", method, new XC_MethodHook() {
-                        protected void beforeHookedMethod(MethodHookParam param) {
-                            for (int j = 0; j < param.args.length; j++) {
-                                Object arg = param.args[j];
-                                if (arg instanceof LocationListener) removeActiveListener((LocationListener) arg);
-                            }
-                        }
-                    });
-                }
-                any = true;
-            } catch (Throwable e) {}
+    hookByName("mock_location", cls, "getLastLocation", 0, new XC_MethodHook() {
+        protected void beforeHookedMethod(MethodHookParam param) {
+            param.setResult(createFreshLocation(LocationManager.GPS_PROVIDER));
         }
-    } catch (Throwable e) {}
+    });
+    any = true;
+
+    hookByName("mock_location", cls, "getLastKnownLocation", 1, new XC_MethodHook() {
+        protected void beforeHookedMethod(MethodHookParam param) {
+            if (param.args == null || param.args.length < 1) return;
+            param.setResult(createFreshLocation(String.valueOf(param.args[0])));
+        }
+    });
+    any = true;
+
+    hookByName("mock_location", cls, "getProvider", 1, new XC_MethodHook() {
+        protected void afterHookedMethod(MethodHookParam param) {
+            if (param.args == null || param.args.length < 1) return;
+            if (LocationManager.GPS_PROVIDER.equals(param.args[0])) {
+                param.setResult(new LocationProvider("gps", null) {
+                    public boolean isEnabled() { return true; }
+                    public boolean meetsCriteria(Criteria criteria) { return true; }
+                    public String getName() { return LocationManager.GPS_PROVIDER; }
+                    public int getAccuracy() { return Criteria.ACCURACY_FINE; }
+                    public int getPowerRequirement() { return Criteria.POWER_LOW; }
+                    public boolean hasMonetaryCost() { return false; }
+                    public boolean supportsAltitude() { return true; }
+                    public boolean supportsSpeed() { return true; }
+                    public boolean supportsBearing() { return true; }
+                });
+            }
+        }
+    });
+
+    hookByName("mock_location", cls, "getAllProviders", 0, new XC_MethodHook() {
+        protected void afterHookedMethod(MethodHookParam param) {
+            List l = new ArrayList();
+            l.add(LocationManager.GPS_PROVIDER);
+            l.add(LocationManager.NETWORK_PROVIDER);
+            param.setResult(l);
+        }
+    });
+
+    XC_MethodHook providerEnabledHook = new XC_MethodHook() {
+        protected void afterHookedMethod(MethodHookParam param) {
+            if (param.args == null || param.args.length < 1) return;
+            String p = String.valueOf(param.args[0]);
+            if (LocationManager.GPS_PROVIDER.equals(p) || LocationManager.NETWORK_PROVIDER.equals(p)) {
+                param.setResult(Boolean.TRUE);
+            }
+        }
+    };
+
+    hookByName("mock_location", cls, "isProviderEnabled", 1, providerEnabledHook);
+    hookByName("mock_location", cls, "hasProvider", 1, providerEnabledHook);
+
+    hookAll("mock_location", cls, "getCurrentLocation", new XC_MethodHook() {
+        protected void beforeHookedMethod(MethodHookParam param) {
+            Object executor = null;
+            Object consumer = null;
+            if (param.args == null) { param.setResult(null); return; }
+            for (int j = 0; j < param.args.length; j++) {
+                Object a = param.args[j];
+                if (a == null) continue;
+                String cn = a.getClass().getName();
+                if (cn.contains("Executor")) executor = a;
+                else if (cn.contains("Consumer") || cn.contains("OutcomeReceiver") || cn.contains("Function")) consumer = a;
+            }
+            if (consumer != null) {
+                final Object fc = consumer;
+                final Location loc = createFreshLocation(LocationManager.GPS_PROVIDER);
+                Runnable cb = new Runnable() {
+                    public void run() {
+                        invokeReceiver(fc, loc);
+                    }
+                };
+                postToDispatcher(executor, cb);
+            }
+            param.setResult(null);
+        }
+    });
+
+    hookAll("mock_location", cls, "requestLocationUpdates", new XC_MethodHook() {
+        protected void beforeHookedMethod(MethodHookParam param) {
+            LocationListener listener = null;
+            Looper looper = null;
+            Object dispatcher = null;
+            String provider = null;
+            if (param.args == null) { param.setResult(null); return; }
+            for (int j = 0; j < param.args.length; j++) {
+                Object arg = param.args[j];
+                if (arg == null) continue;
+                if (arg instanceof LocationListener) listener = (LocationListener) arg;
+                else if (arg instanceof Looper) looper = (Looper) arg;
+                else if (arg instanceof Handler) dispatcher = arg;
+                else if (arg instanceof java.util.concurrent.Executor) dispatcher = arg;
+                else if (arg instanceof String && provider == null) provider = (String) arg;
+            }
+            if (dispatcher == null) {
+                if (looper != null) dispatcher = new Handler(looper);
+                else {
+                    Looper cl = Looper.myLooper();
+                    dispatcher = new Handler(cl != null ? cl : Looper.getMainLooper());
+                }
+            }
+            if (listener != null) {
+                synchronized (activeListeners) {
+                    if (!activeListeners.contains(listener)) activeListeners.add(listener);
+                }
+                listenerDispatchers.put(listener, dispatcher);
+                final LocationListener fl = listener;
+                final String fp = provider != null ? provider : LocationManager.GPS_PROVIDER;
+                Runnable firstCb = new Runnable() {
+                    public void run() {
+                        try { fl.onProviderEnabled(fp); } catch (Throwable t) {}
+                        try { fl.onStatusChanged(fp, LocationProvider.AVAILABLE, null); } catch (Throwable t) {}
+                        try { fl.onLocationChanged(createFreshLocation(fp)); } catch (Throwable t) {}
+                    }
+                };
+                postToDispatcher(dispatcher, firstCb);
+            }
+            param.setResult(null);
+        }
+    });
+
+    hookAll("mock_location", cls, "removeUpdates", new XC_MethodHook() {
+        protected void beforeHookedMethod(MethodHookParam param) {
+            if (param.args == null) return;
+            for (int j = 0; j < param.args.length; j++) {
+                Object arg = param.args[j];
+                if (arg instanceof LocationListener) removeActiveListener((LocationListener) arg);
+            }
+        }
+    });
+
     return any;
+}
+
+void invokeReceiver(Object receiver, Location loc) {
+    try {
+        Method[] cm = receiver.getClass().getMethods();
+        for (int k = 0; k < cm.length; k++) {
+            String nm = cm[k].getName();
+            if ((nm.equals("accept") || nm.equals("invoke") || nm.equals("onResult"))
+                && cm[k].getParameterTypes().length == 1) {
+                cm[k].setAccessible(true);
+                cm[k].invoke(receiver, new Object[]{loc});
+                return;
+            }
+        }
+    } catch (Throwable t) {
+        traceLog("api2_log", "[invokeReceiver] 回调失败: " + t);
+    }
+}
+
+void postToDispatcher(Object dispatcher, Runnable cb) {
+    if (dispatcher == null) {
+        new Handler(Looper.getMainLooper()).post(cb);
+        return;
+    }
+    if (dispatcher instanceof Handler) { ((Handler) dispatcher).post(cb); return; }
+    if (dispatcher instanceof java.util.concurrent.Executor) { ((java.util.concurrent.Executor) dispatcher).execute(cb); return; }
+    new Handler(Looper.getMainLooper()).post(cb);
 }
 
 void setMockLocationEnabled(boolean on) {
@@ -376,8 +285,7 @@ void setMockLocationEnabled(boolean on) {
 
 void 关模拟定位() {
     stopLocationUpdates();
-    Activity a = getNowActivity();
-    if (a == null) a = 最后Activity;
+    Activity a = safeActivity();
     if (a != null) {
         final Activity fa = a;
         fa.runOnUiThread(new Runnable() {
@@ -402,15 +310,11 @@ void 开模拟定位() {
                 boolean okGetter = hookLocationGetters();
                 boolean okLoc = hookLocation();
                 if (!okGetter || !okLoc) {
-                    Activity failAct = getNowActivity();
-                    if (failAct == null) failAct = 最后Activity;
-                    showApiProtectGuide(failAct);
+                    showApiProtectGuide(safeActivity());
                 }
                 startLocationUpdates();
             } catch (Throwable t) {
-                Activity failAct = getNowActivity();
-                if (failAct == null) failAct = 最后Activity;
-                showApiProtectGuide(failAct);
+                showApiProtectGuide(safeActivity());
             }
         }
     }, 2000);
