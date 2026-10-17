@@ -3451,7 +3451,7 @@ public void 长按消息菜单(Activity activity, Object data) {
             showCopyConfirmDialog(activity, "消息内容", finalQuntext, isDark);
         }
     });
-    addMenuItem(menuItems, "消息操作", "复读加一", new Runnable() { public void run() { 复读(data); } });
+    addMenuItem(menuItems, "消息操作", "复读加一", new Runnable() { public void run() { 复读(data, null); } });
     addMenuItem(menuItems, "消息操作", "撤回消息", new Runnable() {
         public void run() {
             recallMsg(finalChatType, finalPeerUin, finalMsgid);
