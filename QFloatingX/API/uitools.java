@@ -206,6 +206,40 @@ GradientDrawable makeDialogInnerCard(Activity activity, int color) {
     return g;
 }
 
+LinearLayout makeDialogRoot(Activity a) {
+    LinearLayout root = new LinearLayout(a);
+    root.setOrientation(LinearLayout.VERTICAL);
+    root.setPadding(dp(a, 16), dp(a, 20), dp(a, 16), dp(a, 16));
+    return root;
+}
+
+TextView makeDialogTitle(Activity a, String text, int bottomDp) {
+    TextView tv = new TextView(a);
+    tv.setText(text);
+    tv.setTextSize(18);
+    tv.setTypeface(null, Typeface.BOLD);
+    tv.setTextColor(tc(a, "on_surface_strong"));
+    tv.setPadding(0, 0, 0, dp(a, bottomDp));
+    return tv;
+}
+
+TextView makeDialogSubTitle(Activity a, String text) {
+    TextView tv = new TextView(a);
+    tv.setText(text);
+    tv.setTextSize(14);
+    tv.setTextColor(tc(a, "on_surface_sub"));
+    tv.setPadding(0, 0, 0, dp(a, 16));
+    return tv;
+}
+
+LinearLayout makeDialogButtonRow(Activity a) {
+    LinearLayout box = new LinearLayout(a);
+    box.setOrientation(LinearLayout.HORIZONTAL);
+    box.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+    box.setPadding(0, dp(a, 4), 0, 0);
+    return box;
+}
+
 void applyInputStyle(Activity a, EditText e, int bg, int radius) {
     final GradientDrawable gd = new GradientDrawable();
     gd.setColor(bg);

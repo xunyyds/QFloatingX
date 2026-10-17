@@ -308,6 +308,7 @@ public boolean CheckSign(String qun, String uin) {
                     m.invoke(inHandler, args.toArray());
                     return true;
                 } catch (Throwable invE) {
+                    traceLog("api_log", "[CheckSign] 调用打卡方法失败: " + invE);
                 }
             }
         }
@@ -779,10 +780,6 @@ long getFolderSize(File folder) {
 	return size;
 }
 
-String getFormattedSize(long sizeInBytes) {
-	if (sizeInBytes <= 0) return "0KB";
-	return formatSize(sizeInBytes);
-}
 String getFormattedSize(File folder) {
 	if (folder == null) {
 		traceLog("api_log", "[getFormattedSize] getFormattedSize(File)参数为null");
@@ -798,7 +795,7 @@ String getFormattedSize(File folder) {
 	}
 
 	try {
-		return getFormattedSize(getFolderSize(folder));
+		return formatSize(getFolderSize(folder));
 	} catch (Exception e) {
 		traceLog("api_log", "[getFormattedSize] 格式化文件夹大小失败: " + folder.getName() + "    " + e);
 		return "计算失败";
@@ -1285,8 +1282,7 @@ void vibrate(Activity activity, int milliseconds) {
     if (!getBoolean("settings", "振动反馈", false)) {
         return;
     }
-	if (activity == null) activity = getNowActivity();
-	if (activity == null) activity = 最后Activity;
+	if (activity == null) activity = safeActivity();
 	if (activity == null) return;
 
 	try {
@@ -1652,7 +1648,7 @@ private void applyToastPosToWindow(Window w, String posMode) {
     } else if ("center".equals(posMode)) {
         p.gravity = Gravity.CENTER;
     } else if ("custom".equals(posMode)) {
-        Activity a = getNowActivity();
+        Activity a = safeActivity();
         if (a != null) {
             applyCustomToastCenter(p, a);
             return;
@@ -1677,7 +1673,7 @@ private void applyToastPosToToast(Toast toast, String posMode) {
     } else if ("center".equals(posMode)) {
         gravity = Gravity.CENTER;
     } else if ("custom".equals(posMode)) {
-        Activity a = getNowActivity();
+        Activity a = safeActivity();
         if (a != null) {
             applyCustomToastCenterToToast(toast, a);
             return;
@@ -1696,8 +1692,7 @@ private void xToast(String text) {
     try {
         Context ctx = context;
         if (ctx == null) {
-            Activity act = getNowActivity();
-            if (act == null) act = 最后Activity;
+            Activity act = safeActivity();
             ctx = act;
         }
         if (ctx == null) {
@@ -2181,8 +2176,7 @@ void applyFloatWindowMenuText() {
 
 boolean isPowerSaveMode() {
     try {
-        Activity a = getNowActivity();
-        if (a == null) a = 最后Activity;
+        Activity a = safeActivity();
         if (a == null) return false;
         PowerManager pm = (PowerManager) a.getSystemService(Context.POWER_SERVICE);
         if (pm == null) return false;
@@ -2233,7 +2227,7 @@ void onUnMsgload() {
 		stopWriteThread();
 		performDataCleanup();
 
-		Activity activity = getNowActivity();
+		Activity activity = safeActivity();
 		if (activity != null && !activity.isFinishing() && !activity.isDestroyed()) {
 			final CountDownLatch 信号 = new CountDownLatch(1);
 			activity.runOnUiThread(new Runnable() {
@@ -2254,8 +2248,7 @@ void onUnMsgload() {
 }
 
 void a卸载悬浮窗() {
-	Activity activity = getNowActivity();
-	if (activity == null) activity = 最后Activity;
+	Activity activity = safeActivity();
 
 	if (activity != null && !activity.isFinishing() && !activity.isDestroyed()) {
 		final CountDownLatch 信号 = new CountDownLatch(1);
@@ -2293,6 +2286,7 @@ void 执行卸载核心逻辑() {
 
 	try {
 		unhookAll();
+		saveReflectCache();
 		onUnMsgload();
 		a卸载悬浮窗();
 		putBoolean("settings", "开关", false);
@@ -2302,7 +2296,6 @@ void 执行卸载核心逻辑() {
 				清理Handler(uiHandler);
 				uiHandler = null;
 				延迟启动完成 = false;
-				悬浮窗显示状态 = false;
 				应用前台状态 = false;
 				Toast("脚本卸载完成，欢迎下次使用");
 			
@@ -2328,13 +2321,13 @@ void 重新加载脚本() {
 	if (uiHandler != null) {
 		uiHandler.postDelayed(new Runnable() {
 			public void run() {
-				Activity activity = getNowActivity();
+				Activity activity = safeActivity();
 				if (activity == null || activity.isFinishing()) activity = 最后Activity;
 				if (activity != null && !activity.isFinishing()) 重新加载操作(activity);
 			}
 		}, 300);
 	} else {
-		Activity activity = getNowActivity();
+		Activity activity = safeActivity();
 		if (activity == null || activity.isFinishing()) activity = 最后Activity;
 		if (activity != null && !activity.isFinishing()) 重新加载操作(activity);
 	}
@@ -2344,13 +2337,13 @@ void 取消加载脚本() {
 	if (uiHandler != null) {
 		uiHandler.postDelayed(new Runnable() {
 			public void run() {
-				Activity activity = getNowActivity();
+				Activity activity = safeActivity();
 				if (activity == null || activity.isFinishing()) activity = 最后Activity;
 				if (activity != null && !activity.isFinishing()) 取消加载操作(activity);
 			}
 		}, 300);
 	} else {
-		Activity activity = getNowActivity();
+		Activity activity = safeActivity();
 		if (activity == null || activity.isFinishing()) activity = 最后Activity;
 		if (activity != null && !activity.isFinishing()) 取消加载操作(activity);
 	}
@@ -2449,16 +2442,6 @@ interface UpdateProgressListener {
     void onFileProgress(int filePercent, long fileBytes, long fileTotal, long totalBytesAll, long elapsedMs);
     void onFileVerify(String displayName, boolean pass);
     void onAllDone(boolean success, String failReason);
-}
-
-String formatBytes(long bytes) {
-    if (bytes < 1024) return bytes + " B";
-    if (bytes < 1048576L) {
-        long kb10 = (bytes * 10) / 1024;
-        return (kb10 / 10) + "." + (kb10 % 10) + " KB";
-    }
-    long mb10 = (bytes * 10) / 1048576L;
-    return (mb10 / 10) + "." + (mb10 % 10) + " MB";
 }
 
 String formatElapsedTime(long ms) {
@@ -3093,7 +3076,7 @@ public String markdownToHtml(String markdown) {
 
 void showUpdateDialog(final String version, final String versionType, final String updateType, final String changelog, final List updateFiles, final JSONObject checksums) {
 
-    final Activity activity = getNowActivity();
+    final Activity activity = safeActivity();
     if (activity == null) return;
 
     final String prevVersion = readprop(pluginPath + "/info.prop", "versionCode");
@@ -3520,7 +3503,7 @@ void showStyledUpdateProgress(final Activity activity, final List updateFiles, f
                                 long db = totalBytesAll - speedRef[1];
                                 long dt = now - speedRef[0];
                                 long speed = dt > 0 ? db * 1000 / dt : 0;
-                                speedStr = formatBytes(speed) + "/s";
+                                speedStr = formatSize(speed) + "/s";
                                 speedRef[0] = now;
                                 speedRef[1] = totalBytesAll;
                             } else if (speedRef[0] == 0) {
@@ -3533,9 +3516,9 @@ void showStyledUpdateProgress(final Activity activity, final List updateFiles, f
                                     bar.setProgress(filePercent);
                                     percentTv.setText(filePercent + "%");
                                     if (fspeed != null) {
-                                        downloadedTv.setText("已下载 " + formatBytes(totalBytesAll) + "  ·  " + fspeed);
+                                        downloadedTv.setText("已下载 " + formatSize(totalBytesAll) + "  ·  " + fspeed);
                                     } else {
-                                        downloadedTv.setText("已下载 " + formatBytes(totalBytesAll));
+                                        downloadedTv.setText("已下载 " + formatSize(totalBytesAll));
                                     }
                                 }
                             });
@@ -3733,7 +3716,7 @@ void runQFXUpdateCheck(final boolean manual) {
                 if (jsonStr == null || jsonStr.isEmpty()) {
                     traceLog("api_log", "[runQFXUpdateCheck] 所有up.json镜像均不可用");
                     if (manual) {
-                        final Activity activity = getNowActivity();
+                        final Activity activity = safeActivity();
                         if (activity != null) {
                             activity.runOnUiThread(new Runnable() {
                                 public void run() { Toast("无法访问更新服务器，请检查网络或切换更新通道"); }
@@ -3749,7 +3732,7 @@ void runQFXUpdateCheck(final boolean manual) {
                 } catch (Throwable parseErr) {
                     traceLog("api_log", "[runQFXUpdateCheck] up.json解析失败: " + parseErr);
                     if (manual) {
-                        final Activity activity = getNowActivity();
+                        final Activity activity = safeActivity();
                         if (activity != null) {
                             activity.runOnUiThread(new Runnable() {
                                 public void run() { Toast("更新信息解析失败，请稍后重试或切换通道"); }
@@ -3789,7 +3772,7 @@ void runQFXUpdateCheck(final boolean manual) {
                     if (manual) {
                         final String currentVer = localVersion;
                         final String remoteVer = remoteVersion;
-                        final Activity activity = getNowActivity();
+                        final Activity activity = safeActivity();
                         if (activity != null) {
                             activity.runOnUiThread(new Runnable() {
                                 public void run() {
@@ -3825,7 +3808,7 @@ void runQFXUpdateCheck(final boolean manual) {
             } catch (Throwable t) {
                 traceLog("api_log", "[runQFXUpdateCheck] 检查更新异常: " + t);
                 if (manual) {
-                    final Activity activity = getNowActivity();
+                    final Activity activity = safeActivity();
                     if (activity != null) {
                         final String errMsg = "检查更新失败: " + t.getMessage();
                         activity.runOnUiThread(new Runnable() {
@@ -3943,8 +3926,7 @@ public void openPlugin(int functionType, String groupId, String userName) {
 }
 
 public void openSetting(int functionType, String groupId, String userName) {
-    Activity act = getNowActivity();
-    if (act == null) act = 最后Activity;
+    Activity act = safeActivity();
     if (act != null) {
         final Activity fa = act;
         final int fChatType = functionType;
@@ -3957,8 +3939,7 @@ public void openSetting(int functionType, String groupId, String userName) {
 }
 
 void 跳转到页面(String className) {
-    Activity activity = getNowActivity();
-    if (activity == null) activity = 最后Activity;
+    Activity activity = safeActivity();
     if (activity == null) return;
     
     Intent intent = new Intent();
@@ -4020,11 +4001,7 @@ void ensureFilePickerHook() {
         Class activityClass = Class.forName("android.app.Activity");
         traceLog("api_log", "[hook] 注册中 dispatchActivityResult");
         // Activity 上有多个同名重载（5 参 / 6 参含 ComponentCaller，Android 14+ 框架调 6 参），必须全部挂钩
-        java.lang.reflect.Method[] pickerMethods = activityClass.getDeclaredMethods();
-        int hookedCount = 0;
-        for (int mi = 0; mi < pickerMethods.length; mi++) {
-            if (!"dispatchActivityResult".equals(pickerMethods[mi].getName())) continue;
-            XposedBridge.hookMethod(pickerMethods[mi], new XC_MethodHook() {
+        int hookedCount = hookAll("file_picker", activityClass, "dispatchActivityResult", new XC_MethodHook() {
                 protected void afterHookedMethod(XC_MethodHook.MethodHookParam param) {
                     ThreadPool.execute(new Runnable() {
                         public void run() {
@@ -4089,19 +4066,16 @@ void ensureFilePickerHook() {
                     });
                 }
             });
-            hookedCount++;
-            traceLog("api_log", "[hook] 已挂钩 " + pickerMethods[mi].toString());
-        }
         traceLog("api_log", "[hook] dispatchActivityResult 挂钩数=" + hookedCount);
         if (hookedCount == 0) {
-            showApiProtectGuide(getNowActivity());
+            showApiProtectGuide(safeActivity());
             return;
         }
         isFilePickerHooked = true;
     } catch (Throwable e) {
         traceLog("api_log", "[hook] 失败: " + e);
         isFilePickerHooked = false;
-        showApiProtectGuide(getNowActivity());
+        showApiProtectGuide(safeActivity());
     }
     }
 }

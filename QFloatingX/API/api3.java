@@ -361,7 +361,7 @@ private int getDailyTargetFromPrefs() {
         if (s != null && !s.trim().isEmpty()) target = Integer.parseInt(s.trim());
     } catch (Throwable ignore) {}
     if (target > 0) return target;
-    Activity activity = getNowActivity();
+    Activity activity = safeActivity();
     if (activity != null) {
         try {
             SharedPreferences sp = activity.getSharedPreferences("msg_stats_config", Activity.MODE_PRIVATE);
@@ -470,7 +470,7 @@ private void initEmptyStats() {
 
 public void initStats() {
     if (!getBoolean("settings", "消息统计开关", false)) return;
-    Activity activity = getNowActivity();
+    Activity activity = safeActivity();
     initTimeRange(activity);
     readFullStats();
     startWriteThread();
@@ -1792,8 +1792,7 @@ String 替换变量占位符(String template, Object scriptScope) {
 import me.yxp.qfun.utils.qq.HostInfo;
 
 void chatInterface(int chatType, String peerUin, String peerName) {
-    Activity activity = getNowActivity();
-    if (activity == null) activity = 最后Activity;
+    Activity activity = safeActivity();
     final Activity finalActivity = activity;
     if (finalActivity == null) return;
 
