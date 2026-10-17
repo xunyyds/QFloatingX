@@ -1,10 +1,7 @@
 private volatile boolean isDialogShowing = false;
 private volatile boolean isReplayingClick = false;
 
-private final Pattern PIC_PATTERN = Pattern.compile("\\[pic=(.*?)\\]");
-
 private final ConcurrentHashMap picimageCache = new ConcurrentHashMap();
-private static final int PIC_CACHE_MAX = 60;
 
 private final HashSet validSpecialTexts = new HashSet();
 
@@ -12,6 +9,30 @@ private final Object[] WHEEL_STATE = new Object[10];
 
 private final String[] rkeyCache = new String[]{"", ""};
 private final long[] rkeyCacheTime = new long[]{0L, 0L};
+
+Object trGetOcrHandler() {
+    try {
+        Class handlerClass = ClassUtils.INSTANCE.getModuleClassLoader()
+            .loadClass("com.tencent.mobileqq.ocr.api.impl.OCRHandler");
+        try {
+        } catch (Throwable ignore) {}
+        if (app == null) {
+            try {
+                Object mobileQQ = Class.forName("mqq.app.MobileQQ").getField("sMobileQQ").get(null);
+                app = mobileQQ.getClass()
+                    .getMethod("waitAppRuntime", Class.forName("mqq.app.BaseActivity"))
+                    .invoke(mobileQQ, new Object[]{null});
+            } catch (Throwable ignore) {}
+        }
+        if (app == null) return null;
+        java.lang.reflect.Method m = app.getClass().getMethod("getBusinessHandler", String.class);
+        m.setAccessible(true);
+        return m.invoke(app, "com.tencent.mobileqq.ocr.api.impl.OCRHandler");
+    } catch (Throwable t) {
+        traceLog("api5_log", "[翻译] 获取OCRHandler失败: " + t);
+        return null;
+    }
+}
 
 String getFullPicUrl(String url, int chatType) {
     if (url == null || url.isEmpty()) return "";
@@ -92,28 +113,25 @@ void forwardViaServer(Object msgRecordObj, String targetUin) {
                 MsgRecord msgRecord = (MsgRecord) msgRecordObj;
                 IKernelMsgService kernel = QQCurrentEnv.INSTANCE.getKernelMsgService();
                 if (kernel == null) return;
+                String guildId = msgRecord.guildId == null ? "" : msgRecord.guildId;
                 List msgIds = new ArrayList();
                 msgIds.add(msgRecord.msgId);
-                Contact srcContact = new Contact(msgRecord.chatType, msgRecord.peerUid, "");
-                int targetChatType = isFriend(targetUin) ? 1 : 2;
-                String targetUid = targetChatType == 1 ? getUidFromUin(targetUin) : targetUin;
-                Contact dstContact = new Contact(targetChatType, targetUid, "");
+                Contact srcContact = new Contact(msgRecord.chatType, msgRecord.peerUid, guildId);
+                int targetChatType = msgRecord.chatType;
+                String targetUid = msgRecord.peerUid;
+                String targetGuild = guildId;
+                if (targetUin == null || !targetUin.equals(String.valueOf(msgRecord.peerUin))) {
+                    targetChatType = isFriend(targetUin) ? 1 : 2;
+                    targetUid = targetChatType == 1 ? getUidFromUin(targetUin) : targetUin;
+                    targetGuild = "";
+                }
+                Contact dstContact = new Contact(targetChatType, targetUid, targetGuild);
                 List dstContacts = new ArrayList();
                 dstContacts.add(dstContact);
                 kernel.forwardMsg(msgIds, srcContact, dstContacts, msgRecord.msgAttrs, null);
             } catch (Throwable ignored) { }
         }
     });
-}
-
-boolean isTextOnlyMsg(List elements) {
-    if (elements == null || elements.isEmpty()) return false;
-    for (int i = 0; i < elements.size(); i++) {
-        MsgElement el = (MsgElement) elements.get(i);
-        if (el == null) continue;
-        if (el.elementType != 1 && el.elementType != 7) return false;
-    }
-    return true;
 }
 
 void parseTextToElements(String text, ArrayList sendElements, MsgRecord originalRecord, int chatType) {
@@ -127,7 +145,7 @@ void parseTextToElements(String text, ArrayList sendElements, MsgRecord original
             }
         }
     }
-    Matcher m = PIC_PATTERN.matcher(text);
+    Matcher m = Pattern.compile("\\[pic=(.*?)\\]").matcher(text);
     int lastEnd = 0;
     while (m.find()) {
         String sub = text.substring(lastEnd, m.start());
@@ -151,34 +169,64 @@ void addTextElement(ArrayList list, String content) {
     list.add(el);
 }
 
-void 复读(data) {
-    doMultiSend(data, null, 1);
-}
-
-void doSendOrRepeat(final MsgData data, final String newText) {
+void 复读(Object data, String newText) {
     doMultiSend(data, newText, 1);
 }
 
-boolean sendOneInternal(MsgData data, String newText) {
-    MsgRecord originalRecord = data.data;
-    if (newText == null && !isTextOnlyMsg(originalRecord.elements)) {
-        forwardViaServer(originalRecord, String.valueOf(originalRecord.peerUin));
-        return true;
+boolean sendOneInternal(final MsgData data, final String newText) {
+    final MsgRecord originalRecord = data.data;
+    final String targetUin = String.valueOf(originalRecord.peerUin);
+    if (newText == null) {
+        boolean needForward = false;
+        int t = originalRecord.msgType;
+        if (t == 3 || t == 7) {
+            needForward = true;
+        } else if (t == 2) {
+            needForward = true;
+            if (originalRecord.elements != null) {
+                for (int i = 0; i < originalRecord.elements.size(); i++) {
+                    MsgElement el = (MsgElement) originalRecord.elements.get(i);
+                    if (el != null && el.textElement != null && el.textElement.atType == 2) {
+                        needForward = false;
+                        break;
+                    }
+                }
+            }
+        }
+        if (needForward) {
+            forwardViaServer(originalRecord, targetUin);
+            return true;
+        }
     }
     final ArrayList sendElements = new ArrayList();
     if (newText != null) {
         parseTextToElements(newText, sendElements, originalRecord, data.type);
-    } else {
-        if (originalRecord.elements != null) sendElements.addAll(originalRecord.elements);
+    } else if (originalRecord.elements != null) {
+        sendElements.addAll(originalRecord.elements);
     }
-    IMsgService msgService = (IMsgService) QRoute.api(IMsgService.class);
-    if (msgService == null) return false;
+    if (sendElements.isEmpty()) return false;
+    IKernelMsgService kernel = QQCurrentEnv.INSTANCE.getKernelMsgService();
+    if (kernel == null) return false;
     String targetUid = originalRecord.peerUid;
     if (targetUid == null || targetUid.isEmpty()) {
-        if (originalRecord.chatType == 2) targetUid = String.valueOf(originalRecord.peerUin);
-        else targetUid = FriendTool.INSTANCE.getUidFromUin(String.valueOf(originalRecord.peerUin));
+        if (originalRecord.chatType == 2) targetUid = targetUin;
+        else targetUid = FriendTool.INSTANCE.getUidFromUin(targetUin);
     }
-    msgService.sendMsg(new Contact(originalRecord.chatType, targetUid, ""), sendElements, null);
+    HashMap attrs = originalRecord.msgAttrs;
+    if (attrs == null) attrs = new HashMap();
+    String guildId = originalRecord.guildId == null ? "" : originalRecord.guildId;
+    IOperateCallback callback = new IOperateCallback() {
+        public void onResult(int code, String err) {
+            if (code != 0 && newText == null) {
+                traceLog("api5_log", "[复读] 内核发送失败 code=" + code + " err=" + err
+                         + " msgId=" + originalRecord.msgId + " chatType=" + originalRecord.chatType + " peerUid=" + originalRecord.peerUid);
+                traceLog("api5_log", "[复读] 失败元素=" + sendElements);
+                forwardViaServer(originalRecord, targetUin);
+            }
+        }
+    };
+    long msgId = kernel.generateMsgUniqueId(originalRecord.chatType, System.currentTimeMillis());
+    kernel.sendMsg(msgId, new Contact(originalRecord.chatType, targetUid, guildId), sendElements, attrs, callback);
     return true;
 }
 
@@ -186,9 +234,15 @@ void doMultiSend(final MsgData data, final String newText, final int count) {
     ThreadPool.execute(new Runnable() {
         public void run() {
             try {
-                if (data == null || data.data == null) return;
-                for (int i = 0; i < count; i++) sendOneInternal(data, newText);
-                Toast((newText != null ? "发送" : "复读") + (count > 1 ? " x" + count : "") + " 完成");
+                if (data == null || data.data == null) {
+                    Toast("复读失败：消息数据为空");
+                    return;
+                }
+                boolean allOk = true;
+                for (int i = 0; i < count; i++) {
+                    if (!sendOneInternal(data, newText)) allOk = false;
+                }
+                Toast(allOk ? ((newText != null ? "发送" : "复读") + (count > 1 ? " x" + count : "") + " 完成") : "复读失败");
             } catch (final Throwable e) {
                 Toast("失败: " + e.getMessage());
             }
@@ -199,16 +253,17 @@ void doMultiSend(final MsgData data, final String newText, final int count) {
 void doMultiSendWithDelay(final MsgData data, final String newText, final int count, final int delayMs) {
     if (count <= 0 || data == null) return;
     final int[] sent = {0};
+    final boolean[] allOk = {true};
     final Runnable[] chain = new Runnable[1];
     chain[0] = new Runnable() {
         public void run() {
             if (sent[0] >= count) {
-                Toast((newText != null ? "发送" : "复读") + " x" + count + " 完成");
+                Toast(allOk[0] ? ((newText != null ? "发送" : "复读") + " x" + count + " 完成") : "复读失败");
                 return;
             }
             ThreadPool.execute(new Runnable() {
                 public void run() {
-                    try { sendOneInternal(data, newText); } catch (Throwable ignored) { }
+                    try { if (!sendOneInternal(data, newText)) allOk[0] = false; } catch (Throwable ignored) { allOk[0] = false; }
                     uiHandler.postDelayed(new Runnable() {
                         public void run() { sent[0]++; chain[0].run(); }
                     }, delayMs);
@@ -239,7 +294,7 @@ void downloadImage(final String url, final Runnable callback) {
                 while ((len = is.read(buf)) != -1) baos.write(buf, 0, len);
                 Bitmap bmp = BitmapFactory.decodeByteArray(baos.toByteArray(), 0, baos.size());
                 if (bmp != null) {
-                    if (picimageCache.size() >= PIC_CACHE_MAX) {
+                    if (picimageCache.size() >= 60) {
                         java.util.Iterator evictIt = picimageCache.keySet().iterator();
                         int evictCount = 0;
                         while (evictIt.hasNext() && evictCount < 15) { evictIt.remove(); evictCount++; }
@@ -278,7 +333,7 @@ void applySpans(final EditText et, final boolean forceImage) {
         }
     }
 
-    Matcher mPic = PIC_PATTERN.matcher(text);
+    Matcher mPic = Pattern.compile("\\[pic=(.*?)\\]").matcher(text);
     while (mPic.find()) {
         final String url = mPic.group(1);
         final int start = mPic.start();
@@ -328,30 +383,44 @@ void applySpans(final EditText et, final boolean forceImage) {
 void setupEditTextTouch(final EditText et) {
     final GestureDetector gestureDetector = new GestureDetector(et.getContext(), new GestureDetector.SimpleOnGestureListener() {
         public boolean onSingleTapUp(MotionEvent e) {
-            int x = (int) e.getX() - et.getTotalPaddingLeft() + et.getScrollX();
-            int y = (int) e.getY() - et.getTotalPaddingTop() + et.getScrollY();
-            Layout layout = et.getLayout();
-            if (layout == null) return false;
-            int line = layout.getLineForVertical(y);
-            int offset = layout.getOffsetForHorizontal(line, x);
-            Editable text = et.getText();
-            ImageSpan[] imgs = text.getSpans(offset, offset, ImageSpan.class);
-            if (imgs.length > 0) {
-                ImageSpan clickedSpan = imgs[0];
-                int spanStart = text.getSpanStart(clickedSpan);
-                int spanEnd = text.getSpanEnd(clickedSpan);
-                if (offset >= spanStart && offset <= spanEnd) {
-                    text.removeSpan(clickedSpan);
-                    et.setSelection((spanStart + spanEnd) / 2);
-                    applySpans(et, false);
-                    return true;
+            boolean ret = false;
+            try {
+                int x = (int) e.getX() - et.getTotalPaddingLeft() + et.getScrollX();
+                int y = (int) e.getY() - et.getTotalPaddingTop() + et.getScrollY();
+                Layout layout = et.getLayout();
+                if (layout != null) {
+                    int line = layout.getLineForVertical(y);
+                    int offset = layout.getOffsetForHorizontal(line, x);
+                    Editable text = et.getText();
+                    ImageSpan[] imgs = text.getSpans(offset, offset, ImageSpan.class);
+                    if (imgs.length > 0) {
+                        ImageSpan clickedSpan = imgs[0];
+                        int spanStart = text.getSpanStart(clickedSpan);
+                        int spanEnd = text.getSpanEnd(clickedSpan);
+                        if (offset >= spanStart && offset <= spanEnd) {
+                            text.removeSpan(clickedSpan);
+                            et.setSelection((spanStart + spanEnd) / 2);
+                            applySpans(et, false);
+                            ret = true;
+                        }
+                    }
                 }
+            } catch (Throwable t) {
+                ret = false;
             }
-            return false;
+            return ret;
         }
     });
     et.setOnTouchListener(new View.OnTouchListener() {
-        public boolean onTouch(View v, MotionEvent event) { return gestureDetector.onTouchEvent(event); }
+        public boolean onTouch(View v, MotionEvent event) {
+            boolean result = false;
+            try {
+                result = gestureDetector.onTouchEvent(event);
+            } catch (Throwable t) {
+                result = false;
+            }
+            return result;
+        }
     });
 }
 
@@ -603,11 +672,623 @@ void showActionDialog(final Activity activity, final MsgData msgData, final View
     });
 }
 
+void trStartRequest(final Object handler, final String text, final String from, final String to, final TextView resultView, final TextView statusView, final Dialog dialog, final boolean[] busy) {
+    if (handler == null) {
+        statusView.setText("QQ 翻译服务暂不可用");
+        busy[0] = false;
+        return;
+    }
+    if (text == null || text.trim().isEmpty()) {
+        statusView.setText("请输入要翻译的内容");
+        busy[0] = false;
+        return;
+    }
+    try {
+        final Class handlerClass = handler.getClass();
+        ClassLoader cl = ClassUtils.INSTANCE.getModuleClassLoader();
+        Class bhCls = cl.loadClass("com.tencent.mobileqq.app.BusinessHandler");
+        final Method nu = bhCls.getMethod("notifyUI", new Class[]{int.class, boolean.class, Object.class});
+        nu.setAccessible(true);
+
+        final Object[] unhookRef = new Object[1];
+
+        XC_MethodHook hook = new XC_MethodHook() {
+            protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) {
+                try {
+                    Object thisObj = param.thisObject;
+                    if (thisObj == null) return;
+                    if (thisObj.getClass().getName().indexOf("OCRHandler") < 0) return;
+
+                    int type = ((Integer) param.args[0]).intValue();
+                    if (type != 2) return;
+                    boolean success = ((Boolean) param.args[1]).booleanValue();
+                    Object data = param.args[2];
+
+                    String translated = null;
+                    String error = null;
+                    if (!success) error = "翻译失败";
+
+                    if (data instanceof Object[]) {
+                        Object[] arr = (Object[]) data;
+                        Object result = arr.length > 1 ? arr[1] : (arr.length > 0 ? arr[0] : null);
+                        if (result != null) {
+                            Class rc = result.getClass();
+                            try {
+                                java.lang.reflect.Field errField = rc.getDeclaredField("o");
+                                errField.setAccessible(true);
+                                Object errValue = errField.get(result);
+                                if (errValue != null && !"0".equals(errValue.toString())) {
+                                    java.lang.reflect.Field msgField = rc.getDeclaredField("p");
+                                    msgField.setAccessible(true);
+                                    Object msgValue = msgField.get(result);
+                                    error = msgValue == null ? ("翻译失败(" + errValue + ")") : msgValue.toString();
+                                }
+                            } catch (Throwable ignored) {}
+
+                            try {
+                                java.lang.reflect.Field listField = rc.getDeclaredField("h");
+                                listField.setAccessible(true);
+                                Object listObj = listField.get(result);
+                                if (listObj instanceof java.util.List) {
+                                    java.util.List records = (java.util.List) listObj;
+                                    StringBuffer sb = new StringBuffer();
+                                    for (int i = 0; i < records.size(); i++) {
+                                        Object record = records.get(i);
+                                        if (record == null) continue;
+                                        Class rr = record.getClass();
+                                        java.lang.reflect.Field valueField = rr.getDeclaredField("e");
+                                        valueField.setAccessible(true);
+                                        Object value = valueField.get(record);
+                                        if (value != null) {
+                                            if (sb.length() > 0) sb.append("\n");
+                                            sb.append(value.toString());
+                                        }
+                                    }
+                                    if (sb.length() > 0) translated = sb.toString();
+                                }
+                            } catch (Throwable ignored) {}
+                        }
+                    }
+
+                    if (translated == null && error == null) return;
+
+                    final String finalTranslated = translated;
+                    final String finalError = error;
+
+                    try {
+                        if (unhookRef[0] != null) ((XC_MethodHook.Unhook) unhookRef[0]).unhook();
+                        hookloveList.remove(unhookRef[0]);
+                        unhookRef[0] = null;
+                    } catch (Throwable ignored) {}
+
+                    uiHandler.post(new Runnable() {
+                        public void run() {
+                            busy[0] = false;
+                            String msg;
+                            if (finalTranslated != null) {
+                                msg = "翻译完成";
+                            } else if (finalError == null) {
+                                msg = "没有返回译文";
+                            } else if ("auto".equals(from)) {
+                                msg = "自动检测失败，请手动选择源语言";
+                            } else {
+                                msg = finalError;
+                            }
+                            statusView.setText(msg);
+                            if (finalTranslated != null) resultView.setText(finalTranslated);
+                        }
+                    });
+                } catch (Throwable t) {
+                    traceLog("api5_log", "[翻译] notifyUI 处理异常: " + t);
+                }
+            }
+        };
+
+        unhookRef[0] = XposedBridge.hookMethod(nu, hook);
+        hookloveList.add(unhookRef[0]);
+
+        Method batch = handlerClass.getMethod("batchTranslate", new Class[]{String.class, String.class, String.class});
+        batch.invoke(handler, new Object[]{text, from, to});
+
+        uiHandler.postDelayed(new Runnable() {
+            public void run() {
+                if (unhookRef[0] != null && busy[0]) {
+                    busy[0] = false;
+                    statusView.setText("翻译超时");
+                    try {
+                        ((XC_MethodHook.Unhook) unhookRef[0]).unhook();
+                        hookloveList.remove(unhookRef[0]);
+                        unhookRef[0] = null;
+                    } catch (Throwable ignored) {}
+                }
+            }
+        }, 15000);
+    } catch (Throwable t) {
+        busy[0] = false;
+        statusView.setText("启动翻译失败: " + t.getMessage());
+        traceLog("api5_log", "[翻译] 请求失败: " + t);
+    }
+}
+
+PopupWindow showLangPicker(final Activity activity, final ArrayList pairs, final int[] currentIdxRef, final boolean dark, final int textColor, final int popupBg, final Runnable onSelected) {
+    final PopupWindow popup = new PopupWindow(activity);
+    popup.setBackgroundDrawable(null);
+    popup.setOutsideTouchable(true);
+    popup.setFocusable(true);
+    popup.setTouchable(true);
+
+    LinearLayout container = new LinearLayout(activity);
+    container.setOrientation(LinearLayout.VERTICAL);
+    GradientDrawable bg = new GradientDrawable();
+    bg.setColor(popupBg);
+    bg.setCornerRadius(dp(activity, 14));
+    container.setBackground(bg);
+    container.setPadding(dp(activity, 6), dp(activity, 6), dp(activity, 6), dp(activity, 6));
+
+    ScrollView scroll = new ScrollView(activity);
+    LinearLayout list = new LinearLayout(activity);
+    list.setOrientation(LinearLayout.VERTICAL);
+
+    for (int i = 0; i < pairs.size(); i++) {
+        final String[] pair = (String[]) pairs.get(i);
+        final int idx = i;
+        TextView item = new TextView(activity);
+        item.setText(pair[1]);
+        item.setTextSize(14);
+        item.setTextColor(textColor);
+        item.setPadding(dp(activity, 14), dp(activity, 12), dp(activity, 14), dp(activity, 12));
+        GradientDrawable itemBg = new GradientDrawable();
+        itemBg.setColor(idx == currentIdxRef[0] ? (dark ? pc("#FF1E3A5F") : pc("#FFD6E6FF")) : Color.TRANSPARENT);
+        itemBg.setCornerRadius(dp(activity, 8));
+        item.setBackground(itemBg);
+        item.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                currentIdxRef[0] = idx;
+                onSelected.run();
+                popup.dismiss();
+            }
+        });
+        list.addView(item, new LinearLayout.LayoutParams(-1, -2));
+    }
+    scroll.addView(list);
+    container.addView(scroll);
+
+    int h = pairs.size() * dp(activity, 46) + dp(activity, 12);
+    if (h > dp(activity, 360)) h = dp(activity, 360);
+    popup.setContentView(container);
+    popup.setWidth(dp(activity, 220));
+    popup.setHeight(h);
+    return popup;
+}
+
+void showTranslateDialog(final Activity activity, final MsgData msgData) {
+    final boolean dark = isThemeDark(activity);
+    final int textColor = dark ? pc("#FFF0F0F0") : pc("#FF202124");
+    final int subColor = dark ? pc("#FFB0B0B0") : pc("#FF666666");
+    final int surface = dark ? pc("#FF292929") : Color.WHITE;
+    final int inputBg = dark ? pc("#FF383838") : pc("#FFF4F5F7");
+    final int chipBg = dark ? pc("#FF3A3A3A") : pc("#FFEDEFF2");
+    final int popupBg = dark ? pc("#FF2D2D2D") : Color.WHITE;
+
+    ArrayList pairs = new ArrayList();
+    try {
+        Class configClass = ClassUtils.INSTANCE.getModuleClassLoader()
+            .loadClass("com.tencent.mobileqq.ocr.data.OcrConfig");
+        java.lang.reflect.Field namesField = configClass.getDeclaredField("d");
+        namesField.setAccessible(true);
+        Object namesObj = namesField.get(null);
+        java.util.LinkedHashSet codeSet = new java.util.LinkedHashSet();
+        if (namesObj instanceof java.util.Map) {
+            java.util.Map names = (java.util.Map) namesObj;
+            java.util.Iterator it = names.keySet().iterator();
+            while (it.hasNext()) {
+                Object k = it.next();
+                if (k != null) codeSet.add(k.toString());
+            }
+        }
+        java.util.ArrayList codes = new java.util.ArrayList(codeSet);
+        java.util.Collections.sort(codes);
+        if (codes.remove("zh")) codes.add(0, "zh");
+        java.lang.reflect.Method getName = configClass.getDeclaredMethod("getDefaultLanguageName", new Class[]{String.class});
+        java.util.HashSet seenCode = new java.util.HashSet();
+        java.util.HashSet seenName = new java.util.HashSet();
+        seenCode.add("auto");
+        seenName.add("自动检测");
+        pairs.add(new String[]{"auto", "自动检测"});
+        for (int i = 0; i < codes.size(); i++) {
+            String code = codes.get(i).toString();
+            if (seenCode.contains(code)) continue;
+            String name = code;
+            try {
+                Object v = getName.invoke(null, new Object[]{code});
+                if (v != null && !v.toString().trim().isEmpty()) name = v.toString();
+            } catch (Throwable ignored) {}
+            if (seenName.contains(name)) continue;
+            seenCode.add(code);
+            seenName.add(name);
+            pairs.add(new String[]{code, name});
+        }
+    } catch (Throwable t) {
+        traceLog("api5_log", "[翻译] 构建语言表失败: " + t);
+        pairs.add(new String[]{"auto", "自动检测"});
+        pairs.add(new String[]{"zh", "中文"});
+        pairs.add(new String[]{"en", "英语"});
+    }
+    final ArrayList sourcePairs = pairs;
+    final ArrayList[] targetPairsRef = new ArrayList[]{new ArrayList()};
+    final int[] srcIdxRef = new int[]{0};
+    final int[] tgtIdxRef = new int[]{0};
+
+    final Dialog dialog = new Dialog(activity, android.R.style.Theme_Translucent_NoTitleBar);
+    LinearLayout root = new LinearLayout(activity);
+    root.setGravity(Gravity.CENTER);
+    root.setPadding(dp(activity, 20), dp(activity, 20), dp(activity, 20), dp(activity, 20));
+    root.setBackgroundColor(pc("#99000000"));
+    LinearLayout card = new LinearLayout(activity);
+    card.setOrientation(LinearLayout.VERTICAL);
+    card.setPadding(dp(activity, 18), dp(activity, 16), dp(activity, 18), dp(activity, 16));
+    GradientDrawable cardBg = new GradientDrawable();
+    cardBg.setColor(surface);
+    cardBg.setCornerRadius(dp(activity, 18));
+    card.setBackground(cardBg);
+    root.addView(card, new LinearLayout.LayoutParams(-1, -2));
+    root.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { dialog.dismiss(); } });
+    card.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {} });
+
+    LinearLayout header = new LinearLayout(activity);
+    header.setGravity(Gravity.CENTER_VERTICAL);
+    TextView title = new TextView(activity);
+    title.setText("翻译");
+    title.setTextSize(18);
+    title.setTypeface(null, 1);
+    title.setTextColor(textColor);
+    header.addView(title, new LinearLayout.LayoutParams(0, -2, 1f));
+    TextView close = new TextView(activity);
+    close.setText("×");
+    close.setTextSize(26);
+    close.setTextColor(subColor);
+    close.setGravity(Gravity.CENTER);
+    header.addView(close, new LinearLayout.LayoutParams(dp(activity, 36), dp(activity, 36)));
+    card.addView(header);
+
+    LinearLayout langRow = new LinearLayout(activity);
+    langRow.setGravity(Gravity.CENTER_VERTICAL);
+    langRow.setPadding(0, dp(activity, 12), 0, 0);
+
+    final TextView sourceBtn = new TextView(activity);
+    sourceBtn.setGravity(Gravity.CENTER);
+    sourceBtn.setTextSize(14);
+    sourceBtn.setTextColor(textColor);
+    sourceBtn.setSingleLine(true);
+    sourceBtn.setEllipsize(TextUtils.TruncateAt.END);
+    GradientDrawable srcBg = new GradientDrawable();
+    srcBg.setColor(chipBg);
+    srcBg.setCornerRadius(dp(activity, 22));
+    sourceBtn.setBackground(srcBg);
+    sourceBtn.setPadding(dp(activity, 14), dp(activity, 10), dp(activity, 14), dp(activity, 10));
+
+    TextView swap = new TextView(activity);
+    swap.setText("⇄");
+    swap.setTextSize(22);
+    swap.setTextColor(pc("#FF1677FF"));
+    swap.setGravity(Gravity.CENTER);
+
+    final TextView targetBtn = new TextView(activity);
+    targetBtn.setGravity(Gravity.CENTER);
+    targetBtn.setTextSize(14);
+    targetBtn.setTextColor(textColor);
+    targetBtn.setSingleLine(true);
+    targetBtn.setEllipsize(TextUtils.TruncateAt.END);
+    GradientDrawable tgtBg = new GradientDrawable();
+    tgtBg.setColor(chipBg);
+    tgtBg.setCornerRadius(dp(activity, 22));
+    targetBtn.setBackground(tgtBg);
+    targetBtn.setPadding(dp(activity, 14), dp(activity, 10), dp(activity, 14), dp(activity, 10));
+
+    langRow.addView(sourceBtn, new LinearLayout.LayoutParams(0, -2, 1f));
+    langRow.addView(swap, new LinearLayout.LayoutParams(dp(activity, 44), dp(activity, 44)));
+    langRow.addView(targetBtn, new LinearLayout.LayoutParams(0, -2, 1f));
+    card.addView(langRow);
+
+    final Runnable[] refreshTargets = new Runnable[1];
+    refreshTargets[0] = new Runnable() {
+        public void run() {
+            String srcCode = ((String[])sourcePairs.get(srcIdxRef[0]))[0];
+            ArrayList targets = new ArrayList();
+            try {
+                Class configClass = ClassUtils.INSTANCE.getModuleClassLoader()
+                    .loadClass("com.tencent.mobileqq.ocr.data.OcrConfig");
+                java.lang.reflect.Method method = configClass.getDeclaredMethod("getDefaultSupportLanguages", new Class[]{String.class});
+                Object result = method.invoke(null, new Object[]{("auto".equals(srcCode) ? "zh" : srcCode)});
+                if (result instanceof java.util.List) {
+                    java.util.List list = (java.util.List) result;
+                    java.util.HashSet seen = new java.util.HashSet();
+                    for (int i = 0; i < list.size(); i++) {
+                        Object code = list.get(i);
+                        if (code == null) continue;
+                        String cs = code.toString();
+                        if (cs.equals(srcCode) || seen.contains(cs)) continue;
+                        seen.add(cs);
+                        targets.add(cs);
+                    }
+                }
+            } catch (Throwable ignored) {}
+            if (targets.isEmpty()) {
+                if (!"zh".equals(srcCode) && !"auto".equals(srcCode)) {
+                    targets.add("zh");
+                } else {
+                    String[] fb = new String[]{"en","ja","ko","fr","es","it","de","tr","ru","pt","vi","id","ms","th"};
+                    for (int i = 0; i < fb.length; i++) targets.add(fb[i]);
+                }
+            }
+            targetPairsRef[0].clear();
+            java.util.HashSet seenName2 = new java.util.HashSet();
+            for (int i = 0; i < targets.size(); i++) {
+                String code = targets.get(i).toString();
+                String name = code;
+                for (int k = 0; k < sourcePairs.size(); k++) {
+                    String[] pp = (String[]) sourcePairs.get(k);
+                    if (pp[0].equals(code)) { name = pp[1]; break; }
+                }
+                if (seenName2.contains(name)) continue;
+                seenName2.add(name);
+                targetPairsRef[0].add(new String[]{code, name});
+            }
+            if (tgtIdxRef[0] >= targetPairsRef[0].size()) tgtIdxRef[0] = 0;
+            if (targetPairsRef[0].size() > 0) {
+                targetBtn.setText(((String[])targetPairsRef[0].get(tgtIdxRef[0]))[1]);
+            } else {
+                targetBtn.setText("无可用");
+            }
+        }
+    };
+
+    sourceBtn.setText(((String[])sourcePairs.get(0))[1]);
+    refreshTargets[0].run();
+
+    final EditText original = new EditText(activity);
+    original.setTextColor(textColor);
+    original.setHintTextColor(subColor);
+    original.setHint("输入或编辑原文");
+    original.setMinLines(3);
+    original.setMaxLines(6);
+    original.setGravity(Gravity.TOP | Gravity.LEFT);
+    original.setTextSize(15);
+    original.setPadding(dp(activity, 12), dp(activity, 10), dp(activity, 12), dp(activity, 10));
+    GradientDrawable inputDrawable = new GradientDrawable();
+    inputDrawable.setColor(inputBg);
+    inputDrawable.setCornerRadius(dp(activity, 10));
+    original.setBackground(inputDrawable);
+    String initialText = "";
+    try {
+        if (msgData != null && msgData.data != null && msgData.data.elements != null) {
+            StringBuffer sb = new StringBuffer();
+            for (int i = 0; i < msgData.data.elements.size(); i++) {
+                MsgElement el = (MsgElement) msgData.data.elements.get(i);
+                if (el != null && el.textElement != null && el.textElement.content != null) {
+                    if (sb.length() > 0) sb.append("\n");
+                    sb.append(el.textElement.content);
+                }
+            }
+            initialText = sb.toString();
+        }
+    } catch (Throwable ignored) {}
+    original.setText(initialText);
+    LinearLayout.LayoutParams editParams = new LinearLayout.LayoutParams(-1, -2);
+    editParams.topMargin = dp(activity, 12);
+    card.addView(original, editParams);
+
+    final EditText translated = new EditText(activity);
+    translated.setTextColor(textColor);
+    translated.setHintTextColor(subColor);
+    translated.setHint("译文（可编辑）");
+    translated.setMinLines(3);
+    translated.setMaxLines(6);
+    translated.setGravity(Gravity.TOP | Gravity.LEFT);
+    translated.setTextSize(15);
+    translated.setPadding(dp(activity, 12), dp(activity, 10), dp(activity, 12), dp(activity, 10));
+    GradientDrawable resultBg = new GradientDrawable();
+    resultBg.setColor(inputBg);
+    resultBg.setCornerRadius(dp(activity, 10));
+    translated.setBackground(resultBg);
+    LinearLayout.LayoutParams resultParams = new LinearLayout.LayoutParams(-1, -2);
+    resultParams.topMargin = dp(activity, 10);
+    card.addView(translated, resultParams);
+
+    final TextView status = new TextView(activity);
+    status.setTextColor(subColor);
+    status.setTextSize(12);
+    status.setText("选择语言后点击翻译");
+    LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(-1, -2);
+    statusParams.topMargin = dp(activity, 8);
+    card.addView(status, statusParams);
+
+    LinearLayout copyRow = new LinearLayout(activity);
+    copyRow.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+    copyRow.setPadding(0, dp(activity, 8), 0, 0);
+    TextView copyOriginal = createButton(activity, "复制原文", textColor, inputBg, 12f, 8, 14, 7, false, 0, 0, null);
+    TextView copyTranslated = createButton(activity, "复制译文", textColor, inputBg, 12f, 8, 14, 7, false, 0, 0, null);
+    LinearLayout.LayoutParams copyParams = new LinearLayout.LayoutParams(-2, dp(activity, 36));
+    copyParams.leftMargin = dp(activity, 8);
+    copyRow.addView(copyOriginal, copyParams);
+    LinearLayout.LayoutParams copyResultParams = new LinearLayout.LayoutParams(-2, dp(activity, 36));
+    copyResultParams.leftMargin = dp(activity, 8);
+    copyRow.addView(copyTranslated, copyResultParams);
+    card.addView(copyRow);
+
+    final PopupWindow[] pickerRef = new PopupWindow[1];
+
+    sourceBtn.setOnClickListener(new View.OnClickListener() {
+        public void onClick(View v) {
+            if (pickerRef[0] != null && pickerRef[0].isShowing()) {
+                pickerRef[0].dismiss();
+                pickerRef[0] = null;
+                return;
+            }
+            pickerRef[0] = showLangPicker(activity, sourcePairs, srcIdxRef, dark, textColor, popupBg, new Runnable() {
+                public void run() {
+                    sourceBtn.setText(((String[])sourcePairs.get(srcIdxRef[0]))[1]);
+                    tgtIdxRef[0] = 0;
+                    refreshTargets[0].run();
+                }
+            });
+            pickerRef[0].showAsDropDown(sourceBtn, 0, dp(activity, 6));
+        }
+    });
+
+    targetBtn.setOnClickListener(new View.OnClickListener() {
+        public void onClick(View v) {
+            if (targetPairsRef[0].size() == 0) { Toast("没有可用的目标语言"); return; }
+            if (pickerRef[0] != null && pickerRef[0].isShowing()) {
+                pickerRef[0].dismiss();
+                pickerRef[0] = null;
+                return;
+            }
+            pickerRef[0] = showLangPicker(activity, targetPairsRef[0], tgtIdxRef, dark, textColor, popupBg, new Runnable() {
+                public void run() {
+                    targetBtn.setText(((String[])targetPairsRef[0].get(tgtIdxRef[0]))[1]);
+                }
+            });
+            pickerRef[0].showAsDropDown(targetBtn, 0, dp(activity, 6));
+        }
+    });
+
+    swap.setOnClickListener(new View.OnClickListener() {
+        public void onClick(View v) {
+            try {
+                if (targetPairsRef[0].size() == 0) return;
+                final String srcCode = ((String[])sourcePairs.get(srcIdxRef[0]))[0];
+                final String tgtCode = ((String[])targetPairsRef[0].get(tgtIdxRef[0]))[0];
+                if ("auto".equals(srcCode)) {
+                    status.setText("自动检测不能作为目标语言");
+                    return;
+                }
+                boolean canReverse = false;
+                try {
+                    Class configClass = ClassUtils.INSTANCE.getModuleClassLoader()
+                        .loadClass("com.tencent.mobileqq.ocr.data.OcrConfig");
+                    java.lang.reflect.Method method = configClass.getDeclaredMethod("getDefaultSupportLanguages", new Class[]{String.class});
+                    Object result = method.invoke(null, new Object[]{tgtCode});
+                    if (result instanceof java.util.List) {
+                        java.util.List list = (java.util.List) result;
+                        for (int i = 0; i < list.size(); i++) {
+                            if (srcCode.equals(String.valueOf(list.get(i)))) { canReverse = true; break; }
+                        }
+                    }
+                } catch (Throwable ignored) {}
+                if (!canReverse) {
+                    status.setText("当前语言组合不支持互换");
+                    return;
+                }
+                final String oldOriginalText = original.getText().toString();
+                final String oldTranslatedText = translated.getText().toString();
+                int newSrcIdx = 0;
+                for (int i = 0; i < sourcePairs.size(); i++) {
+                    if (((String[])sourcePairs.get(i))[0].equals(tgtCode)) { newSrcIdx = i; break; }
+                }
+                srcIdxRef[0] = newSrcIdx;
+                sourceBtn.setText(((String[])sourcePairs.get(newSrcIdx))[1]);
+                tgtIdxRef[0] = 0;
+                refreshTargets[0].run();
+                if (!oldTranslatedText.trim().isEmpty()) {
+                    original.setText(oldTranslatedText);
+                    translated.setText(oldOriginalText);
+                } else {
+                    translated.setText(oldOriginalText);
+                    original.setText("");
+                }
+                status.setText("已交换语言");
+            } catch (Throwable t) {
+                traceLog("api5_log", "[翻译] 交换异常: " + t);
+            }
+        }
+    });
+
+    LinearLayout buttons = new LinearLayout(activity);
+    buttons.setGravity(Gravity.CENTER_VERTICAL);
+    buttons.setPadding(0, dp(activity, 12), 0, 0);
+    TextView translateBtn = createButton(activity, "翻译", Color.WHITE, pc("#FF1677FF"), 14f, 10, 16, 10, true, 0, 0, null);
+    TextView sendBtn = createButton(activity, "发送译文", Color.WHITE, pc("#FF34A853"), 14f, 10, 16, 10, true, 0, 0, null);
+    buttons.addView(translateBtn, new LinearLayout.LayoutParams(0, dp(activity, 44), 1f));
+    View gap = new View(activity);
+    buttons.addView(gap, new LinearLayout.LayoutParams(dp(activity, 10), 1));
+    buttons.addView(sendBtn, new LinearLayout.LayoutParams(0, dp(activity, 44), 1f));
+    card.addView(buttons);
+
+    copyOriginal.setOnClickListener(new View.OnClickListener() {
+        public void onClick(View v) {
+            try {
+                ClipboardManager clipboard = (ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
+                clipboard.setPrimaryClip(ClipData.newPlainText("原文", original.getText().toString()));
+                Toast("已复制原文");
+            } catch (Throwable t) { Toast("复制失败"); }
+        }
+    });
+    copyTranslated.setOnClickListener(new View.OnClickListener() {
+        public void onClick(View v) {
+            try {
+                ClipboardManager clipboard = (ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
+                clipboard.setPrimaryClip(ClipData.newPlainText("译文", translated.getText().toString()));
+                Toast("已复制译文");
+            } catch (Throwable t) { Toast("复制失败"); }
+        }
+    });
+
+    final boolean[] busy = new boolean[]{false};
+    final Object handler = trGetOcrHandler();
+
+    translateBtn.setOnClickListener(new View.OnClickListener() {
+        public void onClick(View v) {
+            try {
+                if (busy[0]) return;
+                if (targetPairsRef[0].size() == 0) { status.setText("没有可用的目标语言"); return; }
+                final String from = ((String[])sourcePairs.get(srcIdxRef[0]))[0];
+                final String to = ((String[])targetPairsRef[0].get(tgtIdxRef[0]))[0];
+                busy[0] = true;
+                status.setText("正在翻译…");
+                trStartRequest(handler, original.getText().toString(), from, to, translated, status, dialog, busy);
+            } catch (Throwable t) {
+                busy[0] = false;
+                status.setText("启动翻译失败: " + t.getMessage());
+                traceLog("api5_log", "[翻译] 启动异常: " + t);
+            }
+        }
+    });
+    sendBtn.setOnClickListener(new View.OnClickListener() {
+        public void onClick(View v) {
+            try {
+                String text = translated.getText().toString();
+                if (text.trim().isEmpty()) { status.setText("没有可发送的译文"); return; }
+                dialog.dismiss();
+                复读(msgData, text);
+            } catch (Throwable t) {
+                traceLog("api5_log", "[翻译] 发送译文异常: " + t);
+            }
+        }
+    });
+
+    close.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { dialog.dismiss(); } });
+
+    dialog.setContentView(root);
+    dialog.setOnDismissListener(new android.content.DialogInterface.OnDismissListener() {
+        public void onDismiss(android.content.DialogInterface d) {
+            isDialogShowing = false;
+            if (pickerRef[0] != null && pickerRef[0].isShowing()) {
+                try { pickerRef[0].dismiss(); } catch (Throwable ignore) {}
+            }
+        }
+    });
+    dialog.getWindow().setLayout(-1, -1);
+    dialog.show();
+    dialog.getWindow().setLayout(-1, -1);
+    isDialogShowing = true;
+}
+
 void showActionDialogInner(final Activity activity, final MsgData msgData, final View targetView, final Intent originalIntent) {
     final Object finaldata = msgData;
     final boolean dark = isThemeDark(activity);
 
-    final String[] modeNames = new String[]{"复读", "多次复读", "作图", "加解密"};
+    final String[] modeNames = new String[]{"复读", "多次复读", "作图", "加解密", "翻译"};
     final boolean[] hasImage = new boolean[]{false};
     final int[] currentModeIndex = new int[]{0};
     final SpannableStringBuilder initSb = new SpannableStringBuilder();
@@ -748,35 +1429,43 @@ void showActionDialogInner(final Activity activity, final MsgData msgData, final
 
         public boolean onTouch(View v, MotionEvent event) {
             int action = event.getAction();
-            switch (action) {
-                case MotionEvent.ACTION_DOWN:
+
+            if (action == MotionEvent.ACTION_DOWN) {
+                try {
                     downX = event.getRawX();
                     hasMoved = false;
                     isActionTriggered[0] = false;
                     WHEEL_STATE[0] = showStyleWheelSelector(activity, actionBtn, currentModeIndex, modeNames, actionBtn, btnTv, event);
                     View s = (View) WHEEL_STATE[1];
                     WHEEL_STATE[5] = new float[]{downX, s.getTranslationX()};
-                    return true;
+                } catch (Throwable t) {
+                }
+                return true;
+            }
 
-                case MotionEvent.ACTION_MOVE:
+            if (action == MotionEvent.ACTION_MOVE) {
+                try {
                     float rawDx = event.getRawX() - downX;
                     if (Math.abs(rawDx) > dp(activity, 15)) hasMoved = true;
                     if (WHEEL_STATE[0] != null && hasMoved) updateSliderPhysics(rawDx, true);
-                    return true;
+                } catch (Throwable t) {
+                }
+                return true;
+            }
 
-                case MotionEvent.ACTION_UP:
-                case MotionEvent.ACTION_CANCEL:
+            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                try {
                     if (WHEEL_STATE[0] != null) {
                         final PopupWindow popup = (PopupWindow) WHEEL_STATE[0];
                         if (!hasMoved) {
                             if (!isActionTriggered[0]) {
                                 isActionTriggered[0] = true;
                                 String currentText = editText.getText().toString();
-                                boolean isModified = !currentText.equals(originalTextString);
-                                int mode = currentModeIndex[0];
+                                final boolean isModified = !currentText.equals(originalTextString);
+                                final int mode = currentModeIndex[0];
                                 if (mode == 0) {
                                     dialog.dismiss();
-                                    doSendOrRepeat(msgData, isModified ? currentText : null);
+                                    复读(msgData, isModified ? currentText : null);
                                 } else if (mode == 1) {
                                     dialog.dismiss();
                                     showRepeatCountDialog(activity, msgData, isModified ? currentText : null);
@@ -786,13 +1475,23 @@ void showActionDialogInner(final Activity activity, final MsgData msgData, final
                                 } else if (mode == 3) {
                                     dialog.dismiss();
                                     showEncryptDecryptDialog(activity, finaldata);
+                                } else if (mode == 4) {
+                                    dialog.dismiss();
+                                    uiHandler.postDelayed(new Runnable() {
+                                        public void run() {
+                                            try {
+                                                showTranslateDialog(activity, msgData);
+                                            } catch (Throwable t) {
+                                                traceLog("api5_log", "[翻译] 弹窗打开失败: " + t);
+                                            }
+                                        }
+                                    }, 100);
                                 }
                             }
                         } else {
                             View slider = (View) WHEEL_STATE[1];
                             View menuRoot = (View) WHEEL_STATE[8];
                             float[] centers = (float[]) WHEEL_STATE[2];
-
                             if (slider != null) {
                                 float logicTrans = slider.getTranslationX();
                                 float logicCenter = centers[0] + logicTrans;
@@ -802,25 +1501,21 @@ void showActionDialogInner(final Activity activity, final MsgData msgData, final
                                     float d = Math.abs(logicCenter - centers[i]);
                                     if (d < minDist) { minDist = d; bestIdx = i; }
                                 }
-
                                 final float targetTrans = centers[bestIdx] - centers[0];
                                 SpringAnimation animX = new SpringAnimation(slider, DynamicAnimation.TRANSLATION_X, targetTrans);
                                 animX.getSpring().setDampingRatio(SpringForce.DAMPING_RATIO_MEDIUM_BOUNCY);
                                 animX.getSpring().setStiffness(SpringForce.STIFFNESS_LOW);
-
                                 final int finalIdx = bestIdx;
                                 currentModeIndex[0] = finalIdx;
                                 btnTv.setText(modeNames[finalIdx]);
                                 GradientDrawable bg2 = (GradientDrawable) actionBtn.getBackground();
-                                String[] colors = {"#007AFF", "#FF9500", "#AF52DE", "#34C759"};
+                                String[] colors = {"#007AFF", "#FF9500", "#AF52DE", "#34C759", "#5856D6"};
                                 bg2.setColor(pc(colors[finalIdx % colors.length]));
-
                                 String now = editText.getText().toString();
                                 boolean mod = !now.equals(originalTextString);
                                 if (finalIdx == 0) btnTv.setText(mod ? "发送" : "复读");
                                 else if (finalIdx == 1) btnTv.setText(mod ? "多次发送" : "多次复读");
                                 else btnTv.setText(modeNames[finalIdx]);
-
                                 animX.start();
                                 if (menuRoot != null) {
                                     menuRoot.animate().alpha(0f).scaleX(0.9f).scaleY(0.9f).setDuration(150)
@@ -836,10 +1531,13 @@ void showActionDialogInner(final Activity activity, final MsgData msgData, final
                             }
                         }
                     }
-                    WHEEL_STATE[0] = null;
-                    hasMoved = false;
-                    return true;
+                } catch (Throwable t) {
+                }
+                WHEEL_STATE[0] = null;
+                hasMoved = false;
+                return true;
             }
+
             return false;
         }
     });
@@ -1151,7 +1849,7 @@ void initdoublemsg() {
                     return;
                 }
 
-                traceLog("api5_log", "[initdoublemsg] Intent拦截: MsgId=" + msgId);
+                traceLog("api5_log", "[initdoublemsg] Intent拦截: MsgId=" + msgId + " chatType=" + chatType + " peerUid=" + peerUid);
                 param.setResult(null);
 
                 Activity act = null;
@@ -1184,5 +1882,64 @@ void initdoublemsg() {
         showApiProtectGuide(failAct);
     }
 }
+
+AIOViewUpdateListener revokeMarkListener = null;
+
+String revokeMarkText() {
+    String t = getString("settings", "revoke_mark_text", "");
+    if (t == null || t.length() == 0) t = "已撤回";
+    return t;
+}
+
+int revokeMarkColor() {
+    try {
+        if ("custom".equals(getString("settings", "revoke_mark_color_mode", "module"))) {
+            return pc(getString("settings", "revoke_mark_color", "#FFFF0000"));
+        }
+        return ShowMsgTime.INSTANCE.getConfig().color;
+    } catch (Throwable e) {
+        traceLog("api5_log", "[已撤回标记] 取色失败: " + e);
+        return pc("#FFFF0000");
+    }
+}
+
+void installRevokeMarkListener() {
+    if (revokeMarkListener != null) return;
+    revokeMarkListener = new AIOViewUpdateListener() {
+        public void onUpdate(FrameLayout layout, MsgRecord msg) {
+            try {
+                if (layout == null) return;
+                if (!getBoolean("settings", "revoke_mark", false)
+                        || !ShowMsgTime.INSTANCE.isEnable()
+                        || !AntiRevoke.INSTANCE.isEnable()) {
+                    return;
+                }
+                TextView builtIn = (TextView) layout.findViewWithTag("RevokeTagView");
+                if (builtIn == null || builtIn.getVisibility() != View.VISIBLE) return;
+                TextView timeView = (TextView) layout.findViewWithTag("MsgTime");
+                if (timeView == null) return;
+                builtIn.setVisibility(View.GONE);
+                String mark = revokeMarkText();
+                String cur = timeView.getText().toString();
+                if (cur.indexOf(mark) < 0) timeView.setText(cur + mark);
+                timeView.setTextColor(revokeMarkColor());
+                FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) timeView.getLayoutParams();
+                if (lp != null) {
+                    if ("top".equals(getString("settings", "revoke_mark_pos", "bottom"))) {
+                        lp.gravity = Gravity.TOP | Gravity.END;
+                    } else {
+                        lp.gravity = Gravity.BOTTOM | Gravity.END;
+                    }
+                    timeView.setLayoutParams(lp);
+                }
+            } catch (Throwable e) {
+                traceLog("api5_log", "[已撤回标记] 异常: " + e);
+            }
+        }
+    };
+    OnAIOViewUpdate.INSTANCE.addListener(revokeMarkListener);
+}
+
+installRevokeMarkListener();
 
 initdoublemsg();
