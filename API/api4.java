@@ -257,6 +257,11 @@ private String 获取动态图标路径() {
 }
 
 private boolean 是否使用动态图标() {
+    // 自定义图标本身就是 GIF：直接按动态图标处理（此时静态/动态两个 getter 都返回同一文件，时间戳比较恒为 false）
+    String customIcon = getString("settings", "iconPath", "");
+    if (customIcon != null && customIcon.toLowerCase().endsWith(".gif") && new java.io.File(customIcon).exists()) {
+        return true;
+    }
     String animPath = 获取动态图标路径();
     if (!animPath.isEmpty()) {
         String staticPath = 获取静态图标路径();
@@ -1071,6 +1076,10 @@ public void 悬浮窗开关(int chatType, String peerUin, String name) {
 
 public void 启动悬浮窗(final Activity activity) {
     try {
+        // 开关由 api4 自己判断：关闭状态下任何流程（如保存图标后的刷新）都不允许把悬浮窗打开
+        if (!getBoolean("settings", "开关", false)) {
+            return;
+        }
         if (activity == null) {
             启动悬浮窗();
             return;
@@ -1268,6 +1277,9 @@ public void 刷新悬浮窗() {
                 if (wm == null) wm = (WindowManager) activity.getSystemService(Context.WINDOW_SERVICE);
                 if (wm == null) return;
                 if (floatingView == null || params == null || 悬浮窗状态 != STATE_VISIBLE) {
+                    // 视图不存在或已创建但未显示：先销毁旧视图，确保按新图标重建；是否显示仍由 启动悬浮窗 按开关判断
+                    traceLog("api4_log", "[刷新悬浮窗] 视图未显示 state=" + 悬浮窗状态 + "，销毁旧视图后按新图标重建");
+                    销毁悬浮窗资源();
                     启动悬浮窗(activity);
                     return;
                 }
@@ -1285,6 +1297,8 @@ public void 刷新悬浮窗() {
                 boolean needRebuild =
                         (isGifMode && !(iconImageView instanceof GifImageView)) ||
                         (!isGifMode && (iconImageView instanceof GifImageView));
+                traceLog("api4_log", "[刷新悬浮窗] gif=" + isGifMode + " movie=" + (cachedGifMovie != null)
+                         + " view=" + (iconImageView == null ? "null" : iconImageView.getClass().getSimpleName()) + " rebuild=" + needRebuild);
 
                 if (needRebuild) {
                     重建悬浮窗图标视图(activity);

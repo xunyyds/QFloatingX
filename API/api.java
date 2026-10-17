@@ -4019,83 +4019,84 @@ void ensureFilePickerHook() {
     try {
         Class activityClass = Class.forName("android.app.Activity");
         traceLog("api_log", "[hook] 注册中 dispatchActivityResult");
-        Class[] paramTypes = new Class[5];
-        paramTypes[0] = String.class;
-        paramTypes[1] = int.class;
-        paramTypes[2] = int.class;
-        paramTypes[3] = Intent.class;
-        paramTypes[4] = String.class;
-        java.lang.reflect.Method target = getCachedMethod(activityClass, "dispatchActivityResult", paramTypes);
-        traceLog("api_log", "[hook] 目标=" + (target != null ? "found" : "NULL"));
-        if (target == null) {
+        // Activity 上有多个同名重载（5 参 / 6 参含 ComponentCaller，Android 14+ 框架调 6 参），必须全部挂钩
+        java.lang.reflect.Method[] pickerMethods = activityClass.getDeclaredMethods();
+        int hookedCount = 0;
+        for (int mi = 0; mi < pickerMethods.length; mi++) {
+            if (!"dispatchActivityResult".equals(pickerMethods[mi].getName())) continue;
+            XposedBridge.hookMethod(pickerMethods[mi], new XC_MethodHook() {
+                protected void afterHookedMethod(XC_MethodHook.MethodHookParam param) {
+                    ThreadPool.execute(new Runnable() {
+                        public void run() {
+                            try {
+                                if (param.args == null || param.args.length < 4) return;
+                                if (!(param.args[1] instanceof Integer) || !(param.args[2] instanceof Integer)) return;
+                                Activity act = (Activity) param.thisObject;
+                                int rc = ((Integer) param.args[1]).intValue();
+                                int resultCode = ((Integer) param.args[2]).intValue();
+                                Intent data = (Intent) param.args[3];
+                                traceLog("api_log", "[dispatch] act=" + act.getClass().getName() + " rc=" + rc + " result=" + resultCode + " data=" + (data != null ? "yes" : "null"));
+                                if (resultCode != Activity.RESULT_OK || data == null) return;
+                                Uri uri = data.getData();
+                                if (uri == null) return;
+                                // 取出即移除：两个重载同时命中时只有一次能拿到任务，避免重复处理
+                                FilePickerTask task = (FilePickerTask) filePickerTasks.remove(Integer.valueOf(rc));
+                                traceLog("api_log", "[dispatch] task=" + (task != null ? "found" : "NULL"));
+                                if (task == null) return;
+                                String fileName = null;
+                                try {
+                                    if ("content".equals(uri.getScheme())) {
+                                        android.database.Cursor cursor = act.getContentResolver().query(uri, null, null, null, null);
+                                        if (cursor != null) {
+                                            try {
+                                                if (cursor.moveToFirst()) {
+                                                    int index = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
+                                                    if (index >= 0) fileName = cursor.getString(index);
+                                                }
+                                            } finally {
+                                                cursor.close();
+                                            }
+                                        }
+                                    }
+                                } catch (Throwable e) { traceLog("api_log", "[afterHookedMethod] 异常: " + e); }
+                                if (fileName == null || fileName.length() == 0) {
+                                    try {
+                                        String path = uri.getPath();
+                                        if (path != null) {
+                                            int cut = path.lastIndexOf('/');
+                                            if (cut != -1) fileName = path.substring(cut + 1);
+                                        }
+                                    } catch (Throwable e) { traceLog("api_log", "[afterHookedMethod] 异常: " + e); }
+                                }
+                                String filePath = null;
+                                if (task.savePath != null) {
+                                    String type = act.getContentResolver().getType(uri);
+                                    String ext = getExtensionFromMimeType(type);
+                                    if (task.savePath.contains("{ext}")) {
+                                        filePath = task.savePath.replace("{ext}", ext);
+                                    } else if (task.savePath.lastIndexOf('.') > 0) {
+                                        filePath = task.savePath.substring(0, task.savePath.lastIndexOf('.')) + ext;
+                                    } else {
+                                        filePath = task.savePath + ext;
+                                    }
+                                }
+                                traceLog("api_log", "[dispatch] name=" + fileName + " path=" + filePath + " uri=" + uri);
+                                task.callback.onFilePicked(act, uri, fileName, filePath);
+                            } catch (Throwable e) {
+                                traceLog("api_log", "[dispatch] 异常: " + e);
+                            }
+                        }
+                    });
+                }
+            });
+            hookedCount++;
+            traceLog("api_log", "[hook] 已挂钩 " + pickerMethods[mi].toString());
+        }
+        traceLog("api_log", "[hook] dispatchActivityResult 挂钩数=" + hookedCount);
+        if (hookedCount == 0) {
             showApiProtectGuide(getNowActivity());
             return;
         }
-        XposedBridge.hookMethod(target, new XC_MethodHook() {
-            protected void afterHookedMethod(XC_MethodHook.MethodHookParam param) {
-                ThreadPool.execute(new Runnable() {
-                    public void run() {
-                        try {
-                            if (param.args == null || param.args.length < 4) return;
-                            if (!(param.args[1] instanceof Integer) || !(param.args[2] instanceof Integer)) return;
-                            Activity act = (Activity) param.thisObject;
-                            int rc = ((Integer) param.args[1]).intValue();
-                            int resultCode = ((Integer) param.args[2]).intValue();
-                            Intent data = (Intent) param.args[3];
-                            traceLog("api_log", "[dispatch] act=" + act.getClass().getName() + " rc=" + rc + " result=" + resultCode + " data=" + (data != null ? "yes" : "null"));
-                            if (resultCode != Activity.RESULT_OK || data == null) return;
-                            Uri uri = data.getData();
-                            if (uri == null) return;
-                            FilePickerTask task = (FilePickerTask) filePickerTasks.get(Integer.valueOf(rc));
-                            traceLog("api_log", "[dispatch] task=" + (task != null ? "found" : "NULL"));
-                            if (task == null) return;
-                            String fileName = null;
-                            try {
-                                if ("content".equals(uri.getScheme())) {
-                                    android.database.Cursor cursor = act.getContentResolver().query(uri, null, null, null, null);
-                                    if (cursor != null) {
-                                        try {
-                                            if (cursor.moveToFirst()) {
-                                                int index = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
-                                                if (index >= 0) fileName = cursor.getString(index);
-                                            }
-                                        } finally {
-                                            cursor.close();
-                                        }
-                                    }
-                                }
-                            } catch (Throwable e) { traceLog("api_log", "[afterHookedMethod] 异常: " + e); }
-                            if (fileName == null || fileName.length() == 0) {
-                                try {
-                                    String path = uri.getPath();
-                                    if (path != null) {
-                                        int cut = path.lastIndexOf('/');
-                                        if (cut != -1) fileName = path.substring(cut + 1);
-                                    }
-                                } catch (Throwable e) { traceLog("api_log", "[afterHookedMethod] 异常: " + e); }
-                            }
-                            String filePath = null;
-                            if (task.savePath != null) {
-                                String type = act.getContentResolver().getType(uri);
-                                String ext = getExtensionFromMimeType(type);
-                                if (task.savePath.contains("{ext}")) {
-                                    filePath = task.savePath.replace("{ext}", ext);
-                                } else if (task.savePath.lastIndexOf('.') > 0) {
-                                    filePath = task.savePath.substring(0, task.savePath.lastIndexOf('.')) + ext;
-                                } else {
-                                    filePath = task.savePath + ext;
-                                }
-                            }
-                            traceLog("api_log", "[dispatch] name=" + fileName + " path=" + filePath + " uri=" + uri);
-                            task.callback.onFilePicked(act, uri, fileName, filePath);
-                        } catch (Throwable e) {
-                            traceLog("api_log", "[dispatch] 异常: " + e);
-                        }
-                    }
-                });
-            }
-        });
-        traceLog("api_log", "[hook] dispatchActivityResult 已挂钩");
         isFilePickerHooked = true;
     } catch (Throwable e) {
         traceLog("api_log", "[hook] 失败: " + e);

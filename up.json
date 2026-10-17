@@ -1,15 +1,19 @@
 {
-  "version": "2.6.1",
-  "versionType": "正式版",
+  "version": "2.6.2",
+  "versionType": "测试版",
   "updateType": "补丁",
-  "updateTime": "2026-10-11 08:48:18",
-  "changelog": "- 优化菜单界面\n- 优化解析**markdown**不再依赖任何外部API\n- 优化并行访问速度\n- 新增是否接收测试版推送开关",
+  "updateTime": "2026-10-17 08:45:22",
+  "changelog": "- 合并撤回提示重定向脚本，并增加了n个自定义设置\n- 双击消息菜单新增翻译功能，使用QQ自带接口\n- 新增配置导入与备份\n- 优化功能热插拔管理界面\n-",
   "files": [
+    "QFloatingX\/API\/uitools.java",
     "QFloatingX\/API\/Dialog.java",
+    "QFloatingX\/API\/api5.java",
     "QFloatingX\/API\/api.java",
     "QFloatingX\/API\/setwindow.java",
+    "QFloatingX\/API\/api4.java",
     "QFloatingX\/API\/function.java",
-    "QFloatingX\/更新日志.txt",
-    "QFloatingX\/info.prop"
+    "QFloatingX\/API\/import.java",
+    "QFloatingX\/info.prop",
+    "QFloatingX\/更新日志.txt"
   ]
 }

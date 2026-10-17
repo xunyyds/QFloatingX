@@ -681,7 +681,7 @@ void performSave(final Activity activity, final Bitmap b, final String p, final 
                 b.compress(Bitmap.CompressFormat.JPEG, q, o);
                 o.flush(); o.close();
                 traceLog("uitools_log", "[保存] 成功 p=" + p);
-                activity.runOnUiThread(new Runnable() { public void run() { Toast("保存成功 (" + q + "%)"); 刷新悬浮窗(); if (dlg != null) dlg.dismiss(); } });
+                activity.runOnUiThread(new Runnable() { public void run() { Toast("保存成功 (" + q + "%)"); 刷新悬浮窗(); refreshCurrentSettingsPage(); if (dlg != null) dlg.dismiss(); } });
             } catch (Throwable e) {
                 traceLog("uitools_log", "[保存] 失败 p=" + p + " " + e);
                 activity.runOnUiThread(new Runnable() { public void run() { if (dlg != null) dlg.dismiss(); } });
@@ -703,7 +703,7 @@ void editAndSaveImage(final Activity activity, final Uri uri, final String p, fi
                     while ((len = is.read(buf)) != -1) os.write(buf, 0, len);
                     os.flush(); os.close(); is.close();
                     traceLog("uitools_log", "[编辑保存] gif 已保存到 " + p);
-                    activity.runOnUiThread(new Runnable() { public void run() { Toast("GIF动图已保存"); 刷新悬浮窗(); } });
+                    activity.runOnUiThread(new Runnable() { public void run() { Toast("GIF动图已保存"); 刷新悬浮窗(); refreshCurrentSettingsPage(); } });
                 } catch (Exception e) {
                     traceLog("uitools_log", "[编辑保存] gif 失败: " + e);
                 }
