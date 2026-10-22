@@ -252,6 +252,8 @@ import org.json.JSONObject;
 
 
 import me.yxp.qfun.hook.api.OnGetRKey;
+import me.yxp.qfun.hook.api.OnAIOViewUpdate;
+import me.yxp.qfun.hook.api.AIOViewUpdateListener;
 import me.yxp.qfun.hook.chat.ShowMsgTime;
 import me.yxp.qfun.hook.msg.AntiRevoke;
 import me.yxp.qfun.plugin.bean.MsgData;

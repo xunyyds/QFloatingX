@@ -1,0 +1,38 @@
+# ===== QFloatingX 运行时目录（插件在真机上自行生成，不入库）=====
+/Log/
+/Log_unzipped/
+/config/
+/cache/
+/HTML/
+/HotPlug/
+/info/
+/outputs/
+/_backups/
+
+# 更新器下载中转文件
+*.new
+*.tmp
+*.part
+
+# 运行时图标（由 icon.zip 下发，不入库）
+/API/icon.png
+/API/icon.gif
+/API/closeIcon.png
+/API/QQ.png
+/API/GitHub.png
+/API/icon.zip
+
+# ===== 本地/工具临时产物 =====
+.tmp*/
+.verify/
+.attr_probe/
+*.log
+*.log.txt
+
+# ===== 编辑器 / 操作系统 =====
+.idea/
+.vscode/
+*.iml
+Thumbs.db
+desktop.ini
+.DS_Store
