@@ -1,0 +1,1775 @@
+
+
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.app.Dialog;
+import android.content.ClipboardManager;
+import android.content.ClipData;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.res.Configuration;
+import android.graphics.*;
+import android.graphics.drawable.*;
+import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
+import android.renderscript.Allocation;
+import android.renderscript.Element;
+import android.renderscript.RenderScript;
+import android.renderscript.ScriptIntrinsicBlur;
+import android.view.*;
+import android.widget.*;
+import android.util.TypedValue;
+import android.animation.ValueAnimator;
+import android.animation.ArgbEvaluator;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Pattern;
+import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import me.yxp.qfun.utils.ui.ThemeHelper;
+
+
+import android.content.res.Configuration;
+boolean isThemeDark(Activity activity) {
+    try {
+        
+        String themeMode = getString("settings", "ui_theme_mode", "default");
+        
+        
+        if ("dark".equals(themeMode)) {
+            return true;
+        }
+        
+        
+        if ("light".equals(themeMode)) {
+            return false;
+        }
+        
+        
+        if ("module".equals(themeMode)) {
+            return ThemeHelper.INSTANCE.isNightMode();
+        }
+        
+        
+        boolean systemDarkMode = false;
+        int uiMode = activity.getResources().getConfiguration().uiMode;
+        int nightMode = uiMode & Configuration.UI_MODE_NIGHT_MASK;
+        systemDarkMode = (nightMode == Configuration.UI_MODE_NIGHT_YES);
+        
+        return systemDarkMode;
+    } catch (Throwable e) {
+        
+        return false;
+    }
+}
+
+private Drawable createRippleBg(Context ctx, int bgColor, int radius) {
+    int effectiveRadius = dp(ctx, Math.max(8, radius));
+    GradientDrawable content = new GradientDrawable();
+    content.setColor(bgColor);
+    content.setCornerRadius(effectiveRadius);
+    GradientDrawable mask = new GradientDrawable();
+    mask.setColor(Color.WHITE);
+    mask.setCornerRadius(effectiveRadius);
+    return new RippleDrawable(ColorStateList.valueOf(getAdaptiveRippleColor(ctx, bgColor)), content, mask);
+}
+
+int blendColor(int baseColor, int targetColor, float amount) {
+    amount = Math.max(0f, Math.min(1f, amount));
+    int a = Math.round(Color.alpha(baseColor) + (Color.alpha(targetColor) - Color.alpha(baseColor)) * amount);
+    int r = Math.round(Color.red(baseColor) + (Color.red(targetColor) - Color.red(baseColor)) * amount);
+    int g = Math.round(Color.green(baseColor) + (Color.green(targetColor) - Color.green(baseColor)) * amount);
+    int b = Math.round(Color.blue(baseColor) + (Color.blue(targetColor) - Color.blue(baseColor)) * amount);
+    return Color.argb(a, r, g, b);
+}
+
+int getAdaptivePressedColor(int normalColor) {
+    int base = normalColor;
+    if (Color.alpha(base) < 24) base = pc(isThemeDark(getNowActivity()) ? "#FF242424" : "#FFF7F7F7");
+    boolean dark = isColorDark(base);
+    return blendColor(base, dark ? Color.WHITE : Color.BLACK, 0.16f);
+}
+
+int getAdaptiveRippleColor(Context context, int baseColor) {
+    boolean dark = false;
+    try {
+        if (context instanceof Activity) dark = isThemeDark((Activity) context);
+    } catch (Throwable e) {
+        traceLog("uitools_log", "[getAdaptiveRippleColor] 异常: " + e);
+    }
+    if (Color.alpha(baseColor) >= 24) {
+        boolean baseDark = isColorDark(baseColor);
+        int target = baseDark ? Color.WHITE : Color.BLACK;
+        return Color.argb(46, Color.red(target), Color.green(target), Color.blue(target));
+    }
+    int target = dark ? Color.WHITE : Color.BLACK;
+    return Color.argb(38, Color.red(target), Color.green(target), Color.blue(target));
+}
+
+StateListDrawable makeFeedbackBg(int normalColor, int pressedColor, int r) {
+    StateListDrawable sld = new StateListDrawable();
+    GradientDrawable pressed = new GradientDrawable();
+    pressed.setColor(getAdaptivePressedColor(normalColor));
+    pressed.setCornerRadius(r);
+    GradientDrawable normal = new GradientDrawable();
+    normal.setColor(normalColor);
+    normal.setCornerRadius(r);
+    sld.addState(new int[]{android.R.attr.state_pressed}, pressed);
+    sld.addState(new int[0], normal);
+    return sld;
+}
+
+Drawable makeAdaptiveRippleBg(Context context, int baseColor, int radiusDp) {
+    int radius = dp(context, Math.max(8, radiusDp));
+    GradientDrawable content = new GradientDrawable();
+    content.setColor(baseColor);
+    content.setCornerRadius(radius);
+    GradientDrawable mask = new GradientDrawable();
+    mask.setColor(Color.WHITE);
+    mask.setCornerRadius(radius);
+    return new RippleDrawable(ColorStateList.valueOf(getAdaptiveRippleColor(context, baseColor)), content, mask);
+}
+
+int getReadableTextColor(int backgroundColor) {
+    return isColorDark(backgroundColor) ? Color.WHITE : pc("#FF202124");
+}
+
+void applyStatusPill(Activity activity, TextView view, String text, int tone) {
+    if (activity == null || view == null || text == null || text.length() == 0) {
+        if (view != null) view.setVisibility(View.GONE);
+        return;
+    }
+    int surface = tc(activity, "surface");
+    int bg = blendColor(surface, tone, isThemeDark(activity) ? 0.30f : 0.16f);
+    view.setText(text);
+    view.setTextSize(10.5f);
+    view.setTextColor(getReadableTextColor(bg));
+    view.setGravity(Gravity.CENTER);
+    view.setIncludeFontPadding(false);
+    view.setSingleLine(true);
+    view.setEllipsize(android.text.TextUtils.TruncateAt.END);
+    view.setPadding(dp(activity, 8), dp(activity, 3), dp(activity, 8), dp(activity, 3));
+    view.setBackground(roundRect(bg, dp(activity, 20)));
+    view.setVisibility(View.VISIBLE);
+}
+
+void applyRolePill(Activity activity, TextView view, String role) {
+    if (activity == null || view == null || role == null || role.length() == 0) {
+        if (view != null) view.setVisibility(View.GONE);
+        return;
+    }
+    String normalized = role;
+    int tone = tc(activity, "primary");
+    if ("管理员".equals(normalized)) tone = pc("#FFF59E0B");
+    else if ("普通成员".equals(normalized)) tone = tc(activity, "on_surface");
+    int surface = tc(activity, "surface");
+    int bg = "普通成员".equals(normalized)
+        ? blendColor(surface, tc(activity, "on_surface"), 0.10f)
+        : blendColor(surface, tone, isThemeDark(activity) ? 0.30f : 0.18f);
+    applyStatusPill(activity, view, normalized, tone);
+    view.setBackground(roundRect(bg, dp(activity, 20)));
+}
+
+int adjustColor(int color, float factor) {
+    int a = Color.alpha(color);
+    int r = Math.round(Color.red(color) * factor);
+    int g = Math.round(Color.green(color) * factor);
+    int b = Math.round(Color.blue(color) * factor);
+    return Color.argb(a, Math.min(r, 255), Math.min(g, 255), Math.min(b, 255));
+}
+
+int adjustAlpha(int color, float factor) {
+    return Color.argb(Math.round(Color.alpha(color) * factor), Color.red(color), Color.green(color), Color.blue(color));
+}
+
+GradientDrawable roundRect(int c, int r) {
+    GradientDrawable g = new GradientDrawable();
+    g.setColor(c);
+    g.setCornerRadius(r);
+    return g;
+}
+
+GradientDrawable makeDialogInnerCard(Activity activity, int color) {
+    GradientDrawable g = new GradientDrawable();
+    g.setShape(GradientDrawable.RECTANGLE);
+    g.setColor(color);
+    g.setCornerRadius(dp(activity, 12));
+    return g;
+}
+
+LinearLayout makeDialogRoot(Activity a) {
+    LinearLayout root = new LinearLayout(a);
+    root.setOrientation(LinearLayout.VERTICAL);
+    root.setPadding(dp(a, 16), dp(a, 20), dp(a, 16), dp(a, 16));
+    return root;
+}
+
+TextView makeDialogTitle(Activity a, String text, int bottomDp) {
+    TextView tv = new TextView(a);
+    tv.setText(text);
+    tv.setTextSize(18);
+    tv.setTypeface(null, Typeface.BOLD);
+    tv.setTextColor(tc(a, "on_surface_strong"));
+    tv.setPadding(0, 0, 0, dp(a, bottomDp));
+    return tv;
+}
+
+TextView makeDialogSubTitle(Activity a, String text) {
+    TextView tv = new TextView(a);
+    tv.setText(text);
+    tv.setTextSize(14);
+    tv.setTextColor(tc(a, "on_surface_sub"));
+    tv.setPadding(0, 0, 0, dp(a, 16));
+    return tv;
+}
+
+LinearLayout makeDialogButtonRow(Activity a) {
+    LinearLayout box = new LinearLayout(a);
+    box.setOrientation(LinearLayout.HORIZONTAL);
+    box.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+    box.setPadding(0, dp(a, 4), 0, 0);
+    return box;
+}
+
+void applyInputStyle(Activity a, EditText e, int bg, int radius) {
+    final GradientDrawable gd = new GradientDrawable();
+    gd.setColor(bg);
+    gd.setCornerRadius(radius);
+    gd.setStroke(dp(a, 1), adjustColor(bg, 0.7f));
+    e.setBackground(gd);
+    final int fb = adjustColor(bg, 0.7f);
+    final int fp = tc(a, "primary");
+    e.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+        public void onFocusChange(View v, boolean hasFocus) {
+            gd.setStroke(dp(a, 1), hasFocus ? fp : fb);
+        }
+    });
+}
+
+EditText makeInput(Activity a, String h, Integer bg) {
+    EditText e = new EditText(a);
+    e.setHint(h);
+    e.setTextSize(13);
+    int useBg = (bg == null) ? getAdaptiveInputBg(a) : bg;
+    if (bg == null) {
+        e.setTextColor(tc(a, "on_surface"));
+        e.setHintTextColor(tc(a, "on_surface_variant"));
+    } else {
+        e.setTextColor(pc("#222222"));
+        e.setHintTextColor(pc("#BBBBBB"));
+    }
+    applyInputStyle(a, e, useBg, dp(a, 6));
+    e.setPadding(dp(a, 10), dp(a, 8), dp(a, 10), dp(a, 8));
+    e.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
+    return e;
+}
+
+TextView makeSubTitleCompact(Activity ctx, String text, int color) {
+    TextView tv = new TextView(ctx);
+    tv.setText(text);
+    tv.setTextSize(12);
+    tv.setTextColor(color);
+    tv.setPadding(dp(ctx, 4), dp(ctx, 16), 0, dp(ctx, 6));
+    return tv;
+}
+
+TextView makeChip(Activity a, String t, boolean s, int type) {
+    TextView v = new TextView(a);
+    v.setText(t);
+    v.setTextSize(11);
+    v.setPadding(dp(a, 10), dp(a, 4), dp(a, 10), dp(a, 4));
+    
+    int normalColor;
+    if (type == 1) { 
+        normalColor = s ? pc("#3B71FE") : pc("#E0E0E0");
+        v.setTextColor(s ? Color.WHITE : pc("#666666"));
+        v.setGravity(Gravity.CENTER);
+        v.setPadding(dp(a, 12), dp(a, 4), dp(a, 12), dp(a, 4));
+    } else if (type == 2) {
+        normalColor = s ? pc("#FF9800") : pc("#F0F0F0");
+        v.setTextColor(s ? Color.WHITE : pc("#666666"));
+    } else {
+        normalColor = s ? pc("#3B71FE") : pc("#F0F0F0");
+        v.setTextColor(s ? Color.WHITE : pc("#666666"));
+    }
+    
+    v.setBackground(makeFeedbackBg(normalColor, 0, dp(a, 50)));
+    v.setTag(new Boolean(s));
+    return v;
+}
+
+void setChip(TextView v, boolean s) {
+    int normalColor = s ? pc("#3B71FE") : pc("#F0F0F0");
+    v.setTextColor(s ? Color.WHITE : pc("#666666"));
+    v.setBackground(makeFeedbackBg(normalColor, 0, dp(v.getContext(), 50)));
+    v.setTag(new Boolean(s));
+}
+
+void setChipWithType(TextView v, boolean s, int type) {
+    int normalColor;
+    if (type == 2) {
+        normalColor = s ? pc("#FF9800") : pc("#F0F0F0");
+    } else {
+        normalColor = s ? pc("#3B71FE") : pc("#F0F0F0");
+    }
+    v.setTextColor(s ? Color.WHITE : pc("#666666"));
+    v.setBackground(makeFeedbackBg(normalColor, 0, dp(v.getContext(), 50)));
+    v.setTag(new Boolean(s));
+}
+
+TextView makePresetChip(Activity a, String t, int textColor) {
+    TextView v = new TextView(a);
+    v.setText(t);
+    v.setTextSize(10);
+    v.setPadding(dp(a, 8), dp(a, 3), dp(a, 8), dp(a, 3));
+    v.setTextColor(textColor);
+    int bg = pc("#F5F5F5");
+    v.setBackground(makeFeedbackBg(bg, 0, dp(a, 50)));
+    v.setMinWidth(dp(a, 36));
+    v.setGravity(Gravity.CENTER);
+    return v;
+}
+
+TextView makeSwitch(Activity a, boolean o, int c) {
+    TextView v = new TextView(a);
+    v.setText(o ? "开" : "关");
+    v.setTextSize(12);
+    v.setTextColor(o ? Color.WHITE : pc("#666666"));
+    v.setGravity(Gravity.CENTER);
+    v.setPadding(dp(a, 12), dp(a, 4), dp(a, 12), dp(a, 4));
+    int bg = o ? c : pc("#E0E0E0");
+    v.setBackground(makeFeedbackBg(bg, 0, dp(a, 20)));
+    return v;
+}
+
+void setSwitch(TextView v, boolean o, int c) {
+    v.setText(o ? "开" : "关");
+    v.setTextColor(o ? Color.WHITE : pc("#666666"));
+    int bg = o ? c : pc("#E0E0E0");
+    v.setBackground(makeFeedbackBg(bg, 0, dp(v.getContext(), 20)));
+}
+
+boolean shouldKeepOriginalColor(View view) {
+    if (view == null) return false;
+    Object tag = view.getTag(TAG_KEEP_ORIGINAL_COLOR);
+    return tag != null && Boolean.TRUE.equals(tag);
+}
+
+void animateTextColor(final TextView textView, int fromColor, int toColor, long duration) {
+    if (textView == null || textView != null && Boolean.TRUE.equals(textView.getTag("skip_animation"))) {
+        if (textView != null) {
+            textView.setTextColor(toColor);
+        }
+        return;
+    }
+    
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+        final int finalToColor = toColor;
+        final long finalDuration = duration;
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            public void run() {
+                animateTextColor(textView, fromColor, finalToColor, finalDuration);
+            }
+        });
+        return;
+    }
+    
+    ValueAnimator colorAnim = ValueAnimator.ofObject(new ArgbEvaluator(), fromColor, toColor);
+    colorAnim.setDuration(duration);
+    colorAnim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+        public void onAnimationUpdate(ValueAnimator animator) {
+            try {
+                textView.setTextColor((Integer) animator.getAnimatedValue());
+            } catch (Throwable e) { traceLog("uitools_log", "[onAnimationUpdate] 异常: " + e); }
+        }
+    });
+    colorAnim.start();
+}
+
+void animateTextColor(TextView textView, int fromColor, int toColor) {
+    animateTextColor(textView, fromColor, toColor, 250L);
+}
+
+String getExtensionFromMimeType(String mimeType) {
+    if (mimeType == null) return ".png";
+    if (mimeType.equals("image/gif") || mimeType.equals("webp/gif")) return ".gif";
+    return ".png";
+}
+
+Bitmap loadBitmapFromUri(Activity activity, Uri uri) {
+    try {
+        return BitmapFactory.decodeStream(activity.getContentResolver().openInputStream(uri));
+    } catch (Throwable e) {
+        return null;
+    }
+}
+
+Bitmap getCompressedPreview(Bitmap src, int quality) {
+    if (quality >= 100 || src == null) return src;
+    try {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        src.compress(Bitmap.CompressFormat.JPEG, quality, baos);
+        byte[] bytes = baos.toByteArray();
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+    } catch (Throwable e) { return src; }
+}
+
+BitmapDrawable getCheckerboardDrawable(Context context) {
+    int size = dp(context, 20);
+    Bitmap b = Bitmap.createBitmap(size * 2, size * 2, Bitmap.Config.ARGB_8888);
+    Canvas c = new Canvas(b);
+    Paint p = new Paint();
+    p.setColor(pc("#FFCCCCCC"));
+    c.drawRect(0, 0, size, size, p);
+    c.drawRect(size, size, size * 2, size * 2, p);
+    p.setColor(pc("#FFEEEEEE"));
+    c.drawRect(size, 0, size * 2, size, p);
+    c.drawRect(0, size, size, size * 2, p);
+    BitmapDrawable drawable = new BitmapDrawable(context.getResources(), b);
+    drawable.setTileModeXY(Shader.TileMode.REPEAT, Shader.TileMode.REPEAT);
+    return drawable;
+}
+
+class ZoomImageView extends ImageView {
+    public Matrix matrix = new Matrix();
+    private Matrix savedMatrix = new Matrix();
+    private float startDistance = 0f;
+    private float midX = 0f, midY = 0f;
+    private float lastX = 0f, lastY = 0f;
+    private int mode = 0;
+    private View rootLayout;
+    private int bgIndex = 0;
+
+    public ZoomImageView(Context context, View root) {
+        super(context);
+        this.rootLayout = root;
+        setScaleType(ImageView.ScaleType.MATRIX);
+    }
+
+    public boolean onTouchEvent(MotionEvent event) {
+        float x = event.getX();
+        float y = event.getY();
+        switch (event.getAction() & MotionEvent.ACTION_MASK) {
+            case MotionEvent.ACTION_DOWN:
+                savedMatrix.set(matrix);
+                lastX = x; lastY = y;
+                mode = 1;
+                break;
+            case MotionEvent.ACTION_POINTER_DOWN:
+                startDistance = calculateDistance(event);
+                if (startDistance > 10f) {
+                    savedMatrix.set(matrix);
+                    midX = (event.getX(0) + event.getX(1)) / 2;
+                    midY = (event.getY(0) + event.getY(1)) / 2;
+                    mode = 2;
+                }
+                break;
+            case MotionEvent.ACTION_MOVE:
+                if (mode == 1) {
+                    matrix.set(savedMatrix);
+                    matrix.postTranslate(x - lastX, y - lastY);
+                } else if (mode == 2) {
+                    float newDist = calculateDistance(event);
+                    if (newDist > 10f) {
+                        matrix.set(savedMatrix);
+                        float scale = newDist / startDistance;
+                        matrix.postScale(scale, scale, midX, midY);
+                    }
+                }
+                break;
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_POINTER_UP:
+                if (mode == 1 && Math.abs(x - lastX) < 10 && Math.abs(y - lastY) < 10) {
+                    if (!isInside(x, y)) {
+                        bgIndex = (bgIndex + 1) % 3;
+                        if (bgIndex == 0) rootLayout.setBackgroundColor(pc("#FF000000"));
+                        else if (bgIndex == 1) rootLayout.setBackgroundColor(pc("#FFFFFFFF"));
+                        else rootLayout.setBackground(getCheckerboardDrawable(getContext()));
+                        vibrate(getContext(), 30);
+                    }
+                }
+                mode = 0;
+                break;
+        }
+        setImageMatrix(matrix);
+        return true;
+    }
+
+    private float calculateDistance(MotionEvent event) {
+        float dx = event.getX(0) - event.getX(1);
+        float dy = event.getY(0) - event.getY(1);
+        return (float) Math.sqrt(dx * dx + dy * dy);
+    }
+
+    private boolean isInside(float x, float y) {
+        if (getDrawable() == null) return false;
+        RectF r = new RectF(0, 0, getDrawable().getIntrinsicWidth(), getDrawable().getIntrinsicHeight());
+        matrix.mapRect(r);
+        return r.contains(x, y);
+    }
+}
+
+class CropOverlayView extends View {
+    public Rect cropRect = new Rect();
+    private Paint pBorder, pCorner, pMask;
+    private int tMode = 0;
+    private float lastX, lastY;
+
+    public CropOverlayView(Context context) {
+        super(context);
+        pBorder = new Paint(1); pBorder.setColor(pc("#FF00FF00")); pBorder.setStyle(Paint.Style.STROKE); pBorder.setStrokeWidth(4);
+        pCorner = new Paint(1); pCorner.setColor(pc("#FF00FF00")); pCorner.setStrokeWidth(16);
+        pMask = new Paint(); pMask.setColor(pc("#99000000"));
+    }
+
+    protected void onSizeChanged(int w, int h, int ow, int oh) {
+        super.onSizeChanged(w, h, ow, oh);
+        int side = Math.min(w, h) * 4 / 5;
+        cropRect.set((w - side) / 2, (h - side) / 2, (w + side) / 2, (h + side) / 2);
+    }
+
+    protected void onDraw(Canvas canvas) {
+        canvas.drawRect(0, 0, getWidth(), cropRect.top, pMask);
+        canvas.drawRect(0, cropRect.bottom, getWidth(), getHeight(), pMask);
+        canvas.drawRect(0, cropRect.top, cropRect.left, cropRect.bottom, pMask);
+        canvas.drawRect(cropRect.right, cropRect.top, getWidth(), cropRect.bottom, pMask);
+        canvas.drawRect(cropRect, pBorder);
+        int l = 50;
+        canvas.drawLine(cropRect.left, cropRect.top, cropRect.left + l, cropRect.top, pCorner);
+        canvas.drawLine(cropRect.left, cropRect.top, cropRect.left, cropRect.top + l, pCorner);
+        canvas.drawLine(cropRect.right - l, cropRect.top, cropRect.right, cropRect.top, pCorner);
+        canvas.drawLine(cropRect.right, cropRect.top, cropRect.right, cropRect.top + l, pCorner);
+        canvas.drawLine(cropRect.left, cropRect.bottom - l, cropRect.left, cropRect.bottom, pCorner);
+        canvas.drawLine(cropRect.left, cropRect.bottom, cropRect.left + l, cropRect.bottom, pCorner);
+        canvas.drawLine(cropRect.right - l, cropRect.bottom, cropRect.right, cropRect.bottom, pCorner);
+        canvas.drawLine(cropRect.right, cropRect.bottom - l, cropRect.right, cropRect.bottom, pCorner);
+    }
+
+    public boolean onTouchEvent(MotionEvent e) {
+        float x = e.getX(), y = e.getY();
+        if (e.getAction() == MotionEvent.ACTION_DOWN) {
+            lastX = x; lastY = y;
+            if (Math.abs(x - cropRect.left) < 80 && Math.abs(y - cropRect.top) < 80) tMode = 2;
+            else if (Math.abs(x - cropRect.right) < 80 && Math.abs(y - cropRect.top) < 80) tMode = 3;
+            else if (Math.abs(x - cropRect.left) < 80 && Math.abs(y - cropRect.bottom) < 80) tMode = 4;
+            else if (Math.abs(x - cropRect.right) < 80 && Math.abs(y - cropRect.bottom) < 80) tMode = 5;
+            else if (cropRect.contains((int)x, (int)y)) tMode = 1;
+            else tMode = 0;
+            return tMode != 0;
+        } else if (e.getAction() == MotionEvent.ACTION_MOVE && tMode != 0) {
+            float dx = x - lastX, dy = y - lastY;
+            if (tMode == 1) cropRect.offset((int)dx, (int)dy);
+            else {
+                if (tMode == 2 || tMode == 4) cropRect.left = (int)Math.max(0, Math.min(x, cropRect.right - 100));
+                if (tMode == 3 || tMode == 5) cropRect.right = (int)Math.min(getWidth(), Math.max(x, cropRect.left + 100));
+                if (tMode == 2 || tMode == 3) cropRect.top = (int)Math.max(0, Math.min(y, cropRect.bottom - 100));
+                if (tMode == 4 || tMode == 5) cropRect.bottom = (int)Math.min(getHeight(), Math.max(y, cropRect.top + 100));
+            }
+            lastX = x; lastY = y; invalidate(); return true;
+        }
+        return false;
+    }
+
+    public Rect getRealRect(Bitmap b, Matrix m) {
+        float[] v = new float[9]; m.getValues(v);
+        float s = v[0], tx = v[2], ty = v[5];
+        return new Rect(
+            (int)((cropRect.left - tx) / s), (int)((cropRect.top - ty) / s),
+            (int)((cropRect.right - tx) / s), (int)((cropRect.bottom - ty) / s)
+        );
+    }
+}
+
+void showEditDialog(final Activity activity, final Bitmap origin, final String savePath, final int requestCode) {
+    try {
+        final List history = new ArrayList(); history.add(origin);
+        final int[] idx = {0}, quality = {100};
+
+        final Dialog dialog = new Dialog(activity, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+        final FrameLayout root = new FrameLayout(activity);
+        root.setBackgroundColor(pc("#FF000000"));
+
+        final ZoomImageView preview = new ZoomImageView(activity, root);
+        preview.setImageBitmap(origin);
+        
+        preview.post(new Runnable() {
+            public void run() {
+                float vw = preview.getWidth(), vh = preview.getHeight();
+                float iw = origin.getWidth(), ih = origin.getHeight();
+                float avH = vh - dp(activity, 120);
+                float s = Math.min(vw / iw, avH / ih) * 0.9f;
+                preview.matrix.setScale(s, s);
+                preview.matrix.postTranslate((vw - iw * s) / 2f, (avH - ih * s) / 2f);
+                preview.setImageMatrix(preview.matrix);
+            }
+        });
+
+        final FrameLayout container = new FrameLayout(activity);
+        FrameLayout.LayoutParams cLp = new FrameLayout.LayoutParams(-1, -1);
+        cLp.bottomMargin = dp(activity, 120);
+        container.addView(preview, new FrameLayout.LayoutParams(-1, -1));
+
+        final CropOverlayView crop = new CropOverlayView(activity);
+        crop.setVisibility(View.GONE);
+        container.addView(crop, new FrameLayout.LayoutParams(-1, -1));
+        root.addView(container, cLp);
+
+        HorizontalScrollView scroll = new HorizontalScrollView(activity);
+        scroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout toolBar = new LinearLayout(activity);
+        toolBar.setPadding(dp(activity, 12), dp(activity, 12), dp(activity, 12), dp(activity, 12));
+
+        String[] toolNames = {"取消", "撤销", "重做", "旋转", "裁剪", "质量: 原画", "保存"};
+        for (int i = 0; i < toolNames.length; i++) {
+            final TextView btn = createButton(activity, toolNames[i], pc("#FFFFFFFF"), pc("#FF333333"), 14f, 10, 0, 0, false, 0, 0, null);
+            LinearLayout.LayoutParams bLp = new LinearLayout.LayoutParams(dp(activity, 90), dp(activity, 48));
+            bLp.setMargins(dp(activity, 6), 0, dp(activity, 6), 0);
+
+            btn.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    vibrate(activity, 40);
+                    String action = btn.getText().toString();
+                    if (action.equals("取消")) {
+                        dialog.dismiss();
+                    } else if (action.equals("撤销")) {
+                        if (idx[0] > 0) {
+                            idx[0]--; preview.setImageBitmap(getCompressedPreview((Bitmap)history.get(idx[0]), quality[0]));
+                        }
+                    } else if (action.equals("重做")) {
+                        if (idx[0] < history.size() - 1) {
+                            idx[0]++; preview.setImageBitmap(getCompressedPreview((Bitmap)history.get(idx[0]), quality[0]));
+                        }
+                    } else if (action.equals("旋转")) {
+                        Matrix m = new Matrix(); m.postRotate(90);
+                        Bitmap cur = (Bitmap)history.get(idx[0]);
+                        Bitmap next = Bitmap.createBitmap(cur, 0, 0, cur.getWidth(), cur.getHeight(), m, true);
+                        while (history.size() > idx[0] + 1) history.remove(history.size() - 1);
+                        history.add(next); idx[0]++;
+                        while (history.size() > 12) {
+                            Bitmap dropped = (Bitmap) history.remove(0);
+                            idx[0]--;
+                            if (dropped != null && !dropped.isRecycled() && idx[0] >= 0 && dropped != history.get(idx[0])) {
+                                dropped.recycle();
+                            }
+                        }
+                        preview.setImageBitmap(getCompressedPreview(next, quality[0]));
+                    } else if (action.equals("裁剪")) {
+                        crop.setVisibility(crop.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
+                    } else if (action.startsWith("质量")) {
+                        if (quality[0] == 100) { quality[0] = 85; btn.setText("质量: 高"); }
+                        else if (quality[0] == 85) { quality[0] = 60; btn.setText("质量: 中"); }
+                        else { quality[0] = 100; btn.setText("质量: 原画"); }
+                        preview.setImageBitmap(getCompressedPreview((Bitmap)history.get(idx[0]), quality[0]));
+                    } else if (action.equals("保存")) {
+                        Bitmap res = (Bitmap)history.get(idx[0]);
+                        if (crop.getVisibility() == View.VISIBLE) {
+                            Rect r = crop.getRealRect(res, preview.matrix);
+                            int nx = Math.max(0, r.left), ny = Math.max(0, r.top);
+                            int nw = Math.min(res.getWidth() - nx, r.width());
+                            int nh = Math.min(res.getHeight() - ny, r.height());
+                            if (nw > 10 && nh > 10) res = Bitmap.createBitmap(res, nx, ny, nw, nh);
+                        }
+                        performSave(activity, res, savePath, quality[0], dialog);
+                    }
+                }
+            });
+            toolBar.addView(btn, bLp);
+        }
+        scroll.addView(toolBar);
+        FrameLayout.LayoutParams sLp = new FrameLayout.LayoutParams(-1, -2);
+        sLp.gravity = Gravity.BOTTOM; sLp.bottomMargin = dp(activity, 30);
+        root.addView(scroll, sLp);
+
+        dialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
+            public void onDismiss(DialogInterface d) {
+                for (int i = 0; i < history.size(); i++) {
+                    Bitmap b = (Bitmap) history.get(i);
+                    if (b != null && !b.isRecycled()) b.recycle();
+                }
+                history.clear();
+            }
+        });
+
+        dialog.setContentView(root);
+        dialog.show();
+    } catch (Throwable e) {
+        Toast("启动失败: " + e.getMessage());
+    }
+}
+
+void performSave(final Activity activity, final Bitmap b, final String p, final int q, final Dialog dlg) {
+    ThreadPool.execute(new Runnable() {
+        public void run() {
+            try {
+                File f = new File(p); if (!f.getParentFile().exists()) f.getParentFile().mkdirs();
+                FileOutputStream o = new FileOutputStream(f);
+                b.compress(Bitmap.CompressFormat.JPEG, q, o);
+                o.flush(); o.close();
+                traceLog("uitools_log", "[保存] 成功 p=" + p);
+                activity.runOnUiThread(new Runnable() { public void run() { Toast("保存成功 (" + q + "%)"); 刷新悬浮窗(); refreshCurrentSettingsPage(); if (dlg != null) dlg.dismiss(); } });
+            } catch (Throwable e) {
+                traceLog("uitools_log", "[保存] 失败 p=" + p + " " + e);
+                activity.runOnUiThread(new Runnable() { public void run() { if (dlg != null) dlg.dismiss(); } });
+            }
+        }
+    });
+}
+
+void editAndSaveImage(final Activity activity, final Uri uri, final String p, final int c) {
+    traceLog("uitools_log", "[editAndSave] p=" + p + " gif=" + p.toLowerCase().endsWith(".gif"));
+    if (p.toLowerCase().endsWith(".gif")) {
+        ThreadPool.execute(new Runnable() {
+            public void run() {
+                try {
+                    InputStream is = activity.getContentResolver().openInputStream(uri);
+                    File f = new File(p); if (!f.getParentFile().exists()) f.getParentFile().mkdirs();
+                    FileOutputStream os = new FileOutputStream(f);
+                    byte[] buf = new byte[8192]; int len;
+                    while ((len = is.read(buf)) != -1) os.write(buf, 0, len);
+                    os.flush(); os.close(); is.close();
+                    traceLog("uitools_log", "[编辑保存] gif 已保存到 " + p);
+                    activity.runOnUiThread(new Runnable() { public void run() { Toast("GIF动图已保存"); 刷新悬浮窗(); refreshCurrentSettingsPage(); } });
+                } catch (Exception e) {
+                    traceLog("uitools_log", "[编辑保存] gif 失败: " + e);
+                }
+            }
+        });
+        return;
+    }
+
+    ThreadPool.execute(new Runnable() {
+        public void run() {
+            final Bitmap b = loadBitmapFromUri(activity, uri);
+            traceLog("uitools_log", "[editAndSave] bitmap=" + (b != null ? "ok" : "NULL"));
+            if (b == null) return;
+            activity.runOnUiThread(new Runnable() { public void run() { showEditDialog(activity, b, p, c); } });
+        }
+    });
+}
+
+public boolean isColorDark(int color) {
+    double darkness = 1 - (0.299 * Color.red(color) + 0.587 * Color.green(color) + 0.114 * Color.blue(color)) / 255;
+    return darkness >= 0.5; 
+}
+
+public Bitmap blurBitmap(Activity activity, Bitmap bitmap, Bitmap outBitmap, float radius) {
+    if (radius <= 0 || bitmap == null || bitmap.isRecycled()) return bitmap;
+    if (radius > 25) radius = 25;
+    
+    if (outBitmap == null) {
+        outBitmap = bitmap;
+    }
+    
+    RenderScript rs = null;
+    try {
+        rs = RenderScript.create(activity);
+        ScriptIntrinsicBlur blurScript = ScriptIntrinsicBlur.create(rs, Element.U8_4(rs));
+        
+        Allocation allIn = Allocation.createFromBitmap(rs, bitmap);
+        Allocation allOut = Allocation.createFromBitmap(rs, outBitmap);
+        
+        blurScript.setRadius(radius);
+        blurScript.setInput(allIn);
+        blurScript.forEach(allOut);
+        allOut.copyTo(outBitmap);
+        
+        return outBitmap;
+    } catch (Throwable e) {
+        try {
+            return fastblur(bitmap, (int) Math.min(7, radius));
+        } catch (Exception ex) {
+            return bitmap;
+        }
+    } finally {
+        if (rs != null) {
+            try { rs.destroy(); } catch (Throwable e) { traceLog("uitools_log", "[blurBitmap] 异常: " + e); }
+        }
+    }
+}
+
+public Bitmap fastblur(Bitmap bmp, int radius) {
+    if (bmp == null || radius <= 0) return bmp;
+    
+    int w = bmp.getWidth();
+    int h = bmp.getHeight();
+    
+    if (radius > w / 2) radius = w / 2;
+    if (radius > h / 2) radius = h / 2;
+    
+    int smallW = Math.max(1, w / (radius + 1));
+    int smallH = Math.max(1, h / (radius + 1));
+    Bitmap small = Bitmap.createScaledBitmap(bmp, smallW, smallH, true);
+    
+    int[] src = new int[smallW * smallH];
+    int[] dst = new int[smallW * smallH];
+    small.getPixels(src, 0, smallW, 0, 0, smallW, smallH);
+    
+    for (int i = 0; i < 3; i++) {
+        for (int y = 0; y < smallH; y++) {
+            for (int x = 0; x < smallW; x++) {
+                int r = 0, g = 0, b = 0, a = 0, count = 0;
+                for (int dy = -radius; dy <= radius; dy++) {
+                    for (int dx = -radius; dx <= radius; dx++) {
+                        int ny = y + dy;
+                        int nx = x + dx;
+                        if (ny >= 0 && ny < smallH && nx >= 0 && nx < smallW) {
+                            int pixel = src[ny * smallW + nx];
+                            r += Color.red(pixel);
+                            g += Color.green(pixel);
+                            b += Color.blue(pixel);
+                            a += Color.alpha(pixel);
+                            count++;
+                        }
+                    }
+                }
+                dst[y * smallW + x] = Color.argb(a / count, r / count, g / count, b / count);
+            }
+        }
+        int[] tmp = src;
+        src = dst;
+        dst = tmp;
+    }
+    
+    small.setPixels(src, 0, smallW, 0, 0, smallW, smallH);
+    
+    Bitmap result = Bitmap.createScaledBitmap(small, w, h, true);
+    if (small != result && !small.isRecycled()) {
+        small.recycle();
+    }
+    
+    return result;
+}
+
+public Bitmap centerCropBitmap(Bitmap source, int targetWidth, int targetHeight) {
+    if (source == null || source.isRecycled()) return null;
+    
+    int sourceW = source.getWidth();
+    int sourceH = source.getHeight();
+    
+    if (sourceW == targetWidth && sourceH == targetHeight) {
+        return source;
+    }
+    
+    float scale = Math.max((float) targetWidth / sourceW, (float) targetHeight / sourceH);
+    float scaledW = sourceW * scale;
+    float scaledH = sourceH * scale;
+    
+    float left = (targetWidth - scaledW) / 2;
+    float top = (targetHeight - scaledH) / 2;
+    
+    Bitmap dest = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888);
+    Canvas canvas = new Canvas(dest);
+    
+    RectF sourceRect = new RectF(0, 0, sourceW, sourceH);
+    RectF targetRect = new RectF(left, top, left + scaledW, top + scaledH);
+    
+    Matrix matrix = new Matrix();
+    matrix.setRectToRect(sourceRect, targetRect, Matrix.ScaleToFit.FILL);
+    
+    Paint paint = new Paint();
+    paint.setAntiAlias(true);
+    paint.setFilterBitmap(true);
+    canvas.drawBitmap(source, matrix, paint);
+    
+    return dest;
+}
+
+Bitmap smartScaleBitmap(Bitmap source, int targetW, int targetH) {
+    if (source == null || source.isRecycled()) return null;
+    if (targetW <= 0 || targetH <= 0) return null;
+    
+    try {
+        int sourceW = source.getWidth();
+        int sourceH = source.getHeight();
+        if (sourceW == 0 || sourceH == 0) return null;
+        
+        float sourceRatio = (float) sourceW / sourceH;
+        float targetRatio = (float) targetW / targetH;
+        
+        Bitmap cropped;
+        if (sourceRatio > targetRatio) {
+            int cropW = (int) (sourceH * targetRatio);
+            int cropX = (sourceW - cropW) / 2;
+            cropped = Bitmap.createBitmap(source, cropX, 0, cropW, sourceH);
+        } else {
+            int cropH = (int) (sourceW / targetRatio);
+            int cropY = (sourceH - cropH) / 2;
+            cropped = Bitmap.createBitmap(source, 0, cropY, sourceW, cropH);
+        }
+        
+        if (cropped.getWidth() != targetW || cropped.getHeight() != targetH) {
+            Bitmap scaled = Bitmap.createScaledBitmap(cropped, targetW, targetH, true);
+            if (cropped != source) {
+                cropped.recycle();
+            }
+            return scaled;
+        }
+        
+        return cropped;
+        
+    } catch (OutOfMemoryError e) {
+        return null;
+    } catch (Exception e) {
+        return null;
+    }
+}
+
+String generateCacheKey(String imgPath, int blurRadius, int overlayAlpha, boolean isDark, int targetW, int targetH) {
+    File f = new File(imgPath);
+    long lastMod = f.exists() ? f.lastModified() : 0;
+    long size = f.exists() ? f.length() : 0;
+    int widthGroup = (targetW / 20) * 20;
+    int heightGroup = (targetH / 20) * 20;
+    return imgPath.hashCode() + "_" + lastMod + "_" + size + "_" + blurRadius + "_" + 
+           overlayAlpha + "_" + (isDark ? "1" : "0") + "_" + widthGroup + "_" + heightGroup;
+}
+
+String generateBaseCacheKey(String imgPath, int blurRadius, int overlayAlpha, boolean isDark) {
+    File f = new File(imgPath);
+    long lastMod = f.exists() ? f.lastModified() : 0;
+    return imgPath.hashCode() + "_" + lastMod + "_" + blurRadius + "_" + overlayAlpha + "_" + (isDark ? "1" : "0");
+}
+
+Drawable findSimilarCache(String baseKey, int targetW, int targetH) {
+    Iterator iterator = cacheOrder.keySet().iterator();
+    while (iterator.hasNext()) {
+        String key = (String) iterator.next();
+        if (key.startsWith(baseKey + "_")) {
+            try {
+                String[] parts = key.split("_");
+                int cachedW = Integer.parseInt(parts[parts.length - 2]);
+                int cachedH = Integer.parseInt(parts[parts.length - 1]);
+                
+                float widthDiff = Math.abs(cachedW - targetW) / (float) targetW;
+                float heightDiff = Math.abs(cachedH - targetH) / (float) targetH;
+                
+                if (widthDiff <= 0.2f && heightDiff <= 0.2f) {
+                    CacheEntry entry = (CacheEntry) imageCache.get(key);
+                    if (entry != null && entry.drawable != null) {
+                        return entry.drawable;
+                    }
+                }
+            } catch (Throwable e) { traceLog("uitools_log", "[findSimilarCache] 异常: " + e); }
+        }
+    }
+    return null;
+}
+
+static class CacheEntry {
+    Drawable drawable;
+    long createdTime;
+    long lastAccessTime;
+    int width;
+    int height;
+    String cacheKey;
+    int accessCount;
+    
+    CacheEntry(Drawable d, String key, int w, int h) {
+        this.drawable = d;
+        this.cacheKey = key;
+        this.width = w;
+        this.height = h;
+        this.createdTime = System.currentTimeMillis();
+        this.lastAccessTime = this.createdTime;
+        this.accessCount = 0;
+    }
+    
+    void updateAccess() {
+        this.lastAccessTime = System.currentTimeMillis();
+        this.accessCount++;
+    }
+}
+
+static ConcurrentHashMap imageCache = new ConcurrentHashMap();
+static LinkedHashMap cacheOrder = new LinkedHashMap(10, 0.75f, true);
+static Drawable globalCachedDrawable = null;
+static String globalCachedParams = "";
+
+static WeakHashMap scaledViews = new WeakHashMap();
+static final int MAX_CACHE_SIZE = 10;
+
+static int currentTextColor = Color.WHITE;
+static boolean currentIsDark = true;
+
+String hexByte(byte b) {
+    String h = Integer.toHexString(b & 0xFF);
+    return h.length() < 2 ? "0" + h : h;
+}
+
+String format2f(double v) {
+    long r = Math.round(v * 100);
+    String whole = String.valueOf(r / 100);
+    String frac = String.valueOf(r % 100);
+    if (frac.length() < 2) frac = "0" + frac;
+    return whole + "." + frac;
+}
+
+String md5(String input) {
+    if (input == null || input.isEmpty()) return "";
+    try {
+        MessageDigest md = MessageDigest.getInstance("MD5");
+        byte[] bytes = md.digest(input.getBytes());
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(hexByte(b));
+        }
+        return sb.toString();
+    } catch (Exception e) {
+        return input;
+    }
+}
+
+void putToCache(Drawable drawable, String cacheKey, int width, int height) {
+    if (drawable == null || cacheKey == null || cacheKey.isEmpty()) return;
+    
+    CacheEntry existing = (CacheEntry) imageCache.get(cacheKey);
+    if (existing != null) {
+        existing.updateAccess();
+        cacheOrder.remove(cacheKey);
+        cacheOrder.put(cacheKey, existing);
+        return;
+    }
+    
+    while (imageCache.size() >= MAX_CACHE_SIZE && !cacheOrder.isEmpty()) {
+        String oldestKey = (String) cacheOrder.keySet().iterator().next();
+        removeFromCache(oldestKey);
+    }
+    
+    CacheEntry entry = new CacheEntry(drawable, cacheKey, width, height);
+    imageCache.put(cacheKey, entry);
+    cacheOrder.put(cacheKey, entry);
+}
+
+void removeFromCache(String cacheKey) {
+    if (cacheKey == null) return;
+    
+    cacheOrder.remove(cacheKey);
+    
+    CacheEntry entry = (CacheEntry) imageCache.remove(cacheKey);
+    if (entry != null && entry.drawable != null) {
+        try {
+            if (entry.drawable instanceof BitmapDrawable) {
+                BitmapDrawable bd = (BitmapDrawable) entry.drawable;
+                Bitmap bitmap = bd.getBitmap();
+                if (bitmap != null && !bitmap.isRecycled()) {
+                    bitmap.recycle();
+                }
+            }
+        } catch (Throwable e) { traceLog("uitools_log", "[removeFromCache] 异常: " + e); }
+    }
+}
+
+void unloadBackgroundCache() {
+    imageCache.clear();
+    cacheOrder.clear();
+    scaledViews.clear();
+    globalCachedDrawable = null;
+    globalCachedParams = "";
+}
+
+boolean isValidGradientString(String gradientStr) {
+    if (gradientStr == null || gradientStr.trim().isEmpty()) {
+        return false;
+    }
+    
+    String cleanStr = gradientStr.trim();
+    String[] colors = cleanStr.split(",");
+    
+    if (colors.length < 2) {
+        return false;
+    }
+    
+    for (String color : colors) {
+        String trimmedColor = color.trim();
+        if (trimmedColor.isEmpty()) {
+            return false;
+        }
+        
+        boolean isValid = false;
+        
+        if (trimmedColor.startsWith("#")) {
+            if (trimmedColor.length() == 7 || trimmedColor.length() == 9) {
+                isValid = Pattern.matches("^#[A-Fa-f0-9]{6}$", trimmedColor) || 
+                          Pattern.matches("^#[A-Fa-f0-9]{8}$", trimmedColor);
+            } else if (trimmedColor.length() == 4) {
+                isValid = Pattern.matches("^#[A-Fa-f0-9]{3}$", trimmedColor);
+            }
+        }
+        
+        if (!isValid) {
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+Typeface getCustomTypeface(String typeName) {
+    if ("serif".equals(typeName)) return Typeface.SERIF;
+    if ("sans".equals(typeName)) return Typeface.SANS_SERIF;
+    if ("monospace".equals(typeName)) return Typeface.MONOSPACE;
+    if ("bold".equals(typeName)) return Typeface.DEFAULT_BOLD;
+    return Typeface.DEFAULT;
+}
+
+void applyUiTheme(final Activity activity, final android.app.Dialog dialog, int skip) {
+    if (dialog == null) return;
+    
+    final Window window = dialog.getWindow();
+    if (window == null) return;
+    
+    if ((skip & 1) == 0) { applyDialogSize(activity, window); }
+    
+    final View decorView = window.getDecorView();
+    int dialogW = decorView.getWidth();
+    int dialogH = decorView.getHeight();
+    
+    if (dialogW <= 0 || dialogH <= 0) {
+        float density = activity.getResources().getDisplayMetrics().density;
+        if (density <= 0) density = 2f;
+        float targetDensity = getPluginUiDensity(activity);
+        dialogW = getDialogWidthPx(activity, density, targetDensity);
+        dialogH = getDialogHeightPx(activity, density, targetDensity);
+        if (dialogH <= 0) dialogH = (int) (800 * Math.max(density, targetDensity));
+    }
+    
+    executeApplyTheme(activity, dialog, dialogW, dialogH, skip);
+}
+
+void executeApplyTheme(final Activity activity, final android.app.Dialog dialog, final int dialogW, final int dialogH, final int skip) {
+    if (dialog == null || dialog.getWindow() == null) {
+        return;
+    }
+    
+    final Window window = dialog.getWindow();
+    final boolean isDark = isThemeDark(activity);
+    currentIsDark = isDark;
+    
+    try {
+        final String bgType = getString("settings", "ui_bg_type", "color");
+        final String bgColor = getString("settings", isDark ? "ui_bg_color_dark" : "ui_bg_color_light", 
+            isDark ? "#FF1E1E1E" : "#FFFFFFFF");
+        final String bgGradient = getString("settings", isDark ? "ui_bg_gradient_dark" : "ui_bg_gradient_light", 
+            isDark ? "#FF2C2C2C,#FF121212,#FF2C2C2C" : "#FFFFFFFF,#FFF5F5F5,#FFFFFFFF");
+        final String textColorUser = getString("settings", isDark ? "ui_text_color_dark" : "ui_text_color_light", "");
+        final String fontType = getString("settings", "ui_font_type", "default");
+        final String imgPath = pluginPath + "/API/background.png";
+        
+        float fSize = 1.0f;
+        try { fSize = Float.parseFloat(getString("settings", "ui_font_size", "1.0")); } catch (Throwable e) { traceLog("uitools_log", "[executeApplyTheme] 异常: " + e); }
+        final float fontSizeScale = fSize;
+        final Typeface tf = getCustomTypeface(fontType);
+        
+        int blurR = 0, alpha = 100;
+        try { String blurStr = getString("settings", "ui_img_blur", "0"); if (blurStr != null && blurStr.trim().length() > 0) blurR = Integer.parseInt(blurStr.trim()); } catch (Throwable e) { traceLog("uitools_log", "[executeApplyTheme] 异常: " + e); }
+        try { String alphaStr = getString("settings", "ui_img_alpha", isDark ? "180" : "100"); if (alphaStr != null && alphaStr.trim().length() > 0) alpha = Integer.parseInt(alphaStr.trim()); } catch (Throwable e) { traceLog("uitools_log", "[executeApplyTheme] 异常: " + e); }
+        final int blurRadius = Math.max(0, Math.min(25, blurR));
+        final int overlayAlpha = Math.max(0, Math.min(255, alpha));
+        
+        String rawBgColor = getString("settings", isDark ? "ui_bg_color_dark" : "ui_bg_color_light", 
+            isDark ? "#FF1E1E1E" : "#FFFFFFFF");
+        
+        String solidListKey = isDark ? "ui_bg_solid_list_dark" : "ui_bg_solid_list_light";
+        int[] solidArr = parseColorCsv(getString("settings", solidListKey, ""), false);
+        if (solidArr != null && solidArr.length > 0) {
+            int picked = pickFrom(solidArr);
+            String hx = Integer.toHexString(picked);
+            while (hx.length() < 8) hx = "0" + hx;
+            rawBgColor = "#" + hx.toUpperCase();
+            traceLog("uitools_log", "[executeApplyTheme] solidList n=" + solidArr.length + " picked=" + rawBgColor);
+        } else {
+            traceLog("uitools_log", "[executeApplyTheme] solidList空 key=" + solidListKey + " fallback=" + rawBgColor);
+        }
+        String validFallbackColor = isValidHexColor(rawBgColor) ? rawBgColor : (isDark ? "#FF1E1E1E" : "#FFFFFFFF");
+        
+        if ((skip & 2) == 0) {
+        String gradList = bgGradient;
+        
+        if ("gradient".equals(bgType)) {
+            String gk = isDark ? "ui_bg_gradient_dark" : "ui_bg_gradient_light";
+            String graw = getString("settings", gk, "");
+            if (graw != null && !graw.trim().isEmpty()) gradList = graw;
+        }
+        if ("gradient".equals(bgType) && isValidGradientString(gradList)) {
+            applyGradientBackground(activity, window, gradList, validFallbackColor, isDark);
+        } else {
+            applyFallbackBg(activity, window, validFallbackColor, isDark);
+        }
+        
+        if ("image".equals(bgType)) {
+            applyFallbackBg(activity, window, isDark ? "#FF1E1E1E" : "#FFFFFFFF", isDark);
+            
+            new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                public void run() {
+                    ThreadPool.execute(new Runnable() {
+                        public void run() {
+                            try {
+                                final View decorView = window.getDecorView();
+                                int actualW = decorView.getWidth();
+                                int actualH = decorView.getHeight();
+                                if (actualW <= 0 || actualH <= 0) {
+                                    actualW = dialogW;
+                                    actualH = dialogH;
+                                }
+                                
+                                String baseKey = generateBaseCacheKey(imgPath, blurRadius, overlayAlpha, isDark);
+                                Drawable cached = findSimilarCache(baseKey, actualW, actualH);
+                                
+                                if (cached != null) {
+                                    applyDrawableWithTransition(activity, window, cached);
+                                    return;
+                                }
+                                
+                                File f = new File(imgPath);
+                                if (!f.exists()) return;
+                                
+                                BitmapFactory.Options opts = new BitmapFactory.Options();
+                                opts.inSampleSize = 2;
+                                opts.inPreferredConfig = Bitmap.Config.ARGB_8888;
+                                
+                                Bitmap origin = BitmapFactory.decodeFile(imgPath, opts);
+                                if (origin == null) throw new Exception("解码失败");
+                                
+                                Bitmap scaled = centerCropBitmap(origin, actualW, actualH);
+                                if (scaled == null) scaled = smartScaleBitmap(origin, actualW, actualH);
+                                if (scaled == null) scaled = Bitmap.createScaledBitmap(origin, actualW, actualH, true);
+                                
+                                Bitmap finalBitmap = scaled;
+                                if (blurRadius > 0 && scaled.getWidth() > 200) {
+                                    Bitmap outBmp = Bitmap.createBitmap(scaled.getWidth(), scaled.getHeight(), Bitmap.Config.ARGB_8888);
+                                    finalBitmap = blurBitmap(activity, scaled, outBmp, blurRadius);
+                                }
+                                
+                                int maskColor = isDark ? Color.BLACK : Color.WHITE;
+                                ColorDrawable mask = new ColorDrawable(Color.argb(overlayAlpha, 
+                                    Color.red(maskColor), Color.green(maskColor), Color.blue(maskColor)));
+                                BitmapDrawable bd = new BitmapDrawable(activity.getResources(), finalBitmap);
+                                final LayerDrawable ld = new LayerDrawable(new Drawable[]{bd, mask});
+                                
+                                String cacheKey = generateCacheKey(imgPath, blurRadius, overlayAlpha, isDark, actualW, actualH);
+                                putToCache(ld, cacheKey, actualW, actualH);
+                                
+                                applyDrawableWithTransition(activity, window, ld);
+                                
+                                if (origin != scaled && !origin.isRecycled()) {
+                                    origin.recycle();
+                                }
+                                
+                            } catch (Throwable e) { traceLog("uitools_log", "[executeApplyTheme] 异常: " + e); }
+                        }
+                    });
+                }
+            }, 100);
+        }
+        
+        }
+        
+        if ((skip & 4) == 0) {
+        final int calculatedTextColor;
+        boolean isBgDark = isDark;
+        if ("color".equals(bgType) && isValidHexColor(bgColor)) {
+            isBgDark = isColorDark(pc(bgColor.trim()));
+        }
+        
+        if (isValidHexColor(textColorUser)) {
+            calculatedTextColor = pc(textColorUser);
+        } else {
+            calculatedTextColor = isBgDark ? pc("#FFEFEFEF") : pc("#FF333333");
+        }
+        currentTextColor = calculatedTextColor;
+        
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            public void run() {
+                updateViewStylesRecursively(window.getDecorView(), calculatedTextColor, tf, fontSizeScale);
+            }
+        });
+        }
+        
+    } catch (Throwable e) {
+        try { e.printStackTrace(); } catch (Throwable ex) { traceLog("uitools_log", "[executeApplyTheme] 异常: " + ex); }
+    }
+}
+
+void applyDrawableWithTransition(final Activity activity, final Window window, final Drawable newDrawable) {
+    activity.runOnUiThread(new Runnable() {
+        public void run() {
+            try {
+                View decorView = window.getDecorView();
+                Drawable currentBg = decorView.getBackground();
+                
+                TransitionDrawable transitionDrawable = new TransitionDrawable(new Drawable[]{
+                    currentBg != null ? currentBg : new ColorDrawable(Color.TRANSPARENT),
+                    newDrawable
+                });
+                
+                window.setBackgroundDrawable(transitionDrawable);
+                transitionDrawable.startTransition(300);
+                
+                clearWindowShadow(activity, window);
+                applyWindowBlurBehind(window);
+                
+            } catch (Throwable e) {
+                window.setBackgroundDrawable(newDrawable);
+            }
+        }
+    });
+}
+
+
+float getPluginUiDensity(Object ctxObj) {
+    Context ctx = (ctxObj instanceof Context) ? (Context) ctxObj : null;
+    float hostDensity = 2f;
+    try {
+        if (ctx != null) {
+            float d = ctx.getResources().getDisplayMetrics().density;
+            if (d > 0f) hostDensity = d;
+        }
+    } catch (Throwable e) {
+        traceLog("uitools_log", "[getPluginUiDensity] 获取宿主 density 异常: " + e);
+    }
+    float targetDensity = hostDensity;
+    try {
+        String dpiMode = getString("settings", "ui_dialog_dpi_mode", "follow_qq");
+        if (dpiMode == null || dpiMode.isEmpty()) dpiMode = "follow_qq";
+        if ("custom".equals(dpiMode)) {
+            String raw = getString("settings", "ui_dialog_custom_dpi", "");
+            if (raw != null && !raw.trim().isEmpty()) {
+                float customDpi = Float.parseFloat(raw.trim());
+                if (customDpi > 0f) targetDensity = customDpi / 160f;
+            }
+        } else if ("follow_module".equals(dpiMode)) {
+            float moduleDensity = ThemeHelper.INSTANCE.getDensity();
+            if (moduleDensity > 0f) targetDensity = moduleDensity;
+        }
+    } catch (Throwable e) {
+        traceLog("uitools_log", "[getPluginUiDensity] 异常: " + e);
+    }
+    return targetDensity > 0f ? targetDensity : hostDensity;
+}
+
+int getDialogWidthPx(Activity activity, float hostDensity, float targetDensity) {
+    int screenWidth = activity.getResources().getDisplayMetrics().widthPixels;
+    float widthDp = -1;
+    try {
+        String widthStr = getString("settings", "ui_dialog_width", "");
+        if (widthStr != null && !widthStr.trim().isEmpty()) widthDp = Float.parseFloat(widthStr.trim());
+    } catch (Throwable ignore) {}
+    if (widthDp <= 0) {
+        int screenDp = (int) (screenWidth / hostDensity) - 48;
+        widthDp = Math.min(260, screenDp);
+    }
+    if (widthDp <= 0) widthDp = 260;
+    int px = (int) (widthDp * targetDensity);
+    int limit = screenWidth - (int) (8 * targetDensity);
+    if (limit > 0 && px > limit) px = limit;
+    return px;
+}
+
+int getDialogHeightPx(Activity activity, float hostDensity, float targetDensity) {
+    float heightDp = -1;
+    try {
+        String heightStr = getString("settings", "ui_dialog_height", "");
+        if (heightStr != null && !heightStr.trim().isEmpty()) heightDp = Float.parseFloat(heightStr.trim());
+    } catch (Throwable ignore) {}
+    if (heightDp <= 0) return ViewGroup.LayoutParams.WRAP_CONTENT;
+    int px = (int) (heightDp * targetDensity);
+    int limit = activity.getResources().getDisplayMetrics().heightPixels;
+    if (px > limit) px = limit;
+    return px;
+}
+
+void applyDialogSize(final Activity activity, final Window window) {
+    if (window == null || activity == null) return;
+    try {
+        float hostDensity = activity.getResources().getDisplayMetrics().density;
+        if (hostDensity <= 0f) hostDensity = 2f;
+        float targetDensity = getPluginUiDensity(activity);
+
+        WindowManager.LayoutParams params = window.getAttributes();
+        params.width = getDialogWidthPx(activity, hostDensity, targetDensity);
+        params.height = getDialogHeightPx(activity, hostDensity, targetDensity);
+        window.setAttributes(params);
+    } catch (Throwable e) {
+        traceLog("uitools_log", "[applyDialogSize] 异常: " + e);
+    }
+}
+
+
+
+void applyUiSeekBar(android.widget.SeekBar sb, Context ctx, int primary) {
+    try {
+        int trackH = dp(ctx, 4);
+        int thumbSize = dp(ctx, 22);
+        int corner = trackH / 2;
+        int trackPad = (thumbSize - trackH) / 2;
+        boolean dark = false;
+        try { if (ctx instanceof Activity) dark = isThemeDark((Activity) ctx); } catch (Throwable ignore) {}
+        GradientDrawable bg = new GradientDrawable();
+        bg.setShape(GradientDrawable.RECTANGLE);
+        bg.setCornerRadius(corner);
+        bg.setColor(dark ? pc("#33FFFFFF") : pc("#33000000"));
+        bg.setSize(0, trackH);
+        GradientDrawable prog = new GradientDrawable();
+        prog.setShape(GradientDrawable.RECTANGLE);
+        prog.setCornerRadius(corner);
+        prog.setColor(primary);
+        prog.setSize(0, trackH);
+        ClipDrawable clip = new ClipDrawable(prog, 3, 1);
+        LayerDrawable layer = new LayerDrawable(new Drawable[]{bg, clip});
+        layer.setId(0, 16908288);
+        layer.setId(1, 16908301);
+        sb.setProgressDrawable(layer);
+        GradientDrawable thumb = new GradientDrawable();
+        thumb.setShape(GradientDrawable.OVAL);
+        thumb.setSize(thumbSize, thumbSize);
+        thumb.setColor(pc("#FFFFFFFF"));
+        thumb.setStroke(dp(ctx, 2), primary);
+        sb.setThumb(thumb);
+        sb.setThumbOffset(0);
+        int pad = thumbSize / 2;
+        sb.setPadding(pad, trackPad, pad, trackPad);
+        sb.setMinimumHeight(thumbSize);
+    } catch (Throwable e) { traceLog("uitools_log", "[applyUiSeekBar] 异常: " + e); }
+}
+
+int getUiCornerDp() {
+    int v = 16;
+    try { v = Integer.parseInt(getString("settings", "ui_corner_dp", "16")); } catch (Throwable e) { v = 16; }
+    if (v < 0) v = 0;
+    if (v > 32) v = 32;
+    return v;
+}
+
+void clearWindowShadow(final Activity activity, final Window window) {
+    try {
+        if (window == null) return;
+        View decor = window.getDecorView();
+        if (decor == null) return;
+        decor.setElevation(0f);
+        if (android.os.Build.VERSION.SDK_INT >= 28) {
+            decor.setOutlineSpotShadowColor(Color.TRANSPARENT);
+            decor.setOutlineAmbientShadowColor(Color.TRANSPARENT);
+        }
+    } catch (Throwable e) { traceLog("uitools_log", "[clearWindowShadow] 异常: " + e); }
+}
+
+void applyGradientBackground(Activity activity, Window window, String gradientStr, String fallbackColor, boolean isDark) {
+    try {
+        GradientDrawable bg = new GradientDrawable();
+        bg.setCornerRadius(dp(activity, getUiCornerDp()));
+        
+        if (gradientStr != null && !gradientStr.trim().isEmpty()) {
+            String[] colors = gradientStr.split(",");
+            if (colors.length >= 2) {
+                int[] colorsInt = new int[colors.length];
+                boolean valid = true;
+                for (int i = 0; i < colors.length; i++) {
+                    try {
+                        String colorStr = colors[i].trim();
+                        if (!colorStr.startsWith("#")) {
+                            colorStr = "#" + colorStr;
+                        }
+                        colorsInt[i] = pc(colorStr);
+                    } catch (Exception e) {
+                        valid = false;
+                        break;
+                    }
+                }
+                if (valid) {
+                    bg.setColors(colorsInt);
+                    bg.setOrientation(GradientDrawable.Orientation.TL_BR);
+                    applyDrawableToWindow(window, bg, activity, isDark);
+                    return;
+                }
+            }
+        }
+        
+        applyFallbackBg(activity, window, fallbackColor, isDark);
+        
+    } catch (Throwable e) {
+        applyFallbackBg(activity, window, fallbackColor, isDark);
+    }
+}
+
+void applyFallbackBg(Activity activity, Window window, String colorStr, boolean isDark) {
+    try {
+        GradientDrawable bg = new GradientDrawable();
+        bg.setCornerRadius(dp(activity, getUiCornerDp()));
+        bg.setColor(pc(colorStr));
+        applyDrawableToWindow(window, bg, activity, isDark);
+    } catch(Exception e) { 
+        try {
+            GradientDrawable bg = new GradientDrawable();
+            bg.setCornerRadius(dp(activity, getUiCornerDp()));
+            bg.setColor(isDark ? pc("#FF1E1E1E") : Color.WHITE);
+            applyDrawableToWindow(window, bg, activity, isDark);
+        } catch (Throwable ex) { traceLog("uitools_log", "[applyFallbackBg] 异常: " + ex); }
+    }
+}
+
+void applyWindowBlurBehind(Window window) {
+    if (window == null) return;
+    try {
+        if (!getBoolean("settings", "背景模糊", false)) return;
+        if (android.os.Build.VERSION.SDK_INT >= 31) {
+            WindowManager.LayoutParams lp = window.getAttributes();
+            window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
+            lp.setBlurBehindRadius(35);
+            window.setAttributes(lp);
+        }
+    } catch (Throwable e) { traceLog("uitools_log", "[applyWindowBlurBehind] 异常: " + e); }
+}
+
+void applyDrawableToWindow(Window window, Drawable drawable, Activity activity, boolean isDark) {
+    try {
+        window.setBackgroundDrawable(drawable);
+        clearWindowShadow(activity, window);
+        applyWindowBlurBehind(window);
+    } catch(Throwable e) {
+        try {
+            window.setBackgroundColor(isDark ? pc("#FF1E1E1E") : Color.WHITE);
+        } catch (Exception ex) {
+            window.setBackgroundColor(Color.WHITE);
+        }
+    }
+}
+
+private final int[][] DARK_DEFAULT_COLORS = {
+    {0, 0, 0},
+    {34, 34, 34},
+    {51, 51, 51},
+    {66, 66, 66},
+    {102, 102, 102},
+    {128, 128, 128}
+};
+private final int[][] LIGHT_DEFAULT_COLORS = {
+    {255, 255, 255},
+    {239, 239, 239},
+    {245, 245, 245},
+    {238, 238, 238},
+    {221, 221, 221},
+    {204, 204, 204}
+};
+
+boolean isDefaultTextColor(int color) {
+    int r = Color.red(color);
+    int g = Color.green(color);
+    int b = Color.blue(color);
+    
+    for (int[] defColor : DARK_DEFAULT_COLORS) {
+        if (Math.abs(r - defColor[0]) <= 15 && 
+            Math.abs(g - defColor[1]) <= 15 && 
+            Math.abs(b - defColor[2]) <= 15) {
+            return true;
+        }
+    }
+    
+    for (int[] defColor : LIGHT_DEFAULT_COLORS) {
+        if (Math.abs(r - defColor[0]) <= 15 && 
+            Math.abs(g - defColor[1]) <= 15 && 
+            Math.abs(b - defColor[2]) <= 15) {
+            return true;
+        }
+    }
+    
+    if (r == g && g == b) {
+        if (r <= 140 || r >= 200) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+
+
+
+void updateViewStylesRecursively(View view, int textColor, Typeface tf, float fontSizeScale) {
+    if (view == null) return;
+    
+    try {
+        if (view != null && Boolean.TRUE.equals(view.getTag("skip_theme"))) {
+            return;
+        }
+        
+        if (view instanceof TextView) {
+            TextView tv = (TextView) view;
+            
+            String className = tv.getClass().getName();
+            if (className.contains("Search") || className.contains("AutoComplete") || className.contains("MultiAutoComplete")) {
+                return;
+            }
+            boolean isEditText = className.contains("EditText");
+            
+            if (tv.getId() == android.R.id.title || tv.getId() == android.R.id.alertTitle ||
+                tv.getId() == android.R.id.text1 || tv.getId() == android.R.id.text2) {
+                return;
+            }
+            
+            if (tv.getParent() instanceof CheckBox) {
+                return;
+            }
+            
+            if (!isEditText) {
+                int customColor = (tv != null && tv.getTag("custom_text_color") instanceof Integer) ? (Integer)tv.getTag("custom_text_color") : -1;
+                if (customColor != -1) {
+                    int currentColor = tv.getCurrentTextColor();
+                    if (currentColor != customColor) {
+                        animateTextColor(tv, currentColor, customColor, (tv != null && tv.getTag("animation_duration") instanceof Long) ? (Long)tv.getTag("animation_duration") : 300L);
+                    }
+                } else if (!shouldKeepOriginalColor(tv) && tv.getBackground() == null) {
+                    int currentColor = tv.getCurrentTextColor();
+                    if (isDefaultTextColor(currentColor)) {
+                        animateTextColor(tv, currentColor, textColor, (tv != null && tv.getTag("animation_duration") instanceof Long) ? (Long)tv.getTag("animation_duration") : 300L);
+                    }
+                }
+            }
+            
+            if (fontSizeScale != 1.0f) {
+                float originalSize = tv.getTextSize();
+                tv.setTextSize(TypedValue.COMPLEX_UNIT_PX, originalSize * fontSizeScale);
+            }
+            
+            if (tf != null) {
+                int style = tv.getTypeface() != null ? tv.getTypeface().getStyle() : Typeface.NORMAL;
+                tv.setTypeface(tf, style);
+            }
+            
+            if (!shouldKeepOriginalColor(tv) && tv.getBackground() == null) {
+                int currentColor = tv.getCurrentTextColor();
+                if (isDefaultTextColor(currentColor)) {
+                    if (textColor == pc("#FFEFEFEF")) {
+                        tv.setHintTextColor(Color.argb(100, 239, 239, 239));
+                    } else if (textColor == pc("#FF333333")) {
+                        tv.setHintTextColor(Color.argb(100, 51, 51, 51));
+                    }
+                }
+            }
+        }
+        
+        if (view instanceof ViewGroup) {
+            ViewGroup vg = (ViewGroup) view;
+            String className = vg.getClass().getName();
+            if (!className.contains("Search") && !className.contains("AutoComplete")) {
+                for (int i = 0; i < vg.getChildCount(); i++) {
+                    updateViewStylesRecursively(vg.getChildAt(i), textColor, tf, fontSizeScale);
+                }
+            }
+        }
+        
+    } catch (Throwable e) { traceLog("uitools_log", "[updateViewStylesRecursively] 异常: " + e); }
+}
+
+void copyToClipboard(Activity activity, String text) {
+    try {
+        ClipboardManager clipboard = (ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
+        ClipData clip = ClipData.newPlainText("color", text);
+        clipboard.setPrimaryClip(clip);
+    } catch (Throwable e) { traceLog("uitools_log", "[copyToClipboard] 异常: " + e); }
+}
+
+Drawable getSelectableBg(Activity activity) {
+    return makeAdaptiveRippleBg(activity, Color.TRANSPARENT, 10);
+}
+
+
+int pc(String hex) {
+    try {
+        Object r = Color.parseColor(hex);
+        if (r instanceof int[]) return ((int[])r)[0];
+        return (int)r;
+    } catch (Exception e) { return -16777216; }
+}
+
+int tc(Activity a, String key) { return pc(getSettingsThemeColor(a, key)); }
+
+int tca(Activity a, String key, int alpha) {
+    int c = pc(getSettingsThemeColor(a, key));
+    return Color.argb(alpha, Color.red(c), Color.green(c), Color.blue(c));
+}
+
+
+int hsvColor(float h, float s, float v) {
+    try {
+        Object r = Color.HSVToColor(new float[]{h, s, v});
+        if (r instanceof int[]) return ((int[])r)[0];
+        return (int)r;
+    } catch (Exception e) { return pc("#FF000000"); }
+}
+
+
+
+
+TextView createButton(Context ctx, String text, int textColor, int bgColor) {
+    return createButton(ctx, text, textColor, bgColor, 14f, 20, 16, 10, false, 0, 0, null);
+}
+
+TextView createButton(Context ctx, String text, int textColor, int bgColor, float textSize, int radiusDp, int paddingHDp, int paddingVDp, boolean bold) {
+    return createButton(ctx, text, textColor, bgColor, textSize, radiusDp, paddingHDp, paddingVDp, bold, 0, 0, null);
+}
+
+TextView createButton(Context ctx, String text, int textColor, int bgColor, float textSize, int radiusDp, int paddingHDp, int paddingVDp, boolean bold, int strokeWidthDp, int strokeColor, Runnable onClick) {
+    TextView btn = new TextView(ctx);
+    btn.setText(text);
+    btn.setTextSize(textSize);
+    btn.setTextColor(textColor);
+    btn.setGravity(Gravity.CENTER);
+    if (bold) btn.setTypeface(null, Typeface.BOLD);
+    int padH = dp(ctx, paddingHDp);
+    int padV = dp(ctx, paddingVDp);
+    btn.setPadding(padH, padV, padH, padV);
+    try {
+        GradientDrawable content = new GradientDrawable();
+        int effectiveRadiusDp = Math.max(8, radiusDp);
+        content.setColor(bgColor);
+        content.setCornerRadius(dp(ctx, effectiveRadiusDp));
+        if (strokeWidthDp > 0) content.setStroke(dp(ctx, strokeWidthDp), strokeColor);
+        
+        GradientDrawable mask = new GradientDrawable();
+        mask.setColor(-1);
+        mask.setCornerRadius(dp(ctx, effectiveRadiusDp));
+        RippleDrawable ripple = new RippleDrawable(ColorStateList.valueOf(getAdaptiveRippleColor(ctx, bgColor)), content, mask);
+        btn.setBackground(ripple);
+    } catch (Exception e) {
+        try {
+            GradientDrawable gd = new GradientDrawable();
+            gd.setColor(bgColor);
+            gd.setCornerRadius(dp(ctx, radiusDp));
+            if (strokeWidthDp > 0) gd.setStroke(dp(ctx, strokeWidthDp), strokeColor);
+            btn.setBackground(gd);
+        } catch (Throwable e2) { traceLog("uitools_log", "[createButton] 异常: " + e2); }
+    }
+    if (onClick != null) {
+        btn.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { onClick.run(); }
+        });
+    }
+    try {
+        final android.animation.ObjectAnimator sx = android.animation.ObjectAnimator.ofFloat(btn, "scaleX", new float[]{1f, 0.95f, 1f});
+        final android.animation.ObjectAnimator sy = android.animation.ObjectAnimator.ofFloat(btn, "scaleY", new float[]{1f, 0.95f, 1f});
+        sx.setDuration(150);
+        sy.setDuration(150);
+        final android.animation.AnimatorSet anim = new android.animation.AnimatorSet();
+        android.animation.Animator[] animArr = new android.animation.Animator[2];
+        animArr[0] = sx;
+        animArr[1] = sy;
+        anim.playTogether(animArr);
+        btn.setOnTouchListener(new View.OnTouchListener() {
+            public boolean onTouch(View v, MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_DOWN) anim.start();
+                return false;
+            }
+        });
+    } catch (Throwable e) { traceLog("uitools_log", "[onTouch] 异常: " + e); }
+    return btn;
+}
+
