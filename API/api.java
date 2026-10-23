@@ -2286,7 +2286,7 @@ void 执行卸载核心逻辑() {
 
 	try {
 		unhookAll();
-		saveReflectCache();
+		flushAllDedupCounters();
 		onUnMsgload();
 		a卸载悬浮窗();
 		putBoolean("settings", "开关", false);
@@ -2537,23 +2537,26 @@ void migrateUpdateChannelOnce() {
     }
 }
 
-String[] buildMirrorUrls(String relativePath) {
-    migrateUpdateChannelOnce();
-    String channel = getString("settings", "update_channel", "github");
-    String githubRaw = "https://raw.githubusercontent.com/xunyyds/QFloatingX/QF/" + relativePath;
-    if (!"github".equals(channel)) {
-        return new String[]{"https://gitee.com/ovoxiaomo/qfloating-x/raw/QF/" + relativePath, githubRaw};
-    }
+String[] buildMirrorUrlsOn(String branch, String relativePath, boolean useGitee) {
+    String githubRaw = "https://raw.githubusercontent.com/xunyyds/QFloatingX/" + branch + "/" + relativePath;
     String[] mirrorHosts = {"gh.07150721.xyz", "ghpxy.hwinzniej.top", "ghf.无名氏.top", "gh.chjina.com", "js.jiangss.shop", "ghproxy.icu"};
-    String[] urls = new String[2 + mirrorHosts.length];
+    int extra = useGitee ? 1 : 0;
+    String[] urls = new String[1 + mirrorHosts.length + extra];
     urls[0] = githubRaw;
     for (int k = 0; k < mirrorHosts.length; k++) {
         String h = mirrorHosts[k];
         try { h = java.net.IDN.toASCII(h); } catch (Throwable ignore) {}
         urls[k + 1] = "https://" + h + "/" + githubRaw;
     }
-    urls[mirrorHosts.length + 1] = "https://gitee.com/ovoxiaomo/qfloating-x/raw/QF/" + relativePath;
+    if (useGitee) urls[mirrorHosts.length + 1] = "https://gitee.com/ovoxiaomo/qfloating-x/raw/QF/" + relativePath;
     return urls;
+}
+
+String[] buildMirrorUrls(String relativePath) {
+    migrateUpdateChannelOnce();
+    String channel = getString("settings", "update_channel", "github");
+    boolean useGitee = !"github".equals(channel);
+    return buildMirrorUrlsOn("main", relativePath, useGitee);
 }
 
 boolean downloadToTmpDetailed(String[] urls, String tmpPath, final UpdateProgressListener listener,
@@ -3845,7 +3848,7 @@ boolean performDownloadAndUnzip() {
     final String tempZipPath = pluginPath + "/API/icon.zip";
     final String destDir = pluginPath + "/API/";
     try {
-        String[] urls = buildMirrorUrls("icon.zip");
+        String[] urls = buildMirrorUrlsOn("QF", "icon.zip", true);
         boolean downloadResult = false;
         for (int u = 0; u < urls.length && !downloadResult; u++) {
             downloadResult = downloadFile(urls[u], tempZipPath, new ProgressCallback() {
