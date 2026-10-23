@@ -6,8 +6,19 @@
 
 | 分支 | 用途 | 目录布局 | 维护方式 |
 |---|---|---|---|
-| `main` | 源码主分支 | 仓库根 **即** 插件根（`API/api.java`、`main.java`） | 日常开发在此提交 |
-| `QF` | 发布通道（**不要手动改**） | 仓库根下多一层 `QFloatingX/` 前缀（`QFloatingX/API/api.java`） | 由「qfx更新推送」工具写入 |
+| `main` | 源码主分支（**唯一开发线**） | 仓库根 **即** 插件根（`API/api.java`、`main.java`） | 日常开发在此提交 |
+| `QF` | 旧版客户端的更新通道（**临时保留**） | 仓库根下多一层 `QFloatingX/` 前缀（`QFloatingX/API/api.java`） | 由「qfx更新推送」工具写入 |
+
+## 分支生命周期
+
+`main` 是唯一正式管理的分支。`QF` 属于**过渡期兼容分支**：
+
+- 保留原因：已发布的老版本客户端内置的更新器只认 `QF` 分支的 `up.json`，
+  只要还有人停留在旧版本，这条通道就必须继续提供文件下载。
+- 退出条件：当所有用户都更新到新版本（客户端更新源切换到 `main`）之后，
+  `QF` 分支连同 `up.json` 一起废弃，此后不再推送。
+- 两条分支的历史**不合并**：`main` 是从 v2.6.3 起重新建立的历史，
+  `QF` 保留了它自己的 635 条提交。合并会让 `main` 的历史被旧结构污染，因此刻意保持独立。
 
 ## 为什么 `QF` 不能手动改
 
@@ -27,6 +38,31 @@
 - **文件字节不能动**：校验按 SHA-256，任何行尾改写都会导致「完整性校验失败，已中止」
 - **`up.json` 的 `files`/`checksums` 不能手工编辑**：应通过「qfx更新推送」生成
 
+## 提交信息规范（约定式提交）
+
+`main` 与 `QF` 均采用 [Conventional Commits](https://www.conventionalcommits.org/zh-hans/) 格式：
+
+```
+<type>(<scope>): <subject>
+```
+
+- `type`（必须）：`feat` 新功能 / `fix` 修复 / `docs` 文档 / `style` 格式 /
+  `refactor` 重构 / `chore` 杂项
+- `scope`（可选）：影响范围，如 `api5`、`setwindow`、`revoke_mark`
+- `subject`（必须）：简短描述，中文建议 20 字以内，动词开头，**结尾不加句号**
+
+示例：
+
+```
+feat(revoke_mark): 新增消息视图监听开关
+fix(api5): 修复宿主缺失监听接口导致的加载失败
+docs(branches): 补充 QF 分支退出条件
+```
+
+`QF` 分支由「qfx更新推送」自动提交，标题固定为 `chore(release): 发布 vX.Y.Z`，
+**正文留空**。发布说明只写入 `up.json` 的 `changelog` 与 `更新日志.txt`，
+不重复写进 commit body——客户端展示更新内容时读的是 `up.json`，与 commit 无关。
+
 ## 字节保护机制
 
 `.gitattributes` 里统一 `* -text`，关闭全部行尾自动转换；本地配 `core.autocrlf=false`。
@@ -34,12 +70,16 @@
 原因是插件源码含大量内嵌字符串与生成式拼接，CRLF↔LF 转换会真实改变文件内容，
 既破坏更新校验，也可能改变脚本行为。**关闭转换不影响 `git diff` 的按行比较**，代码审查照常。
 
+> 注意：`* -text` 也意味着编辑器保存文件时用什么行尾，git 就原样存什么。
+> 同一文件在 `main` 与 `QF` 上可能行尾不同（例如 `ColorPicker.java` 在 `main` 是 CRLF、
+> 在 `QF` 是 LF），这类文件在跨分支比对时会整篇显示为差异，属于预期现象，不是内容改动。
+
 ## 日常工作流
 
 ```bash
 git checkout main
 git add -A
-git commit -m "fix: xxx"
+git commit -m "fix(api5): 修复宿主缺失监听接口导致的加载失败"
 git push origin main
 ```
 
