@@ -150,6 +150,7 @@ void traceLog(String txt) {
 
 Map logDedupState = new ConcurrentHashMap();
 Object logDedupLock = new Object();
+long logDedupWindowMs = 3000L;
 
 void logDedup(String logPath, String logName, String line) {
     if (line == null) return;
@@ -157,13 +158,15 @@ void logDedup(String logPath, String logName, String line) {
     int markIdx = content.indexOf("    ");
     if (markIdx >= 0) content = content.substring(markIdx + 4);
     String key = logName + "\u0000" + content;
+    long now = System.currentTimeMillis();
     synchronized (logDedupLock) {
         Object[] prev = (Object[]) logDedupState.get(key);
         if (prev != null) {
             String prevPath = (String) prev[0];
             int prevCount = ((Integer) prev[1]).intValue();
-            if (rewriteLastLogLine(prevPath, content, prevCount + 1)) {
-                logDedupState.put(key, new Object[]{prevPath, Integer.valueOf(prevCount + 1)});
+            long prevTime = ((Long) prev[2]).longValue();
+            if (now - prevTime < logDedupWindowMs && rewriteLastLogLine(prevPath, content, prevCount + 1)) {
+                logDedupState.put(key, new Object[]{prevPath, Integer.valueOf(prevCount + 1), Long.valueOf(now)});
                 return;
             }
             logDedupState.remove(key);
@@ -173,7 +176,13 @@ void logDedup(String logPath, String logName, String line) {
         } catch (Throwable e) {
             return;
         }
-        logDedupState.put(key, new Object[]{logPath, Integer.valueOf(1)});
+        logDedupState.put(key, new Object[]{logPath, Integer.valueOf(1), Long.valueOf(now)});
+    }
+}
+
+void flushAllDedupCounters() {
+    synchronized (logDedupLock) {
+        logDedupState.clear();
     }
 }
 
