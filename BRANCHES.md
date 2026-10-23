@@ -85,9 +85,27 @@ git push origin main
 
 需要发布时，另走「qfx更新推送」：它读取本机插件目录 → 以原始字节提交到 `QF` → 同步更新 `up.json`。
 
+## 两个分支共有的根级文件
+
+以下文件在 `main` 与 `QF` 上**各存一份**，内容保持逐字节一致，不要只在单边维护：
+
+| 文件 | 用途 |
+|---|---|
+| `LICENSE`、`中文版LICENSE` | 开源许可证 |
+| `QFun_Java脚本开发手册.md` | 开发手册 |
+| `README.md` | 项目说明（两边同一份） |
+| `icon.zip` | 图标资源包 |
+
+`icon.zip` 虽然**不进 `up.json` 的 `files` 清单**，但**会被客户端主动下载**：
+`api.java` 的 `performDownloadAndUnzip()` 走 `buildMirrorUrlsOn("QF", "icon.zip", true)`，
+直接拼出 `raw.githubusercontent.com/xunyyds/QFloatingX/QF/icon.zip`。
+所以 `icon.zip` 必须在 **`QF` 分支根目录**常驻，且 `main` 同步保留一份作为源，
+两边内容必须一致——否则图标缺失时下到的包与源码不符。
+
 ## 不入库的内容
 
 运行时由插件在真机上自行生成，已在 `.gitignore` 中排除：
 
 `Log/`、`config/`、`cache/`、`HTML/`、`HotPlug/`、`info/`、`outputs/`、`_backups/`，
-以及更新中转文件 `*.new`、由 `icon.zip` 下发的运行时图标。
+以及更新中转文件 `*.new`、由 `icon.zip` 下发的运行时图标（`/API/icon.png` 等，
+注意只排除 `API/` 下的产物，根目录的 `icon.zip` 源包要入库）。
