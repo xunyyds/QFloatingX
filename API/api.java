@@ -2349,72 +2349,98 @@ void 取消加载脚本() {
 	}
 }
 
+PluginInfo 查找运行中的本脚本() {
+	try {
+		PluginManager pm = PluginManager.INSTANCE;
+		if (pm == null) return null;
+		List list = pm.getPlugins();
+		if (list == null) return null;
+		int n = list.size();
+		for (int i = 0; i < n; i++) {
+			try {
+				Object obj = list.get(i);
+				if (obj == null || !"me.yxp.qfun.plugin.bean.PluginInfo".equals(obj.getClass().getName())) continue;
+				PluginInfo p = (PluginInfo) obj;
+				if ("QFloatingX".equals(p.getId()) && p.isRunning()) return p;
+			} catch (Throwable e) { continue; }
+		}
+	} catch (Throwable e) { traceLog("api_log", "[查找运行中的本脚本] 异常: " + e); }
+	return null;
+}
+
+void 关闭设置页并执行(final Runnable action) {
+	if (action == null) return;
+	boolean needWait = false;
+	try {
+		Activity ref = SettingsState.settingsCurrentActivityRef;
+		if (ref instanceof SettingsActivity && !ref.isDestroyed()) {
+			needWait = true;
+			if (!ref.isFinishing()) ref.finish();
+		}
+		if (SettingsState.settingsActivityAliveCount > 0) needWait = true;
+	} catch (Throwable closeIgnore) {}
+	if (!needWait) {
+		try { action.run(); } catch (Throwable e) { traceLog("api_log", "[关闭设置页并执行] 异常: " + e); }
+		return;
+	}
+	等待设置页销毁(0, action);
+}
+
+void 等待设置页销毁(final int elapsedMs, final Runnable action) {
+	if (action == null) return;
+	boolean destroyed = true;
+	try { destroyed = SettingsState.settingsActivityAliveCount <= 0; } catch (Throwable ignore) {}
+	Handler h = uiHandler;
+	if (destroyed || elapsedMs >= 1500 || h == null) {
+		try { action.run(); } catch (Throwable e) { traceLog("api_log", "[等待设置页销毁] 异常: " + e); }
+		return;
+	}
+	try {
+		h.postDelayed(new Runnable() {
+			public void run() {
+				try {
+					等待设置页销毁(elapsedMs + 30, action);
+				} catch (Throwable ignore) {
+					try { action.run(); } catch (Throwable ignore2) {}
+				}
+			}
+		}, 30);
+	} catch (Throwable e) {
+		traceLog("api_log", "[等待设置页销毁] 轮询异常，直接继续: " + e);
+		try { action.run(); } catch (Throwable e2) { traceLog("api_log", "[等待设置页销毁] 异常: " + e2); }
+	}
+}
+
 void 重新加载操作(Activity activity) {
-    try {
-        try {
-            Activity ref = SettingsState.settingsCurrentActivityRef;
-            if (ref instanceof SettingsActivity && !ref.isFinishing()) {
-                ref.finish();
-            }
-        } catch (Throwable closeIgnore) {}
-        SettingsState.settingsCurrentActivityRef = null;
-
-        PluginManager pm = PluginManager.INSTANCE;
-        if (pm == null) return;
-        List list = pm.getPlugins();
-        if (list == null) return;
-
-        PluginInfo target = null;
-        int n = list.size();
-        for (int i = 0; i < n; i++) {
-            try {
-                Object obj = list.get(i);
-                if (obj == null || !"me.yxp.qfun.plugin.bean.PluginInfo".equals(obj.getClass().getName())) continue;
-                PluginInfo p = (PluginInfo) obj;
-                if ("QFloatingX".equals(p.getId()) && p.isRunning()) {
-                    target = p;
-                    break;
-                }
-            } catch (Throwable e) { continue; }
-        }
-        if (target != null) pm.reloadPlugin(target);
-    } catch (Throwable e) {
-        traceLog("api_log", "[重新加载操作] 异常: " + e);
-    }
+	关闭设置页并执行(new Runnable() {
+		public void run() {
+			try {
+				PluginInfo target = 查找运行中的本脚本();
+				if (target == null) return;
+				PluginManager pm = PluginManager.INSTANCE;
+				if (pm == null) return;
+				pm.reloadPlugin(target);
+			} catch (Throwable e) {
+				traceLog("api_log", "[重新加载操作] 异常: " + e);
+			}
+		}
+	});
 }
 
 void 取消加载操作(Activity activity) {
-    try {
-        try {
-            Activity ref = SettingsState.settingsCurrentActivityRef;
-            if (ref instanceof SettingsActivity && !ref.isFinishing()) {
-                ref.finish();
-            }
-        } catch (Throwable closeIgnore) {}
-        SettingsState.settingsCurrentActivityRef = null;
-
-        PluginManager pm = PluginManager.INSTANCE;
-        if (pm == null) return;
-        List list = pm.getPlugins();
-        if (list == null) return;
-
-        PluginInfo target = null;
-        int n = list.size();
-        for (int i = 0; i < n; i++) {
-            try {
-                Object obj = list.get(i);
-                if (obj == null || !"me.yxp.qfun.plugin.bean.PluginInfo".equals(obj.getClass().getName())) continue;
-                PluginInfo p = (PluginInfo) obj;
-                if ("QFloatingX".equals(p.getId()) && p.isRunning()) {
-                    target = p;
-                    break;
-                }
-            } catch (Throwable e) { continue; }
-        }
-        if (target != null) pm.stopPlugin(target);
-    } catch (Throwable e) {
-        traceLog("api_log", "[取消加载操作] 异常: " + e);
-    }
+	关闭设置页并执行(new Runnable() {
+		public void run() {
+			try {
+				PluginInfo target = 查找运行中的本脚本();
+				if (target == null) return;
+				PluginManager pm = PluginManager.INSTANCE;
+				if (pm == null) return;
+				pm.stopPlugin(target);
+			} catch (Throwable e) {
+				traceLog("api_log", "[取消加载操作] 异常: " + e);
+			}
+		}
+	});
 }
 
 void unLoadPlugin() {
