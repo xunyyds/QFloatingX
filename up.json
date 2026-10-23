@@ -25,27 +25,5 @@
     "info.prop",
     "desc.txt",
     "更新日志.txt"
-  ],
-  "checksums": {
-    "API/ColorPicker.java": "73e11b92f592beeb108edcf5e95e9b6e3a54826aa5abe015bc0fc546a59e13fd",
-    "API/Dialog.java": "53c0c2d90761c77cf8301f203b3f4c6920a3c5c55949367ed15f98e7abd4ece6",
-    "API/KeepAlive.java": "2c800ce6fadc90816982cd616e8ee4bca8a186249a56146c4af092d1f7854c12",
-    "API/api.java": "b02ad867811956d091b0d4fc9b449786f0895014176d27eab852de4dd4670c21",
-    "API/api2.java": "f8cbf1621a9a1833b5b25c58a7a689184efeaf8c7aee63a7ab2857c2895c89db",
-    "API/api3.java": "477a6fb4776a2ea918a11b5e00c3a4f0b7dc001532f463a050f549c1c573c9df",
-    "API/api4.java": "2b8129ab8bbeeaae58c6a2533036ca2c31cef237ee98a86e1f5ff28044e881c9",
-    "API/api5.java": "ee05a9d073bd634ca8a889bf4d64ce0276d8cc72bd3228abbf0fc80ddfc85f15",
-    "API/api6.java": "746613aad266b914f498f571a6d53dd502efabee19ff5f199e583a738654b228",
-    "API/api7.java": "c934fdb1b0a6c6cebf57b37f6ec473b062421bf979c115e13537a4c155408cf3",
-    "API/api8.java": "eea1dbb70459a74a7852792bc8dd606054f0b487d972a03653cde910e97a4347",
-    "API/api9.java": "95cdc8df5836e292bb0380dbff3840e54e625910e213d9ee924a43ab0a46044e",
-    "API/function.java": "38937f7476948978b95f0edf0cb7630e210f5c9feb4e5835bfffd35b50f299e6",
-    "API/import.java": "437ab8912edb86c7b727cb36431b23cc2eb6e3d126bd6b14e5304d09b0012f22",
-    "API/setwindow.java": "e7864168d439d136dfa52cad3cd3a983825524af16ef7251571bc46871567aa5",
-    "API/uitools.java": "b71cd185808666d445e1bcff1c2a016fa8f9bad1a79e7bb88db9fb9910dd4744",
-    "main.java": "9a030e3747f5a999b479d7549bbdfeff6d714e63eb4503c1650f2e82fd259cb3",
-    "info.prop": "0ed08a05e434382a1578a1b9ede934960c12e122042d7e3b56075eaeea57d669",
-    "desc.txt": "96aaa79c346d199b666875f04c55ed9d7fc04d65fe8f0fefb12b6a626e42c21f",
-    "更新日志.txt": "e9c8f8adebad9e2b6f804c4bcd20ba9c7d9390133e6665f669013a0e7a79d733"
-  }
+  ]
 }
