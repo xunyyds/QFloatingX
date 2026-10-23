@@ -1568,10 +1568,28 @@ void buildRevokeMarkPage(Activity activity) {
     addSettingsCategory("撤回标记", null);
     boolean timeOn = ShowMsgTime.INSTANCE.isEnable();
     boolean revokeOn = AntiRevoke.INSTANCE.isEnable();
+    boolean listenerOn = getBoolean("settings", "revoke_mark_listener", true);
+    boolean hostSupported = false;
+    try { hostSupported = revokeMarkHostSupported(); } catch (Throwable ignore) { hostSupported = false; }
+    String listenerDesc = "关闭后不再注册消息视图监听，可避免部分宿主缺少 AIOViewUpdateListener 导致的加载失败";
+    if (!hostSupported) listenerDesc = "当前宿主未提供 AIOViewUpdateListener，已自动跳过，此项无需开启";
+    addSettingsItemSwitchWithKey("启用消息视图监听", "settings", "revoke_mark_listener", listenerDesc, listenerOn, new Runnable() { public void run() {
+        try {
+            if (getBoolean("settings", "revoke_mark_listener", true)) {
+                installRevokeMarkListener();
+            } else {
+                removeRevokeMarkListener();
+            }
+        } catch (Throwable e) {
+            traceLog("setwindow_log", "[已撤回标记] 切换监听开关失败: " + e);
+        }
+        refreshCurrentSettingsPage();
+    }});
     String markDesc = "把模块内置的「已撤回」提示挪到消息时间后面";
     if (!timeOn && !revokeOn) markDesc = "当前状态不可用，请先打开「显示消息时间」和「防撤回」开关";
     else if (!timeOn) markDesc = "当前状态不可用，请先打开「显示消息时间」开关";
     else if (!revokeOn) markDesc = "当前状态不可用，请先打开「防撤回」开关";
+    else if (!hostSupported) markDesc = "当前宿主不支持消息视图监听，此项无法生效";
     addSettingsItemSwitchWithKey("已撤回标记", "settings", "revoke_mark", markDesc, getBoolean("settings", "revoke_mark", false), null);
     addSettingsInputItemWithConfig("标记文本", "默认「已撤回」，追加在消息时间后面", "settings", "revoke_mark_text", "如: 已撤回", "已撤回", false, false, null);
     addSettingsItemChoiceWithKey( "标记位置", "revoke_mark_pos", ("top".equals(getString("settings", "revoke_mark_pos", "bottom")) ? "气泡上方" : "气泡下方"), new Runnable() { public void run() {

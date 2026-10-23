@@ -1856,7 +1856,25 @@ void initdoublemsg() {
     }
 }
 
-AIOViewUpdateListener revokeMarkListener = null;
+Object revokeMarkListener = null;
+
+boolean revokeMarkHostChecked = false;
+boolean revokeMarkHostFlag = false;
+
+boolean revokeMarkHostSupported() {
+    if (revokeMarkHostChecked) return revokeMarkHostFlag;
+    revokeMarkHostChecked = true;
+    revokeMarkHostFlag = false;
+    try {
+        ClassLoader mcl = ClassUtils.INSTANCE.getModuleClassLoader();
+        Class.forName("me.yxp.qfun.hook.api.AIOViewUpdateListener", false, mcl);
+        Class.forName("me.yxp.qfun.hook.api.OnAIOViewUpdate", false, mcl);
+        revokeMarkHostFlag = true;
+    } catch (Throwable e) {
+        traceLog("api5_log", "[已撤回标记] 当前宿主缺少 AIOViewUpdateListener，已跳过: " + e);
+    }
+    return revokeMarkHostFlag;
+}
 
 String revokeMarkText() {
     String t = getString("settings", "revoke_mark_text", "");
@@ -1876,41 +1894,117 @@ int revokeMarkColor() {
     }
 }
 
+void revokeMarkOnUpdate(Object layoutObj, Object msgObj) {
+    try {
+        if (!(layoutObj instanceof FrameLayout)) return;
+        FrameLayout layout = (FrameLayout) layoutObj;
+        if (layout == null) return;
+        if (!getBoolean("settings", "revoke_mark_listener", true)) return;
+        if (!getBoolean("settings", "revoke_mark", false)
+                || !ShowMsgTime.INSTANCE.isEnable()
+                || !AntiRevoke.INSTANCE.isEnable()) {
+            return;
+        }
+        TextView builtIn = (TextView) layout.findViewWithTag("RevokeTagView");
+        if (builtIn == null || builtIn.getVisibility() != View.VISIBLE) return;
+        TextView timeView = (TextView) layout.findViewWithTag("MsgTime");
+        if (timeView == null) return;
+        builtIn.setVisibility(View.GONE);
+        String mark = revokeMarkText();
+        String cur = timeView.getText().toString();
+        if (cur.indexOf(mark) < 0) timeView.setText(cur + mark);
+        timeView.setTextColor(revokeMarkColor());
+        FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) timeView.getLayoutParams();
+        if (lp != null) {
+            if ("top".equals(getString("settings", "revoke_mark_pos", "bottom"))) {
+                lp.gravity = Gravity.TOP | Gravity.END;
+            } else {
+                lp.gravity = Gravity.BOTTOM | Gravity.END;
+            }
+            timeView.setLayoutParams(lp);
+        }
+    } catch (Throwable e) {
+        traceLog("api5_log", "[已撤回标记] 异常: " + e);
+    }
+}
+
+Object createRevokeMarkListener(Class listenerCls) {
+    return java.lang.reflect.Proxy.newProxyInstance(
+        listenerCls.getClassLoader(),
+        new Class[]{listenerCls},
+        new java.lang.reflect.InvocationHandler() {
+            public Object invoke(Object proxy, java.lang.reflect.Method method, Object[] args) {
+                String methodName = method == null ? "" : method.getName();
+                if ("onUpdate".equals(methodName)) {
+                    if (args != null && args.length >= 2) {
+                        revokeMarkOnUpdate(args[0], args[1]);
+                    }
+                    return null;
+                }
+                if ("toString".equals(methodName)) return "RevokeMarkListener";
+                if ("hashCode".equals(methodName)) return Integer.valueOf(System.identityHashCode(proxy));
+                if ("equals".equals(methodName)) {
+                    return Boolean.valueOf(args != null && args.length == 1 && args[0] == proxy);
+                }
+                return null;
+            }
+        });
+}
+
 void installRevokeMarkListener() {
     if (revokeMarkListener != null) return;
-    revokeMarkListener = new AIOViewUpdateListener() {
-        public void onUpdate(FrameLayout layout, MsgRecord msg) {
-            try {
-                if (layout == null) return;
-                if (!getBoolean("settings", "revoke_mark", false)
-                        || !ShowMsgTime.INSTANCE.isEnable()
-                        || !AntiRevoke.INSTANCE.isEnable()) {
-                    return;
-                }
-                TextView builtIn = (TextView) layout.findViewWithTag("RevokeTagView");
-                if (builtIn == null || builtIn.getVisibility() != View.VISIBLE) return;
-                TextView timeView = (TextView) layout.findViewWithTag("MsgTime");
-                if (timeView == null) return;
-                builtIn.setVisibility(View.GONE);
-                String mark = revokeMarkText();
-                String cur = timeView.getText().toString();
-                if (cur.indexOf(mark) < 0) timeView.setText(cur + mark);
-                timeView.setTextColor(revokeMarkColor());
-                FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) timeView.getLayoutParams();
-                if (lp != null) {
-                    if ("top".equals(getString("settings", "revoke_mark_pos", "bottom"))) {
-                        lp.gravity = Gravity.TOP | Gravity.END;
-                    } else {
-                        lp.gravity = Gravity.BOTTOM | Gravity.END;
-                    }
-                    timeView.setLayoutParams(lp);
-                }
-            } catch (Throwable e) {
-                traceLog("api5_log", "[已撤回标记] 异常: " + e);
+    try {
+        if (!getBoolean("settings", "revoke_mark_listener", true)) {
+            traceLog("api5_log", "[已撤回标记] 监听开关未开启，跳过安装");
+            return;
+        }
+        if (!revokeMarkHostSupported()) return;
+        ClassLoader mcl = ClassUtils.INSTANCE.getModuleClassLoader();
+        Class listenerCls = Class.forName("me.yxp.qfun.hook.api.AIOViewUpdateListener", false, mcl);
+        Object listener = createRevokeMarkListener(listenerCls);
+        Class onUpdateCls = Class.forName("me.yxp.qfun.hook.api.OnAIOViewUpdate", false, mcl);
+        Object hostInstance = onUpdateCls.getField("INSTANCE").get(null);
+        java.lang.reflect.Method addMethod = null;
+        java.lang.reflect.Method[] methods = onUpdateCls.getMethods();
+        for (int i = 0; i < methods.length; i++) {
+            if ("addListener".equals(methods[i].getName()) && methods[i].getParameterTypes().length == 1) {
+                addMethod = methods[i];
+                break;
             }
         }
-    };
-    OnAIOViewUpdate.INSTANCE.addListener(revokeMarkListener);
+        if (addMethod == null) {
+            traceLog("api5_log", "[已撤回标记] 未找到 addListener，跳过安装");
+            return;
+        }
+        addMethod.invoke(hostInstance, new Object[]{listener});
+        revokeMarkListener = listener;
+    } catch (Throwable t) {
+        traceLog("api5_log", "[已撤回标记] 安装监听失败，已跳过: " + t);
+        revokeMarkListener = null;
+    }
+}
+
+void removeRevokeMarkListener() {
+    Object listener = revokeMarkListener;
+    if (listener == null) return;
+    revokeMarkListener = null;
+    try {
+        if (!revokeMarkHostSupported()) return;
+        ClassLoader mcl = ClassUtils.INSTANCE.getModuleClassLoader();
+        Class onUpdateCls = Class.forName("me.yxp.qfun.hook.api.OnAIOViewUpdate", false, mcl);
+        Object hostInstance = onUpdateCls.getField("INSTANCE").get(null);
+        java.lang.reflect.Method removeMethod = null;
+        java.lang.reflect.Method[] methods = onUpdateCls.getMethods();
+        for (int i = 0; i < methods.length; i++) {
+            if ("removeListener".equals(methods[i].getName()) && methods[i].getParameterTypes().length == 1) {
+                removeMethod = methods[i];
+                break;
+            }
+        }
+        if (removeMethod != null) removeMethod.invoke(hostInstance, new Object[]{listener});
+    } catch (Throwable t) {
+        traceLog("api5_log", "[已撤回标记] 移除监听失败: " + t);
+    }
 }
 
 installRevokeMarkListener();
