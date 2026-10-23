@@ -1928,29 +1928,6 @@ void revokeMarkOnUpdate(Object layoutObj, Object msgObj) {
     }
 }
 
-Object createRevokeMarkListener(Class listenerCls) {
-    return java.lang.reflect.Proxy.newProxyInstance(
-        listenerCls.getClassLoader(),
-        new Class[]{listenerCls},
-        new java.lang.reflect.InvocationHandler() {
-            public Object invoke(Object proxy, java.lang.reflect.Method method, Object[] args) {
-                String methodName = method == null ? "" : method.getName();
-                if ("onUpdate".equals(methodName)) {
-                    if (args != null && args.length >= 2) {
-                        revokeMarkOnUpdate(args[0], args[1]);
-                    }
-                    return null;
-                }
-                if ("toString".equals(methodName)) return "RevokeMarkListener";
-                if ("hashCode".equals(methodName)) return Integer.valueOf(System.identityHashCode(proxy));
-                if ("equals".equals(methodName)) {
-                    return Boolean.valueOf(args != null && args.length == 1 && args[0] == proxy);
-                }
-                return null;
-            }
-        });
-}
-
 void installRevokeMarkListener() {
     if (revokeMarkListener != null) return;
     try {
@@ -1959,25 +1936,19 @@ void installRevokeMarkListener() {
             return;
         }
         if (!revokeMarkHostSupported()) return;
-        ClassLoader mcl = ClassUtils.INSTANCE.getModuleClassLoader();
-        Class listenerCls = Class.forName("me.yxp.qfun.hook.api.AIOViewUpdateListener", false, mcl);
-        Object listener = createRevokeMarkListener(listenerCls);
-        Class onUpdateCls = Class.forName("me.yxp.qfun.hook.api.OnAIOViewUpdate", false, mcl);
-        Object hostInstance = onUpdateCls.getField("INSTANCE").get(null);
-        java.lang.reflect.Method addMethod = null;
-        java.lang.reflect.Method[] methods = onUpdateCls.getMethods();
-        for (int i = 0; i < methods.length; i++) {
-            if ("addListener".equals(methods[i].getName()) && methods[i].getParameterTypes().length == 1) {
-                addMethod = methods[i];
-                break;
+        // 必须用强类型匿名类。绝不要改回 Proxy.newProxyInstance + bsh 匿名 InvocationHandler：
+        // bsh 造的 Proxy 一旦被当作实参跨过 Java 边界，bsh 会走 Types.castObject ->
+        // String.valueOf(proxy) -> proxy.toString() -> This$Handler 派发，形成无限递归，
+        // 真机直接 java.lang.StackOverflowError: stack size 1036KB（实测 329 层）。
+        // 这里用全限定名是为了不在 import.java 里加宿主 import，缺类时只在本次调用抛错。
+        me.yxp.qfun.hook.api.AIOViewUpdateListener listener = new me.yxp.qfun.hook.api.AIOViewUpdateListener() {
+            public void onUpdate(FrameLayout layout, MsgRecord msg) {
+                revokeMarkOnUpdate(layout, msg);
             }
-        }
-        if (addMethod == null) {
-            traceLog("api5_log", "[已撤回标记] 未找到 addListener，跳过安装");
-            return;
-        }
-        addMethod.invoke(hostInstance, new Object[]{listener});
+        };
+        me.yxp.qfun.hook.api.OnAIOViewUpdate.INSTANCE.addListener(listener);
         revokeMarkListener = listener;
+        traceLog("api5_log", "[已撤回标记] 监听安装成功");
     } catch (Throwable t) {
         traceLog("api5_log", "[已撤回标记] 安装监听失败，已跳过: " + t);
         revokeMarkListener = null;
