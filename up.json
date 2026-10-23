@@ -5,25 +5,10 @@
   "updateTime": "2026-10-24 02:35:00",
   "changelog": "- 修复偶尔重载脚本时 Unable to destroy activity 闪退\n- 优化重载时序：等设置页销毁完成后再重新加载脚本\n- HTML 浏览器补充资源释放",
   "files": [
-    "API/ColorPicker.java",
-    "API/Dialog.java",
-    "API/KeepAlive.java",
     "API/api.java",
-    "API/api2.java",
-    "API/api3.java",
-    "API/api4.java",
-    "API/api5.java",
-    "API/api6.java",
     "API/api7.java",
-    "API/api8.java",
-    "API/api9.java",
-    "API/function.java",
-    "API/import.java",
     "API/setwindow.java",
-    "API/uitools.java",
-    "main.java",
     "info.prop",
-    "desc.txt",
     "更新日志.txt"
   ]
 }
