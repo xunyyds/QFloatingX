@@ -260,6 +260,34 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
         }
     }
 
+    protected void onDestroy() {
+        try {
+            if (sniffedResources != null) sniffedResources.clear();
+        } catch (Throwable ignore) {}
+        try {
+            snifferWindow = null;
+        } catch (Throwable ignore) {}
+        try {
+            if (webView != null) {
+                webView.stopLoading();
+                webView.setWebChromeClient(null);
+                webView.setWebViewClient(null);
+                webView.removeAllViews();
+                webView.destroy();
+            }
+        } catch (Throwable ignore) {}
+        webView = null;
+        contentWrapper = null;
+        rootFrame = null;
+        bottomSheetLayout = null;
+        dragHandle = null;
+        headerContainer = null;
+        controlsContainer = null;
+        try {
+            super.onDestroy();
+        } catch (Throwable ignore) {}
+    }
+
     public int getStatusBarHeight() {
         int r = getResources().getIdentifier("status_bar_height", "dimen", "android");
         return r > 0 ? getResources().getDimensionPixelSize(r) : dp(25);

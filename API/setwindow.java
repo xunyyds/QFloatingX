@@ -62,6 +62,7 @@ class SettingsState {
     static String settingsPendingHighlightKey;
     static int settingsPendingHighlightDepth = -1;
     static Activity settingsCurrentActivityRef;
+    static int settingsActivityAliveCount = 0;
     static Map settingsItemMeta;
     static String settingsCurrentLevel1;
     static String settingsCurrentLevel2;
@@ -4075,6 +4076,7 @@ class SettingsActivity extends BaseComposeActivity {
     FrameLayout settingsPageContainer;
     List settingsPageStack;
     Handler settingsPageHandler;
+    boolean settingsCleanedUp = false;
     String settingsHistoryJson;
     java.util.concurrent.ExecutorService settingsHistoryWriter;
 
@@ -4132,6 +4134,7 @@ class SettingsActivity extends BaseComposeActivity {
             setSettingsImmersiveStatusBar(this, getWindow(), !isDark);
             settingsPageHandler = new Handler(Looper.getMainLooper());
             SettingsState.settingsCurrentActivityRef = this;
+            SettingsState.settingsActivityAliveCount = SettingsState.settingsActivityAliveCount + 1;
             try {
                 settingsChatType = getIntent().getIntExtra("chatType", 0);
                 String pu = getIntent().getStringExtra("peerUin");
@@ -4189,9 +4192,13 @@ class SettingsActivity extends BaseComposeActivity {
 
     protected void onDestroy() {
         try {
+            if (SettingsState.settingsActivityAliveCount > 0) {
+                SettingsState.settingsActivityAliveCount = SettingsState.settingsActivityAliveCount - 1;
+            }
+        } catch (Throwable ignore) {}
+        try {
             settingsCleanup();
-        } catch (Throwable exception) {
-            traceLog("setwindow_log", "[SettingsActivity.onDestroy] 异常: " + exception);
+        } catch (Throwable ignore) {
         }
         super.onDestroy();
     }
@@ -5354,26 +5361,53 @@ void settingsRunNav() {
     }
 
     void settingsCleanup() {
+        if (settingsCleanedUp) return;
+        settingsCleanedUp = true;
+
+        try {
+            if (SettingsState.settingsCurrentActivityRef == this) {
+                SettingsState.settingsCurrentActivityRef = null;
+            }
+        } catch (Throwable ignore) {}
+
         try {
             if (settingsPageHandler != null) {
                 settingsPageHandler.removeCallbacksAndMessages(null);
             }
+        } catch (Throwable ignore) {}
+
+        try {
             if (settingsHistoryWriter != null) settingsHistoryWriter.shutdown();
-            resetSettingsSearchState();
-            try { unbindStatsViewCache(); } catch (Throwable ignore) {}
+        } catch (Throwable ignore) {}
+        settingsHistoryWriter = null;
+
+        try { resetSettingsSearchState(); } catch (Throwable ignore) {}
+
+        try { unbindStatsViewCache(); } catch (Throwable ignore) {}
+
+        try {
             SettingsState.settingsPendingHighlightKey = null;
             SettingsState.settingsPendingHighlightDepth = -1;
-            if (SettingsState.settingsCurrentActivityRef == this) {
-                SettingsState.settingsCurrentActivityRef = null;
-            }
+        } catch (Throwable ignore) {}
+
+        try {
             if (settingsPageStack != null) settingsPageStack.clear();
+        } catch (Throwable ignore) {}
+
+        try {
             if (settingsPageContainer != null) settingsPageContainer.removeAllViews();
-            SettingsState.settingsHostDensity = 0f;
-            releaseSettingsIconCache();
-            cleanupSettingsResources();
-        } catch (Throwable exception) {
-            traceLog("setwindow_log", "[SettingsActivity.settingsCleanup] 异常: " + exception);
-        }
+        } catch (Throwable ignore) {}
+
+        try { SettingsState.settingsHostDensity = 0f; } catch (Throwable ignore) {}
+
+        try { releaseSettingsIconCache(); } catch (Throwable ignore) {}
+
+        try { cleanupSettingsResources(); } catch (Throwable ignore) {}
+
+        settingsPageHandler = null;
+        settingsPageStack = null;
+        settingsPageContainer = null;
+        settingsActivityRoot = null;
     }
 }
 
