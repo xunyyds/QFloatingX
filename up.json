@@ -2,8 +2,8 @@
   "version": "2.6.4",
   "versionType": "正式版",
   "updateType": "补丁",
-  "updateTime": "2026-10-23 15:00:00",
-  "changelog": "- 修复部分宿主缺少 AIOViewUpdateListener 导致脚本加载失败的问题\n- 新增「启用消息视图监听」开关，可关闭消息视图监听\n- 更新检查切换到 main 分支，不再依赖 QF 分支",
+  "updateTime": "2026-10-23 20:00:00",
+  "changelog": "- 修复部分宿主缺少 AIOViewUpdateListener 导致脚本加载失败的问题\n- 新增「启用消息视图监听」开关，可关闭消息视图监听\n- 更新检查切换到 main 分支，不再依赖 QF 分支\n- 修复已撤回标记监听器导致的栈溢出（bsh 动态代理无限递归）",
   "files": [
     "API/ColorPicker.java",
     "API/Dialog.java",
