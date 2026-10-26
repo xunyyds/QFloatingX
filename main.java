@@ -428,7 +428,7 @@ Method getCachedMethod(Class clazz, String methodName, Class[] paramTypes) {
     Class[] types = paramTypes != null ? paramTypes : new Class[0];
     String sig = typesSignature(types);
     if (sig == null) return null;
-    String key = clazz.getName() + "#" + methodName + "(" + sig + ")";
+    String key = System.identityHashCode(clazz) + "#" + methodName + "(" + sig + ")";
     Object cached = METHOD_CACHE.get(key);
     if (cached instanceof Method) return (Method) cached;
     Method m = findCompatibleMethod(clazz, methodName, types);
@@ -441,45 +441,58 @@ Method findCompatibleMethod(Class clazz, String methodName, Class[] paramTypes) 
     Class[] types = paramTypes != null ? paramTypes : new Class[0];
     Class c = clazz;
     while (c != null) {
-        Method m = qfunCachedMethod(c, methodName, types);
+        Method m = pickBestOverload(c, methodName, types);
         if (m != null) return m;
         c = c.getSuperclass();
     }
     return null;
 }
 
-Method qfunCachedMethod(final Class clazz, final String methodName, final Class[] paramTypes) {
-    if (clazz == null || methodName == null) return null;
-    try {
-        final Class[] types = paramTypes != null ? paramTypes : new Class[0];
-        Object fn = new kotlin.jvm.functions.Function1() {
-            public Object invoke(Object searcher) {
-                try {
-                    searcher.getClass().getMethod("setName", new Class[]{String.class}).invoke(searcher, new Object[]{methodName});
-                    if (types.length > 0) {
-                        searcher.getClass().getMethod("setParamTypes", new Class[]{Class[].class}).invoke(searcher, new Object[]{types});
-                    } else {
-                        searcher.getClass().getMethod("setParamCount", new Class[]{Integer.class}).invoke(searcher, new Object[]{Integer.valueOf(0)});
-                    }
-                } catch (Throwable t) {
-                    traceLog("main_log", "[qfunCachedMethod] 配置 searcher 失败: " + t);
-                }
-                return null;
-            }
-        };
-        Class dsl = Class.forName("me.yxp.qfun.utils.reflect.ReflectDSLKt", false, ClassUtils.INSTANCE.getModuleClassLoader());
-        java.lang.reflect.Method[] all = dsl.getDeclaredMethods();
-        for (int i = 0; i < all.length; i++) {
-            if (!"findMethodOrNull".equals(all[i].getName())) continue;
-            if (all[i].getParameterTypes().length != 2) continue;
-            all[i].setAccessible(true);
-            Object got = all[i].invoke(null, new Object[]{clazz, fn});
-            if (got instanceof Method) return (Method) got;
-            return null;
-        }
-    } catch (Throwable t) {
-        traceLog("main_log", "[qfunCachedMethod] 复用 QFun 反射缓存失败: " + t);
+Method pickBestOverload(Class clazz, String methodName, Class[] paramTypes) {
+    Method[] all = null;
+    try { all = clazz.getDeclaredMethods(); } catch (Throwable e) { return null; }
+    if (all == null) return null;
+    Method best = null;
+    int bestScore = Integer.MAX_VALUE;
+    for (int i = 0; i < all.length; i++) {
+        Method cand = all[i];
+        if (!methodName.equals(cand.getName())) continue;
+        int score = overloadScore(cand.getParameterTypes(), paramTypes);
+        if (score < 0) continue;
+        if (score < bestScore) { bestScore = score; best = cand; }
     }
+    if (best != null) {
+        try { best.setAccessible(true); } catch (Throwable e) { traceLog("main_log", "[pickBestOverload] setAccessible 失败: " + e); }
+    }
+    return best;
+}
+
+int overloadScore(Class[] actual, Class[] expected) {
+    if (actual.length != expected.length) return -1;
+    int score = 0;
+    for (int i = 0; i < actual.length; i++) {
+        Class a = actual[i];
+        Class e = expected[i];
+        if (e == null) { score += 50; continue; }
+        if (a == e) continue;
+        if (a.isAssignableFrom(e)) { score += 1; continue; }
+        Class boxed = boxPrimitive(a);
+        if (boxed != null && boxed == e) { score += 3; continue; }
+        return -1;
+    }
+    return score;
+}
+
+Class boxPrimitive(Class p) {
+    if (p == null || !p.isPrimitive()) return null;
+    if (p == int.class) return Integer.class;
+    if (p == long.class) return Long.class;
+    if (p == boolean.class) return Boolean.class;
+    if (p == double.class) return Double.class;
+    if (p == float.class) return Float.class;
+    if (p == short.class) return Short.class;
+    if (p == byte.class) return Byte.class;
+    if (p == char.class) return Character.class;
     return null;
 }
 
@@ -498,7 +511,7 @@ Object callRuntimeService(Object appInterface, Class serviceClass) {
 
 Field getCachedField(Class clazz, String fieldName) {
     if (clazz == null || fieldName == null) return null;
-    String key = clazz.getName() + "#f:" + fieldName;
+    String key = System.identityHashCode(clazz) + "#f:" + fieldName;
     Object cached = FIELD_CACHE.get(key);
     if (cached instanceof Field) return (Field) cached;
     Field f = qfunCachedField(clazz, fieldName);
@@ -506,30 +519,16 @@ Field getCachedField(Class clazz, String fieldName) {
     return f;
 }
 
-Field qfunCachedField(final Class clazz, final String fieldName) {
-    try {
-        Object fn = new kotlin.jvm.functions.Function1() {
-            public Object invoke(Object searcher) {
-                try {
-                    searcher.getClass().getMethod("setName", new Class[]{String.class}).invoke(searcher, new Object[]{fieldName});
-                } catch (Throwable t) {
-                    traceLog("main_log", "[qfunCachedField] 配置 searcher 失败: " + t);
-                }
-                return null;
-            }
-        };
-        Class dsl = Class.forName("me.yxp.qfun.utils.reflect.ReflectDSLKt", false, ClassUtils.INSTANCE.getModuleClassLoader());
-        java.lang.reflect.Method[] all = dsl.getDeclaredMethods();
-        for (int i = 0; i < all.length; i++) {
-            if (!"findFieldOrNull".equals(all[i].getName())) continue;
-            if (all[i].getParameterTypes().length != 2) continue;
-            all[i].setAccessible(true);
-            Object got = all[i].invoke(null, new Object[]{clazz, fn});
-            if (got instanceof Field) return (Field) got;
-            return null;
+Field qfunCachedField(Class clazz, String fieldName) {
+    Class c = clazz;
+    while (c != null) {
+        try {
+            Field f = c.getDeclaredField(fieldName);
+            f.setAccessible(true);
+            return f;
+        } catch (Throwable e) {
+            c = c.getSuperclass();
         }
-    } catch (Throwable t) {
-        traceLog("main_log", "[qfunCachedField] 复用 QFun 反射缓存失败: " + t);
     }
     return null;
 }
@@ -542,6 +541,18 @@ Object fieldGet(Object target, String fieldName) {
         Field field = getCachedField(owner, fieldName);
         if (field == null) return null;
         return field.get(isStatic ? null : target);
+    } catch (IllegalArgumentException e) {
+        try {
+            String key = System.identityHashCode(owner) + "#f:" + fieldName;
+            FIELD_CACHE.remove(key);
+            Field fresh = qfunCachedField(owner, fieldName);
+            if (fresh == null) return null;
+            FIELD_CACHE.put(key, fresh);
+            return fresh.get(isStatic ? null : target);
+        } catch (Throwable t) {
+            traceLog("main_log", "[fieldGet] " + fieldName + " 重查失败: " + t);
+            return null;
+        }
     } catch (Exception e) {
         traceLog("main_log", "[fieldGet] " + fieldName + " 失败: " + e);
         return null;
@@ -565,38 +576,20 @@ Method findMethodByCount(Class clazz, String methodName, int paramCount) {
     if (clazz == null || methodName == null) return null;
     Class c = clazz;
     while (c != null) {
-        Method best = qfunMethodByCount(c, methodName, paramCount);
+        Method best = null;
+        try {
+            Method[] all = c.getDeclaredMethods();
+            for (int i = 0; i < all.length; i++) {
+                if (!methodName.equals(all[i].getName())) continue;
+                if (all[i].getParameterTypes().length != paramCount) continue;
+                try { all[i].setAccessible(true); } catch (Throwable ignore) {}
+                if (best == null) best = all[i];
+            }
+        } catch (Throwable e) {
+            traceLog("main_log", "[findMethodByCount] " + c.getName() + " 失败: " + e);
+        }
         if (best != null) return best;
         c = c.getSuperclass();
-    }
-    return null;
-}
-
-Method qfunMethodByCount(final Class clazz, final String methodName, final int paramCount) {
-    try {
-        Object fn = new kotlin.jvm.functions.Function1() {
-            public Object invoke(Object searcher) {
-                try {
-                    searcher.getClass().getMethod("setName", new Class[]{String.class}).invoke(searcher, new Object[]{methodName});
-                    searcher.getClass().getMethod("setParamCount", new Class[]{Integer.class}).invoke(searcher, new Object[]{Integer.valueOf(paramCount)});
-                } catch (Throwable t) {
-                    traceLog("main_log", "[qfunMethodByCount] 配置 searcher 失败: " + t);
-                }
-                return null;
-            }
-        };
-        Class dsl = Class.forName("me.yxp.qfun.utils.reflect.ReflectDSLKt", false, ClassUtils.INSTANCE.getModuleClassLoader());
-        java.lang.reflect.Method[] all = dsl.getDeclaredMethods();
-        for (int i = 0; i < all.length; i++) {
-            if (!"findMethodOrNull".equals(all[i].getName())) continue;
-            if (all[i].getParameterTypes().length != 2) continue;
-            all[i].setAccessible(true);
-            Object got = all[i].invoke(null, new Object[]{clazz, fn});
-            if (got instanceof Method) return (Method) got;
-            return null;
-        }
-    } catch (Throwable t) {
-        traceLog("main_log", "[qfunMethodByCount] 复用 QFun 反射缓存失败: " + t);
     }
     return null;
 }
@@ -606,38 +599,17 @@ Method[] findMethodsByName(Class clazz, String methodName) {
     List hit = new ArrayList();
     Class c = clazz;
     while (c != null) {
-        List got = qfunFindMethods(c, methodName);
-        if (got != null) hit.addAll(got);
+        try {
+            Method[] all = c.getDeclaredMethods();
+            for (int i = 0; i < all.length; i++) {
+                if (methodName.equals(all[i].getName())) hit.add(all[i]);
+            }
+        } catch (Throwable e) {
+            traceLog("main_log", "[findMethodsByName] " + c.getName() + " 失败: " + e);
+        }
         c = c.getSuperclass();
     }
     return (Method[]) hit.toArray(new Method[0]);
-}
-
-List qfunFindMethods(Class clazz, final String methodName) {
-    try {
-        Object fn = new kotlin.jvm.functions.Function1() {
-            public Object invoke(Object searcher) {
-                try {
-                    searcher.getClass().getMethod("setName", new Class[]{String.class}).invoke(searcher, new Object[]{methodName});
-                } catch (Throwable t) {
-                    traceLog("main_log", "[qfunFindMethods] 配置 searcher 失败: " + t);
-                }
-                return null;
-            }
-        };
-        Class dsl = Class.forName("me.yxp.qfun.utils.reflect.ReflectDSLKt", false, ClassUtils.INSTANCE.getModuleClassLoader());
-        java.lang.reflect.Method[] all = dsl.getDeclaredMethods();
-        for (int i = 0; i < all.length; i++) {
-            if (!"findMethods".equals(all[i].getName())) continue;
-            all[i].setAccessible(true);
-            Object got = all[i].invoke(null, new Object[]{clazz, fn});
-            if (got instanceof List) return (List) got;
-            return null;
-        }
-    } catch (Throwable t) {
-        traceLog("main_log", "[qfunFindMethods] 调用 QFun 反射失败: " + t);
-    }
-    return null;
 }
 
 int hookAll(String tag, Class clazz, String methodName, XC_MethodHook callback) {
@@ -694,7 +666,7 @@ void unhook(String tag) {
     for (int i = 0; i < list.size(); i++) {
         try {
             Object u = list.get(i);
-            u?.unhook();
+            if (u != null) u.getClass().getMethod("unhook").invoke(u);
             hookloveList.remove(u);
         } catch (Exception e) {
             traceLog("main_log", "[unhook] " + tag + " 失败: " + e);
@@ -707,7 +679,7 @@ void unhook(String tag) {
 void unhookAll() {
     for (Object unhook : hookloveList) {
         try {
-            unhook?.unhook();
+            if (unhook != null) unhook.getClass().getMethod("unhook").invoke(unhook);
         } catch (Exception e) {
             traceLog("main_log", "[unhookAll] 卸载失败: " + e);
         }

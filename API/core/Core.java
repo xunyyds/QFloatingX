@@ -532,7 +532,7 @@ public void 删除(String Path) {
 			traceLog("api_log", "[删除] 文件不存在: " + Path);
 			return;
 		}
-		if (!me.yxp.qfun.utils.io.FileUtils.INSTANCE.delete(file)) {
+		if (!file.delete()) {
 			traceLog("api_log", "[删除] 删除失败: " + Path);
 		}
 	} catch (Exception e) {

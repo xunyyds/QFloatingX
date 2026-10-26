@@ -29,6 +29,9 @@
 *.log
 *.log.txt
 
+# 发布产物（由打包流程生成，随 Release 附件分发，不入库）
+/QFloatingX-*.zip
+
 # ===== 编辑器 / 操作系统 =====
 .idea/
 .vscode/
