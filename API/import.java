@@ -262,7 +262,6 @@ import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XC_MethodHook.MethodHookParam;
 import me.yxp.qfun.utils.reflect.ClassUtils;
-import com.tencent.mobileqq.app.BusinessObserver;
 
 
 import android.graphics.Bitmap.CompressFormat;
@@ -343,14 +342,12 @@ import android.graphics.drawable.RippleDrawable;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 
-import com.tencent.qqnt.kernel.nativeinterface.Contact;
 import com.tencent.qqnt.kernel.nativeinterface.VideoElement;
 import com.tencent.mobileqq.profilecard.api.IProfileDataService;
 import com.tencent.mobileqq.profilecard.api.IProfileProtocolService;
 import com.tencent.mobileqq.data.Card;
 import com.tencent.mobileqq.troop.clockin.handler.TroopClockInHandler;
 import com.tencent.mobileqq.transfile.TransferRequest;
-import com.tencent.mobileqq.app.BaseApplicationImpl;
 import com.tencent.mobileqq.data.troop.TroopInfo;
 import android.graphics.*;
 import android.graphics.drawable.*;
@@ -382,3 +379,5 @@ import com.google.protobuf.CodedOutputStream;
 import android.view.animation.*;
 import java.util.LinkedList;
 import java.util.Queue;
+import me.yxp.qfun.plugin.loader.PluginManager;
+import me.yxp.qfun.plugin.bean.PluginInfo;
