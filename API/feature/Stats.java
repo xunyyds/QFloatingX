@@ -1789,7 +1789,6 @@ String 替换变量占位符(String template, Object scriptScope) {
     return result;
 }
 
-import me.yxp.qfun.utils.qq.HostInfo;
 
 void chatInterface(int chatType, String peerUin, String peerName) {
     Activity activity = safeActivity();

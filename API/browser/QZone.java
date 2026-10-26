@@ -1,12 +1,3 @@
-import android.graphics.Color;
-import android.graphics.Typeface;
-import android.view.Gravity;
-import android.view.View;
-import android.widget.FrameLayout;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
-import android.widget.TextView;
-import java.util.ArrayList;
 //此空间api由冷雨开发  点赞/评论由ᗜ×ᗜ改进并适配新版 使用请留名
 private final java.util.concurrent.CopyOnWriteArraySet doneTasks = new java.util.concurrent.CopyOnWriteArraySet();
 private volatile boolean isServiceRunning = false;

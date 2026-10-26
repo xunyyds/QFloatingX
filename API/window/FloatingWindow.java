@@ -1,4 +1,3 @@
-
 private static final int STATE_DESTROYED = 0; 
 private static final int STATE_CREATED = 1; 
 private static final int STATE_VISIBLE = 2; 

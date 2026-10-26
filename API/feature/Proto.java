@@ -1,22 +1,3 @@
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
-import java.util.zip.GZIPOutputStream;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.nio.charset.StandardCharsets;
-import android.os.Bundle;
-import com.tencent.qphone.base.remote.ToServiceMsg;
-import com.tencent.qphone.base.remote.FromServiceMsg;
-import mqq.app.NewIntent;
-import mqq.app.api.impl.SSOEasyServlet;
-import org.json.JSONArray;
-import org.json.JSONObject;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
-
 public interface IReceiver {
     void onReceive(byte[] data);
 }

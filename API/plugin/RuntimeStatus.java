@@ -1,17 +1,3 @@
-import com.tencent.mobileqq.onlinestatus.api.IOnlineStatusService;
-import me.yxp.qfun.BuildConfig;
-import me.yxp.qfun.utils.qq.HostInfo;
-import android.graphics.Color;
-import android.graphics.Typeface;
-import android.view.Gravity;
-import android.view.View;
-import android.view.inputmethod.EditorInfo;
-import android.widget.FrameLayout;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
-import android.widget.TextView;
-import java.util.ArrayList;
-
 String[] get电池状态(Activity context) {
     try {
         IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
