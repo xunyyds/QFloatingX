@@ -1724,7 +1724,6 @@ List collectVariablePool(String group, String keyword, String context) {
             filtered.add(it);
         }
     }
-    traceLog("api3_log", "[collectVariablePool] group=" + g + " ctx=" + context + " 总=" + out.size() + " 命中=" + filtered.size());
     return filtered;
 }
 

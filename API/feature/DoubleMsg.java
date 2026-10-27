@@ -1570,7 +1570,6 @@ void showActionDialogInner(final Activity activity, final MsgData msgData, final
                     try {
                         originalIntent.putExtra("qfun_script_handled", true);
                         activity.startActivity(originalIntent);
-                        traceLog("api5_log", "原功能Intent启动成功");
                     } catch (Exception e) {
                         traceLog("api5_log", "原功能Intent启动异常: " + e.getMessage());
                     }
@@ -1820,7 +1819,6 @@ void initdoublemsg() {
                     return;
                 }
 
-                traceLog("api5_log", "[initdoublemsg] Intent拦截: MsgId=" + msgId + " chatType=" + chatType + " peerUid=" + peerUid);
                 param.setResult(null);
 
                 Activity act = null;
@@ -1932,15 +1930,9 @@ void installRevokeMarkListener() {
     if (revokeMarkListener != null) return;
     try {
         if (!getBoolean("settings", "revoke_mark_listener", true)) {
-            traceLog("api5_log", "[已撤回标记] 监听开关未开启，跳过安装");
             return;
         }
         if (!revokeMarkHostSupported()) return;
-        // 必须用强类型匿名类。绝不要改回 Proxy.newProxyInstance + bsh 匿名 InvocationHandler：
-        // bsh 造的 Proxy 一旦被当作实参跨过 Java 边界，bsh 会走 Types.castObject ->
-        // String.valueOf(proxy) -> proxy.toString() -> This$Handler 派发，形成无限递归，
-        // 真机直接 java.lang.StackOverflowError: stack size 1036KB（实测 329 层）。
-        // 这里用全限定名是为了不在 import.java 里加宿主 import，缺类时只在本次调用抛错。
         me.yxp.qfun.hook.api.AIOViewUpdateListener listener = new me.yxp.qfun.hook.api.AIOViewUpdateListener() {
             public void onUpdate(FrameLayout layout, MsgRecord msg) {
                 revokeMarkOnUpdate(layout, msg);
@@ -1948,7 +1940,6 @@ void installRevokeMarkListener() {
         };
         me.yxp.qfun.hook.api.OnAIOViewUpdate.INSTANCE.addListener(listener);
         revokeMarkListener = listener;
-        traceLog("api5_log", "[已撤回标记] 监听安装成功");
     } catch (Throwable t) {
         traceLog("api5_log", "[已撤回标记] 安装监听失败，已跳过: " + t);
         revokeMarkListener = null;

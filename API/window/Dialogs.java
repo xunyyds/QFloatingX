@@ -295,7 +295,6 @@ void checkMuteAllExpiry() {
             String qun = (String) expired.get(i);
             try {
                 shutUpAll(qun, false);
-                traceLog("dialog_log", "[checkMuteAllExpiry] 到期自动解禁: " + qun);
             } catch (Throwable t) {
             }
             obj.remove(qun);
@@ -1844,33 +1843,25 @@ private void executeDownloadAndUpload(final String url,
     ThreadPool.execute(new Runnable() {
         public void run() {
             final String savePath = pluginPath + "/cache/" + fileName;
-            traceLog("dialog_log", "[executeDownloadAndUpload] 开始下载: " + url);
             Toast(startMsg);
             boolean downloadOk = downloadFile(url, savePath, new ProgressCallback() {
-                public void onProgress(int progress) {
-                    traceLog("dialog_log", "[executeDownloadAndUpload] 下载进度: " + progress + "%");
-                }
-                public void onProgressTip(String tip) {
-                    traceLog("dialog_log", "[executeDownloadAndUpload] " + tip);
-                }
+                public void onProgress(int progress) {}
+                public void onProgressTip(String tip) {}
             });
             if (!downloadOk) {
                 traceLog("dialog_log", "[executeDownloadAndUpload] 下载失败: " + url);
                 Toast("下载失败");
                 return;
             }
-            traceLog("dialog_log", "[executeDownloadAndUpload] 下载完成，准备上传: " + savePath);
             Toast("正在上传，请稍候...");
             uiHandler.post(new Runnable() {
                 public void run() {
                     try {
                         if (上传头像(savePath)) {
                             Toast(succMsg);
-                            traceLog("dialog_log", "[executeDownloadAndUpload] " + succMsg + "，准备延迟删除");
                             uiHandler.postDelayed(new Runnable() {
                                 public void run() {
                                     删除(savePath);
-                                    traceLog("dialog_log", "[executeDownloadAndUpload] 文件已删除");
                                 }
                             }, 2500);
                         } else {

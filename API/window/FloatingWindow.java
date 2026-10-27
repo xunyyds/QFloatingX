@@ -1213,7 +1213,6 @@ public void 刷新悬浮窗() {
                 if (wm == null) wm = (WindowManager) activity.getSystemService(Context.WINDOW_SERVICE);
                 if (wm == null) return;
                 if (floatingView == null || params == null || 悬浮窗状态 != STATE_VISIBLE) {
-                    traceLog("api4_log", "[刷新悬浮窗] 视图未显示 state=" + 悬浮窗状态 + "，销毁旧视图后按新图标重建");
                     销毁悬浮窗资源();
                     启动悬浮窗(activity);
                     return;
@@ -1232,8 +1231,6 @@ public void 刷新悬浮窗() {
                 boolean needRebuild =
                         (isGifMode && !(iconImageView instanceof GifImageView)) ||
                         (!isGifMode && (iconImageView instanceof GifImageView));
-                traceLog("api4_log", "[刷新悬浮窗] gif=" + isGifMode + " movie=" + (cachedGifMovie != null)
-                         + " view=" + (iconImageView == null ? "null" : iconImageView.getClass().getSimpleName()) + " rebuild=" + needRebuild);
 
                 if (needRebuild) {
                     重建悬浮窗图标视图(activity);

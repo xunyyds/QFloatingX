@@ -292,7 +292,6 @@ public class PacketHelper {
             boolean debugPB = false;
             try { debugPB = getBoolean("settings", "pb_debug_log", false); } catch (Throwable ignore) {}
             if (!debugPB) {
-                traceLog("api9_log", "[PB] " + serviceCmd + " " + data.length + "B");
                 return;
             }
             FunProtoData proto = new FunProtoData();
@@ -309,7 +308,6 @@ public class PacketHelper {
             logContent.append("解析JSON:\n").append(json.toString(2)).append("\n");
             logContent.append("================================\n");
 
-            traceLog("api9_log", "[logReceivedPB] " + logContent.toString());
 
         } catch (Exception e) {
             traceLog("api9_log", "[logReceivedPB] 解析PB数据失败: " + e.getMessage() +
@@ -489,7 +487,6 @@ void showPBSenderDialog() {
                     logContent.append("JSON:\n").append(pbData).append("\n");
                     logContent.append("HEX: ").append(PacketHelper.bytesToHex(pbBytes)).append("\n");
                     logContent.append("================================\n");
-                    traceLog("api9_log", "[showPBSenderDialog] " + logContent.toString());
                     
                     
                     PacketHelper.sendRequest(service, pbBytes, new IReceiver() {
@@ -1490,7 +1487,6 @@ void showTrafficRedPacketDialog(Object data) {
                         FunProtoData proto = new FunProtoData();
                         proto.fromJSON(root);
                         byte[] pb = proto.toBytes();
-                        traceLog("api9_log", "[showTrafficRedPacketDialog]" + root);
 
                         PacketHelper.sendRequest("MessageSvc.PbSendMsg", pb, new IReceiver() {
                             public void onReceive(byte[] resp) {

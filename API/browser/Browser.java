@@ -176,7 +176,6 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
             rootFrame.addView(snifferWindow.getView());
 
             setContentView(rootFrame);
-            traceLog("api7_log", "[onCreate] ContentView设置完成");
 
             
             bottomSheetLayout.post(new Runnable() {
@@ -189,7 +188,6 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                         }
                         bottomSheetLayout.setTranslationY(maxDragRange);
                         isExpanded = false;
-                        traceLog("api7_log", "[onCreate] 底栏初始化完成，默认收起，高度=" + maxDragRange);
                     } catch (Throwable e) {
                         traceLog("api7_log", "[onCreate] 初始化异常: " + e.getMessage());
                     }
@@ -201,16 +199,13 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                 if (filePath.startsWith("http")) {
                     titleView.setText("网络页面");
                     webView.loadUrl(filePath);
-                    traceLog("api7_log", "[onCreate] 加载网络: " + filePath);
                 } else {
                     File file = new File(filePath);
                     setCleanTitle(file.getName());
                     if (file.getName().toLowerCase().endsWith(".zip")) {
-                        traceLog("api7_log", "[onCreate] 准备解压: " + filePath);
                         handleZipFile(file);
                     } else {
                         webView.loadUrl("file://" + filePath);
-                        traceLog("api7_log", "[onCreate] 加载文件: " + filePath);
                     }
                 }
             } else {
@@ -288,7 +283,6 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                         lower.contains(".mkv") || lower.contains("googlevideo")) {
                         if (!sniffedResources.contains(url)) {
                             sniffedResources.add(url);
-                            traceLog("api7_log", "[onLoadResource] 嗅探到资源: " + url);
                             if(snifferWindow != null && snifferWindow.isShowing()) {
                                 runOnUiThread(new Runnable() { public void run() { snifferWindow.refreshList(); }});
                             }
@@ -444,7 +438,6 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
             if (v == btnRefresh) { 
                 webView.reload(); 
                 Toast("已刷新"); 
-                traceLog("api7_log", "[onClick] 点击刷新按钮");
             }
             else if (v == btnBack) { 
                 if (webView.canGoBack()) webView.goBack(); 
@@ -681,7 +674,6 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                     return;
                 }
                 
-                traceLog("api7_log", "[show] 显示嗅探窗口，资源数量: " + sniffedResources.size());
                 layout.setVisibility(View.VISIBLE);
                 refreshList();
                 if(isMinimized) toggleMinimize();
@@ -699,7 +691,6 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                     return;
                 }
 
-                traceLog("api7_log", "[refreshList] 刷新列表，资源数量: " + sniffedResources.size());
                 for (final Object obj : sniffedResources) {
                     final String url = (String)obj;
                     LinearLayout item = new LinearLayout(act);
@@ -741,7 +732,6 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                 FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) layout.getLayoutParams();
                 p.width = isMinimized ? dp(140) : dp(280);
                 layout.setLayoutParams(p);
-                traceLog("api7_log", "[toggleMinimize] 切换最小化状态: " + isMinimized);
             } catch (Throwable e) {
                 traceLog("api7_log", "[toggleMinimize] 切换异常: " + e.getMessage());
             }
@@ -765,7 +755,6 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                 btnTranslate.setText("翻译");
                 isTranslationActive = false;
                 Toast("已退出翻译");
-                traceLog("api7_log", "[toggleTranslation] 用户退出翻译");
             } else {
                 String script = "javascript:(function(){" +
                     "var s=document.createElement('script');" +
@@ -785,7 +774,6 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                 btnTranslate.setText("关闭翻译");
                 isTranslationActive = true;
                 Toast("翻译已启用");
-                traceLog("api7_log", "[toggleTranslation] 用户启用翻译");
             }
         } catch (Throwable e) {
             traceLog("api7_log", "[toggleTranslation] 翻译切换异常: " + e.getMessage());

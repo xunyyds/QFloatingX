@@ -135,7 +135,6 @@ public String qzoneGet(String url, String cookie)
     return buffer.toString();
 }
 String coreHttp(String tag, String url, String cookie, String method, String contentType, String userAgent, String data, int timeoutMs) {
-    traceLog("api_log","[" + tag + "] " + url);
     HttpURLConnection uc = null;
     BufferedReader reader = null;
     try {
@@ -158,7 +157,6 @@ String coreHttp(String tag, String url, String cookie, String method, String con
         String line;
         while ((line = reader.readLine()) != null) sb.append(line).append("\n");
         String result = sb.length() > 0 ? sb.substring(0, sb.length() - 1) : "";
-        traceLog("api_log","[" + tag + "] 成功，长度: " + result.length());
         return result;
     } catch (Throwable e) {
         traceLog("api_log","[" + tag + "] 异常: " + e.getMessage());
@@ -529,7 +527,6 @@ public void 删除(String Path) {
 	try {
 		File file = new File(Path);
 		if (!file.exists()) {
-			traceLog("api_log", "[删除] 文件不存在: " + Path);
 			return;
 		}
 		if (!file.delete()) {
@@ -692,7 +689,6 @@ String formatSize(long bytes) {
 }
 long getFileSize(File file) {
 	if (file == null) {
-		traceLog("api_log", "[getFileSize] getFileSize参数为null");
 		return 0;
 	}
 	try {
@@ -705,7 +701,6 @@ long getFileSize(File file) {
 
 long getFolderSize(File folder) {
 	if (folder == null || !folder.exists()) {
-		traceLog("api_log", "[getFolderSize] getFolderSize文件夹不存在: " + folder);
 		return 0;
 	}
 	long size = 0;
@@ -729,15 +724,12 @@ long getFolderSize(File folder) {
 
 String getFormattedSize(File folder) {
 	if (folder == null) {
-		traceLog("api_log", "[getFormattedSize] getFormattedSize(File)参数为null");
 		return "文件夹不存在";
 	}
 	if (!folder.exists()) {
-		traceLog("api_log", "[getFormattedSize] 文件夹不存在: " + folder.getAbsolutePath());
 		return "文件夹不存在";
 	}
 	if (!folder.isDirectory()) {
-		traceLog("api_log", "[getFormattedSize] 路径不是文件夹: " + folder.getAbsolutePath());
 		return "不是有效文件夹";
 	}
 
@@ -803,7 +795,6 @@ public String 读(String FilePath) {
 
 String readprop(String file, String name2) {
 	if (file == null || name2 == null) {
-		traceLog("api_log", "[readprop] readprop接收null参数: file=" + file + ", key=" + name2);
 		return "";
 	}
 
@@ -826,7 +817,6 @@ String readprop(String file, String name2) {
 		props.load(reader);
 		String value = props.getProperty(name2);
 		if (value == null) {
-			traceLog("api_log", "[readprop] properties键不存在: " + name2 + " in " + file);
 			return "";
 		}
 		return value;
@@ -878,7 +868,6 @@ private void 写(String Path, String WriteData) {
 		fos.flush();
 		fos.getFD().sync(); 
 
-		traceLog("api_log", "[写]  【写入成功】 " + Path + " (" + WriteData.length() + "字节)");
 
 	} catch (IOException e) {
 		traceLog("api_log", "[写]  【写入异常】 " + Path + " - " + e.getMessage());
@@ -913,11 +902,9 @@ public void log大小限制(String Path) {
 	File targetFile = new File(Path);
 	try {
 		if (!targetFile.exists()) {
-			traceLog("api_log", "[log大小限制] 文件夹不存在: " + Path);
 			return;
 		}
 		if (!targetFile.isDirectory()) {
-			traceLog("api_log", "[log大小限制] 目标路径不是文件夹: " + Path);
 			return;
 		}
 
@@ -930,10 +917,7 @@ public void log大小限制(String Path) {
 			traceLog("api_log", "[log大小限制] 文件夹总大小超过" + (MB / 1024 / 1024) + "MB，准备删除: " + targetFile.getName() +
 				" (" + 文件夹总大小 + " 字节)");
 
-			boolean 删除成功 = 删除文件夹(targetFile);
-			if (删除成功) {
-				traceLog("api_log", "[log大小限制] 成功删除文件夹: " + Path);
-			} else {
+			if (!删除文件夹(targetFile)) {
 				traceLog("api_log", "[log大小限制] 删除文件夹失败: " + Path);
 			}
 		}
@@ -1362,7 +1346,6 @@ private void showReOrUnDialog(final Activity activity) {
                     }
                 });
 
-                traceLog("api_log", "[showReOrUnDialog] 重载/取消选择对话框已显示: 你想选哪个呢？");
 
             } catch (Throwable e) {
                 traceLog("api_log", "[showReOrUnDialog] 对话框创建失败: " + e.getMessage());
@@ -1504,12 +1487,6 @@ private void showToastViewOnWindow(final Activity act, final View content, Strin
         }
         wm.addView(content, p);
         content.requestLayout();
-        traceLog("api_log", "[showToastViewOnWindow] addView OK " + p.width + "x" + p.height
-            + " g=" + p.gravity + " x=" + p.x + " y=" + p.y + " blur=" + useBlur);
-        try {
-            traceLog("api_log", "[showToastViewOnWindow] child0=" + content.getClass().getSimpleName()
-                + " vis=" + content.getVisibility());
-        } catch (Throwable ignore) {}
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             public void run() {
                 try { wm.removeView(content); } catch (Throwable ignore) {}
@@ -1541,8 +1518,6 @@ private View wrapToastInBox(Context ctx, View bubble, int boxW, int boxH) {
     bubble.setLayoutParams(blp);
     box.addView(bubble, blp);
     box.setLayoutParams(new LinearLayout.LayoutParams(boxW, boxH));
-    traceLog("api_log", "[wrapToastInBox] box=" + boxW + "x" + boxH
-        + " adaptive=" + adaptive + " boxGravity=" + boxG);
     return box;
 }
 
@@ -1855,7 +1830,6 @@ private void xToastBlurFallback(final Activity act, View content, String posMode
             }
         } catch (Throwable ignore) {}
         applyToastPosToWindow(d.getWindow(), posMode);
-        traceLog("api_log", "[xToastBlur] Dialog回退已显示");
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             public void run() {
                 try { if (d.isShowing()) d.dismiss(); } catch (Throwable ignore) {}
@@ -2140,7 +2114,6 @@ void performUiCleanup() {
 }
 
 void onUnMsgload() {
-	traceLog("api_log", "[onUnMsgload] ====== api3卸载开始 ======");
 
 	synchronized(this) {
 		if (isUnloading) return;
@@ -2170,7 +2143,6 @@ void onUnMsgload() {
 	} catch (Throwable e) {
 		traceLog("api_log", "[onUnMsgload] 卸载异常: " + e.toString());
 	}
-	traceLog("api_log", "[onUnMsgload] ====== api3卸载完成 ======");
 }
 
 void a卸载悬浮窗() {
@@ -2197,7 +2169,6 @@ void a卸载悬浮窗() {
 }
 
 void 卸载脚本() {
-	traceLog("api_log", "[卸载脚本] 卸载脚本入口 - 线程: " + Thread.currentThread().getName());
 
 	initThreadPool();
 
@@ -2208,7 +2179,6 @@ void 卸载脚本() {
 }
 
 void 执行卸载核心逻辑() {
-	traceLog("api_log", "[执行卸载核心逻辑] ====== 完整卸载开始 ======");
 
 	try {
 		unhookAll();

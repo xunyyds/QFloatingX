@@ -2313,9 +2313,6 @@ class SettingsActivity extends BaseComposeActivity {
                 settingsPeerUin = (pu != null) ? pu : "";
                 settingsPeerName = (pn != null) ? pn : "";
             } catch (Throwable ignore) {}
-            try {
-                traceLog("setwindow_log", "[SettingsActivity] density=" + getResources().getDisplayMetrics().density + " hostDensity=" + SettingsState.settingsHostDensity);
-            } catch (Throwable ignore) {}
 
             settingsActivityRoot = new FrameLayout(this);
             applySettingsRootBg(this, settingsActivityRoot);
@@ -2571,7 +2568,6 @@ void settingsRunNav() {
                                  && (top.level2 == null ? l2 == null : top.level2.equals(l2))
                                  && (top.level3 == null ? l3 == null : top.level3.equals(l3));
                 if (sameLevel) {
-                    traceLog("setwindow_log", "[settingsRunNav] 目标页已在栈顶，忽略重复跳转");
                     return;
                 }
             }

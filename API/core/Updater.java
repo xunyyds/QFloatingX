@@ -94,7 +94,6 @@ void migrateUpdateChannelOnce() {
         if (getBoolean("settings", "update_channel_migrated", false)) return;
         if ("gitee".equals(getString("settings", "update_channel", "github"))) {
             putString("settings", "update_channel", "github");
-            traceLog("api_log", "[migrateUpdateChannelOnce] 旧版下拉选 GitHub 实存 gitee，已归正为 github");
         }
         putBoolean("settings", "update_channel_migrated", true);
     } catch (Throwable e) {
@@ -133,7 +132,6 @@ boolean downloadToTmpDetailed(String[] urls, String tmpPath, final UpdateProgres
         String url = urls[u];
         if (u > 0 && listener != null) {
             listener.onPhase("mirror");
-            traceLog("api_log", "[downloadToTmpDetailed] 尝试镜像#" + u + ": " + url);
         }
         java.io.FileOutputStream out = null;
         java.io.InputStream in = null;
@@ -1174,7 +1172,6 @@ String fetchFirstValidUpdateJson(final String[] urls) {
                         conn.setRequestProperty("Accept", "application/json, text/plain, */*");
                         int code = conn.getResponseCode();
                         if (code < 200 || code >= 300) {
-                            if (!stopRequests.get()) traceLog("api_log", "[fetchFirstValidUpdateJson] up.json HTTP " + code + " #" + index + ": " + url);
                             return null;
                         }
                         in = conn.getInputStream();
@@ -1232,7 +1229,6 @@ String fetchFirstValidUpdateJson(final String[] urls) {
                 Object result = future.get();
                 if (result != null) {
                     String[] hit = (String[]) result;
-                    traceLog("api_log", "[fetchFirstValidUpdateJson] up.json 命中: " + hit[1]);
                     return hit[0];
                 }
             } catch (java.util.concurrent.CancellationException e) {

@@ -238,7 +238,6 @@ void initThreadPool() {
     if (ThreadPool != null) {
         try {
             ThreadPool.submit(new Runnable() { public void run() {} }).get(100, TimeUnit.MILLISECONDS);
-            traceLog("main_log", "[initThreadPool] 线程池存活，直接使用");
             return;
         } catch (Exception e) {
             traceLog("main_log", "[initThreadPool] 线程池重建: " + e.getMessage());
@@ -270,7 +269,6 @@ void initThreadPool() {
     int corePoolSize = Math.max(2, Math.min(cpuCores, 8));
     int maxPoolSize = Math.min(corePoolSize * 2, 16);
 
-    traceLog("main_log", "[initThreadPool] 初始化线程池: 核心=" + corePoolSize);
 
     ThreadFactory threadFactory = new ThreadFactory() {
         int threadCount = 1;
@@ -299,7 +297,6 @@ ThreadPool.execute(new Runnable() {
             for (int i = 0; i < coreFiles.length; i++) {
                 loadJava(coreFiles[i]);
             }
-            traceLog("main_log", "[apiLoad] 核心文件加载完成");
 
             stage = 2;
             final CountDownLatch latch = new CountDownLatch(parallelFiles.length);
@@ -320,7 +317,6 @@ ThreadPool.execute(new Runnable() {
 
             latch.await(10000, TimeUnit.MILLISECONDS);
             apiLoadCostTime = System.currentTimeMillis() - startTime;
-            traceLog("main_log", "[apiLoad] 所有API加载完成，耗时：" + apiLoadCostTime + "ms");
 
             uiHandler.post(new Runnable() {
                 public void run() {
@@ -742,7 +738,6 @@ void 后台初始化() {
         addItem("设置", "openSetting");
         addItem("Java脚本", "openPlugin");
         applyFloatWindowMenuText();
-        traceLog("main_log", "[后台初始化] add项添加完成");
         开模拟定位();
         checkMuteAllExpiry();
         
@@ -829,24 +824,20 @@ void 前台初始化(Activity currentActivity) {
 }
 
 void 原神启动() {
-    traceLog("main_log", "[原神启动] 被调用");
 
     if (apiLoadCostTime == -1) {
         traceLog("main_log", "[原神启动] 错误：apiLoadCostTime未初始化");
         return;
     }
 
-    traceLog("main_log", "[原神启动] 脚本开始初始化，耗时：" + apiLoadCostTime + "ms");
 
     ThreadPool.execute(new Runnable() {
         public void run() {
             try {
                 后台初始化();
-                traceLog("main_log", "[原神启动] 后台初始化完成");
 
                 Activity currentAct = getNowActivity();
                 if (currentAct != null) {
-                    traceLog("main_log", "[原神启动] 有可见Activity，执行前台初始化");
                     最后Activity = currentAct;
                     uiHandler.post(new Runnable() {
                         public void run() {
@@ -854,7 +845,6 @@ void 原神启动() {
                         }
                     });
                 } else {
-                    traceLog("main_log", "[原神启动] 无可见Activity，发送通知");
                     String appType = "com.tencent.mobileqq".equals(currentPackageName) ? "QQ" : "TIM";
                     String notifyContent = "脚本已后台加载完成\n" +
                                            "加载耗时：" + apiLoadCostTime + "ms\n" +
@@ -873,7 +863,6 @@ void 原神启动() {
         if (!Hook已调用) {
         Hook生命周期();
         Hook已调用 = true;
-        traceLog("main_log", "[原神启动] Hook生命周期已调用");
     }
 
 }

@@ -310,7 +310,6 @@ void saveFunc(String n, String content, boolean isFile, boolean[] cb, boolean ha
             startIndepThread(n, interval, loopCount);
         }
     }
-    traceLog("function_log", "[saveFunc]" + n);
 }
 
 String[] getMeta(String n) {
@@ -730,7 +729,6 @@ void startIndepThread(final String func, final long interval, final int maxCount
     
     final Runnable task = new Runnable() {
         public void run() {
-            traceLog("function_log", "[startIndepThread]" + func);
             int executedCount = 0;
             String[] meta = getMeta(func);
             
@@ -756,14 +754,12 @@ void startIndepThread(final String func, final long interval, final int maxCount
                 if (due > 0 && due <= nowTs && recorded < due) {
                     needCatchUp = true;
                     lastFireTime = due;
-                    traceLog("function_log", "[补执行] " + func + " 错过应执行点 " + due + "，启动补跑一次");
                 }
             }
 
             while (!Thread.interrupted() && stopFlags.get(func) == stopToken) {
                 try {
                     if (!getLoad(func)) {
-                        traceLog("function_log", "[停止] " + func + " 总开关关闭");
                         break;
                     }
                     if (!getRun(func) && !runOnce && !needCatchUp) {
@@ -773,7 +769,6 @@ void startIndepThread(final String func, final long interval, final int maxCount
                     if (!isScheduled && !isLooping && !runOnce) break;
 
                     if (!isScheduled && maxCount > 0 && executedCount >= maxCount) {
-                        traceLog("function_log", "[完成] " + func + " 次数达标");
                         break;
                     }
 
@@ -790,7 +785,6 @@ void startIndepThread(final String func, final long interval, final int maxCount
                         } else {
                             long waitTime = scheduledTarget - System.currentTimeMillis();
                             if (waitTime > 0) {
-                                traceLog("function_log", "[计划] " + func + " 等待: " + (waitTime/1000) + "秒");
                                 long deadline = scheduledTarget;
                                 while (!Thread.interrupted()) {
                                     long remain = deadline - System.currentTimeMillis();
@@ -823,7 +817,6 @@ void startIndepThread(final String func, final long interval, final int maxCount
                         lastExecTime.put(func, System.currentTimeMillis());
                         if (isScheduled) putString("HotPlug", "lastFireTime_" + func, String.valueOf(System.currentTimeMillis()));
 
-                        traceLog("function_log", "[执行] " + func + " 第" + executedCount + "次");
                         }
                     }
 
@@ -841,7 +834,6 @@ void startIndepThread(final String func, final long interval, final int maxCount
                     try { Thread.sleep(5000); } catch (InterruptedException ie) { break; }
                 }
             }
-            traceLog("function_log", "[结束] " + func);
             if (stopFlags.get(func) == stopToken) {
                 stopFlags.remove(func);
                 runningThreads.remove(func);
@@ -2266,7 +2258,6 @@ void showEdit(final Activity a, final String func, final String gid, final Strin
     if (a == null || isAdding) return;
     final boolean isNew = func == null || func.trim().length() == 0;
     final String currentFunc = isNew ? "" : func;
-    traceLog("function_log", "[showEdit] " + (isNew ? "新建功能" : "编辑功能: " + currentFunc));
     try {
         final String[] m = isNew ? null : getMeta(currentFunc);
         if (!isNew && m == null) return;

@@ -23,7 +23,6 @@ void 跳转到页面(String className) {
     intent.setComponent(new ComponentName(currentPackageName, className));
     try {
         activity.startActivity(intent);
-        traceLog("api_log","[跳转到页面]" + className);
     } catch (Exception e) {
         traceLog("api_log","[跳转到页面] 跳转页面失败: " + e);
     }
@@ -40,7 +39,6 @@ class FilePickerTask {
 }
 void openFilePicker(Activity activity, int requestCode, String mimeType, String[] extraMimeTypes, String savePath, FilePickerCallback callback) {
     try {
-        traceLog("api_log", "[openFilePicker] act=" + activity.getClass().getName() + " rc=" + requestCode + " mime=" + mimeType + " save=" + savePath);
         if (callback != null) {
             FilePickerTask task = new FilePickerTask();
             task.savePath = savePath;
@@ -59,7 +57,6 @@ void openFilePicker(Activity activity, int requestCode, String mimeType, String[
         }
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         activity.startActivityForResult(intent, requestCode);
-        traceLog("api_log", "[openFilePicker] 已启动 rc=" + requestCode);
     } catch (Throwable e) {
         traceLog("api_log", "[openFilePicker] 失败: " + e);
         Toast("文件选择启动失败: " + e.getMessage());
@@ -71,8 +68,6 @@ void ensureFilePickerHook() {
     if (isFilePickerHooked) return;
     try {
         Class activityClass = Class.forName("android.app.Activity");
-        traceLog("api_log", "[hook] 注册中 dispatchActivityResult");
-        // Activity 上有多个同名重载（5 参 / 6 参含 ComponentCaller，Android 14+ 框架调 6 参），必须全部挂钩
         int hookedCount = hookAll("file_picker", activityClass, "dispatchActivityResult", new XC_MethodHook() {
                 protected void afterHookedMethod(XC_MethodHook.MethodHookParam param) {
                     ThreadPool.execute(new Runnable() {
@@ -84,13 +79,10 @@ void ensureFilePickerHook() {
                                 int rc = ((Integer) param.args[1]).intValue();
                                 int resultCode = ((Integer) param.args[2]).intValue();
                                 Intent data = (Intent) param.args[3];
-                                traceLog("api_log", "[dispatch] act=" + act.getClass().getName() + " rc=" + rc + " result=" + resultCode + " data=" + (data != null ? "yes" : "null"));
                                 if (resultCode != Activity.RESULT_OK || data == null) return;
                                 Uri uri = data.getData();
                                 if (uri == null) return;
-                                // 取出即移除：两个重载同时命中时只有一次能拿到任务，避免重复处理
                                 FilePickerTask task = (FilePickerTask) filePickerTasks.remove(Integer.valueOf(rc));
-                                traceLog("api_log", "[dispatch] task=" + (task != null ? "found" : "NULL"));
                                 if (task == null) return;
                                 String fileName = null;
                                 try {
@@ -129,7 +121,6 @@ void ensureFilePickerHook() {
                                         filePath = task.savePath + ext;
                                     }
                                 }
-                                traceLog("api_log", "[dispatch] name=" + fileName + " path=" + filePath + " uri=" + uri);
                                 task.callback.onFilePicked(act, uri, fileName, filePath);
                             } catch (Throwable e) {
                                 traceLog("api_log", "[dispatch] 异常: " + e);
@@ -138,7 +129,6 @@ void ensureFilePickerHook() {
                     });
                 }
             });
-        traceLog("api_log", "[hook] dispatchActivityResult 挂钩数=" + hookedCount);
         if (hookedCount == 0) {
             showApiProtectGuide(safeActivity());
             return;

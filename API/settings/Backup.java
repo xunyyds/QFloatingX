@@ -109,7 +109,6 @@ void ensureSettingsBackupExportHook() {
                     }
                 });
         qfxSettingsBackupExportHooked = hooked > 0;
-        traceLog("setwindow_log", "[配置备份] 结果回调注册数: " + hooked);
     } catch (Throwable e) {
         traceLog("setwindow_log", "[配置备份] 初始化结果回调失败: " + e);
         qfxSettingsBackupExportHooked = false;

@@ -327,7 +327,6 @@ void buildBackgroundStylePage(Activity activity) {
             if (act == null) return;
             openFilePicker(act, 1007, "image/*", null, null, new FilePickerCallback() {
                 public void onFilePicked(Activity a, Uri uri, String fileName, String filePath) {
-                    traceLog("setwindow_log", "[1007] name=" + fileName + " path=" + filePath + " uri=" + uri);
                     editAndSaveImage(a, uri, pluginPath + "/API/background.png", 1007);
                 }
             });
@@ -474,7 +473,6 @@ void buildFloatingWindowPage(Activity activity) {
         if (act == null) return;
         openFilePicker(act, 1005, "image/*", null, pluginPath + "/API/icon{ext}", new FilePickerCallback() {
             public void onFilePicked(Activity a, Uri uri, String fileName, String filePath) {
-                traceLog("setwindow_log", "[1005] name=" + fileName + " path=" + filePath + " uri=" + uri);
                 putString("settings", "iconPath", filePath);
                 editAndSaveImage(a, uri, filePath, 1005);
             }

@@ -12,7 +12,6 @@ private void loadDoneTasks() {
             String item = items[i].trim();
             if (!item.equals("")) doneTasks.add(item);
         }
-        traceLog("api8_log", "[loadDoneTasks] 加载已处理任务数量: " + doneTasks.size());
     }
 }
 
@@ -218,9 +217,7 @@ private void sendQzoneZan(String orglikekey, String curlikekey) {
 
     try {
         String resp = httppost1(url, cookie, data);
-        if (jsonGetInt(resp, "ret") == 0) {
-            traceLog("api8_log", "[sendQzoneZan] 点赞成功: " + curlikekey);
-        } else {
+        if (jsonGetInt(resp, "ret") != 0) {
             traceLog("api8_log", "[sendQzoneZan] 点赞失败: " + curlikekey);
         }
     } catch (Throwable e) { traceLog("api8_log", "[sendQzoneZan] 异常: " + e); }
@@ -250,14 +247,11 @@ private void sendQzoneComment(String orglikekey, String curlikekey, String userU
             + "\",\"content\":\"" + content.replace("\"", "\\\"")
             + "\",\"isPrivateComment\":0,\"busi_param\":{},\"bypass_param\":{}}";
 
-    traceLog("api8_log", "[sendQzoneComment] 准备评论 → 用户:" + userUin + " srcId:" + srcId + " 内容:" + content);
 
     try {
         String resp = httppost1(url, cookie, body);
         int ret = jsonGetInt(resp, "ret");
-        if (ret == 0) {
-            traceLog("api8_log", "[sendQzoneComment] 评论成功: " + userUin);
-        } else {
+        if (ret != 0) {
             traceLog("api8_log", "[sendQzoneComment] 评论失败: " + userUin + " ret=" + ret + " resp=" + resp);
         }
     } catch (Throwable e) {

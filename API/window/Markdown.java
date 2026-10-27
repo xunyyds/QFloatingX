@@ -89,7 +89,6 @@ public void mkts(final Activity activity, final String title, final String markd
             final String htmlContent;
             try {
                 htmlContent = markdownToHtml(markdown);
-                traceLog("dialog_log", "[mkts] 解析完成，输入长度: " + markdown.length());
             } catch (Throwable e) {
                 traceLog("dialog_log", "[mkts] 解析异常: " + e.getClass().getSimpleName() + " - " + e.getMessage());
                 activity.runOnUiThread(new Runnable() {
@@ -183,7 +182,6 @@ private void createMarkdownDialog(final Activity activity, final String title, f
     dialog.show();
     applyUiTheme(activity, dialog, 1);
     loadContent.run();
-    traceLog("dialog_log", "[mkts] 弹窗显示成功");
 }
 
 private String reverseMarkdownBlocks(String markdown) {
@@ -284,7 +282,6 @@ void showTimePicker(Activity a, final EditText target, final String title) {
                 card.setBackground(roundRect(Color.TRANSPARENT, dp(a, 16)));
                 card.setPadding(dp(a, 20), dp(a, 20), dp(a, 20), dp(a, 20));
                 outer.addView(card);
-                traceLog("dialog_log", "[showTimePicker] 开始, title=" + title);
                 String finalTitle = (title == null || title.isEmpty()) ? "设置执行时间" : title;
                 TextView titleTv = new TextView(a);
                 titleTv.setText(finalTitle);
@@ -509,8 +506,6 @@ void showTimePicker(Activity a, final EditText target, final String title) {
                                 val[0] = (vs[0] < 10 ? "0" + vs[0] : "" + vs[0]) + (vs[1] < 10 ? "0" + vs[1] : "" + vs[1]) + (vs[2] < 10 ? "0" + vs[2] : "" + vs[2]) + (vs[3] < 10 ? "0" + vs[3] : "" + vs[3]) + (vs[4] < 10 ? "0" + vs[4] : "" + vs[4]);
                             }
                             int totalSeconds = timeValToSec(val[0]);
-                            traceLog("dialog_log",
-                                "[showTimePicker] 确定点击, mode=" + mode[0] + ", val=" + val[0] + ", seconds=" + totalSeconds + ", targetNull=" + (target == null));
                             target.setText(String.valueOf(totalSeconds));
                             animateDialogOut(d, null);
                         } catch (Throwable e) {

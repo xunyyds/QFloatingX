@@ -55,7 +55,6 @@ void rebuildSettingsIndex(Activity activity) {
     SettingsState.settingsCurrentLevel3 = null;
     SettingsState.settingsCurrentCategory = null;
     SettingsState.settingsIndexReady = true;
-    traceLog("setwindow_log", "[rebuildSettingsIndex] 动态索引条数: " + (SettingsState.settingsItemMeta == null ? 0 : SettingsState.settingsItemMeta.size()));
 }
 int calcSearchScore(SettingsItemMeta meta, String query) {
     if (meta == null || meta.name == null || query == null || query.length() == 0) return 0;
@@ -301,7 +300,6 @@ void handleSearchResultClick(final Activity activity, final String itemKey, fina
     String targetLevel1 = isCategory ? meta.name : level1;
     String targetLevel2 = isPage ? meta.targetPage : level2;
     String highlightKey = (isCategory || isPage) ? null : itemKey;
-    traceLog("setwindow_log", "[handleSearchResultClick] key=" + itemKey + " l1=" + targetLevel1 + " l2=" + targetLevel2 + " l3=" + level3);
 
     if (activity instanceof SettingsActivity) {
         final SettingsActivity settingsAct = (SettingsActivity) activity;
