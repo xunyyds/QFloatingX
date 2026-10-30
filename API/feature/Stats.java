@@ -608,7 +608,7 @@ private void processBatch() {
 
 public void onMsg(Object data) {
     try {
-        dispatchEvent(data, 1);
+        if (apiReady) dispatchEvent(data, 1);
         checkTodayReset();
         SC.logMsgCounter++;
         long nowMs = System.currentTimeMillis();
@@ -1799,7 +1799,7 @@ void chatInterface(int chatType, String peerUin, String peerName) {
     try {
         currentPeerUin = peerUin;
         currentChatType = chatType;
-        dispatchEvent(peerUin, 5);
+        if (apiReady) dispatchEvent(peerUin, 5);
     } catch (Throwable e) {}
 
     boolean 输入框开关 = getBoolean("输入框", "输入框开关", false);

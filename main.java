@@ -288,6 +288,9 @@ void initThreadPool() {
     );
 }
 
+volatile boolean apiReady = false;
+CountDownLatch apiReadyLatch = new CountDownLatch(1);
+
 initThreadPool();
 
 ThreadPool.execute(new Runnable() {
@@ -331,6 +334,8 @@ ThreadPool.execute(new Runnable() {
                 e.printStackTrace(new java.io.PrintWriter(sw));
                 traceLog("main_log", "[apiLoad] 堆栈: " + sw.toString());
             } catch (Throwable ignore) {}
+        } finally {
+            apiReadyLatch.countDown();
         }
     }
 });
@@ -868,3 +873,8 @@ void 原神启动() {
 }
 
 addMenuItem("菜单", "菜单");
+
+if (Looper.myLooper() != Looper.getMainLooper()) {
+    try { apiReadyLatch.await(15000, TimeUnit.MILLISECONDS); } catch (Throwable ignore) {}
+}
+apiReady = true;
