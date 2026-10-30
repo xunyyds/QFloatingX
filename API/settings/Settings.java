@@ -1,4 +1,36 @@
-class SettingsItemMeta {
+class SettingsPinyinUtil {
+    static String getFirstLetters(String textValue) {
+        if (textValue == null) return "";
+        StringBuilder builder = new StringBuilder();
+        for (char character : textValue.toCharArray()) {
+            String letter = getFirstLetter(character);
+            if (letter != null && !letter.isEmpty()) {
+                builder.append(letter.toLowerCase());
+            }
+        }
+        return builder.toString();
+    }
+    static String getFirstLetter(char character) {
+        if (character < 0x4E00 || character > 0x9FA5) {
+            return String.valueOf(character);
+        }
+        try {
+            byte[] bytes = String.valueOf(character).getBytes("GB2312");
+            if (bytes.length < 2) {
+                return String.valueOf(character);
+            }
+            int code = ((bytes[0] & 0xFF) << 8) | (bytes[1] & 0xFF);
+            int[] boundaries = SettingsState.pinyinBoundaries;
+            String[] letters = SettingsState.pinyinLetters;
+            for (int i = boundaries.length - 1; i >= 0; i--) {
+                if (code >= boundaries[i]) {
+                    return letters[i];
+                }
+            }
+        } catch (Throwable exception) {}
+        return String.valueOf(character);
+    }
+}class SettingsItemMeta {
     String name;
     String description;
     String level1;
@@ -19,7 +51,7 @@ class SettingsItemMeta {
         this.category = category;
         this.type = type;
         this.viewType = type;
-        this.pinyinLetters = name != null ? getPinyinFirstLetters(name) : "";
+        this.pinyinLetters = name != null ? SettingsPinyinUtil.getFirstLetters(name) : "";
         StringBuilder sb = new StringBuilder();
         if (name != null) sb.append(name).append(" ");
         if (description != null) sb.append(description).append(" ");

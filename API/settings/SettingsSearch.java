@@ -148,39 +148,6 @@ void doSearch(String queryValue, LinearLayout historyContainer, LinearLayout res
         resultsContainer.addView(noResult);
     }
 }
-String getPinyinFirstLetters(String textValue) {
-    if (textValue == null) return "";
-    StringBuilder builder = new StringBuilder();
-    for (char character : textValue.toCharArray()) {
-        String letter = getPinyinFirstLetter(character);
-        if (letter != null && !letter.isEmpty()) {
-            builder.append(letter.toLowerCase());
-        }
-    }
-    return builder.toString();
-}
-String getPinyinFirstLetter(char character) {
-    if (character < 0x4E00 || character > 0x9FA5) {
-        return String.valueOf(character);
-    }
-    try {
-        byte[] bytes = String.valueOf(character).getBytes("GB2312");
-        if (bytes.length < 2) {
-            return String.valueOf(character);
-        }
-        int code = ((bytes[0] & 0xFF) << 8) | (bytes[1] & 0xFF);
-        int[] boundaries = SettingsState.pinyinBoundaries;
-        String[] letters = SettingsState.pinyinLetters;
-        for (int i = boundaries.length - 1; i >= 0; i--) {
-            if (code >= boundaries[i]) {
-                return letters[i];
-            }
-        }
-    } catch (Throwable exception) {
-        traceLog("setwindow_log", "[getPinyinFirstLetter] 获取拼音首字母: " + exception.getMessage());
-    }
-    return String.valueOf(character);
-}
 void highlightSettingsItem(final View targetView) {
     if (targetView == null) return;
 
