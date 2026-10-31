@@ -176,6 +176,13 @@ boolean downloadToTmpDetailed(String[] urls, String tmpPath, final UpdateProgres
     return false;
 }
 
+boolean isLocalFileUpToDate(String savePath, String expectedSha256) {
+    if (expectedSha256 == null || expectedSha256.trim().length() == 0) return false;
+    String actualSha = sha256HexOfFile(savePath);
+    if (actualSha == null || actualSha.length() == 0) return false;
+    return actualSha.equalsIgnoreCase(expectedSha256.trim());
+}
+
 boolean executeQfxUpdate(List updateFiles, JSONObject checksums, UpdateProgressListener listener) {
     if (updateFiles == null || updateFiles.isEmpty()) {
         if (listener != null) listener.onAllDone(false, "没有需要更新的文件");
@@ -192,7 +199,13 @@ boolean executeQfxUpdate(List updateFiles, JSONObject checksums, UpdateProgressL
         String[] urlArr = buildMirrorUrls(fileName);
         String savePath = pluginPath + "/" + relativePath;
         String tmpPath = savePath + ".new";
+        String expectedSha = null;
+        if (checksums != null) expectedSha = checksums.optString(relativePath, null);
         if (listener != null) listener.onFileStart(relativePath, i + 1, total);
+        if (isLocalFileUpToDate(savePath, expectedSha)) {
+            if (listener != null) listener.onFileVerify(relativePath, true);
+            continue;
+        }
         long[] bytesInfo = new long[]{0, 0};
         boolean dlOk = downloadToTmpDetailed(urlArr, tmpPath, listener, grandTotalBytes, startMs, i + 1, total, relativePath, bytesInfo);
         if (!dlOk) {
@@ -202,8 +215,6 @@ boolean executeQfxUpdate(List updateFiles, JSONObject checksums, UpdateProgressL
         }
         grandTotalBytes += bytesInfo[0];
         if (listener != null) listener.onPhase("verify");
-        String expectedSha = null;
-        if (checksums != null) expectedSha = checksums.optString(relativePath, null);
         boolean verifyOk = verifyDownloadedFile(tmpPath, bytesInfo[0], expectedSha);
         if (listener != null) listener.onFileVerify(relativePath, verifyOk);
         if (!verifyOk) {
@@ -1376,11 +1387,34 @@ void runQFXUpdateCheck(final boolean manual) {
 
                 if (!manual && (remoteVersion + "|" + versionType).equals(ignored)) return;
 
+                java.util.List needFiles = new java.util.ArrayList();
+                if (checksums == null) {
+                    needFiles.addAll(files);
+                } else {
+                    for (int i = 0; i < files.size(); i++) {
+                        String rel = (String) files.get(i);
+                        String relPath = rel.startsWith("QFloatingX/") ? rel.substring("QFloatingX/".length()) : rel;
+                        if (!isLocalFileUpToDate(pluginPath + "/" + relPath, checksums.optString(relPath, null))) needFiles.add(rel);
+                    }
+                }
+                if (needFiles.isEmpty()) {
+                    traceLog("api_log", "[runQFXUpdateCheck] 本地文件已是最新，无需下载");
+                    if (manual) {
+                        final Activity activity = safeActivity();
+                        if (activity != null) {
+                            activity.runOnUiThread(new Runnable() {
+                                public void run() { Toast("文件已是最新，无需更新"); }
+                            });
+                        }
+                    }
+                    return;
+                }
+
                 final String finalRemoteVersion = remoteVersion;
                 final String finalVersionType = versionType;
-                final String finalUpdateType = updateType;
+                final String finalUpdateType = needFiles.size() < files.size() ? "补丁" : updateType;
                 final String finalChangelog = changelog;
-                final List finalFiles = files;
+                final List finalFiles = needFiles;
                 final JSONObject finalChecksums = checksums;
                 new android.os.Handler(android.os.Looper.getMainLooper()).post(new Runnable() {
                     public void run() {
