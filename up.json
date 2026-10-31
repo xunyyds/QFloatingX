@@ -1,9 +1,9 @@
 {
-  "version": "2.7.2",
+  "version": "2.7.3",
   "versionType": "正式版",
   "updateType": "全量",
-  "updateTime": "2026-10-31 11:00:00",
-  "changelog": "- 启动速度大幅优化：API 改为分级加载，悬浮窗不再等全部模块解析完\n- 去掉无效的多线程加载，加载线程与脚本求值改为串行，启动更快更稳\n- 修复加载期偶现 Class 找不到、Command not found 的崩溃\n- 设置页与消息菜单在加载未完成时提示加载中，不再点不动或报错\n- 修复设置页搜索索引偶现归零、搜索无结果的问题\n- 功能与上一版本保持一致，无需重新配置",
+  "updateTime": "2026-10-31 11:25:00",
+  "changelog": "- 更新检测区分正式版与测试版：同版本的测试版可以正常升级到正式版\n- 未开启「接收测试版更新提示」时不再推送测试版，手动检查会提示去开启\n- 更新改为按文件校验，只下载有变化的文件，补丁更新更快\n- 功能与上一版本保持一致，无需重新配置",
   "files": [
     "main.java",
     "API/import.java",
@@ -32,5 +32,34 @@
     "API/window/Menu.java",
     "info.prop",
     "更新日志.txt"
-  ]
+  ],
+  "checksums": {
+    "main.java": "a2f5d3107bed751ffe230b1376f08c34a82a6aecb3684c62445eec3b215776da",
+    "API/import.java": "0760c6fd9f132f0b380cec02827227ad62a9611034d40e9d495f6ccb1430a334",
+    "API/browser/Browser.java": "768dc85ea6900ac226884fab9f69a17a40c659645e8a8a6461c614df668500b6",
+    "API/browser/QZone.java": "434af27bc22943f7f1894eb9c68b5a1f0798939b2fcea865e3a089dbc558c02a",
+    "API/core/Core.java": "5107839098c4ec17b965cf1657b68f69e5fc021bd1f4140dc966ccc678a0222a",
+    "API/core/Entry.java": "6a980f13cbb77717357f0c6a877c77273dc802ecb5528ce40b909132c8471e93",
+    "API/core/UiTools.java": "27ac7ec057976c4fcc9d0a5f32f5c982cc580920585f5d49528453a19319eafb",
+    "API/core/Updater.java": "a6a090d7b01477120a9117f00fcae5e237b782b795c79b98d6686663ecb747a1",
+    "API/feature/DoubleMsg.java": "6d7a0f4fab82c5491cd0826148189a99c162767319f3dd276c32dee917bab069",
+    "API/feature/MockLocation.java": "f8cbf1621a9a1833b5b25c58a7a689184efeaf8c7aee63a7ab2857c2895c89db",
+    "API/feature/Proto.java": "bc9db3c90d808f70c03f3e49a22e1c8efa78a2c08f62a2080c35c5e5e6d1aa1e",
+    "API/feature/Stats.java": "466a4624d849ee5c9bde20c16ace4cb2ddb32bd17d3830bb17dda2cb0b8b681d",
+    "API/plugin/HotPlug.java": "6d3c2c876cf1ad8611879e8389e52f8be4229fe32e5c060ada15f14c466b5491",
+    "API/plugin/KeepAlive.java": "2c800ce6fadc90816982cd616e8ee4bca8a186249a56146c4af092d1f7854c12",
+    "API/plugin/RuntimeStatus.java": "7f8f0c6198a825bf57168d2154ba5c55f68e1c90c9011e38c6deb366939a2c96",
+    "API/settings/Backup.java": "6eaec1e436e9db22e15ccf83c1e2e38777a2e7836c63af6c44f976f721cf2f30",
+    "API/settings/Settings.java": "6cc3c7228dc94e76e5b95666daaa6c06301143aceb8b6e8506d4944791c0445c",
+    "API/settings/SettingsPages.java": "1a4f928c75d8f22a7a85c959f742a58fb239647d3ad98ac630a818a268c31b49",
+    "API/settings/SettingsSearch.java": "d7bc75f636dd7d1bc26ece0170641152d0021899e03b9299e615ef8b3b8e43a8",
+    "API/widget/ColorPicker.java": "73e11b92f592beeb108edcf5e95e9b6e3a54826aa5abe015bc0fc546a59e13fd",
+    "API/window/Dialogs.java": "b2486f840d6ada90c332800f0b5c652f91edc1018bd30fd20367110c4881dd60",
+    "API/window/FloatingWindow.java": "b2e791280444b24a40fda204708e00b1757610c62f652ec8634440c6b1e9453e",
+    "API/window/Lists.java": "8db301432f122c52068d139323964580b25dce595118312d64118d5c1b66aeb2",
+    "API/window/Markdown.java": "05d40f9836eb32fe654b20ddb8280c301bcffbd67baec3e0dd316c1bb8e3bfac",
+    "API/window/Menu.java": "661fe5bdba7a0ad14235b6988c7140ab9966eef584790075f453d19a9d4e2cab",
+    "info.prop": "211a0a07c273d6d63edf259d1fd381967992959733024c919c8ebc1bef638d45",
+    "更新日志.txt": "5a41cfa186f257cc19de2c326faec6aac2940b4cb654990460dd02ad42c89c81"
+  }
 }
