@@ -756,14 +756,15 @@ void showUpdateDialog(final String version, final String versionType, final Stri
 
     updLater.setOnClickListener(new View.OnClickListener() {
         public void onClick(View v) {
-            putString("更新检测", "已忽略版本", version);
+            putString("更新检测", "已忽略版本", version + "|" + versionType);
             try { updDialog.dismiss(); } catch (Throwable e) { traceLog("api_log", "[showUpdateDialog] 关闭更新弹窗异常: " + e); }
-            Toast("已忽略 v" + version + "，可在设置中手动检查更新");
+            Toast("已忽略 v" + version + " " + versionType + "，可在设置中手动检查更新");
         }
     });
 
     final Runnable afterUpdateOk = new Runnable() {
         public void run() {
+            putString("更新检测", "已安装版本类型", versionType);
             LinearLayout rst = new LinearLayout(activity);
             rst.setOrientation(LinearLayout.VERTICAL);
             rst.setPadding(dp(activity, 24), dp(activity, 20), dp(activity, 24), dp(activity, 12));
@@ -1142,6 +1143,19 @@ int compareVersionCode(String left, String right) {
     return 0;
 }
 
+boolean isTestVersionType(String type) {
+    if (type == null) return false;
+    String lower = type.trim().toLowerCase();
+    return type.contains("测试") || lower.contains("beta") || lower.contains("pre-release") || lower.contains("preview");
+}
+
+boolean isOfficialVersionType(String type) {
+    if (type == null) return false;
+    if (isTestVersionType(type)) return false;
+    String lower = type.trim().toLowerCase();
+    return type.contains("正式") || lower.contains("release") || lower.contains("stable") || lower.contains("final");
+}
+
 String fetchFirstValidUpdateJson(final String[] urls) {
     if (urls == null || urls.length == 0) return null;
     java.util.concurrent.ExecutorService mirrorPool = null;
@@ -1303,13 +1317,20 @@ void runQFXUpdateCheck(final boolean manual) {
                 String versionType = json.optString("versionType", "正式版");
                 String updateType = json.optString("updateType", "全量");
                 String changelog = json.optString("changelog", "");
-                boolean isTestVersion = versionType != null && (
-                    versionType.contains("测试") ||
-                    versionType.toLowerCase().contains("beta") ||
-                    versionType.toLowerCase().contains("pre-release") ||
-                    versionType.toLowerCase().contains("preview")
-                );
-                if (!manual && isTestVersion && !getBoolean("settings", "receive_beta_update_notice", false)) return;
+                final String remoteVersionType = versionType;
+                final String remoteVersionCode = remoteVersion;
+                boolean isTestVersion = isTestVersionType(versionType);
+                if (isTestVersion && !getBoolean("settings", "receive_beta_update_notice", false)) {
+                    if (manual) {
+                        final Activity activity = safeActivity();
+                        if (activity != null) {
+                            activity.runOnUiThread(new Runnable() {
+                                public void run() { Toast("检测到" + remoteVersionType + " " + remoteVersionCode + "，请先在设置中开启「接收测试版更新提示」"); }
+                            });
+                        }
+                    }
+                    return;
+                }
 
                 java.util.List files = new java.util.ArrayList();
                 org.json.JSONArray filesArray = json.optJSONArray("files");
@@ -1324,7 +1345,15 @@ void runQFXUpdateCheck(final boolean manual) {
                 if (localVersion == null || localVersion.trim().isEmpty()) localVersion = "0.0.0";
                 localVersion = localVersion.trim();
 
+                String localVersionType = readprop(pluginPath + "/info.prop", "versionType");
+                if (localVersionType == null || localVersionType.trim().isEmpty()) localVersionType = getString("更新检测", "已安装版本类型", "");
+                localVersionType = localVersionType == null ? "" : localVersionType.trim();
+
                 int versionCompare = compareVersionCode(remoteVersion, localVersion);
+                if (versionCompare == 0 && !isTestVersion && !isOfficialVersionType(localVersionType)) {
+                    versionCompare = 1;
+                    traceLog("api_log", "[runQFXUpdateCheck] 同版本 " + localVersion + " 由" + (localVersionType.isEmpty() ? "测试版" : localVersionType) + "切换为" + versionType);
+                }
                 if (versionCompare <= 0) {
                     if (manual) {
                         final String currentVer = localVersion;
@@ -1345,7 +1374,7 @@ void runQFXUpdateCheck(final boolean manual) {
                     return;
                 }
 
-                if (!manual && remoteVersion.equals(ignored)) return;
+                if (!manual && (remoteVersion + "|" + versionType).equals(ignored)) return;
 
                 final String finalRemoteVersion = remoteVersion;
                 final String finalVersionType = versionType;
