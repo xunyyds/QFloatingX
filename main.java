@@ -69,6 +69,8 @@ import android.media.*;
 import android.os.*;
 import android.text.*;
 import android.text.method.*;
+import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XposedBridge;
 
 String rootPath        = pluginPath + "/API/";
 String htmlPath        = pluginPath + "/HTML/";
@@ -84,12 +86,13 @@ final String[] coreFiles = {
     rootPath + "core/Core.java",
     rootPath + "core/UiTools.java"
 };
-final String[] parallelFiles = {
-    rootPath + "widget/ColorPicker.java",
-    rootPath + "core/Updater.java",
+final String[] eagerFiles = {
     rootPath + "core/Entry.java",
-    rootPath + "window/FloatingWindow.java",
-    rootPath + "window/Menu.java",
+    rootPath + "feature/Stats.java",
+    rootPath + "plugin/KeepAlive.java",
+    rootPath + "window/FloatingWindow.java"
+};
+final String[] deferredFiles = {
     rootPath + "window/Dialogs.java",
     rootPath + "window/Lists.java",
     rootPath + "window/Markdown.java",
@@ -97,15 +100,16 @@ final String[] parallelFiles = {
     rootPath + "settings/SettingsPages.java",
     rootPath + "settings/SettingsSearch.java",
     rootPath + "settings/Backup.java",
-    rootPath + "feature/Stats.java",
+    rootPath + "widget/ColorPicker.java",
+    rootPath + "window/Menu.java",
+    rootPath + "plugin/HotPlug.java",
     rootPath + "feature/MockLocation.java",
+    rootPath + "core/Updater.java",
     rootPath + "feature/DoubleMsg.java",
+    rootPath + "feature/Proto.java",
     rootPath + "plugin/RuntimeStatus.java",
     rootPath + "browser/Browser.java",
-    rootPath + "browser/QZone.java",
-    rootPath + "feature/Proto.java",
-    rootPath + "plugin/HotPlug.java",
-    rootPath + "plugin/KeepAlive.java"
+    rootPath + "browser/QZone.java"
 };
 
 
@@ -289,7 +293,69 @@ void initThreadPool() {
 }
 
 volatile boolean apiReady = false;
+volatile boolean apiPrefetchDone = false;
 CountDownLatch apiReadyLatch = new CountDownLatch(1);
+CountDownLatch apiDeclareLatch = new CountDownLatch(1);
+Map apiLoadedAt = new ConcurrentHashMap();
+final Object apiLoadLock = new Object();
+
+boolean apiLoaded(String path) {
+    return apiLoadedAt.containsKey(path);
+}
+
+boolean loadApiFile(String path) {
+    if (apiLoadedAt.containsKey(path)) return false;
+    synchronized (apiLoadLock) {
+        if (apiLoadedAt.containsKey(path)) return false;
+        long loadStart = System.currentTimeMillis();
+        try {
+            loadJava(path);
+        } catch (Throwable e) {
+            traceLog("main_log", "[apiLoad] 加载失败：" + path + " " + e);
+            return false;
+        }
+        apiLoadedAt.put(path, Long.valueOf(System.currentTimeMillis() - loadStart));
+        return true;
+    }
+}
+
+void apiAfterLoad(final String path) {
+    ThreadPool.execute(new Runnable() {
+        public void run() {
+            try {
+                if (path.endsWith("feature/MockLocation.java")) {
+                    开模拟定位();
+                } else if (path.endsWith("window/Dialogs.java")) {
+                    checkMuteAllExpiry();
+                } else if (path.endsWith("core/Updater.java")) {
+                    ensureResourceAvailable();
+                    checkQFXUpdate();
+                }
+            } catch (Throwable e) {
+                traceLog("main_log", "[apiLoad] 加载后初始化失败：" + path + " " + e);
+            }
+        }
+    });
+}
+
+void loadApiGroup(String[] paths) {
+    for (int i = 0; i < paths.length; i++) {
+        if (loadApiFile(paths[i])) apiAfterLoad(paths[i]);
+    }
+}
+
+void ensureAllApi() {
+    if (apiPrefetchDone) return;
+    try {
+        apiReadyLatch.await(20000, TimeUnit.MILLISECONDS);
+    } catch (Throwable e) {
+        traceLog("main_log", "[ensureAllApi] 等待加载失败: " + e);
+    }
+    if (apiPrefetchDone) return;
+    for (int i = 0; i < deferredFiles.length; i++) {
+        if (loadApiFile(deferredFiles[i])) apiAfterLoad(deferredFiles[i]);
+    }
+}
 
 initThreadPool();
 
@@ -297,35 +363,23 @@ ThreadPool.execute(new Runnable() {
     public void run() {
         int stage = 0;
         try {
-            for (int i = 0; i < coreFiles.length; i++) {
-                loadJava(coreFiles[i]);
-            }
+            apiDeclareLatch.await(3000, TimeUnit.MILLISECONDS);
+            loadApiGroup(coreFiles);
 
-            stage = 2;
-            final CountDownLatch latch = new CountDownLatch(parallelFiles.length);
-            for (int i = 0; i < parallelFiles.length; i++) {
-                final String currentFile = parallelFiles[i];
-                ThreadPool.execute(new Runnable() {
-                    public void run() {
-                        try {
-                            loadJava(currentFile);
-                        } catch (Throwable e) {
-                            traceLog("main_log", "[apiLoad] 非核心API加载失败：" + currentFile + " " + e);
-                        } finally {
-                            latch.countDown();
-                        }
-                    }
-                });
-            }
-
-            latch.await(10000, TimeUnit.MILLISECONDS);
+            stage = 1;
+            loadApiGroup(eagerFiles);
             apiLoadCostTime = System.currentTimeMillis() - startTime;
+            traceLog("main_log", "[apiLoad] 首屏就绪 耗时：" + apiLoadCostTime + "ms");
 
             uiHandler.post(new Runnable() {
                 public void run() {
                     原神启动();
                 }
             });
+
+            stage = 2;
+            loadApiGroup(deferredFiles);
+            traceLog("main_log", "[apiLoad] 全量完成 耗时：" + (System.currentTimeMillis() - startTime) + "ms");
 
         } catch (Throwable e) {
             traceLog("main_log", "[apiLoad] API加载异常 stage=" + stage + " : " + e);
@@ -335,6 +389,7 @@ ThreadPool.execute(new Runnable() {
                 traceLog("main_log", "[apiLoad] 堆栈: " + sw.toString());
             } catch (Throwable ignore) {}
         } finally {
+            apiPrefetchDone = true;
             apiReadyLatch.countDown();
         }
     }
@@ -738,13 +793,10 @@ void 后台初始化() {
     if (非UI初始化完成) return;
 
     try {
-        ensureResourceAvailable();
         addItem("开/关悬浮窗", "悬浮窗开关");
         addItem("设置", "openSetting");
         addItem("Java脚本", "openPlugin");
         applyFloatWindowMenuText();
-        开模拟定位();
-        checkMuteAllExpiry();
         
         
         
@@ -818,8 +870,6 @@ void 前台初始化(Activity currentActivity) {
 	    }
 	});
 
-    checkQFXUpdate();
-
     if (getBoolean("settings", "开关", false)) {
         悬浮窗状态 = STATE_DESTROYED;
         启动悬浮窗(currentActivity);
@@ -872,8 +922,18 @@ void 原神启动() {
 
 }
 
-addMenuItem("菜单", "菜单");
+void 打开消息菜单(Object data) {
+    ensureAllApi();
+    if (!apiLoaded(rootPath + "window/Menu.java")) {
+        traceLog("main_log", "[打开消息菜单] 菜单API未就绪");
+        return;
+    }
+    菜单(data);
+}
 
+addMenuItem("菜单", "打开消息菜单");
+
+apiDeclareLatch.countDown();
 if (Looper.myLooper() != Looper.getMainLooper()) {
     try { apiReadyLatch.await(15000, TimeUnit.MILLISECONDS); } catch (Throwable ignore) {}
 }

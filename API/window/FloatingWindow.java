@@ -1018,7 +1018,7 @@ void 设置触摸事件(final Activity activity) {
     });
 }
 
-void 处理图标点击(Activity activity) {
+void 处理图标点击(final Activity activity) {
     if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
         return;
     }
@@ -1026,6 +1026,24 @@ void 处理图标点击(Activity activity) {
     activity.runOnUiThread(new Runnable() {
         public void run() {
             try {
+                if (!apiPrefetchDone) {
+                    Toast("设置页面加载中，请稍候");
+                    ThreadPool.execute(new Runnable() {
+                        public void run() {
+                            ensureAllApi();
+                            activity.runOnUiThread(new Runnable() {
+                                public void run() {
+                                    if (activity.isFinishing() || activity.isDestroyed()) {
+                                        return;
+                                    }
+                                    vibrate(activity, 48);
+                                    launchSettingsActivity(activity, 0, "", "");
+                                }
+                            });
+                        }
+                    });
+                    return;
+                }
                 if (isSettingsActivityOpen()) {
                     return;
                 }

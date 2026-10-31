@@ -3,6 +3,8 @@ public void openPlugin(int functionType, String groupId, String userName) {
 }
 
 public void openSetting(int functionType, String groupId, String userName) {
+    if (!apiPrefetchDone) Toast("设置页面加载中，请稍候");
+    ensureAllApi();
     Activity act = safeActivity();
     if (act != null) {
         final Activity fa = act;
