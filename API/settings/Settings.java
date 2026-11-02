@@ -1277,7 +1277,8 @@ void buildLevel3MenuContent(Activity activity, String level1Title, String level2
                 return;
             }
             boolean rawPage = SettingsState.settingsFeatureRaw != null && "1".equals(SettingsState.settingsFeatureRaw.get(featureKey));
-            if (featureContent == null) traceLog("setwindow_log", "[功能页诊断] " + level2Title + " 返回 null，key=" + featureKey + ", activity=" + activity.getClass().getName() + ", builder=" + builder.getClass().getName());
+            boolean renderedInPlace = featureContent == null && listContainer != null && listContainer.getChildCount() > 0;
+            if (featureContent == null && !renderedInPlace) traceLog("setwindow_log", "[功能页诊断] " + level2Title + " 返回 null，key=" + featureKey + ", activity=" + activity.getClass().getName() + ", builder=" + builder.getClass().getName());
             if (featureContent != null && listContainer != null) {
                 if (rawPage) {
                     listContainer.addView(featureContent, new LinearLayout.LayoutParams(-1, 0, 1.0f));
@@ -1286,7 +1287,7 @@ void buildLevel3MenuContent(Activity activity, String level1Title, String level2
                 } else {
                     listContainer.addView(featureContent, new LinearLayout.LayoutParams(-1, -2, 0f));
                 }
-            } else if (listContainer != null) {
+            } else if (listContainer != null && !renderedInPlace) {
                 TextView errView = new TextView(activity);
                 StringBuilder errorText = new StringBuilder("功能页内容为空（诊断信息）\n页面：").append(level2Title).append("\nkey：").append(featureKey).append("\nraw：").append(rawPage).append("\nactivity：").append(activity.getClass().getName()).append("\nbuilder：").append(builder.getClass().getName()).append("\ncontent：null\n如果没有捕获异常，说明构建器直接返回了 null。");
                 errView.setText(errorText.toString());
