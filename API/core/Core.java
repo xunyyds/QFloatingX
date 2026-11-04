@@ -1,5 +1,5 @@
 interface SettingsFeatureBuilder {
-    View build(Activity activity);
+    View build(Object ctx);
 }
 Object app = BaseApplicationImpl.getApplication().getRuntime();
 public String get(String url) {

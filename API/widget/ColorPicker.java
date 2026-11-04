@@ -1355,9 +1355,9 @@ void showColorListEditor(final Activity activity, String title, final int maxCol
     });
 }
 
-void addSettingsColorItem(String categoryName, String itemName, String descriptionText, String keyName, String defaultValue, final Runnable onColorChanged, final boolean checkContrast) {
-    if (SettingsState.settingsCategoryContainers == null || categoryName == null) return;
-    Activity activity = getSettingsCurrentActivity();
+void addSettingsColorItem(Object ctx, String categoryName, String itemName, String descriptionText, String keyName, String defaultValue, final Runnable onColorChanged, final boolean checkContrast) {
+    if (ctx.categoryContainers == null || categoryName == null) return;
+    Activity activity = ctx.activity;
     if (activity == null) return;
 
     String currentValue = getString("settings", keyName, defaultValue);
@@ -1467,21 +1467,11 @@ void addSettingsColorItem(String categoryName, String itemName, String descripti
         }
     });
 
-    if (keyName != null && !keyName.isEmpty() && SettingsState.settingsItemViews != null) {
-        SettingsState.settingsItemViews.put(keyName, itemLayout);
-    }
-    if (keyName != null && !keyName.isEmpty() && SettingsState.settingsItemMeta != null) {
-        SettingsState.settingsItemMeta.put(keyName, new SettingsItemMeta(
-            itemName, descriptionText,
-            SettingsState.settingsCurrentLevel1,
-            SettingsState.settingsCurrentLevel2,
-            SettingsState.settingsCurrentLevel3,
-            SettingsState.settingsCurrentCategory,
-            "color"
-        ));
+    if (keyName != null && !keyName.isEmpty() && ctx.itemViews != null) {
+        ctx.itemViews.put(keyName, itemLayout);
     }
 
-    LinearLayout container = (LinearLayout) SettingsState.settingsCategoryContainers.get(categoryName);
+    LinearLayout container = (LinearLayout) ctx.categoryContainers.get(categoryName);
     if (container != null) {
         container.addView(itemLayout);
     }

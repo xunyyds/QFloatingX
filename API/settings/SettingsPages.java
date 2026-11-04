@@ -219,49 +219,52 @@ void showUiCornerPicker(final Activity activity) {
         }
     });
 }
-void buildBasicModePage(Activity activity) {
-    addSettingsCategory("基础模式", null);
-    addSettingsItemChoiceWithKey( "主题模式", "ui_theme_mode", (("system".equals(getString("settings", "ui_theme_mode", "default")) ? "跟随系统" : "light".equals(getString("settings", "ui_theme_mode", "default")) ? "强制浅色" : "dark".equals(getString("settings", "ui_theme_mode", "default")) ? "强制深色" : "默认（推荐）")), new Runnable() { public void run() {
-        Activity act = getSettingsCurrentActivity();
+View buildBasicModePage(Object ctx) {
+    final Activity activity = ctx.activity;
+    addSettingsCategory(ctx, "基础模式", null);
+    addSettingsItemChoiceWithKey(ctx,  "主题模式", "ui_theme_mode", (("system".equals(getString("settings", "ui_theme_mode", "default")) ? "跟随系统" : "light".equals(getString("settings", "ui_theme_mode", "default")) ? "强制浅色" : "dark".equals(getString("settings", "ui_theme_mode", "default")) ? "强制深色" : "默认（推荐）")), new Runnable() { public void run() {
+        Activity act = ctx.activity;
         if (act != null) {
             showThemeModeChoiceDialog(act);
         }
     }});
-    addSettingsValueSliderItem( "弹窗宽度", "单位 dp，留空为自适应，默认最大 260dp", "ui_dialog_width", "自适应", 180, 400, 260, true, null, null);
-    addSettingsValueSliderItem( "弹窗高度", "单位 dp，留空为自适应内容", "ui_dialog_height", "自适应", 200, 900, 400, true, null, null);
+    addSettingsValueSliderItem(ctx,  "弹窗宽度", "单位 dp，留空为自适应，默认最大 260dp", "ui_dialog_width", "自适应", 180, 400, 260, true, null, null);
+    addSettingsValueSliderItem(ctx,  "弹窗高度", "单位 dp，留空为自适应内容", "ui_dialog_height", "自适应", 200, 900, 400, true, null, null);
     String dpiMode = getString("settings", "ui_dialog_dpi_mode", "follow_qq");
     if (dpiMode == null || dpiMode.isEmpty()) dpiMode = "follow_qq";
     String dpiLabel = "custom".equals(dpiMode)
         ? ("自定义 " + getString("settings", "ui_dialog_custom_dpi", "320") + " dpi")
         : ("follow_module".equals(dpiMode) ? "跟随模块" : "跟随QQ");
-    addSettingsItemChoiceWithKey( "显示密度", "ui_dialog_dpi_mode", dpiLabel, new Runnable() { public void run() {
-        Activity act = getSettingsCurrentActivity();
+    addSettingsItemChoiceWithKey(ctx,  "显示密度", "ui_dialog_dpi_mode", dpiLabel, new Runnable() { public void run() {
+        Activity act = ctx.activity;
         if (act != null) {
             showDpiModeChoiceDialog(act);
         }
     }});
     if ("custom".equals(dpiMode)) {
-        addSettingsValueSliderItem( "自定义 DPI", "范围 160-640，越大显示越大", "ui_dialog_custom_dpi", "如 320", 160, 640, 320, false, "ui_dialog_dpi_mode", "自定义 %d dpi");
+        addSettingsValueSliderItem(ctx,  "自定义 DPI", "范围 160-640，越大显示越大", "ui_dialog_custom_dpi", "如 320", 160, 640, 320, false, "ui_dialog_dpi_mode", "自定义 %d dpi");
     }
     boolean vibrationFeedbackState = getBoolean("settings", "振动反馈", false);
-    addSettingsItemSwitchWithKey("振动反馈", "settings", "振动反馈", null, vibrationFeedbackState, null);
+    addSettingsItemSwitchWithKey(ctx, "振动反馈", "settings", "振动反馈", null, vibrationFeedbackState, null);
     boolean bgBlurState = getBoolean("settings", "背景模糊", false);
-    addSettingsItemSwitchWithKey("背景模糊", "settings", "背景模糊", "系统模糊窗体后方内容(Android 12+)", bgBlurState, null);
-    addSettingsItemClickWithKey( "弹窗圆角", ("当前 " + getUiCornerDp() + "dp"), new Runnable() { public void run() {
-        Activity act = getSettingsCurrentActivity();
+    addSettingsItemSwitchWithKey(ctx, "背景模糊", "settings", "背景模糊", "系统模糊窗体后方内容(Android 12+)", bgBlurState, null);
+    addSettingsItemClickWithKey(ctx,  "弹窗圆角", ("当前 " + getUiCornerDp() + "dp"), new Runnable() { public void run() {
+        Activity act = ctx.activity;
         if (act != null) showUiCornerPicker(act);
     }});
-    addSettingsItemClickWithKey( "预览弹窗", "按当前宽度/高度/显示密度预览", new Runnable() { public void run() {
-        Activity act = getSettingsCurrentActivity();
+    addSettingsItemClickWithKey(ctx,  "预览弹窗", "按当前宽度/高度/显示密度预览", new Runnable() { public void run() {
+        Activity act = ctx.activity;
         if (act != null) {
             showDialogPreview(act);
         }
     }});
-}
-void buildBackgroundStylePage(Activity activity) {
-    addSettingsCategory("背景样式", null);
-    addSettingsItemChoiceWithKey( "背景类型", "ui_bg_type", (("image".equals(getString("settings", "ui_bg_type", "color")) ? "图片背景" : "gradient".equals(getString("settings", "ui_bg_type", "color")) ? "三色渐变" : "纯色背景")), new Runnable() { public void run() {
-        Activity act = getSettingsCurrentActivity();
+
+    return ctx.listContainer;}
+View buildBackgroundStylePage(Object ctx) {
+    final Activity activity = ctx.activity;
+    addSettingsCategory(ctx, "背景样式", null);
+    addSettingsItemChoiceWithKey(ctx,  "背景类型", "ui_bg_type", (("image".equals(getString("settings", "ui_bg_type", "color")) ? "图片背景" : "gradient".equals(getString("settings", "ui_bg_type", "color")) ? "三色渐变" : "纯色背景")), new Runnable() { public void run() {
+        Activity act = ctx.activity;
         if (act != null) {
             showBgTypeChoiceDialog(act);
         }
@@ -272,16 +275,16 @@ void buildBackgroundStylePage(Activity activity) {
     String suffix = isDark ? " (深色模式)" : " (浅色模式)";
 
     if ("color".equals(bgType)) {
-        addSettingsItemClickWithKey( "预设颜色" + suffix, "点击选择内置配色", new Runnable() { public void run() {
-            Activity act = getSettingsCurrentActivity();
+        addSettingsItemClickWithKey(ctx,  "预设颜色" + suffix, "点击选择内置配色", new Runnable() { public void run() {
+            Activity act = ctx.activity;
             if (act != null) {
                 showPresetColorDialog(act);
             }
         }});
         final String solidListKey = isDark ? "ui_bg_solid_list_dark" : "ui_bg_solid_list_light";
         final String singleColorKey = isDark ? "ui_bg_color_dark" : "ui_bg_color_light";
-        addSettingsItemClickWithKey( "背景颜色列表" + suffix, "多色轮转，1色常驻", new Runnable() { public void run() {
-            Activity act = getSettingsCurrentActivity();
+        addSettingsItemClickWithKey(ctx,  "背景颜色列表" + suffix, "多色轮转，1色常驻", new Runnable() { public void run() {
+            Activity act = ctx.activity;
             if (act == null) return;
             String seed = getString("settings", solidListKey, "");
             if (seed == null || seed.trim().isEmpty()) {
@@ -300,15 +303,15 @@ void buildBackgroundStylePage(Activity activity) {
             });
         }});
     } else if ("gradient".equals(bgType)) {
-        addSettingsItemClickWithKey( "预设渐变" + suffix, "点击选择内置渐变", new Runnable() { public void run() {
-            Activity act = getSettingsCurrentActivity();
+        addSettingsItemClickWithKey(ctx,  "预设渐变" + suffix, "点击选择内置渐变", new Runnable() { public void run() {
+            Activity act = ctx.activity;
             if (act != null) {
                 showPresetGradientDialog(act);
             }
         }});
         final String gradKey = isDark ? "ui_bg_gradient_dark" : "ui_bg_gradient_light";
-        addSettingsItemClickWithKey( "渐变颜色列表" + suffix, "2~3色，复用调色盘列表", new Runnable() { public void run() {
-            Activity act = getSettingsCurrentActivity();
+        addSettingsItemClickWithKey(ctx,  "渐变颜色列表" + suffix, "2~3色，复用调色盘列表", new Runnable() { public void run() {
+            Activity act = ctx.activity;
             if (act == null) return;
             String seed = getString("settings", gradKey, "");
             if (seed == null || seed.trim().isEmpty()) {
@@ -322,8 +325,8 @@ void buildBackgroundStylePage(Activity activity) {
             });
         }});
     } else if ("image".equals(bgType)) {
-        addSettingsItemClickWithKey( "选择背景图片", "点击选择本地图片", new Runnable() { public void run() {
-            Activity act = getSettingsCurrentActivity();
+        addSettingsItemClickWithKey(ctx,  "选择背景图片", "点击选择本地图片", new Runnable() { public void run() {
+            Activity act = ctx.activity;
             if (act == null) return;
             openFilePicker(act, 1007, "image/*", null, null, new FilePickerCallback() {
                 public void onFilePicked(Activity a, Uri uri, String fileName, String filePath) {
@@ -332,20 +335,22 @@ void buildBackgroundStylePage(Activity activity) {
             });
             Toast("选择后自动居中裁剪应用");
         }});
-        addSettingsInputItemWithConfig("图片模糊 (0-25)", "0为不模糊", "settings", "ui_img_blur", "0-25", "0", false, false, null);
-        addSettingsInputItemWithConfig("遮罩浓度 (0-255)", "越大越暗", "settings", "ui_img_alpha", "0-255", isDark ? "180" : "100", false, false, null);
+        addSettingsInputItemWithConfig(ctx, "图片模糊 (0-25)", "0为不模糊", "settings", "ui_img_blur", "0-25", "0", false, false, null);
+        addSettingsInputItemWithConfig(ctx, "遮罩浓度 (0-255)", "越大越暗", "settings", "ui_img_alpha", "0-255", isDark ? "180" : "100", false, false, null);
     }
-}
-void buildFontStylePage(Activity activity) {
-    addSettingsCategory("字体样式", null);
-    addSettingsItemChoiceWithKey( "字体风格", "ui_font_type", (("serif".equals(getString("settings", "ui_font_type", "default")) ? "衬线体" : "sans".equals(getString("settings", "ui_font_type", "default")) ? "无衬线" : "monospace".equals(getString("settings", "ui_font_type", "default")) ? "等宽" : "bold".equals(getString("settings", "ui_font_type", "default")) ? "粗体" : "默认字体")), new Runnable() { public void run() {
-        Activity act = getSettingsCurrentActivity();
+
+    return ctx.listContainer;}
+View buildFontStylePage(Object ctx) {
+    final Activity activity = ctx.activity;
+    addSettingsCategory(ctx, "字体样式", null);
+    addSettingsItemChoiceWithKey(ctx,  "字体风格", "ui_font_type", (("serif".equals(getString("settings", "ui_font_type", "default")) ? "衬线体" : "sans".equals(getString("settings", "ui_font_type", "default")) ? "无衬线" : "monospace".equals(getString("settings", "ui_font_type", "default")) ? "等宽" : "bold".equals(getString("settings", "ui_font_type", "default")) ? "粗体" : "默认字体")), new Runnable() { public void run() {
+        Activity act = ctx.activity;
         if (act != null) {
             showFontTypeChoiceDialog(act);
         }
     }});
-    addSettingsItemChoiceWithKey( "字体大小", "ui_font_size", (("0.85".equals(getString("settings", "ui_font_size", "1.0")) ? "小 (0.85x)" : "1.15".equals(getString("settings", "ui_font_size", "1.0")) ? "中 (1.15x)" : "1.3".equals(getString("settings", "ui_font_size", "1.0")) ? "大 (1.3x)" : "默认 (1.0x)")), new Runnable() { public void run() {
-        Activity act = getSettingsCurrentActivity();
+    addSettingsItemChoiceWithKey(ctx,  "字体大小", "ui_font_size", (("0.85".equals(getString("settings", "ui_font_size", "1.0")) ? "小 (0.85x)" : "1.15".equals(getString("settings", "ui_font_size", "1.0")) ? "中 (1.15x)" : "1.3".equals(getString("settings", "ui_font_size", "1.0")) ? "大 (1.3x)" : "默认 (1.0x)")), new Runnable() { public void run() {
+        Activity act = ctx.activity;
         if (act != null) {
             showFontSizeChoiceDialog(act);
         }
@@ -354,19 +359,21 @@ void buildFontStylePage(Activity activity) {
     String textColorKey = isDark ? "ui_text_color_dark" : "ui_text_color_light";
     String textColorValue = getString("settings", textColorKey, "");
     String suffix = isDark ? " (深色模式)" : " (浅色模式)";
-    addSettingsColorItem("字体样式", "字体颜色" + suffix, "留空自动配色 (推荐)", textColorKey, textColorValue, null, true);
-}
-void buildToastStylePage(Activity activity) {
-    addSettingsCategory("Toast样式", null);
-    addSettingsItemChoiceWithKey( "样式", "toast_style", (("theme".equals(getString("settings", "toast_style", "default")) ? "跟随主题色" : "blur".equals(getString("settings", "toast_style", "default")) ? "实时模糊(仅Toast区)" : "gradient".equals(getString("settings", "toast_style", "default")) ? "渐变背景" : "默认")), new Runnable() { public void run() {
-        Activity act = getSettingsCurrentActivity();
+    addSettingsColorItem(ctx, "字体样式", "字体颜色" + suffix, "留空自动配色 (推荐)", textColorKey, textColorValue, null, true);
+
+    return ctx.listContainer;}
+View buildToastStylePage(Object ctx) {
+    final Activity activity = ctx.activity;
+    addSettingsCategory(ctx, "Toast样式", null);
+    addSettingsItemChoiceWithKey(ctx,  "样式", "toast_style", (("theme".equals(getString("settings", "toast_style", "default")) ? "跟随主题色" : "blur".equals(getString("settings", "toast_style", "default")) ? "实时模糊(仅Toast区)" : "gradient".equals(getString("settings", "toast_style", "default")) ? "渐变背景" : "默认")), new Runnable() { public void run() {
+        Activity act = ctx.activity;
         if (act != null) showToastStyleChoiceDialog(act);
     }});
     String toastStyleNow = getString("settings", "toast_style", "default");
     if (toastStyleNow == null || toastStyleNow.isEmpty()) toastStyleNow = "default";
     if (!"theme".equals(toastStyleNow) && !"blur".equals(toastStyleNow)) {
-        addSettingsItemClickWithKey( "文字轮换颜色", "1色常驻，多色轮换", new Runnable() { public void run() {
-            Activity act = getSettingsCurrentActivity();
+        addSettingsItemClickWithKey(ctx,  "文字轮换颜色", "1色常驻，多色轮换", new Runnable() { public void run() {
+            Activity act = ctx.activity;
             if (act == null) return;
             showColorListEditor(act, "文字轮换颜色", 0, loadRotColorList("toast_color_list"), new ColorListCallback() {
                 public void onColorListSaved(String csv) {
@@ -377,8 +384,8 @@ void buildToastStylePage(Activity activity) {
         }});
     }
     if ("default".equals(toastStyleNow)) {
-        addSettingsItemClickWithKey( "背景轮换颜色", "纯色背景，1色常驻", new Runnable() { public void run() {
-            Activity act = getSettingsCurrentActivity();
+        addSettingsItemClickWithKey(ctx,  "背景轮换颜色", "纯色背景，1色常驻", new Runnable() { public void run() {
+            Activity act = ctx.activity;
             if (act == null) return;
             showColorListEditor(act, "背景轮换颜色", 0, loadRotColorList("toast_bg_solid_list"), new ColorListCallback() {
                 public void onColorListSaved(String csv) {
@@ -389,8 +396,8 @@ void buildToastStylePage(Activity activity) {
         }});
     }
     if ("gradient".equals(toastStyleNow)) {
-        addSettingsItemClickWithKey( "渐变背景颜色", "2色起，最多3色", new Runnable() { public void run() {
-            Activity act = getSettingsCurrentActivity();
+        addSettingsItemClickWithKey(ctx,  "渐变背景颜色", "2色起，最多3色", new Runnable() { public void run() {
+            Activity act = ctx.activity;
             if (act == null) return;
             showColorListEditor(act, "渐变背景颜色", 3, loadRotColorList("toast_bg_color_list"), new ColorListCallback() {
                 public void onColorListSaved(String csv) {
@@ -400,18 +407,18 @@ void buildToastStylePage(Activity activity) {
             });
         }});
     }
-    addSettingsInputItemWithConfig("弹出时长(ms)", "500-10000", "settings", "toast_duration", "2000", "2000", false, false, null);
+    addSettingsInputItemWithConfig(ctx, "弹出时长(ms)", "500-10000", "settings", "toast_duration", "2000", "2000", false, false, null);
 
-    addSettingsCategory("Toast位置", null);
-    addSettingsItemChoiceWithKey( "弹出位置", "toast_pos", (("top".equals(getString("settings", "toast_pos", "bottom")) ? "顶部" : "center".equals(getString("settings", "toast_pos", "bottom")) ? "居中" : "custom".equals(getString("settings", "toast_pos", "bottom")) ? "自定义" : "底部")), new Runnable() { public void run() {
-        Activity act = getSettingsCurrentActivity();
+    addSettingsCategory(ctx, "Toast位置", null);
+    addSettingsItemChoiceWithKey(ctx,  "弹出位置", "toast_pos", (("top".equals(getString("settings", "toast_pos", "bottom")) ? "顶部" : "center".equals(getString("settings", "toast_pos", "bottom")) ? "居中" : "custom".equals(getString("settings", "toast_pos", "bottom")) ? "自定义" : "底部")), new Runnable() { public void run() {
+        Activity act = ctx.activity;
         if (act != null) showToastPosChoiceDialog(act);
     }});
     String toastPosNow = getString("settings", "toast_pos", "bottom");
     if (toastPosNow == null || toastPosNow.isEmpty()) toastPosNow = "bottom";
     if ("custom".equals(toastPosNow)) {
-        addSettingsItemClickWithKey( "自定义坐标/宽高", "拖主体移动，拖边角改大小", new Runnable() { public void run() {
-            Activity act = getSettingsCurrentActivity();
+        addSettingsItemClickWithKey(ctx,  "自定义坐标/宽高", "拖主体移动，拖边角改大小", new Runnable() { public void run() {
+            Activity act = ctx.activity;
             if (act == null) return;
             int x = 0, y = 0, w = 120, h = 48;
             try { x = Integer.parseInt(getString("settings", "toast_custom_x", "0")); } catch (Throwable e) {}
@@ -429,47 +436,51 @@ void buildToastStylePage(Activity activity) {
             });
         }});
         boolean adaptiveOn = getBoolean("settings", "toast_adaptive", false);
-        addSettingsItemSwitchWithKey("自适应", "settings", "toast_adaptive", "开：气泡贴合内容+框内位置；关：气泡撑满框+文字填充", adaptiveOn, new Runnable() { public void run() {
-refreshCurrentSettingsPage();
+        addSettingsItemSwitchWithKey(ctx, "自适应", "settings", "toast_adaptive", "开：气泡贴合内容+框内位置；关：气泡撑满框+文字填充", adaptiveOn, new Runnable() { public void run() {
+refreshSettingsPage(ctx);
         }});
-        addSettingsItemChoiceWithKey( "气泡在框内位置", "toast_box_gravity", (("left".equals(getString("settings", "toast_box_gravity", "center")) ? "靠左" : "right".equals(getString("settings", "toast_box_gravity", "center")) ? "靠右" : "top".equals(getString("settings", "toast_box_gravity", "center")) ? "靠上" : "bottom".equals(getString("settings", "toast_box_gravity", "center")) ? "靠下" : "top_left".equals(getString("settings", "toast_box_gravity", "center")) ? "左上" : "top_right".equals(getString("settings", "toast_box_gravity", "center")) ? "右上" : "bottom_left".equals(getString("settings", "toast_box_gravity", "center")) ? "左下" : "bottom_right".equals(getString("settings", "toast_box_gravity", "center")) ? "右下" : "居中")), new Runnable() { public void run() {
-            Activity act = getSettingsCurrentActivity();
+        addSettingsItemChoiceWithKey(ctx,  "气泡在框内位置", "toast_box_gravity", (("left".equals(getString("settings", "toast_box_gravity", "center")) ? "靠左" : "right".equals(getString("settings", "toast_box_gravity", "center")) ? "靠右" : "top".equals(getString("settings", "toast_box_gravity", "center")) ? "靠上" : "bottom".equals(getString("settings", "toast_box_gravity", "center")) ? "靠下" : "top_left".equals(getString("settings", "toast_box_gravity", "center")) ? "左上" : "top_right".equals(getString("settings", "toast_box_gravity", "center")) ? "右上" : "bottom_left".equals(getString("settings", "toast_box_gravity", "center")) ? "左下" : "bottom_right".equals(getString("settings", "toast_box_gravity", "center")) ? "右下" : "居中")), new Runnable() { public void run() {
+            Activity act = ctx.activity;
             if (act != null) showToastBoxGravityChoiceDialog(act);
         }});
-        addSettingsItemChoiceWithKey( "文字填充", "toast_text_gravity", (("left".equals(getString("settings", "toast_text_gravity", "center")) ? "靠左" : "right".equals(getString("settings", "toast_text_gravity", "center")) ? "靠右" : "top".equals(getString("settings", "toast_text_gravity", "center")) ? "靠上" : "bottom".equals(getString("settings", "toast_text_gravity", "center")) ? "靠下" : "justify".equals(getString("settings", "toast_text_gravity", "center")) ? "两端对齐" : "居中")), new Runnable() { public void run() {
-            Activity act = getSettingsCurrentActivity();
+        addSettingsItemChoiceWithKey(ctx,  "文字填充", "toast_text_gravity", (("left".equals(getString("settings", "toast_text_gravity", "center")) ? "靠左" : "right".equals(getString("settings", "toast_text_gravity", "center")) ? "靠右" : "top".equals(getString("settings", "toast_text_gravity", "center")) ? "靠上" : "bottom".equals(getString("settings", "toast_text_gravity", "center")) ? "靠下" : "justify".equals(getString("settings", "toast_text_gravity", "center")) ? "两端对齐" : "居中")), new Runnable() { public void run() {
+            Activity act = ctx.activity;
             if (act != null) showToastGravityChoiceDialog(act);
         }});
     }
 
-    addSettingsCategory("Toast文字", null);
-    addSettingsInputItemWithConfig("前缀", "显示在文字前", "settings", "toast_prefix", "可留空", "", false, false, null);
-    addSettingsInputItemWithConfig("后缀", "显示在文字后", "settings", "toast_suffix", "可留空", "", false, false, null);
-    addSettingsItemClickWithKey( "测试Toast", "预览当前配置", new Runnable() { public void run() {
+    addSettingsCategory(ctx, "Toast文字", null);
+    addSettingsInputItemWithConfig(ctx, "前缀", "显示在文字前", "settings", "toast_prefix", "可留空", "", false, false, null);
+    addSettingsInputItemWithConfig(ctx, "后缀", "显示在文字后", "settings", "toast_suffix", "可留空", "", false, false, null);
+    addSettingsItemClickWithKey(ctx,  "测试Toast", "预览当前配置", new Runnable() { public void run() {
         Toast("这是一条测试 Toast");
     }});
-}
-void buildThreadPoolPage(Activity activity) {
-    addSettingsCategory("线程池", null);
-    addSettingsItemChoiceWithKey( "线程优先级", "thread_pool_priority", ((getString("settings", "thread_pool_priority", "").isEmpty() ? "5 (默认)" : getString("settings", "thread_pool_priority", "") + "")), new Runnable() { public void run() {
-        Activity act = getSettingsCurrentActivity();
+
+    return ctx.listContainer;}
+View buildThreadPoolPage(Object ctx) {
+    final Activity activity = ctx.activity;
+    addSettingsCategory(ctx, "线程池", null);
+    addSettingsItemChoiceWithKey(ctx,  "线程优先级", "thread_pool_priority", ((getString("settings", "thread_pool_priority", "").isEmpty() ? "5 (默认)" : getString("settings", "thread_pool_priority", "") + "")), new Runnable() { public void run() {
+        Activity act = ctx.activity;
         if (act != null) {
             showThreadPriorityChoiceDialog(act);
         }
     }});
-    addSettingsInputItemWithConfig("任务队列容量", "默认50", "settings", "thread_pool_queue_capacity", "数字", "50", false, false, null);
-    addSettingsInputItemWithConfig("核心线程存活(秒)", "默认30", "settings", "thread_pool_keep_alive", "秒数", "30", false, false, null);
-    addSettingsItemChoiceWithKey( "任务满载策略", "thread_pool_reject_policy", (("1".equals(getString("settings", "thread_pool_reject_policy", "0")) ? "丢弃最新任务" : "2".equals(getString("settings", "thread_pool_reject_policy", "0")) ? "抛出异常" : "3".equals(getString("settings", "thread_pool_reject_policy", "0")) ? "调用者执行" : "丢弃最旧任务 (默认)")), new Runnable() { public void run() {
-        Activity act = getSettingsCurrentActivity();
+    addSettingsInputItemWithConfig(ctx, "任务队列容量", "默认50", "settings", "thread_pool_queue_capacity", "数字", "50", false, false, null);
+    addSettingsInputItemWithConfig(ctx, "核心线程存活(秒)", "默认30", "settings", "thread_pool_keep_alive", "秒数", "30", false, false, null);
+    addSettingsItemChoiceWithKey(ctx,  "任务满载策略", "thread_pool_reject_policy", (("1".equals(getString("settings", "thread_pool_reject_policy", "0")) ? "丢弃最新任务" : "2".equals(getString("settings", "thread_pool_reject_policy", "0")) ? "抛出异常" : "3".equals(getString("settings", "thread_pool_reject_policy", "0")) ? "调用者执行" : "丢弃最旧任务 (默认)")), new Runnable() { public void run() {
+        Activity act = ctx.activity;
         if (act != null) {
             showRejectPolicyChoiceDialog(act);
         }
     }});
-}
-void buildFloatingWindowPage(Activity activity) {
-    addSettingsCategory("悬浮窗设置", null);
-    addSettingsItemClickWithKey( "更换图标", (("".equals(getString("settings", "iconPath", "")) || getString("settings", "iconPath", "") == null ? "未设置" : getString("settings", "iconPath", "").toLowerCase().endsWith(".gif") ? "动态图标 (GIF)" : "静态图标")), new Runnable() { public void run() {
-        Activity act = getSettingsCurrentActivity();
+
+    return ctx.listContainer;}
+View buildFloatingWindowPage(Object ctx) {
+    final Activity activity = ctx.activity;
+    addSettingsCategory(ctx, "悬浮窗设置", null);
+    addSettingsItemClickWithKey(ctx,  "更换图标", (("".equals(getString("settings", "iconPath", "")) || getString("settings", "iconPath", "") == null ? "未设置" : getString("settings", "iconPath", "").toLowerCase().endsWith(".gif") ? "动态图标 (GIF)" : "静态图标")), new Runnable() { public void run() {
+        Activity act = ctx.activity;
         if (act == null) return;
         openFilePicker(act, 1005, "image/*", null, pluginPath + "/API/icon{ext}", new FilePickerCallback() {
             public void onFilePicked(Activity a, Uri uri, String fileName, String filePath) {
@@ -479,23 +490,25 @@ void buildFloatingWindowPage(Activity activity) {
         });
         Toast("选择后将自动保存并刷新");
     }});
-    addSettingsInputItemWithConfig("悬浮窗大小", "默认48", "settings", "悬浮窗大小", "dp", "48", false, false, null);
-    addSettingsInputItemWithConfig("关闭图标大小", "默认24", "settings", "关闭区域图标大小", "dp", "24", false, false, null);
-    addSettingsInputItemWithConfig("拖拽灵敏度", "数值越小越灵敏", "settings", "拖拽灵敏度", "数字", "12", false, false, null);
-    addSettingsInputItemWithConfig("长按关闭阈值", "默认650ms", "settings", "长按关闭阈值", "毫秒", "650", false, false, null);
-    addSettingsInputItemWithConfig("图标透明度", "0-255", "settings", "iconAlpha", "0-255", "255", false, false, null);
+    addSettingsInputItemWithConfig(ctx, "悬浮窗大小", "默认48", "settings", "悬浮窗大小", "dp", "48", false, false, null);
+    addSettingsInputItemWithConfig(ctx, "关闭图标大小", "默认24", "settings", "关闭区域图标大小", "dp", "24", false, false, null);
+    addSettingsInputItemWithConfig(ctx, "拖拽灵敏度", "数值越小越灵敏", "settings", "拖拽灵敏度", "数字", "12", false, false, null);
+    addSettingsInputItemWithConfig(ctx, "长按关闭阈值", "默认650ms", "settings", "长按关闭阈值", "毫秒", "650", false, false, null);
+    addSettingsInputItemWithConfig(ctx, "图标透明度", "0-255", "settings", "iconAlpha", "0-255", "255", false, false, null);
 
     String iconPath = getString("settings", "iconPath", "");
     boolean isAnimatedIcon = iconPath != null && iconPath.toLowerCase().endsWith(".gif");
     if (isAnimatedIcon) {
-        addSettingsItemClickWithKey( "GIF播放速度", "带实时预览，越小越快", new Runnable() { public void run() {
-            Activity act = getSettingsCurrentActivity();
+        addSettingsItemClickWithKey(ctx,  "GIF播放速度", "带实时预览，越小越快", new Runnable() { public void run() {
+            Activity act = ctx.activity;
             if (act != null) showGifSpeedPicker(act);
         }});
     }
-}
-void buildRevokeMarkPage(Activity activity) {
-    addSettingsCategory("撤回标记", null);
+
+    return ctx.listContainer;}
+View buildRevokeMarkPage(Object ctx) {
+    final Activity activity = ctx.activity;
+    addSettingsCategory(ctx, "撤回标记", null);
     boolean timeOn = ShowMsgTime.INSTANCE.isEnable();
     boolean revokeOn = AntiRevoke.INSTANCE.isEnable();
     boolean listenerOn = getBoolean("settings", "revoke_mark_listener", true);
@@ -503,7 +516,7 @@ void buildRevokeMarkPage(Activity activity) {
     try { hostSupported = revokeMarkHostSupported(); } catch (Throwable ignore) { hostSupported = false; }
     String listenerDesc = "关闭后不再注册消息视图监听，可避免部分宿主缺少 AIOViewUpdateListener 导致的加载失败";
     if (!hostSupported) listenerDesc = "当前宿主未提供 AIOViewUpdateListener，已自动跳过，此项无需开启";
-    addSettingsItemSwitchWithKey("启用消息视图监听", "settings", "revoke_mark_listener", listenerDesc, listenerOn, new Runnable() { public void run() {
+    addSettingsItemSwitchWithKey(ctx, "启用消息视图监听", "settings", "revoke_mark_listener", listenerDesc, listenerOn, new Runnable() { public void run() {
         try {
             if (getBoolean("settings", "revoke_mark_listener", true)) {
                 installRevokeMarkListener();
@@ -513,43 +526,43 @@ void buildRevokeMarkPage(Activity activity) {
         } catch (Throwable e) {
             traceLog("setwindow_log", "[已撤回标记] 切换监听开关失败: " + e);
         }
-        refreshCurrentSettingsPage();
+        refreshSettingsPage(ctx);
     }});
     String markDesc = "把模块内置的「已撤回」提示挪到消息时间后面";
     if (!timeOn && !revokeOn) markDesc = "当前状态不可用，请先打开「显示消息时间」和「防撤回」开关";
     else if (!timeOn) markDesc = "当前状态不可用，请先打开「显示消息时间」开关";
     else if (!revokeOn) markDesc = "当前状态不可用，请先打开「防撤回」开关";
     else if (!hostSupported) markDesc = "当前宿主不支持消息视图监听，此项无法生效";
-    addSettingsItemSwitchWithKey("已撤回标记", "settings", "revoke_mark", markDesc, getBoolean("settings", "revoke_mark", false), null);
-    addSettingsInputItemWithConfig("标记文本", "默认「已撤回」，追加在消息时间后面", "settings", "revoke_mark_text", "如: 已撤回", "已撤回", false, false, null);
-    addSettingsItemChoiceWithKey( "标记位置", "revoke_mark_pos", ("top".equals(getString("settings", "revoke_mark_pos", "bottom")) ? "气泡上方" : "气泡下方"), new Runnable() { public void run() {
-        Activity act = getSettingsCurrentActivity();
+    addSettingsItemSwitchWithKey(ctx, "已撤回标记", "settings", "revoke_mark", markDesc, getBoolean("settings", "revoke_mark", false), null);
+    addSettingsInputItemWithConfig(ctx, "标记文本", "默认「已撤回」，追加在消息时间后面", "settings", "revoke_mark_text", "如: 已撤回", "已撤回", false, false, null);
+    addSettingsItemChoiceWithKey(ctx,  "标记位置", "revoke_mark_pos", ("top".equals(getString("settings", "revoke_mark_pos", "bottom")) ? "气泡上方" : "气泡下方"), new Runnable() { public void run() {
+        Activity act = ctx.activity;
         if (act == null) return;
         String[] names = {"气泡上方", "气泡下方"};
         String[] values = {"top", "bottom"};
         int checked = "top".equals(getString("settings", "revoke_mark_pos", "bottom")) ? 0 : 1;
-        showChoiceDialogEx(act, "标记位置", names, values, "revoke_mark_pos", "bottom", checked, 1, "标记位置: ", new Runnable() { public void run() { refreshCurrentSettingsPage(); } });
+        showChoiceDialogEx(act, "标记位置", names, values, "revoke_mark_pos", "bottom", checked, 1, "标记位置: ", new Runnable() { public void run() { refreshSettingsPage(ctx); } });
     }});
-    addSettingsItemChoiceWithKey( "标记颜色", "revoke_mark_color_mode", ("custom".equals(getString("settings", "revoke_mark_color_mode", "module")) ? "自定义" : "跟随模块"), new Runnable() { public void run() {
-        Activity act = getSettingsCurrentActivity();
+    addSettingsItemChoiceWithKey(ctx,  "标记颜色", "revoke_mark_color_mode", ("custom".equals(getString("settings", "revoke_mark_color_mode", "module")) ? "自定义" : "跟随模块"), new Runnable() { public void run() {
+        Activity act = ctx.activity;
         if (act == null) return;
         String[] names = {"跟随模块", "自定义"};
         String[] values = {"module", "custom"};
         int checked = "custom".equals(getString("settings", "revoke_mark_color_mode", "module")) ? 1 : 0;
-        showChoiceDialogEx(act, "标记颜色", names, values, "revoke_mark_color_mode", "module", checked, 1, "标记颜色: ", new Runnable() { public void run() { refreshCurrentSettingsPage(); } });
+        showChoiceDialogEx(act, "标记颜色", names, values, "revoke_mark_color_mode", "module", checked, 1, "标记颜色: ", new Runnable() { public void run() { refreshSettingsPage(ctx); } });
     }});
-    addSettingsItemClickWithKey( "自定义颜色", getString("settings", "revoke_mark_color", "#FFFF0000"), new Runnable() { public void run() {
-        Activity act = getSettingsCurrentActivity();
+    addSettingsItemClickWithKey(ctx,  "自定义颜色", getString("settings", "revoke_mark_color", "#FFFF0000"), new Runnable() { public void run() {
+        Activity act = ctx.activity;
         if (act == null) return;
         showColorPickerDialog(act, getString("settings", "revoke_mark_color", "#FFFF0000"), new OnColorPickedListener() {
             public void onColorPicked(int color) {
                 putString("settings", "revoke_mark_color", colorToHex(color));
-                refreshCurrentSettingsPage();
+                refreshSettingsPage(ctx);
             }
         });
     }});
 
-    LinearLayout pvBox = settingsCurrentCategoryContainer();
+    LinearLayout pvBox = settingsCurrentCategoryContainer(ctx);
     if (pvBox != null) {
         TextView pvLabel = new TextView(activity);
         pvLabel.setText("预览");
@@ -588,27 +601,30 @@ void buildRevokeMarkPage(Activity activity) {
         pvBox.addView(pv);
     }
 
-    addSettingsCategory("模块开关", "");
-    addSettingsItemSwitchWithKey("显示消息时间", null, null, "QFun 模块：气泡显示消息发送时间", timeOn, new Runnable() { public void run() {
+    addSettingsCategory(ctx, "模块开关", "");
+    addSettingsItemSwitchWithKey(ctx, "显示消息时间", null, null, "QFun 模块：气泡显示消息发送时间", timeOn, new Runnable() { public void run() {
         ShowMsgTime.INSTANCE.setEnable(!ShowMsgTime.INSTANCE.isEnable());
-        refreshCurrentSettingsPage();
+        refreshSettingsPage(ctx);
     }});
-    addSettingsItemSwitchWithKey("防撤回", null, null, "QFun 模块：拦截撤回指令并保留消息", revokeOn, new Runnable() { public void run() {
+    addSettingsItemSwitchWithKey(ctx, "防撤回", null, null, "QFun 模块：拦截撤回指令并保留消息", revokeOn, new Runnable() { public void run() {
         AntiRevoke.INSTANCE.setEnable(!AntiRevoke.INSTANCE.isEnable());
-        refreshCurrentSettingsPage();
+        refreshSettingsPage(ctx);
     }});
-}
-void buildDebugPage(Activity activity) {
-    addSettingsCategory("调试", null);
-    addSettingsItemClickWithKey( "预览设置", "预览当前设置效果", new Runnable() { public void run() {
-        Activity act = getSettingsCurrentActivity();
+
+    return ctx.listContainer;}
+View buildDebugPage(Object ctx) {
+    final Activity activity = ctx.activity;
+    addSettingsCategory(ctx, "调试", null);
+    addSettingsItemClickWithKey(ctx,  "预览设置", "预览当前设置效果", new Runnable() { public void run() {
+        Activity act = ctx.activity;
         if (act != null) {
             showSettingsPreviewPopup(act);
         }
     }});
     String logThreshold = getString("settings", "log_delete_threshold", "1");
-    addSettingsInputItemWithConfig("日志大小阈值(MB)", "日志文件夹超过此大小自动清理", "settings", "log_delete_threshold", "如: 1", logThreshold, false, false, null);
-}
+    addSettingsInputItemWithConfig(ctx, "日志大小阈值(MB)", "日志文件夹超过此大小自动清理", "settings", "log_delete_threshold", "如: 1", logThreshold, false, false, null);
+
+    return ctx.listContainer;}
 public LinearLayout buildStatsContentView(Activity activity) {
     if (activity == null) return null;
     readFullStats();
@@ -665,15 +681,15 @@ public LinearLayout buildStatsContentView(Activity activity) {
     contentLayout.addView(entry);
     return contentLayout;
 }
-void buildStatsSettingsView(Activity activity) {
-    if (activity == null) return;
+View buildStatsSettingsView(Object ctx) {
+    final Activity activity = ctx.activity;
 
     boolean wlOn = getBoolean("settings", "msg_stats_whitelist_enabled", false);
 
-    addSettingsCategory("统计范围", "");
-    addSettingsItemSwitchWithKey("按好友/群聊单独统计", "settings", "msg_stats_whitelist_enabled",
+    addSettingsCategory(ctx, "统计范围", "");
+    addSettingsItemSwitchWithKey(ctx, "按好友/群聊单独统计", "settings", "msg_stats_whitelist_enabled",
         "开启后仅白名单内的群/好友单独统计，其他仍汇总", wlOn, new Runnable() {
-            public void run() { rebuildStatsSettingsPage(); }
+            public void run() { refreshSettingsPage(ctx); }
         });
 
     String gs = getString("settings", "msg_stats_whitelist_groups", "");
@@ -688,9 +704,9 @@ void buildStatsSettingsView(Activity activity) {
         for (int i = 0; i < p.length; i++) if (!p[i].trim().isEmpty()) fCount++;
     }
 
-    addSettingsItemClickWithKey("群聊白名单", wlOn ? ("已选 " + gCount + " 个群") : "需先开启上方开关", new Runnable() {
+    addSettingsItemClickWithKey(ctx, "群聊白名单", wlOn ? ("已选 " + gCount + " 个群") : "需先开启上方开关", new Runnable() {
         public void run() {
-            Activity act = getSettingsCurrentActivity();
+            Activity act = ctx.activity;
             if (act == null) return;
             String cur = getString("settings", "msg_stats_whitelist_groups", "");
             ArrayList init = new ArrayList();
@@ -709,22 +725,22 @@ void buildStatsSettingsView(Activity activity) {
                     }
                     putString("settings", "msg_stats_whitelist_groups", sb.toString());
                     Toast("已保存 " + (selected == null ? 0 : selected.size()) + " 个群");
-                    rebuildStatsSettingsPage();
+                    refreshSettingsPage(ctx);
                 }
             });
         }
     });
-    String groupKey = settingsAutoItemKey("群聊白名单");
-    View groupView = (SettingsState.settingsItemViews == null) ? null : (View) SettingsState.settingsItemViews.get(groupKey);
+    String groupKey = settingsAutoItemKey(ctx, "群聊白名单");
+    View groupView = (ctx.itemViews == null) ? null : (View) ctx.itemViews.get(groupKey);
     if (groupView != null && !wlOn) {
         groupView.setAlpha(0.4f);
         groupView.setOnClickListener(null);
         groupView.setClickable(false);
     }
 
-    addSettingsItemClickWithKey("好友白名单", wlOn ? ("已选 " + fCount + " 个好友") : "需先开启上方开关", new Runnable() {
+    addSettingsItemClickWithKey(ctx, "好友白名单", wlOn ? ("已选 " + fCount + " 个好友") : "需先开启上方开关", new Runnable() {
         public void run() {
-            Activity act = getSettingsCurrentActivity();
+            Activity act = ctx.activity;
             if (act == null) return;
             String cur = getString("settings", "msg_stats_whitelist_friends", "");
             ArrayList init = new ArrayList();
@@ -743,141 +759,79 @@ void buildStatsSettingsView(Activity activity) {
                     }
                     putString("settings", "msg_stats_whitelist_friends", sb.toString());
                     Toast("已保存 " + (selected == null ? 0 : selected.size()) + " 个好友");
-                    rebuildStatsSettingsPage();
+                    refreshSettingsPage(ctx);
                 }
             });
         }
     });
-    String friendKey = settingsAutoItemKey("好友白名单");
-    View friendView = (SettingsState.settingsItemViews == null) ? null : (View) SettingsState.settingsItemViews.get(friendKey);
+    String friendKey = settingsAutoItemKey(ctx, "好友白名单");
+    View friendView = (ctx.itemViews == null) ? null : (View) ctx.itemViews.get(friendKey);
     if (friendView != null && !wlOn) {
         friendView.setAlpha(0.4f);
         friendView.setOnClickListener(null);
         friendView.setClickable(false);
     }
 
-    addSettingsCategory("收发总开关", "");
-    addSettingsItemSwitchWithKey("接收统计", "settings", "msg_stats_receive_enabled",
+    addSettingsCategory(ctx, "收发总开关", "");
+    addSettingsItemSwitchWithKey(ctx, "接收统计", "settings", "msg_stats_receive_enabled",
         "关闭后不统计任何接收数据", getBoolean("settings", "msg_stats_receive_enabled", true), null);
-    addSettingsItemSwitchWithKey("发送统计", "settings", "msg_stats_send_enabled",
+    addSettingsItemSwitchWithKey(ctx, "发送统计", "settings", "msg_stats_send_enabled",
         "关闭后不统计任何发送数据", getBoolean("settings", "msg_stats_send_enabled", true), null);
 
-    addSettingsCategory("统计类别", "");
+    addSettingsCategory(ctx, "统计类别", "");
     for (int i = 0; i < STAT_CATEGORIES.length; i++) {
         String catKey = STAT_CATEGORIES[i][0];
         String catLabel = STAT_CATEGORIES[i][1];
-        addSettingsItemSwitchWithKey(catLabel, "settings", "msg_stats_cat_" + catKey, null,
+        addSettingsItemSwitchWithKey(ctx, catLabel, "settings", "msg_stats_cat_" + catKey, null,
             getBoolean("settings", "msg_stats_cat_" + catKey, true), null);
     }
 
-    addSettingsCategory("每日目标", "");
-    addSettingsInputItemWithConfig("每日消息目标", "默认 100", "settings", "msg_stats_daily_target", "如: 100", "100", false, false, null);
+    addSettingsCategory(ctx, "每日目标", "");
+    addSettingsInputItemWithConfig(ctx, "每日消息目标", "默认 100", "settings", "msg_stats_daily_target", "如: 100", "100", false, false, null);
 
-    addSettingsCategory("数据操作", "");
-    addSettingsItemClickWithKey("重置今日数据", "清空今日所有统计", new Runnable() {
+    addSettingsCategory(ctx, "数据操作", "");
+    addSettingsItemClickWithKey(ctx, "重置今日数据", "清空今日所有统计", new Runnable() {
         public void run() {
-            Activity act = getSettingsCurrentActivity();
+            Activity act = ctx.activity;
             if (act != null) resetTodayStats(act);
         }
     });
-    addSettingsItemClickWithKey("重置累计数据", "清空所有累计统计", new Runnable() {
+    addSettingsItemClickWithKey(ctx, "重置累计数据", "清空所有累计统计", new Runnable() {
         public void run() {
-            Activity act = getSettingsCurrentActivity();
+            Activity act = ctx.activity;
             if (act != null) resetTotalStats(act);
         }
     });
-    addSettingsItemClickWithKey("修复数据", "重算所有 total 键", new Runnable() {
+    addSettingsItemClickWithKey(ctx, "修复数据", "重算所有 total 键", new Runnable() {
         public void run() {
-            Activity act = getSettingsCurrentActivity();
+            Activity act = ctx.activity;
             if (act != null) repairStatsData(act);
         }
     });
-}
+
+    return ctx.listContainer;}
 SettingsFeatureBuilder statsBoardFeatureBuilder() {
     return new SettingsFeatureBuilder() {
-        public View build(Activity activity) {
-            if (SettingsState.settingsIndexMode) return null;
-            LinearLayout board = buildStatsContentView((activity != null) ? activity : getSettingsCurrentActivity());
-            if (board != null) bindStatsViewCache(board);
-            return board;
+        public View build(Object ctx) {
+            return buildStatsContentView(ctx.activity);
         }
     };
 }
 
 SettingsFeatureBuilder statsSettingsFeatureBuilder() {
     return new SettingsFeatureBuilder() {
-        public View build(Activity activity) {
-            buildStatsSettingsView((activity != null) ? activity : getSettingsCurrentActivity());
-            return null;
+        public View build(Object ctx) {
+            return buildStatsSettingsView(ctx);
         }
     };
 }
 
 void rebuildStatsSettingsPage() {
-    Activity act = getSettingsCurrentActivity();
-    if (act == null) return;
-    LinearLayout listContainer = SettingsState.settingsListContainer;
-    if (listContainer == null) return;
-    try {
-        listContainer.removeAllViews();
-        if (SettingsState.settingsCategoryContainers != null) SettingsState.settingsCategoryContainers.clear();
-        if (SettingsState.settingsItemViews != null) SettingsState.settingsItemViews.clear();
-        if (SettingsState.settingsItemTextViews != null) SettingsState.settingsItemTextViews.clear();
-        SettingsState.settingsCurrentCategory = null;
-        buildStatsSettingsView(act);
-    } catch (Throwable e) {
-        traceLog("setwindow_log", "[rebuildStatsSettingsPage] 异常: " + e);
-    }
+    refreshSettingsPage(settingsContextForActivity(getSettingsCurrentActivity()));
 }
 
 public void refreshStatsBoardOnReturn() {
-    Activity act = getSettingsCurrentActivity();
-    if (!(act instanceof SettingsActivity)) {
-        unbindStatsViewCache();
-        return;
-    }
-    SettingsActivity sa = (SettingsActivity) act;
-    if (sa.settingsPageStack == null || sa.settingsPageStack.isEmpty()) {
-        unbindStatsViewCache();
-        return;
-    }
-    Object topObj = sa.settingsPageStack.get(sa.settingsPageStack.size() - 1);
-    if (topObj == null) {
-        unbindStatsViewCache();
-        return;
-    }
-    try {
-        Object l2 = fieldGet(topObj, "level2");
-        if (!"消息统计".equals(l2)) {
-            unbindStatsViewCache();
-            return;
-        }
-        Object pvObj = fieldGet(topObj, "pageView");
-        if (!(pvObj instanceof LinearLayout)) {
-            unbindStatsViewCache();
-            return;
-        }
-        LinearLayout pageLayout = (LinearLayout) pvObj;
-        if (pageLayout.getChildCount() < 2) {
-            unbindStatsViewCache();
-            return;
-        }
-        View scrollChild = pageLayout.getChildAt(1);
-        if (!(scrollChild instanceof ScrollView)) {
-            unbindStatsViewCache();
-            return;
-        }
-        unbindStatsViewCache();
-        LinearLayout newContent = buildStatsContentView(act);
-        if (newContent == null) return;
-        ScrollView sv = (ScrollView) scrollChild;
-        sv.removeAllViews();
-        sv.addView(newContent);
-        bindStatsViewCache(newContent);
-    } catch (Throwable e) {
-        traceLog("setwindow_log", "[refreshStatsBoardOnReturn] 异常: " + e);
-        unbindStatsViewCache();
-    }
+    refreshSettingsPage(settingsContextForActivity(getSettingsCurrentActivity()));
 }
 View buildHtmlPageView(final Activity activity) {
     if (activity == null) return null;
@@ -1064,14 +1018,16 @@ View buildHtmlFileRow(final Activity activity, final File f, final LinearLayout 
     });
     return row;
 }
-void showVariablePool(Activity activity, final EditText insertTarget, boolean forceDialog, String context) {
+void showVariablePool(final Activity activity, final EditText insertTarget, boolean forceDialog, final String context) {
     if (activity == null) return;
     boolean inSettings = !forceDialog && (activity instanceof SettingsActivity);
-    View content = buildVariablePoolView(activity, insertTarget, context);
     if (inSettings) {
-        ((SettingsActivity) activity).settingsPushContentViewRaw("变量池", content);
+        ((SettingsActivity) activity).settingsPushFeaturePage("变量池", new SettingsFeatureBuilder() {
+            public View build(Object ctx) { return buildVariablePoolView(ctx.activity, insertTarget, context); }
+        });
         return;
     }
+    View content = buildVariablePoolView(activity, insertTarget, context);
     int dialogH = (int) (activity.getResources().getDisplayMetrics().heightPixels * 0.65);
     FrameLayout wrap = new FrameLayout(activity);
     content.setLayoutParams(new FrameLayout.LayoutParams(-1, dialogH));

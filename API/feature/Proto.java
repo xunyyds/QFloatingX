@@ -698,47 +698,35 @@ void sendSpecifiedFaceReply(Object data, int faceIndex) {
     String groupUin = String.valueOf(data.peerUin);
     long msgSeq = (long) data.data.msgSeq;
 
-    long groupNum = 0;
-    try { groupNum = Long.parseLong(groupUin); } catch (Throwable ignored) { traceLog("api9_log", "[sendSpecifiedFaceReply] 异常: " + ignored); }
-    if (groupNum <= 0 || msgSeq <= 0) {
+    if (!groupUin.matches("\\d+") || msgSeq <= 0) {
         qqToast(1, "群号或Seq无效");
         return;
     }
+    long groupNum = Long.parseLong(groupUin);
 
-    try {
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        String jsonStr = "{\"1\":36994,\"2\":1,\"4\":{\"2\":" + groupUin
-                + ",\"3\":" + msgSeq + ",\"4\":\"" + faceIndex
-                + "\",\"5\":1,\"6\":0,\"7\":0},\"12\":1}";
+    JSONObject body = new JSONObject()
+            .put("2", groupNum)
+            .put("3", msgSeq)
+            .put("4", String.valueOf(faceIndex))
+            .put("5", 1)
+            .put("6", 0)
+            .put("7", 0);
 
-        JSONObject json = new JSONObject(jsonStr);
-        FunProtoData proto = new FunProtoData();
-        proto.fromJSON(json);
-        byte[] pbData = proto.toBytes();
+    JSONObject json = new JSONObject()
+            .put("1", 36994)
+            .put("2", 1)
+            .put("4", body)
+            .put("12", 1);
 
-        PacketHelper.sendRequest("OidbSvcTrpcTcp.0x9082_2", pbData, new IReceiver() {
-            public void onReceive(byte[] resp) {
-                if (resp != null) {
-                    
-                } else {
-                    qqToast(1, "表情回应失败");
-                }
-            }
-        });
+    FunProtoData proto = new FunProtoData();
+    proto.fromJSON(json);
+    byte[] pbData = proto.toBytes();
 
-    } catch (Exception e) {
-        qqToast(1, "发送异常: " + e.getMessage());
-    }
+    PacketHelper.sendRequest("OidbSvcTrpcTcp.0x9082_2", pbData, new IReceiver() {
+        public void onReceive(byte[] resp) {
+            if (resp == null) qqToast(1, "表情回应失败");
+        }
+    });
 }
 
 private List parseFaceConfig(String cfg) {
@@ -1023,7 +1011,6 @@ void showVoiceSendDialog(Object data) {
     Activity act = safeActivity();
     if (act == null || act.isFinishing()) return;
 
-    
     if (data == null || data.type != 2) {
         qqToast(1, "仅支持群聊");
         return;
@@ -1034,169 +1021,145 @@ void showVoiceSendDialog(Object data) {
     final String groupName = (data.data != null && data.data.peerName != null)
             ? (String) data.data.peerName : "未知群";
 
-    
-    final JSONArray voiceArray;
-    try {
-        String jsonStr = "{\n" +
-                "  \"code\": 0,\n" +
-                "  \"status\": \"success\",\n" +
-                "  \"msg\": \"音色列表\",\n" + 
-                "  \"data\": [\n" +
-                "    {\"name\": \"小新\", \"id\": \"lucy-voice-laibixiaoxin\"},\n" +
-                "    {\"name\": \"猴哥\", \"id\": \"lucy-voice-houge\"},\n" +
-                "    {\"name\": \"四郎\", \"id\": \"lucy-voice-silang\"},\n" +
-                "    {\"name\": \"东北老妹儿\", \"id\": \"lucy-voice-guangdong-f1\"},\n" +
-                "    {\"name\": \"广西大表哥\", \"id\": \"lucy-voice-guangxi-m1\"},\n" +
-                "    {\"name\": \"妲己\", \"id\": \"lucy-voice-daji\"},\n" +
-                "    {\"name\": \"霸道总裁\", \"id\": \"lucy-voice-lizeyan\"},\n" +
-                "    {\"name\": \"酥心御姐\", \"id\": \"lucy-voice-suxinjiejie\"},\n" +
-                "    {\"name\": \"说书先生\", \"id\": \"lucy-voice-m8\"},\n" +
-                "    {\"name\": \"憨憨小弟\", \"id\": \"lucy-voice-male1\"},\n" +
-                "    {\"name\": \"憨厚老哥\", \"id\": \"lucy-voice-male3\"},\n" +
-                "    {\"name\": \"吕布\", \"id\": \"lucy-voice-lvbu\"},\n" +
-                "    {\"name\": \"元气少女\", \"id\": \"lucy-voice-xueling\"},\n" +
-                "    {\"name\": \"文艺少女\", \"id\": \"lucy-voice-f37\"},\n" +
-                "    {\"name\": \"磁性大叔\", \"id\": \"lucy-voice-male2\"},\n" +
-                "    {\"name\": \"邻家小妹\", \"id\": \"lucy-voice-female1\"},\n" +
-                "    {\"name\": \"低沉男声\", \"id\": \"lucy-voice-m14\"},\n" +
-                "    {\"name\": \"傲娇少女\", \"id\": \"lucy-voice-f38\"},\n" +
-                "    {\"name\": \"爹系男友\", \"id\": \"lucy-voice-m101\"},\n" +
-                "    {\"name\": \"暖心姐姐\", \"id\": \"lucy-voice-female2\"},\n" +
-                "    {\"name\": \"温柔妹妹\", \"id\": \"lucy-voice-f36\"},\n" +
-                "    {\"name\": \"书香少女\", \"id\": \"lucy-voice-f34\"}\n" +
-                "  ]\n" +
-                "}";
-        JSONObject root = new JSONObject(jsonStr);
-        voiceArray = root.getJSONArray("data");
-    } catch (Exception e) {
-        qqToast(1, "音色列表解析失败");
-        return;
-    }
+    String[][] voicePresets = {
+        {"小新",       "lucy-voice-laibixiaoxin"},
+        {"猴哥",       "lucy-voice-houge"},
+        {"四郎",       "lucy-voice-silang"},
+        {"东北老妹儿", "lucy-voice-guangdong-f1"},
+        {"广西大表哥", "lucy-voice-guangxi-m1"},
+        {"妲己",       "lucy-voice-daji"},
+        {"霸道总裁",   "lucy-voice-lizeyan"},
+        {"酥心御姐",   "lucy-voice-suxinjiejie"},
+        {"说书先生",   "lucy-voice-m8"},
+        {"憨憨小弟",   "lucy-voice-male1"},
+        {"憨厚老哥",   "lucy-voice-male3"},
+        {"吕布",       "lucy-voice-lvbu"},
+        {"元气少女",   "lucy-voice-xueling"},
+        {"文艺少女",   "lucy-voice-f37"},
+        {"磁性大叔",   "lucy-voice-male2"},
+        {"邻家小妹",   "lucy-voice-female1"},
+        {"低沉男声",   "lucy-voice-m14"},
+        {"傲娇少女",   "lucy-voice-f38"},
+        {"爹系男友",   "lucy-voice-m101"},
+        {"暖心姐姐",   "lucy-voice-female2"},
+        {"温柔妹妹",   "lucy-voice-f36"},
+        {"书香少女",   "lucy-voice-f34"}
+    };
+
+    final JSONArray voiceArray = new JSONArray();
+    Arrays.stream(voicePresets).forEach(p -> voiceArray.put(new JSONObject().put("name", p[0]).put("id", p[1])));
 
     act.runOnUiThread(new Runnable() {
         public void run() {
-            try {
-                boolean isDark = isThemeDark(act);
-                int textColor = tc(act, "on_surface");
-                int subTextColor = tc(act, "on_surface_variant");
-                int accentColor = tc(act, "primary");
-                int borderColor = adjustAlpha(textColor, 0.3f);
+            boolean isDark = isThemeDark(act);
+            int textColor = tc(act, "on_surface");
+            int subTextColor = tc(act, "on_surface_variant");
+            int accentColor = tc(act, "primary");
 
-                LinearLayout root = new LinearLayout(act);
-                root.setOrientation(LinearLayout.VERTICAL);
-                root.setPadding(dp(act, 16), dp(act, 20), dp(act, 16), dp(act, 16));
+            LinearLayout root = new LinearLayout(act);
+            root.setOrientation(LinearLayout.VERTICAL);
+            root.setPadding(dp(act, 16), dp(act, 20), dp(act, 16), dp(act, 16));
 
-                
-                TextView groupInfo = new TextView(act);
-                groupInfo.setText("群聊：" + groupName + "(" + groupUin + ")");
-                groupInfo.setTextSize(15);
-                groupInfo.setTextColor(textColor);
-                groupInfo.setPadding(0, 0, 0, dp(act, 16));
-                root.addView(groupInfo);
+            TextView groupInfo = new TextView(act);
+            groupInfo.setText("群聊：" + groupName + "(" + groupUin + ")");
+            groupInfo.setTextSize(15);
+            groupInfo.setTextColor(textColor);
+            groupInfo.setPadding(0, 0, 0, dp(act, 16));
+            root.addView(groupInfo);
 
-                
-                LinearLayout voiceRow = new LinearLayout(act);
-                voiceRow.setOrientation(LinearLayout.HORIZONTAL);
-                voiceRow.setGravity(Gravity.CENTER_VERTICAL);
-                voiceRow.setPadding(0, 0, 0, dp(act, 12));
+            LinearLayout voiceRow = new LinearLayout(act);
+            voiceRow.setOrientation(LinearLayout.HORIZONTAL);
+            voiceRow.setGravity(Gravity.CENTER_VERTICAL);
+            voiceRow.setPadding(0, 0, 0, dp(act, 12));
 
-                TextView voiceLabel = new TextView(act);
-                voiceLabel.setText("音色ID：");
-                voiceLabel.setTextSize(14);
-                voiceLabel.setTextColor(subTextColor);
-                voiceLabel.setPadding(0, 0, dp(act, 8), 0);
-                voiceRow.addView(voiceLabel);
+            TextView voiceLabel = new TextView(act);
+            voiceLabel.setText("音色ID：");
+            voiceLabel.setTextSize(14);
+            voiceLabel.setTextColor(subTextColor);
+            voiceLabel.setPadding(0, 0, dp(act, 8), 0);
+            voiceRow.addView(voiceLabel);
 
-                final EditText etVoiceId = makeInput(act, "可手动输入或点击选择", null);
-                etVoiceId.setSingleLine(true);
-                etVoiceId.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
-                voiceRow.addView(etVoiceId);
+            final EditText etVoiceId = makeInput(act, "可手动输入或点击选择", null);
+            etVoiceId.setSingleLine(true);
+            etVoiceId.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+            voiceRow.addView(etVoiceId);
 
-                TextView selectBtn = createButton(act, "选择", accentColor, Color.TRANSPARENT, 14f, 0, 16, 8, false, 0, 0, null);
-                voiceRow.addView(selectBtn);
+            TextView selectBtn = createButton(act, "选择", accentColor, Color.TRANSPARENT, 14f, 0, 16, 8, false, 0, 0, null);
+            voiceRow.addView(selectBtn);
 
-                root.addView(voiceRow);
+            root.addView(voiceRow);
 
-                
-                final TextView tvVoiceName = new TextView(act);
-                tvVoiceName.setTextSize(12);
-                tvVoiceName.setTextColor(subTextColor);
-                tvVoiceName.setPadding(dp(act, 4), 0, 0, dp(act, 12));
-                root.addView(tvVoiceName);
+            final TextView tvVoiceName = new TextView(act);
+            tvVoiceName.setTextSize(12);
+            tvVoiceName.setTextColor(subTextColor);
+            tvVoiceName.setPadding(dp(act, 4), 0, 0, dp(act, 12));
+            root.addView(tvVoiceName);
 
-                
-                TextView textLabel = new TextView(act);
-                textLabel.setText("语音文本：");
-                textLabel.setTextSize(14);
-                textLabel.setTextColor(subTextColor);
-                textLabel.setPadding(0, 0, 0, dp(act, 4));
-                root.addView(textLabel);
+            TextView textLabel = new TextView(act);
+            textLabel.setText("语音文本：");
+            textLabel.setTextSize(14);
+            textLabel.setTextColor(subTextColor);
+            textLabel.setPadding(0, 0, 0, dp(act, 4));
+            root.addView(textLabel);
 
-                final EditText etText = makeInput(act, "请输入要转为语音的文本", null);
-                etText.setText(msg);
-                etText.setMinLines(3);
-                root.addView(etText);
+            final EditText etText = makeInput(act, "请输入要转为语音的文本", null);
+            etText.setText(msg);
+            etText.setMinLines(3);
+            root.addView(etText);
 
-                
-                LinearLayout btnRow = new LinearLayout(act);
-                btnRow.setOrientation(LinearLayout.HORIZONTAL);
-                btnRow.setPadding(0, dp(act, 20), 0, 0);
-                btnRow.setGravity(Gravity.RIGHT);
+            LinearLayout btnRow = new LinearLayout(act);
+            btnRow.setOrientation(LinearLayout.HORIZONTAL);
+            btnRow.setPadding(0, dp(act, 20), 0, 0);
+            btnRow.setGravity(Gravity.RIGHT);
 
-                TextView cancelBtn = createButton(act, "取消", subTextColor, Color.TRANSPARENT, 14f, 0, 16, 10, false, 0, 0, null);
-                cancelBtn.setOnClickListener(new View.OnClickListener() {
-                    public void onClick(View v) {
-                        if (ref[0] != null) ref[0].dismiss();
+            TextView cancelBtn = createButton(act, "取消", subTextColor, Color.TRANSPARENT, 14f, 0, 16, 10, false, 0, 0, null);
+            cancelBtn.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    if (ref[0] != null) ref[0].dismiss();
+                }
+            });
+
+            TextView sendBtn = createButton(act, "发送", accentColor, Color.TRANSPARENT, 14f, 0, 16, 10, false, 0, 0, null);
+
+            btnRow.addView(cancelBtn);
+            btnRow.addView(sendBtn);
+            root.addView(btnRow);
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(act,
+                    isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
+            builder.setView(root);
+            final AlertDialog[] ref = new AlertDialog[1];
+            ref[0] = builder.create();
+            ref[0].show();
+            applyUiTheme(act, ref[0], 0);
+
+            selectBtn.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    showVoiceListDialog(act, voiceArray, etVoiceId, tvVoiceName);
+                }
+            });
+
+            sendBtn.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    String voiceId = etVoiceId.getText().toString().trim();
+                    if (voiceId.isEmpty()) {
+                        qqToast(1, "请输入或选择音色ID");
+                        return;
                     }
-                });
-
-                TextView sendBtn = createButton(act, "发送", accentColor, Color.TRANSPARENT, 14f, 0, 16, 10, false, 0, 0, null);
-
-                btnRow.addView(cancelBtn);
-                btnRow.addView(sendBtn);
-                root.addView(btnRow);
-
-                AlertDialog.Builder builder = new AlertDialog.Builder(act,
-                        isDark ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-                builder.setView(root);
-                final AlertDialog[] ref = new AlertDialog[1];
-                ref[0] = builder.create();
-                ref[0].show();
-                applyUiTheme(act, ref[0], 0);
-
-                
-                selectBtn.setOnClickListener(new View.OnClickListener() {
-                    public void onClick(View v) {
-                        showVoiceListDialog(act, voiceArray, etVoiceId, tvVoiceName);
+                    String text = etText.getText().toString().trim();
+                    if (text.isEmpty()) {
+                        qqToast(1, "请输入文本");
+                        return;
                     }
-                });
+                    ref[0].dismiss();
 
-                
-                sendBtn.setOnClickListener(new View.OnClickListener() {
-                    public void onClick(View v) {
-                        String voiceId = etVoiceId.getText().toString().trim();
-                        if (voiceId.isEmpty()) {
-                            qqToast(1, "请输入或选择音色ID");
-                            return;
+                    ThreadPool.execute(new Runnable() {
+                        public void run() {
+                            sendVoiceMessage(groupUin, voiceId, text);
                         }
-                        String text = etText.getText().toString().trim();
-                        if (text.isEmpty()) {
-                            qqToast(1, "请输入文本");
-                            return;
-                        }
-                        ref[0].dismiss();
-
-                        ThreadPool.execute(new Runnable() {
-                            public void run() {
-                                sendVoiceMessage(groupUin, voiceId, text);
-                            }
-                        });
-                    }
-                });
-
-            } catch (Exception e) {
-                qqToast(1, "弹窗显示失败");
-            }
+                    });
+                }
+            });
         }
     });
 }

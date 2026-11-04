@@ -1830,6 +1830,7 @@ public void bindStatsViewCache(final View rootView) {
     SC.msgHandle.postDelayed(new Runnable() {
         public void run() {
             try {
+                if (!SC.pageVisible || SC.contentRoot != rootView) return;
                 if (SC.statsTextViewCache == null) SC.statsTextViewCache = new ArrayList();
                 SC.statsTextViewCache.clear();
                 collectTextViewsWithTag(rootView, SC.statsTextViewCache);

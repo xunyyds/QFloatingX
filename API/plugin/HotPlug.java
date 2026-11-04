@@ -3241,6 +3241,9 @@ rebuildRegistry();
 
 
 public View buildHotPlugContentView(final Activity a, String gid, String uname, boolean fillParent) {
+    return buildHotPlugContentView(a, gid, uname, fillParent, null);
+}
+public View buildHotPlugContentView(final Activity a, String gid, String uname, boolean fillParent, final Object ctx) {
     if (a == null) return null;
     isAdding = false;
     final String g = gid == null ? "" : gid;
@@ -3310,8 +3313,10 @@ public View buildHotPlugContentView(final Activity a, String gid, String uname, 
     final int[] renderToken = {0};
     final Runnable refreshCallback = new Runnable() {
         public void run() {
+            if (ctx != null && ctx.disposed) return;
             a.runOnUiThread(new Runnable() {
                 public void run() {
+                    if (ctx != null && ctx.disposed) return;
                     final int token = ++renderToken[0];
                     ThreadPool.execute(new Runnable() {
                         public void run() {
@@ -3350,7 +3355,11 @@ public View buildHotPlugContentView(final Activity a, String gid, String uname, 
                                                             rendered++;
                                                         }
                                                     }
-                                                    if (index[0] < fs.length) lst.postDelayed(batch[0], 16);
+                                                    if (ctx != null && ctx.disposed) return;
+                                                    if (index[0] < fs.length) {
+                                                        if (ctx != null) ctx.handler.postDelayed(batch[0], 16);
+                                                        else lst.postDelayed(batch[0], 16);
+                                                    }
                                                     else swipe.setRefreshing(false);
                                                 } catch (Throwable e) {
                                                     traceLog("function_log", "[热插拔列表] 分批渲染失败: " + e);
@@ -3403,8 +3412,8 @@ public View buildHotPlugContentView(final Activity a, String gid, String uname, 
         });
     }
 
-    root.postDelayed(new Runnable() {
-        public void run() { refreshCallback.run(); }
-    }, 96);
+    Runnable initialRender = new Runnable() { public void run() { refreshCallback.run(); } };
+    if (ctx != null) ctx.handler.postDelayed(initialRender, 96);
+    else root.postDelayed(initialRender, 96);
     return root;
 }

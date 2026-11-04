@@ -261,26 +261,26 @@ private void sendQzoneComment(String orglikekey, String curlikekey, String userU
 checkAndStartOrStopThread();
 
 
-void buildQzoneSettingsView(final Activity act) {
-    if (act == null) return;
+View buildQzoneSettingsView(Object ctx) {
+    final Activity act = ctx.activity;
 
-    addSettingsCategory("开关", "");
-    addSettingsItemSwitchWithKey("秒赞", "qzone_cfg", "switch_like", "自动给好友说说点赞", getBoolean("qzone_cfg", "switch_like", false), new Runnable() {
+    addSettingsCategory(ctx, "开关", "");
+    addSettingsItemSwitchWithKey(ctx, "秒赞", "qzone_cfg", "switch_like", "自动给好友说说点赞", getBoolean("qzone_cfg", "switch_like", false), new Runnable() {
         public void run() { checkAndStartOrStopThread(); }
     });
-    addSettingsItemSwitchWithKey("秒评", "qzone_cfg", "switch_comment", "自动评论好友说说", getBoolean("qzone_cfg", "switch_comment", false), new Runnable() {
+    addSettingsItemSwitchWithKey(ctx, "秒评", "qzone_cfg", "switch_comment", "自动评论好友说说", getBoolean("qzone_cfg", "switch_comment", false), new Runnable() {
         public void run() { checkAndStartOrStopThread(); }
     });
 
-    addSettingsCategory("评论内容", "");
-    addSettingsInputItemWithConfig("评论内容", "自动评论使用的文字（≤100 字）", "qzone_cfg", "comment", "我来暖说说啦！", "我来暖说说啦！", true, false, null);
+    addSettingsCategory(ctx, "评论内容", "");
+    addSettingsInputItemWithConfig(ctx, "评论内容", "自动评论使用的文字（≤100 字）", "qzone_cfg", "comment", "我来暖说说啦！", "我来暖说说啦！", true, false, null);
 
-    addSettingsCategory("间隔设置", "");
-    addSettingsInputItemWithConfig("拉取列表后延迟", "毫秒，建议 3000~15000", "qzone_cfg", "fetch_delay_ms", "毫秒", "5000", false, true, null);
-    addSettingsInputItemWithConfig("每条说说间隔", "毫秒，建议 500~5000", "qzone_cfg", "feed_interval_ms", "毫秒", "1000", false, true, null);
+    addSettingsCategory(ctx, "间隔设置", "");
+    addSettingsInputItemWithConfig(ctx, "拉取列表后延迟", "毫秒，建议 3000~15000", "qzone_cfg", "fetch_delay_ms", "毫秒", "5000", false, true, null);
+    addSettingsInputItemWithConfig(ctx, "每条说说间隔", "毫秒，建议 500~5000", "qzone_cfg", "feed_interval_ms", "毫秒", "1000", false, true, null);
 
-    addSettingsCategory("黑名单", "");
-    addSettingsItemChoiceWithKey("设置黑名单", "qzone_blacklist_count", "已屏蔽 " + blackList.size() + " 人", new Runnable() {
+    addSettingsCategory(ctx, "黑名单", "");
+    addSettingsItemChoiceWithKey(ctx, "设置黑名单", "qzone_blacklist_count", "已屏蔽 " + blackList.size() + " 人", new Runnable() {
         public void run() {
             final ArrayList initSel = new ArrayList(blackList);
             showGroupSelector(act, 1, initSel, new GroupSelectCallback() {
@@ -288,9 +288,10 @@ void buildQzoneSettingsView(final Activity act) {
                     blackList.clear();
                     if (selected != null) blackList.addAll(selected);
                     saveBlackList();
-                    updateSettingsItemText("qzone_blacklist_count", "已屏蔽 " + blackList.size() + " 人");
+                    updateSettingsItemText(ctx, "qzone_blacklist_count", "已屏蔽 " + blackList.size() + " 人");
                 }
             });
         }
     });
-}
+
+    return ctx.listContainer;}

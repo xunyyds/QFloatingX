@@ -72,37 +72,24 @@ class SettingsPinyinUtil {
     }
 }
 class SettingsState {
-    static LinearLayout settingsListContainer;
-    static Map settingsCategoryContainers;
-    static Map settingsItemTextViews;
     static boolean settingsActivityRegistered;
-    static TextView settingsWelcomeView;
-    static boolean settingsIndexMode;
     static float settingsHostDensity;
-    static List settingsCategories;
-    static List settingsSubPages;
     static View settingsHighlightView;
-    static Map settingsItemViews;
-    static ScrollView settingsScrollView;
     static String settingsPendingHighlightKey;
     static int settingsPendingHighlightDepth = -1;
     static Activity settingsCurrentActivityRef;
     static int settingsActivityAliveCount = 0;
     static Map settingsItemMeta;
-    static String settingsCurrentLevel1;
-    static String settingsCurrentLevel2;
-    static String settingsCurrentLevel3;
-    static String settingsCurrentCategory;
     static long settingsSearchToken;
     static String settingsHistoryRaw;
     static boolean settingsIndexReady;
+    static final Object settingsIndexLock = new Object();
+    static Map settingsFeatureRegistry;
     static String settingsNavLevel1;
     static String settingsNavLevel2;
     static String settingsNavLevel3;
     static String settingsNavHighlightKey;
     static String settingsNavQuery;
-    static Map settingsFeatureBuilders;
-    static Map settingsFeatureRaw;
     static int[] pinyinBoundaries = {
         0xB0A1, 0xB0C5, 0xB2C1, 0xB4EE, 0xB6EA, 0xB7A2, 0xB8C1, 0xB9FE,
         0xBBF7, 0xBFA6, 0xC0AC, 0xC2E8, 0xC4C3, 0xC5B6, 0xC5BE, 0xC6DA,
@@ -118,16 +105,82 @@ class SettingsHistoryEntry {
     int count;
     long time;
 }
-class SettingsPage {
-    String level1;
-    String level2;
-    String level3;
-    View pageView;
+class SettingsPageType {
+    static final int SETTINGS = 0;
+    static final int CUSTOM = 1;
+    static final int FULL_CONTENT = 2;
+}
+class SettingsFeaturePage {
+    String id;
+    String category;
+    String name;
+    String description;
+    String itemKey;
+    int type;
+    SettingsFeatureBuilder builder;
+    SettingsFeaturePage(String category, String name, String description, String itemKey, int type, SettingsFeatureBuilder builder) {
+        this.id = (category == null ? "" : category) + "|" + name;
+        this.category = category;
+        this.name = name;
+        this.description = description;
+        this.itemKey = itemKey;
+        this.type = type;
+        this.builder = builder;
+    }
+}
+class SettingsBuildContext {
+    final Activity activity;
+    final String level1;
+    final String level2;
+    final String level3;
+    String currentCategory;
     LinearLayout listContainer;
     ScrollView scrollView;
-    Map categoryContainers;
-    Map itemViews;
-    Map itemTextViews;
+    final Map categoryContainers = new HashMap();
+    final Map itemViews = new HashMap();
+    final Map itemTextViews = new HashMap();
+    final Map itemMeta = new HashMap();
+    TextView welcomeView;
+    final Handler handler = new Handler(Looper.getMainLooper());
+    boolean disposed;
+    SettingsBuildContext(Activity activity, String level1, String level2, String level3) {
+        this.activity = activity;
+        this.level1 = level1;
+        this.level2 = level2;
+        this.level3 = level3;
+        listContainer = new LinearLayout(activity);
+        listContainer.setOrientation(LinearLayout.VERTICAL);
+    }
+    void dispose() {
+        disposed = true;
+        handler.removeCallbacksAndMessages(null);
+        categoryContainers.clear();
+        itemViews.clear();
+        itemTextViews.clear();
+        itemMeta.clear();
+        welcomeView = null;
+        listContainer = null;
+        scrollView = null;
+    }
+}
+class SettingsPage extends SettingsBuildContext {
+    View pageView;
+    View contentView;
+    Object feature;
+    boolean dirty;
+    SettingsPage(Activity activity, String level1, String level2, String level3) {
+        super(activity, level1, level2, level3);
+    }
+}
+Object settingsContextForActivity(Activity activity) {
+    if (!(activity instanceof SettingsActivity)) return null;
+    return ((SettingsActivity) activity).settingsTopPage();
+}
+void refreshSettingsPage(Object ctx) {
+    if (ctx == null || ctx.disposed) return;
+    SettingsActivity activity = (SettingsActivity) ctx.activity;
+    if (activity.settingsTopPage() == ctx) activity.settingsRebuildTopPage();
+    else if (ctx instanceof SettingsPage) ((SettingsPage) ctx).dirty = true;
 }
 interface SoftSliderListener {
     void onSoftSliderChanged(int value, boolean fromUser);
@@ -517,23 +570,21 @@ int getSettingsFooterBg(Activity activity) {
 }
 
 
-String settingsAutoItemKey(String itemName) {
-    String l1 = SettingsState.settingsCurrentLevel1;
-    String l2 = SettingsState.settingsCurrentLevel2;
-    String cat = SettingsState.settingsCurrentCategory;
+String settingsAutoItemKey(Object ctx, String itemName) {
+    String l1 = ctx.level1;
+    String l2 = ctx.level2;
+    String cat = ctx.currentCategory;
     return (l1 == null ? "" : l1 + "_") + (l2 == null ? "" : l2 + "_") + (cat == null ? "" : cat + "_") + (itemName == null ? "" : itemName);
 }
-LinearLayout settingsCurrentCategoryContainer() {
-    String cat = SettingsState.settingsCurrentCategory;
-    if (cat == null || SettingsState.settingsCategoryContainers == null) return null;
-    return (LinearLayout) SettingsState.settingsCategoryContainers.get(cat);
+LinearLayout settingsCurrentCategoryContainer(Object ctx) {
+    String cat = ctx.currentCategory;
+    if (cat == null || ctx.categoryContainers == null) return null;
+    return (LinearLayout) ctx.categoryContainers.get(cat);
 }
-void addSettingsCategory(String titleText, String descriptionText) {
-    SettingsState.settingsCurrentCategory = titleText;
-    if (SettingsState.settingsIndexMode) return;
-    if (SettingsState.settingsListContainer == null) return;
-    Activity activity = getSettingsCurrentActivity();
-    if (activity == null) return;
+void addSettingsCategory(Object ctx, String titleText, String descriptionText) {
+    ctx.currentCategory = titleText;
+    if (ctx.listContainer == null) return;
+    Activity activity = ctx.activity;
 
     boolean isDark = isThemeDark(activity);
 
@@ -545,7 +596,7 @@ void addSettingsCategory(String titleText, String descriptionText) {
     categoryTitle.setPadding(dp(activity, 28), dp(activity, 20), dp(activity, 16), dp(activity, 8));
 
     LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, -2);
-    SettingsState.settingsListContainer.addView(categoryTitle, titleParams);
+    ctx.listContainer.addView(categoryTitle, titleParams);
 
     if (descriptionText != null && !descriptionText.isEmpty()) {
         TextView categoryDesc = new TextView(activity);
@@ -555,7 +606,7 @@ void addSettingsCategory(String titleText, String descriptionText) {
         categoryDesc.setPadding(dp(activity, 28), 0, dp(activity, 16), dp(activity, 8));
 
         LinearLayout.LayoutParams descParams = new LinearLayout.LayoutParams(-1, -2);
-        SettingsState.settingsListContainer.addView(categoryDesc, descParams);
+        ctx.listContainer.addView(categoryDesc, descParams);
     }
 
     LinearLayout categoryContainer = new LinearLayout(activity);
@@ -566,20 +617,18 @@ void addSettingsCategory(String titleText, String descriptionText) {
 
     LinearLayout.LayoutParams containerParams = new LinearLayout.LayoutParams(-1, -2);
     containerParams.setMargins(dp(activity, 12), 0, dp(activity, 12), dp(activity, 8));
-    SettingsState.settingsListContainer.addView(categoryContainer, containerParams);
+    ctx.listContainer.addView(categoryContainer, containerParams);
 
-    if (SettingsState.settingsCategoryContainers == null) SettingsState.settingsCategoryContainers = new HashMap();
-    SettingsState.settingsCategoryContainers.put(titleText, categoryContainer);
-    SettingsState.settingsCurrentCategory = titleText;
+    ctx.categoryContainers.put(titleText, categoryContainer);
+    ctx.currentCategory = titleText;
 }
-void addSettingsItemClickWithKey(String itemName, String descriptionText, final Runnable clickCallback) {
-    String itemKey = settingsAutoItemKey(itemName);
-    if (SettingsState.settingsIndexMode) { registerSettingsIndexEntry(itemKey, itemName, descriptionText, "click"); return; }
-    if (SettingsState.settingsCategoryContainers == null) return;
-    Activity activity = getSettingsCurrentActivity();
+void addSettingsItemClickWithKey(Object ctx, String itemName, String descriptionText, final Runnable clickCallback) {
+    String itemKey = settingsAutoItemKey(ctx, itemName);
+    if (ctx.categoryContainers == null) return;
+    Activity activity = ctx.activity;
     if (activity == null) return;
 
-    LinearLayout container = settingsCurrentCategoryContainer();
+    LinearLayout container = settingsCurrentCategoryContainer(ctx);
     if (container == null) return;
 
     boolean isDark = isThemeDark(activity);
@@ -633,31 +682,19 @@ void addSettingsItemClickWithKey(String itemName, String descriptionText, final 
 	        }
 	    }
 	});
-    if (itemKey != null && !itemKey.isEmpty() && SettingsState.settingsItemViews != null) {
-        SettingsState.settingsItemViews.put(itemKey, itemWrapper);
+    if (itemKey != null && !itemKey.isEmpty() && ctx.itemViews != null) {
+        ctx.itemViews.put(itemKey, itemWrapper);
     }
 
-    if (itemKey != null && !itemKey.isEmpty() && SettingsState.settingsItemMeta != null && !SettingsState.settingsItemMeta.containsKey(itemKey)) {
-        SettingsState.settingsItemMeta.put(itemKey, new SettingsItemMeta(
-        itemName, 
-        descriptionText, 
-        SettingsState.settingsCurrentLevel1, 
-        SettingsState.settingsCurrentLevel2, 
-        SettingsState.settingsCurrentLevel3, 
-        SettingsState.settingsCurrentCategory,  
-        "click"
-        ));
-     }
     container.addView(itemWrapper);
 }
-void addSettingsItemChoiceWithKey(String itemName, String configKey, String valueText, final Runnable clickCallback) {
-    String itemKey = settingsAutoItemKey(itemName);
-    if (SettingsState.settingsIndexMode) { registerSettingsIndexEntry(itemKey, itemName, null, "choice"); return; }
-    if (SettingsState.settingsCategoryContainers == null) return;
-    Activity activity = getSettingsCurrentActivity();
+void addSettingsItemChoiceWithKey(Object ctx, String itemName, String configKey, String valueText, final Runnable clickCallback) {
+    String itemKey = settingsAutoItemKey(ctx, itemName);
+    if (ctx.categoryContainers == null) return;
+    Activity activity = ctx.activity;
     if (activity == null) return;
 
-    LinearLayout container = settingsCurrentCategoryContainer();
+    LinearLayout container = settingsCurrentCategoryContainer(ctx);
     if (container == null) return;
 
     FrameLayout itemWrapper = new FrameLayout(activity);
@@ -693,8 +730,7 @@ void addSettingsItemChoiceWithKey(String itemName, String configKey, String valu
     valueView.setPadding(0, dp(activity, 2), 0, 0);
     itemLayout.addView(valueView);
 
-    if (SettingsState.settingsItemTextViews == null) SettingsState.settingsItemTextViews = new HashMap();
-    SettingsState.settingsItemTextViews.put(configKey, valueView);
+    ctx.itemTextViews.put(configKey, valueView);
 
     itemWrapper.addView(itemLayout);
 
@@ -711,39 +747,28 @@ void addSettingsItemChoiceWithKey(String itemName, String configKey, String valu
 	        }
 	    }
 	});
-    if (itemKey != null && !itemKey.isEmpty() && SettingsState.settingsItemViews != null) {
-        SettingsState.settingsItemViews.put(itemKey, itemWrapper);
+    if (itemKey != null && !itemKey.isEmpty() && ctx.itemViews != null) {
+        ctx.itemViews.put(itemKey, itemWrapper);
     }
 
-    if (itemKey != null && !itemKey.isEmpty() && SettingsState.settingsItemMeta != null && !SettingsState.settingsItemMeta.containsKey(itemKey)) {
-        SettingsState.settingsItemMeta.put(itemKey, new SettingsItemMeta(
-            itemName, null,
-            SettingsState.settingsCurrentLevel1,
-            SettingsState.settingsCurrentLevel2,
-            SettingsState.settingsCurrentLevel3,
-            SettingsState.settingsCurrentCategory,
-            "choice"
-        ));
-    }
 
     container.addView(itemWrapper);
 }
-void updateSettingsItemText(String updateKey, String newText) {
-    if (SettingsState.settingsItemTextViews != null && SettingsState.settingsItemTextViews.containsKey(updateKey)) {
-        TextView textView = (TextView) SettingsState.settingsItemTextViews.get(updateKey);
+void updateSettingsItemText(Object ctx, String updateKey, String newText) {
+    if (ctx.itemTextViews != null && ctx.itemTextViews.containsKey(updateKey)) {
+        TextView textView = (TextView) ctx.itemTextViews.get(updateKey);
         if (textView != null) {
             textView.setText(newText);
         }
     }
 }
-void addSettingsItemSwitchWithKey(String itemName, String configName, String keyName, String descriptionText, boolean currentValue, final Runnable switchCallback) {
-	String itemKey = settingsAutoItemKey(itemName);
-	if (SettingsState.settingsIndexMode) { registerSettingsIndexEntry(itemKey, itemName, descriptionText, "switch"); return; }
-	if (SettingsState.settingsCategoryContainers == null) return;
-	Activity activity = getSettingsCurrentActivity();
+void addSettingsItemSwitchWithKey(Object ctx, String itemName, String configName, String keyName, String descriptionText, boolean currentValue, final Runnable switchCallback) {
+	String itemKey = settingsAutoItemKey(ctx, itemName);
+	if (ctx.categoryContainers == null) return;
+	Activity activity = ctx.activity;
 	if (activity == null) return;
 
-	LinearLayout container = settingsCurrentCategoryContainer();
+	LinearLayout container = settingsCurrentCategoryContainer(ctx);
 	if (container == null) return;
 
 	FrameLayout itemWrapper = new FrameLayout(activity);
@@ -802,28 +827,16 @@ void addSettingsItemSwitchWithKey(String itemName, String configName, String key
 		itemWrapper.setClickable(false);
 	}
 
-	if (itemKey != null && !itemKey.isEmpty() && SettingsState.settingsItemViews != null) {
-		SettingsState.settingsItemViews.put(itemKey, itemWrapper);
-	}
-
-	if (itemKey != null && !itemKey.isEmpty() && SettingsState.settingsItemMeta != null && !SettingsState.settingsItemMeta.containsKey(itemKey)) {
-		SettingsState.settingsItemMeta.put(itemKey, new SettingsItemMeta(
-			itemName, descriptionText,
-			SettingsState.settingsCurrentLevel1,
-			SettingsState.settingsCurrentLevel2,
-			SettingsState.settingsCurrentLevel3,
-			SettingsState.settingsCurrentCategory,
-			"switch"
-		));
+	if (itemKey != null && !itemKey.isEmpty() && ctx.itemViews != null) {
+		ctx.itemViews.put(itemKey, itemWrapper);
 	}
 
 	container.addView(itemWrapper);
 }
-void addSettingsInputItemWithConfig(String itemName, String descriptionText, final String configName, final String keyName, String hintText, String defaultValue, boolean multiLine, boolean numeric, final Runnable onValueChanged) {
-    String itemKey = settingsAutoItemKey(itemName);
-    if (SettingsState.settingsIndexMode) { registerSettingsIndexEntry(itemKey, itemName, descriptionText, "input"); return; }
-    if (SettingsState.settingsCategoryContainers == null) return;
-    Activity activity = getSettingsCurrentActivity();
+void addSettingsInputItemWithConfig(Object ctx, String itemName, String descriptionText, final String configName, final String keyName, String hintText, String defaultValue, boolean multiLine, boolean numeric, final Runnable onValueChanged) {
+    String itemKey = settingsAutoItemKey(ctx, itemName);
+    if (ctx.categoryContainers == null) return;
+    Activity activity = ctx.activity;
     if (activity == null) return;
 
     int defaultNumber = 0;
@@ -875,7 +888,7 @@ void addSettingsInputItemWithConfig(String itemName, String descriptionText, fin
             final String value = editable != null ? editable.toString().trim() : "";
             inputToken[0] = System.currentTimeMillis();
             final long token = inputToken[0];
-            uiHandler.postDelayed(new Runnable() {
+            ctx.handler.postDelayed(new Runnable() {
                 public void run() {
                     if (token != inputToken[0]) return;
                     if (finalNumeric) {
@@ -896,30 +909,19 @@ void addSettingsInputItemWithConfig(String itemName, String descriptionText, fin
     itemLayout.setBackground(makeFeedbackBg(getAdaptiveCardBg(activity), pc(getSettingsThemeColor(activity, "ripple")), 0));
     itemLayout.setClickable(true);
 
-    if (itemKey != null && !itemKey.isEmpty() && SettingsState.settingsItemViews != null) {
-        SettingsState.settingsItemViews.put(itemKey, itemLayout);
-    }
-    if (itemKey != null && !itemKey.isEmpty() && SettingsState.settingsItemMeta != null && !SettingsState.settingsItemMeta.containsKey(itemKey)) {
-        SettingsState.settingsItemMeta.put(itemKey, new SettingsItemMeta(
-            itemName, descriptionText,
-            SettingsState.settingsCurrentLevel1,
-            SettingsState.settingsCurrentLevel2,
-            SettingsState.settingsCurrentLevel3,
-            SettingsState.settingsCurrentCategory,
-            "input"
-        ));
+    if (itemKey != null && !itemKey.isEmpty() && ctx.itemViews != null) {
+        ctx.itemViews.put(itemKey, itemLayout);
     }
 
-    LinearLayout container = settingsCurrentCategoryContainer();
+    LinearLayout container = settingsCurrentCategoryContainer(ctx);
     if (container != null) {
         container.addView(itemLayout);
     }
 }
-void addSettingsValueSliderItem(String itemName, String descriptionText, String keyName, String hintText, int minValue, int maxValue, int fallbackValue, boolean allowEmpty, String syncKey, String syncTemplate) {
-    String itemKey = settingsAutoItemKey(itemName);
-    if (SettingsState.settingsIndexMode) { registerSettingsIndexEntry(itemKey, itemName, descriptionText, "input"); return; }
-    if (SettingsState.settingsCategoryContainers == null) return;
-    Activity activity = getSettingsCurrentActivity();
+void addSettingsValueSliderItem(Object ctx, String itemName, String descriptionText, String keyName, String hintText, int minValue, int maxValue, int fallbackValue, boolean allowEmpty, String syncKey, String syncTemplate) {
+    String itemKey = settingsAutoItemKey(ctx, itemName);
+    if (ctx.categoryContainers == null) return;
+    Activity activity = ctx.activity;
     if (activity == null) return;
 
     String stored = getString("settings", keyName, "");
@@ -994,7 +996,7 @@ void addSettingsValueSliderItem(String itemName, String descriptionText, String 
         syncing[0] = false;
         putString("settings", finalKeyName, String.valueOf(value));
         if (finalSyncKey != null && finalSyncTemplate != null) {
-            updateSettingsItemText(finalSyncKey, finalSyncTemplate.replace("%d", String.valueOf(value)));
+            updateSettingsItemText(ctx, finalSyncKey, finalSyncTemplate.replace("%d", String.valueOf(value)));
         }
     } };
 
@@ -1006,7 +1008,7 @@ void addSettingsValueSliderItem(String itemName, String descriptionText, String 
             syncing[0] = false;
             putString("settings", finalKeyName, String.valueOf(value));
                 if (finalSyncKey != null && finalSyncTemplate != null) {
-                updateSettingsItemText(finalSyncKey, finalSyncTemplate.replace("%d", String.valueOf(value)));
+                updateSettingsItemText(ctx, finalSyncKey, finalSyncTemplate.replace("%d", String.valueOf(value)));
             }
         }
     });
@@ -1019,7 +1021,7 @@ void addSettingsValueSliderItem(String itemName, String descriptionText, String 
             if (syncing[0]) return;
             inputToken[0] = System.currentTimeMillis();
             final long token = inputToken[0];
-            uiHandler.postDelayed(new Runnable() {
+            ctx.handler.postDelayed(new Runnable() {
                 public void run() {
                     if (token != inputToken[0]) return;
                     save.run();
@@ -1031,46 +1033,25 @@ void addSettingsValueSliderItem(String itemName, String descriptionText, String 
     itemLayout.setBackground(makeFeedbackBg(getAdaptiveCardBg(activity), pc(getSettingsThemeColor(activity, "ripple")), 0));
     itemLayout.setClickable(true);
 
-    if (itemKey != null && !itemKey.isEmpty() && SettingsState.settingsItemViews != null) {
-        SettingsState.settingsItemViews.put(itemKey, itemLayout);
-    }
-    if (itemKey != null && !itemKey.isEmpty() && SettingsState.settingsItemMeta != null && !SettingsState.settingsItemMeta.containsKey(itemKey)) {
-        SettingsState.settingsItemMeta.put(itemKey, new SettingsItemMeta(
-            itemName, descriptionText,
-            SettingsState.settingsCurrentLevel1,
-            SettingsState.settingsCurrentLevel2,
-            SettingsState.settingsCurrentLevel3,
-            SettingsState.settingsCurrentCategory,
-            "input"
-        ));
+    if (itemKey != null && !itemKey.isEmpty() && ctx.itemViews != null) {
+        ctx.itemViews.put(itemKey, itemLayout);
     }
 
-    LinearLayout container = settingsCurrentCategoryContainer();
+    LinearLayout container = settingsCurrentCategoryContainer(ctx);
     if (container != null) {
         container.addView(itemLayout);
     }
 }
-void buildSettingsMenuContent(Activity activity, String level1Title, String level2Title, String level3Title) {
-    if (activity == null) return;
-    if (level1Title == null) {
-        buildSettingsHomeContent(activity);
-        return;
-    }
 
-    if (level2Title == null) {
-        buildLevel2MenuContent(activity, level1Title);
-        return;
-    }
+View buildLevel2MenuContent(Object ctx) {
+    String level1Title = ctx.level1;
+    Activity activity = ctx.activity;
 
-    buildLevel3MenuContent(activity, level1Title, level2Title, level3Title);
-}
-void buildLevel2MenuContent(Activity activity, String level1Title) {
-    if (activity == null || level1Title == null) return;
 
     if ("悬浮窗与快捷".equals(level1Title)) {
-        addSettingsCategory("开关", "");
+        addSettingsCategory(ctx, "开关", "");
         boolean floatState = getBoolean("settings", "开关", false);
-        addSettingsItemSwitchWithKey( "悬浮窗", "settings", "开关", "悬浮球显示", floatState, new Runnable() { public void run() {
+        addSettingsItemSwitchWithKey(ctx,  "悬浮窗", "settings", "开关", "悬浮球显示", floatState, new Runnable() { public void run() {
             Activity act = getSettingsCurrentActivity();
             if (act == null) return;
             boolean on = getBoolean("settings", "开关", false);
@@ -1081,13 +1062,13 @@ void buildLevel2MenuContent(Activity activity, String level1Title) {
             } catch (Throwable e) { traceLog("setwindow_log", "[快捷开关悬浮窗] 异常: " + e); }
         }});
 
-        addSettingsSubPageEntry("悬浮窗与快捷", "悬浮窗设置", "图标 · 大小 · 灵敏度 · 透明度", "item_float_window", "悬浮窗设置");
+        addSettingsFeatureEntry(ctx, level1Title, "悬浮窗设置");
     }
 
     if ("消息与互动".equals(level1Title)) {
-        addSettingsCategory("开关", "");
+        addSettingsCategory(ctx, "开关", "");
         boolean msgStatsState = getBoolean("settings", "消息统计开关", false);
-        addSettingsItemSwitchWithKey( "消息统计", "settings", "消息统计开关", "今日消息计数", msgStatsState, new Runnable() { public void run() {
+        addSettingsItemSwitchWithKey(ctx,  "消息统计", "settings", "消息统计开关", "今日消息计数", msgStatsState, new Runnable() { public void run() {
             boolean on = getBoolean("settings", "消息统计开关", false);
             try {
                 if (on) startWriteThread();
@@ -1095,112 +1076,79 @@ void buildLevel2MenuContent(Activity activity, String level1Title) {
             } catch (Throwable e) { traceLog("setwindow_log", "[消息统计开关] 异常: " + e); }
         }});
         boolean doubleClickMsgState = getBoolean("settings", "双击消息开关", false);
-        addSettingsItemSwitchWithKey( "双击消息", "settings", "双击消息开关", "预览页拦截增强", doubleClickMsgState, null);
-        addSettingsFeaturePage("消息与互动", "消息统计", "查看今日 / 累计数据", "item_msg_stats", false, statsBoardFeatureBuilder());
-        registerSettingsFeaturePage("消息与互动", "消息统计设置", "统计范围 · 类别 · 数据操作", "item_msg_stats_settings", false, statsSettingsFeatureBuilder());
+        addSettingsItemSwitchWithKey(ctx,  "双击消息", "settings", "双击消息开关", "预览页拦截增强", doubleClickMsgState, null);
+        addSettingsFeatureEntry(ctx, "消息与互动", "消息统计");
 
-        addSettingsSubPageEntry("消息与互动", "撤回标记", "重定向已撤回提示 · 文本 · 位置 · 颜色", "item_revoke_mark", "撤回标记");
+        addSettingsFeatureEntry(ctx, level1Title, "撤回标记");
     }
 
     if ("定位与网络".equals(level1Title)) {
-        addSettingsCategory("开关", "");
+        addSettingsCategory(ctx, "开关", "");
         boolean mockLocationState = getBoolean("模拟定位开关", "模拟定位开关", false);
-        addSettingsItemSwitchWithKey( "模拟定位", null, null, "全局定位覆盖", mockLocationState, new Runnable() { public void run() {
+        addSettingsItemSwitchWithKey(ctx,  "模拟定位", null, null, "全局定位覆盖", mockLocationState, new Runnable() { public void run() {
             setMockLocationEnabled(!getBoolean("模拟定位开关", "模拟定位开关", false));
         }});
 
-        addSettingsCategory("经纬度", "");
-        addSettingsLocationBlock("经纬度");
+        addSettingsCategory(ctx, "经纬度", "");
+        addSettingsLocationBlock(ctx, "经纬度");
 
-        addSettingsFeaturePage("定位与网络", "空间操作", "秒赞 · 秒评 · 评论内容", "item_qzone_op", false, new SettingsFeatureBuilder() {
-            public View build(Activity act) {
-                buildQzoneSettingsView((act != null) ? act : getSettingsCurrentActivity());
-                return null;
-            }
-        });
+        addSettingsFeatureEntry(ctx, "定位与网络", "空间操作");
     }
 
     if ("功能扩展".equals(level1Title)) {
-        addSettingsFeaturePage("功能扩展", "功能热插拔", "脚本扩展 · 独立调度", "item_hotplug", true, new SettingsFeatureBuilder() {
-            public View build(Activity act) {
-                Activity current = (act != null) ? act : getSettingsCurrentActivity();
-                if (current == null && context instanceof Activity) current = (Activity) context;
-                if (current == null) return null;
-                String gid = "";
-                String peerName = "";
-                try {
-                    if (current instanceof SettingsActivity) {
-                        SettingsActivity sa = (SettingsActivity) current;
-                        if (sa.settingsChatType == 2) gid = sa.settingsPeerUin;
-                        peerName = sa.settingsPeerName;
-                    } else {
-                        int chatType = current.getIntent().getIntExtra("chatType", 0);
-                        String peerUin = current.getIntent().getStringExtra("peerUin");
-                        String name = current.getIntent().getStringExtra("peerName");
-                        if (chatType == 2 && peerUin != null) gid = peerUin;
-                        if (name != null) peerName = name;
-                    }
-                } catch (Throwable e) { traceLog("setwindow_log", "[功能热插拔] 获取会话上下文失败: " + e); }
-                return buildHotPlugContentView(current, gid, peerName, true);
-            }
-        });
-        addSettingsGridCard("e2", "Java脚本", "QFun 脚本列表", new Runnable() { public void run() { 跳转到页面("me.yxp.qfun.activity.PluginActivity"); }});
-        addSettingsGridCard("e4", "模块设置", "QFun 模块页", new Runnable() { public void run() { 跳转到页面("me.yxp.qfun.activity.SettingActivity"); }});
-        addSettingsGridCard("e5", "取消 / 重载", "卸载或重新加载脚本", new Runnable() { public void run() {
+        addSettingsFeatureEntry(ctx, "功能扩展", "功能热插拔");
+        addSettingsGridCard(ctx, "e2", "Java脚本", "QFun 脚本列表", new Runnable() { public void run() { 跳转到页面("me.yxp.qfun.activity.PluginActivity"); }});
+        addSettingsGridCard(ctx, "e4", "模块设置", "QFun 模块页", new Runnable() { public void run() { 跳转到页面("me.yxp.qfun.activity.SettingActivity"); }});
+        addSettingsGridCard(ctx, "e5", "取消 / 重载", "卸载或重新加载脚本", new Runnable() { public void run() {
             Activity act = getSettingsCurrentActivity();
             if (act != null) showReOrUnDialog(act);
         }});
     }
 
     if ("界面与显示".equals(level1Title)) {
-        addSettingsCategory("界面", "");
-        addSettingsSubPageEntry("界面与显示", "基础模式", "主题、弹窗大小、振动反馈", "item_basic_mode", "基础模式");
-        addSettingsSubPageEntry("界面与显示", "背景样式", "背景类型、颜色、图片", "item_bg_icon", "背景样式");
-        addSettingsSubPageEntry("界面与显示", "字体样式", "字体风格、大小、颜色", "item_font_style", "字体样式");
+        addSettingsCategory(ctx, "界面", "");
+        addSettingsFeatureEntry(ctx, level1Title, "基础模式");
+        addSettingsFeatureEntry(ctx, level1Title, "背景样式");
+        addSettingsFeatureEntry(ctx, level1Title, "字体样式");
 
-        addSettingsCategory("首页", "");
-        addSettingsInputItemWithConfig("欢迎语", "首页顶部显示的文字，留空则显示「欢迎使用」", "settings", "welcome_text", "如: 欢迎使用", "欢迎使用", false, false, new Runnable() { public void run() {
-            if (SettingsState.settingsWelcomeView != null) {
+        addSettingsCategory(ctx, "首页", "");
+        addSettingsInputItemWithConfig(ctx, "欢迎语", "首页顶部显示的文字，留空则显示「欢迎使用」", "settings", "welcome_text", "如: 欢迎使用", "欢迎使用", false, false, new Runnable() { public void run() {
+            if (ctx.welcomeView != null) {
                 String wt = getString("settings", "welcome_text", "欢迎使用");
                 if (wt == null || wt.trim().isEmpty()) wt = "欢迎使用";
-                SettingsState.settingsWelcomeView.setText(wt);
+                ctx.welcomeView.setText(wt);
             }
         }});
     }
 
     if ("提示与通知".equals(level1Title)) {
-        addSettingsCategory("开关", "");
+        addSettingsCategory(ctx, "开关", "");
         boolean loadTipState = getBoolean("settings", "加载提示", false);
-        addSettingsItemSwitchWithKey( "加载提示", "settings", "加载提示", "脚本加载时显示提示", loadTipState, null);
+        addSettingsItemSwitchWithKey(ctx,  "加载提示", "settings", "加载提示", "脚本加载时显示提示", loadTipState, null);
         boolean loadNotifyState = getBoolean("settings", "加载通知", false);
-        addSettingsItemSwitchWithKey( "加载通知", "settings", "加载通知", "脚本加载时发送通知提示", loadNotifyState, null);
+        addSettingsItemSwitchWithKey(ctx,  "加载通知", "settings", "加载通知", "脚本加载时发送通知提示", loadNotifyState, null);
         boolean keepNotifyState = getBoolean("settings", "常驻通知", false);
-        addSettingsItemSwitchWithKey( "常驻通知", "settings", "常驻通知", "后台常驻「运行中」通知", keepNotifyState, null);
+        addSettingsItemSwitchWithKey(ctx,  "常驻通知", "settings", "常驻通知", "后台常驻「运行中」通知", keepNotifyState, null);
 
-        addSettingsSubPageEntry("提示与通知", "toast设置", "吐司提示开关与样式", "item_toast_hint", "提示");
+        addSettingsFeatureEntry(ctx, level1Title, "提示");
     }
 
     if ("性能与调试".equals(level1Title)) {
-        addSettingsSubPageEntry("性能与调试", "线程池", "优先级、队列、满载策略", "item_thread_pool", "线程池");
-        addSettingsFeaturePage("性能与调试", "运行状态", "脚本与宿主信息", "item_runtime_status", false, new SettingsFeatureBuilder() {
-            public View build(Activity act) {
-                if (SettingsState.settingsIndexMode) return null;
-                return build运行状态ContentView((act != null) ? act : getSettingsCurrentActivity());
-            }
-        });
-        addSettingsSubPageEntry("性能与调试", "调试", "预览设置 · 日志清理阈值", "item_debug", "调试");
+        addSettingsFeatureEntry(ctx, level1Title, "线程池");
+        addSettingsFeatureEntry(ctx, "性能与调试", "运行状态");
+        addSettingsFeatureEntry(ctx, level1Title, "调试");
     }
 
     if ("输入框提示".equals(level1Title)) {
-        addSettingsCategory("开关", "");
-        addSettingsItemSwitchWithKey("输入框提示", "输入框", "输入框开关", "聊天输入框显示自定义提示词", getBoolean("输入框", "输入框开关", false), null);
-        addSettingsCategory("提示词", "");
-        addSettingsInputHintBlock(activity);
+        addSettingsCategory(ctx, "开关", "");
+        addSettingsItemSwitchWithKey(ctx, "输入框提示", "输入框", "输入框开关", "聊天输入框显示自定义提示词", getBoolean("输入框", "输入框开关", false), null);
+        addSettingsCategory(ctx, "提示词", "");
+        addSettingsInputHintBlock(ctx, activity);
     }
 
     if ("关于".equals(level1Title)) {
-        addSettingsGridCard("a1", "检查更新", "手动检测最新版本", new Runnable() { public void run() { manualCheckQFXUpdate(); }});
-        addSettingsGridCard("a2", "查看更新日志", "查看历史更新记录", new Runnable() { public void run() {
+        addSettingsGridCard(ctx, "a1", "检查更新", "手动检测最新版本", new Runnable() { public void run() { manualCheckQFXUpdate(); }});
+        addSettingsGridCard(ctx, "a2", "查看更新日志", "查看历史更新记录", new Runnable() { public void run() {
             try {
                 String logContent = 读(pluginPath + "/更新日志.txt");
                 Activity act = getSettingsCurrentActivity();
@@ -1210,209 +1158,141 @@ void buildLevel2MenuContent(Activity activity, String level1Title) {
             }
         }});
 
-        addSettingsCategory("更新", "");
-        addSettingsItemChoiceWithKey( "更新通道", "update_channel", (("github".equals(getString("settings", "update_channel", "github")) ? "GitHub（推荐）" : "Gitee")), new Runnable() { public void run() {
+        addSettingsCategory(ctx, "更新", "");
+        addSettingsItemChoiceWithKey(ctx,  "更新通道", "update_channel", (("github".equals(getString("settings", "update_channel", "github")) ? "GitHub（推荐）" : "Gitee")), new Runnable() { public void run() {
             Activity act = getSettingsCurrentActivity();
             if (act != null) showUpdateChannelChoiceDialog(act);
         }});
-        addSettingsItemSwitchWithKey("接收测试版更新提示", "settings", "receive_beta_update_notice", "接收测试版更新的自动提示", getBoolean("settings", "receive_beta_update_notice", false), null);
+        addSettingsItemSwitchWithKey(ctx, "接收测试版更新提示", "settings", "receive_beta_update_notice", "接收测试版更新的自动提示", getBoolean("settings", "receive_beta_update_notice", false), null);
 
-        addSettingsCategory("其他", "");
-        addSettingsItemClickWithKey("配置备份与导入", "备份全部自定义配置与热插拔脚本，导入前预览", new Runnable() { public void run() {
+        addSettingsCategory(ctx, "其他", "");
+        addSettingsItemClickWithKey(ctx, "配置备份与导入", "备份全部自定义配置与热插拔脚本，导入前预览", new Runnable() { public void run() {
             Activity act = getSettingsCurrentActivity();
             if (act != null) showSettingsBackupDialog(act);
         }});
-        addSettingsItemClickWithKey( "重置所有设置", "恢复默认设置", new Runnable() { public void run() {
+        addSettingsItemClickWithKey(ctx,  "重置所有设置", "恢复默认设置", new Runnable() { public void run() {
             Activity act = getSettingsCurrentActivity();
             if (act != null) showResetAllSettingsConfirmDialog(act);
         }});
     }
+
+    return ctx.listContainer;
 }
-void buildLevel3MenuContent(Activity activity, String level1Title, String level2Title, String level3Title) {
-    if (activity == null || level1Title == null || level2Title == null) return;
-    if (level1Title != null) {
-        String featureKey = level1Title + "|" + level2Title;
-        Object featureBuilder = (SettingsState.settingsFeatureBuilders == null) ? null : SettingsState.settingsFeatureBuilders.get(featureKey);
-        if (featureBuilder != null) {
-            SettingsFeatureBuilder builder = (SettingsFeatureBuilder) featureBuilder;
-            if (SettingsState.settingsIndexMode) { builder.build(activity); return; }
-            LinearLayout listContainer = SettingsState.settingsListContainer;
-            View featureContent = null;
-            try {
-                if ("功能热插拔".equals(level2Title)) {
-                    String hotPlugGid = "";
-                    String hotPlugName = "";
-                    try {
-                        if (activity instanceof SettingsActivity) {
-                            SettingsActivity sa = (SettingsActivity) activity;
-                            if (sa.settingsChatType == 2 && sa.settingsPeerUin != null) hotPlugGid = sa.settingsPeerUin;
-                            hotPlugName = sa.settingsPeerName;
-                        } else {
-                            int chatType = activity.getIntent().getIntExtra("chatType", 0);
-                            String peerUin = activity.getIntent().getStringExtra("peerUin");
-                            String peerName = activity.getIntent().getStringExtra("peerName");
-                            if (chatType == 2 && peerUin != null) hotPlugGid = peerUin;
-                            if (peerName != null) hotPlugName = peerName;
-                        }
-                    } catch (Throwable contextError) {
-                        traceLog("setwindow_log", "[功能热插拔] 获取会话上下文失败: " + contextError);
-                    }
-                    featureContent = buildHotPlugContentView(activity, hotPlugGid, hotPlugName, true);
-                } else {
-                    featureContent = builder.build(activity);
-                }
-            } catch (Throwable e) {
-                java.io.StringWriter errorWriter = new java.io.StringWriter();
-                e.printStackTrace(new java.io.PrintWriter(errorWriter));
-                String rawError = errorWriter.toString();
-                traceLog("setwindow_log", "[功能页] " + level2Title + " 构建异常: " + rawError);
-                if (listContainer != null) {
-                    TextView errView = new TextView(activity);
-                    errView.setText("页面构建失败:\n" + rawError);
-                    errView.setTextSize(13);
-                    errView.setTextColor(pc(getSettingsThemeColor(activity, "error")));
-                    errView.setPadding(dp(activity, 16), dp(activity, 24), dp(activity, 16), dp(activity, 24));
-                    listContainer.addView(errView, new LinearLayout.LayoutParams(-1, -2, 0f));
-                }
-                return;
-            }
-            boolean rawPage = SettingsState.settingsFeatureRaw != null && "1".equals(SettingsState.settingsFeatureRaw.get(featureKey));
-            boolean renderedInPlace = featureContent == null && listContainer != null && listContainer.getChildCount() > 0;
-            if (featureContent == null && !renderedInPlace) traceLog("setwindow_log", "[功能页诊断] " + level2Title + " 返回 null，key=" + featureKey + ", activity=" + activity.getClass().getName() + ", builder=" + builder.getClass().getName());
-            if (featureContent != null && listContainer != null) {
-                if (rawPage) {
-                    listContainer.addView(featureContent, new LinearLayout.LayoutParams(-1, 0, 1.0f));
-                } else if (featureContent.getLayoutParams() instanceof LinearLayout.LayoutParams) {
-                    listContainer.addView(featureContent);
-                } else {
-                    listContainer.addView(featureContent, new LinearLayout.LayoutParams(-1, -2, 0f));
-                }
-            } else if (listContainer != null && !renderedInPlace) {
-                TextView errView = new TextView(activity);
-                StringBuilder errorText = new StringBuilder("功能页内容为空（诊断信息）\n页面：").append(level2Title).append("\nkey：").append(featureKey).append("\nraw：").append(rawPage).append("\nactivity：").append(activity.getClass().getName()).append("\nbuilder：").append(builder.getClass().getName()).append("\ncontent：null\n如果没有捕获异常，说明构建器直接返回了 null。");
-                errView.setText(errorText.toString());
-                errView.setTextSize(13);
-                errView.setTextColor(pc(getSettingsThemeColor(activity, "error")));
-                errView.setPadding(dp(activity, 16), dp(activity, 24), dp(activity, 16), dp(activity, 24));
-                listContainer.addView(errView, new LinearLayout.LayoutParams(-1, -2, 0f));
-            }
-            return;
-        }
-
-        if ("基础模式".equals(level2Title)) buildBasicModePage(activity);
-        if ("背景样式".equals(level2Title)) buildBackgroundStylePage(activity);
-        if ("字体样式".equals(level2Title)) buildFontStylePage(activity);
-        if ("提示".equals(level2Title)) buildToastStylePage(activity);
-        if ("线程池".equals(level2Title)) buildThreadPoolPage(activity);
-        if ("悬浮窗设置".equals(level2Title)) buildFloatingWindowPage(activity);
-        if ("撤回标记".equals(level2Title)) buildRevokeMarkPage(activity);
-        if ("调试".equals(level2Title)) buildDebugPage(activity);
-
-    }
-}
-void addSettingsCategoryEntry(String cardIcon, String cardTitle, String cardDesc, final String targetCategory) {
-    if (targetCategory == null) return;
-    final String itemKey = "cat_" + targetCategory;
-    if (SettingsState.settingsIndexMode) {
-        registerSettingsIndexEntry(itemKey, cardTitle, cardDesc, "category");
-        if (SettingsState.settingsCategories == null) SettingsState.settingsCategories = new ArrayList();
-        if (!SettingsState.settingsCategories.contains(targetCategory)) SettingsState.settingsCategories.add(targetCategory);
-        return;
-    }
-    final String fullTitle = (cardIcon == null || cardIcon.length() == 0) ? cardTitle : (cardIcon + " " + cardTitle);
-    addSettingsGridCard(itemKey, fullTitle, cardDesc, new Runnable() { public void run() {
-        Activity act = getSettingsCurrentActivity();
-        if (act != null) showSettingsMenu(act, targetCategory, null, null);
-    }});
-    registerSettingsIndexEntry(itemKey, cardTitle, cardDesc, "category");
-}
-void addSettingsSubPageEntry(final String categoryName, String iconAndName, String descriptionText, String itemKey, final String subLevel2) {
-    if (SettingsState.settingsIndexMode) {
-        registerSettingsIndexEntry(itemKey, iconAndName, descriptionText, "page");
-        ((SettingsItemMeta) SettingsState.settingsItemMeta.get(itemKey)).targetPage = subLevel2;
-        if (SettingsState.settingsSubPages == null) SettingsState.settingsSubPages = new ArrayList();
-        String pathKey = categoryName + "|" + subLevel2;
-        if (!SettingsState.settingsSubPages.contains(pathKey)) SettingsState.settingsSubPages.add(pathKey);
-        return;
-    }
-    addSettingsGridCard(itemKey, iconAndName, descriptionText, new Runnable() { public void run() {
-        Activity act = getSettingsCurrentActivity();
-        if (act != null) showSettingsMenu(act, categoryName, subLevel2, null);
-    }});
-    registerSettingsIndexEntry(itemKey, iconAndName, descriptionText, "page");
-    ((SettingsItemMeta) SettingsState.settingsItemMeta.get(itemKey)).targetPage = subLevel2;
-}
-void registerSettingsFeaturePage(String categoryName, String pageName, String descriptionText, String itemKey, boolean raw, SettingsFeatureBuilder builder) {
-    if (builder == null || pageName == null) return;
-    String pathKey = (categoryName == null ? "" : categoryName) + "|" + pageName;
-    if (SettingsState.settingsFeatureBuilders == null) SettingsState.settingsFeatureBuilders = new HashMap();
-    if (SettingsState.settingsFeatureRaw == null) SettingsState.settingsFeatureRaw = new HashMap();
-    SettingsState.settingsFeatureBuilders.put(pathKey, builder);
-    SettingsState.settingsFeatureRaw.put(pathKey, raw ? "1" : "0");
-
-    if (SettingsState.settingsIndexMode) {
-        registerSettingsIndexEntry(itemKey, pageName, descriptionText, "page");
-        ((SettingsItemMeta) SettingsState.settingsItemMeta.get(itemKey)).targetPage = pageName;
-        if (categoryName != null) {
-            if (SettingsState.settingsSubPages == null) SettingsState.settingsSubPages = new ArrayList();
-            if (!SettingsState.settingsSubPages.contains(pathKey)) SettingsState.settingsSubPages.add(pathKey);
-        }
-    }
-}
-void addSettingsFeaturePage(final String categoryName, final String pageName, String descriptionText, String itemKey, final boolean raw, final SettingsFeatureBuilder builder) {
-    if (builder == null || pageName == null) return;
-    registerSettingsFeaturePage(categoryName, pageName, descriptionText, itemKey, raw, builder);
-    if (SettingsState.settingsIndexMode) return;
-    addSettingsGridCard(itemKey, pageName, descriptionText, new Runnable() { public void run() {
-        Activity act = getSettingsCurrentActivity();
-        if (act != null) showSettingsMenu(act, categoryName, pageName, null);
-    }});
-    registerSettingsIndexEntry(itemKey, pageName, descriptionText, "page");
-    ((SettingsItemMeta) SettingsState.settingsItemMeta.get(itemKey)).targetPage = pageName;
-}
-void buildSettingsHomeContent(Activity activity) {
-    if (activity == null) return;
-    if (!SettingsState.settingsIndexMode && SettingsState.settingsListContainer == null) return;
-
-    SettingsState.settingsCurrentCategory = "首页";
-
-    if (!SettingsState.settingsIndexMode) {
-        String welcomeText = getString("settings", "welcome_text", "欢迎使用");
-        if (welcomeText == null || welcomeText.trim().isEmpty()) welcomeText = "欢迎使用";
-        TextView welcomeView = new TextView(activity);
-        welcomeView.setText(welcomeText);
-        welcomeView.setTextSize(13);
-        welcomeView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
-        welcomeView.setPadding(dp(activity, 28), dp(activity, 12), dp(activity, 28), dp(activity, 4));
-        SettingsState.settingsListContainer.addView(welcomeView);
-        SettingsState.settingsWelcomeView = welcomeView;
-    }
-
-    addSettingsCategoryEntry("", "悬浮窗与快捷", "悬浮窗开关 · 图标与大小", "悬浮窗与快捷");
-    addSettingsCategoryEntry("", "消息与互动", "消息统计 · 双击消息", "消息与互动");
-    addSettingsCategoryEntry("", "定位与网络", "模拟定位 · 经纬度 · 空间操作", "定位与网络");
-    addSettingsCategoryEntry("", "功能扩展", "功能热插拔 · 脚本 · 模块", "功能扩展");
-
-    addSettingsFeaturePage(null, "HTML 浏览器", "本地网页 · 文件管理", "item_html", false, new SettingsFeatureBuilder() {
-        public View build(Activity act) {
-            if (SettingsState.settingsIndexMode) return null;
-            return buildHtmlPageView((act != null) ? act : getSettingsCurrentActivity());
+void ensureSettingsFeatureRegistry() {
+    if (SettingsState.settingsFeatureRegistry != null) return;
+    Map registry = new java.util.LinkedHashMap();
+    registerSettingsFeaturePage(registry, "界面与显示", "基础模式", "主题、弹窗大小、振动反馈", "item_basic_mode", SettingsPageType.SETTINGS, new SettingsFeatureBuilder() {
+        public View build(Object ctx) { return buildBasicModePage(ctx); }
+    });
+    registerSettingsFeaturePage(registry, "界面与显示", "背景样式", "背景类型、颜色、图片", "item_bg_icon", SettingsPageType.SETTINGS, new SettingsFeatureBuilder() {
+        public View build(Object ctx) { return buildBackgroundStylePage(ctx); }
+    });
+    registerSettingsFeaturePage(registry, "界面与显示", "字体样式", "字体风格、大小、颜色", "item_font_style", SettingsPageType.SETTINGS, new SettingsFeatureBuilder() {
+        public View build(Object ctx) { return buildFontStylePage(ctx); }
+    });
+    registerSettingsFeaturePage(registry, "提示与通知", "提示", "吐司提示开关与样式", "item_toast_hint", SettingsPageType.SETTINGS, new SettingsFeatureBuilder() {
+        public View build(Object ctx) { return buildToastStylePage(ctx); }
+    });
+    registerSettingsFeaturePage(registry, "性能与调试", "线程池", "优先级、队列、满载策略", "item_thread_pool", SettingsPageType.SETTINGS, new SettingsFeatureBuilder() {
+        public View build(Object ctx) { return buildThreadPoolPage(ctx); }
+    });
+    registerSettingsFeaturePage(registry, "悬浮窗与快捷", "悬浮窗设置", "图标 · 大小 · 灵敏度 · 透明度", "item_float_window", SettingsPageType.SETTINGS, new SettingsFeatureBuilder() {
+        public View build(Object ctx) { return buildFloatingWindowPage(ctx); }
+    });
+    registerSettingsFeaturePage(registry, "消息与互动", "撤回标记", "重定向已撤回提示 · 文本 · 位置 · 颜色", "item_revoke_mark", SettingsPageType.SETTINGS, new SettingsFeatureBuilder() {
+        public View build(Object ctx) { return buildRevokeMarkPage(ctx); }
+    });
+    registerSettingsFeaturePage(registry, "性能与调试", "调试", "预览设置 · 日志清理阈值", "item_debug", SettingsPageType.SETTINGS, new SettingsFeatureBuilder() {
+        public View build(Object ctx) { return buildDebugPage(ctx); }
+    });
+    registerSettingsFeaturePage(registry, "消息与互动", "消息统计", "查看今日 / 累计数据", "item_msg_stats", SettingsPageType.CUSTOM, statsBoardFeatureBuilder());
+    registerSettingsFeaturePage(registry, "消息与互动", "消息统计设置", "统计范围 · 类别 · 数据操作", "item_msg_stats_settings", SettingsPageType.SETTINGS, statsSettingsFeatureBuilder());
+    registerSettingsFeaturePage(registry, "定位与网络", "空间操作", "秒赞 · 秒评 · 评论内容", "item_qzone_op", SettingsPageType.SETTINGS, new SettingsFeatureBuilder() {
+        public View build(Object ctx) { return buildQzoneSettingsView(ctx); }
+    });
+    registerSettingsFeaturePage(registry, "功能扩展", "功能热插拔", "脚本扩展 · 独立调度", "item_hotplug", SettingsPageType.FULL_CONTENT, new SettingsFeatureBuilder() {
+        public View build(Object ctx) {
+            SettingsActivity activity = (SettingsActivity) ctx.activity;
+            String gid = activity.settingsChatType == 2 ? activity.settingsPeerUin : "";
+            return buildHotPlugContentView(activity, gid, activity.settingsPeerName, true, ctx);
         }
     });
-
-    addSettingsCategoryEntry("", "界面与显示", "主题 · 背景 · 字体 · 欢迎语", "界面与显示");
-    addSettingsCategoryEntry("", "提示与通知", "Toast · 加载提示 · 常驻通知", "提示与通知");
-    addSettingsCategoryEntry("", "性能与调试", "线程池 · 运行状态 · 日志", "性能与调试");
-    addSettingsCategoryEntry("", "输入框提示", "开关 · 提示词 · 可用变量", "输入框提示");
-    addSettingsCategoryEntry("", "关于", "更新 · 版本 · 重置", "关于");
+    registerSettingsFeaturePage(registry, "性能与调试", "运行状态", "脚本与宿主信息", "item_runtime_status", SettingsPageType.CUSTOM, new SettingsFeatureBuilder() {
+        public View build(Object ctx) { return build运行状态ContentView(ctx.activity); }
+    });
+    registerSettingsFeaturePage(registry, null, "HTML 浏览器", "本地网页 · 文件管理", "item_html", SettingsPageType.FULL_CONTENT, new SettingsFeatureBuilder() {
+        public View build(Object ctx) { return buildHtmlPageView(ctx.activity); }
+    });
+    SettingsState.settingsFeatureRegistry = registry;
 }
-void addSettingsGridCard(String rowTag, String cardTitle, String cardDesc, final Runnable clickCallback) {
-    if (SettingsState.settingsIndexMode) {
-        registerSettingsIndexEntry(rowTag, cardTitle, cardDesc, "click");
-        return;
-    }
-    if (SettingsState.settingsListContainer == null) return;
-    Activity activity = getSettingsCurrentActivity();
+void registerSettingsFeaturePage(Map registry, String categoryName, String pageName, String descriptionText, String itemKey, int type, SettingsFeatureBuilder builder) {
+    SettingsFeaturePage feature = new SettingsFeaturePage(categoryName, pageName, descriptionText, itemKey, type, builder);
+    if (registry.containsKey(feature.id)) throw new IllegalStateException("重复功能页: " + feature.id);
+    registry.put(feature.id, feature);
+}
+Object findSettingsFeaturePage(String categoryName, String pageName) {
+    if (pageName == null) return null;
+    ensureSettingsFeatureRegistry();
+    return SettingsState.settingsFeatureRegistry.get((categoryName == null ? "" : categoryName) + "|" + pageName);
+}
+void addSettingsFeatureEntry(Object ctx, final String categoryName, final String pageName) {
+    final Object feature = findSettingsFeaturePage(categoryName, pageName);
+    if (feature == null) throw new IllegalStateException("未注册功能页: " + pageName);
+    addSettingsGridCard(ctx, feature.itemKey, feature.name, feature.description, new Runnable() { public void run() {
+        showSettingsMenu(ctx.activity, categoryName, pageName, null);
+    }});
+}
+
+void addSettingsCategoryEntry(Object ctx, String cardIcon, String cardTitle, String cardDesc, final String targetCategory) {
+    if (targetCategory == null) return;
+    final String itemKey = "cat_" + targetCategory;
+    final String fullTitle = (cardIcon == null || cardIcon.length() == 0) ? cardTitle : (cardIcon + " " + cardTitle);
+    addSettingsGridCard(ctx, itemKey, fullTitle, cardDesc, new Runnable() { public void run() {
+        showSettingsMenu(ctx.activity, targetCategory, null, null);
+    }});
+}
+void addSettingsSubPageEntry(Object ctx, final String categoryName, String iconAndName, String descriptionText, String itemKey, final String subLevel2) {
+    addSettingsGridCard(ctx, itemKey, iconAndName, descriptionText, new Runnable() { public void run() {
+        showSettingsMenu(ctx.activity, categoryName, subLevel2, null);
+    }});
+}
+
+
+View buildSettingsHomeContent(Object ctx) {
+    Activity activity = ctx.activity;
+
+    if (activity == null) throw new IllegalStateException("页面已释放");
+
+    ctx.currentCategory = "首页";
+
+    String welcomeText = getString("settings", "welcome_text", "欢迎使用");
+    if (welcomeText == null || welcomeText.trim().isEmpty()) welcomeText = "欢迎使用";
+    TextView welcomeView = new TextView(activity);
+    welcomeView.setText(welcomeText);
+    welcomeView.setTextSize(13);
+    welcomeView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
+    welcomeView.setPadding(dp(activity, 28), dp(activity, 12), dp(activity, 28), dp(activity, 4));
+    ctx.listContainer.addView(welcomeView);
+    ctx.welcomeView = welcomeView;
+
+    addSettingsCategoryEntry(ctx, "", "悬浮窗与快捷", "悬浮窗开关 · 图标与大小", "悬浮窗与快捷");
+    addSettingsCategoryEntry(ctx, "", "消息与互动", "消息统计 · 双击消息", "消息与互动");
+    addSettingsCategoryEntry(ctx, "", "定位与网络", "模拟定位 · 经纬度 · 空间操作", "定位与网络");
+    addSettingsCategoryEntry(ctx, "", "功能扩展", "功能热插拔 · 脚本 · 模块", "功能扩展");
+
+    addSettingsFeatureEntry(ctx, null, "HTML 浏览器");
+
+    addSettingsCategoryEntry(ctx, "", "界面与显示", "主题 · 背景 · 字体 · 欢迎语", "界面与显示");
+    addSettingsCategoryEntry(ctx, "", "提示与通知", "Toast · 加载提示 · 常驻通知", "提示与通知");
+    addSettingsCategoryEntry(ctx, "", "性能与调试", "线程池 · 运行状态 · 日志", "性能与调试");
+    addSettingsCategoryEntry(ctx, "", "输入框提示", "开关 · 提示词 · 可用变量", "输入框提示");
+    addSettingsCategoryEntry(ctx, "", "关于", "更新 · 版本 · 重置", "关于");
+
+    return ctx.listContainer;
+}
+void addSettingsGridCard(Object ctx, String rowTag, String cardTitle, String cardDesc, final Runnable clickCallback) {
+    if (ctx.listContainer == null) return;
+    Activity activity = ctx.activity;
     if (activity == null) return;
 
     LinearLayout card = new LinearLayout(activity);
@@ -1450,7 +1330,6 @@ void addSettingsGridCard(String rowTag, String cardTitle, String cardDesc, final
     arrowView.setTextSize(18);
     arrowView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
     card.addView(arrowView);
-	
     card.setClickable(true);
 	card.setOnClickListener(new View.OnClickListener() {
 	    long qfxLastClick = 0L;
@@ -1463,21 +1342,14 @@ void addSettingsGridCard(String rowTag, String cardTitle, String cardDesc, final
 	        if (clickCallback != null) clickCallback.run();
 	    }
 	});
-	SettingsState.settingsListContainer.addView(card);
-    if (SettingsState.settingsItemViews == null) SettingsState.settingsItemViews = new HashMap();
-    SettingsState.settingsItemViews.put(rowTag, card);
-    registerSettingsIndexEntry(rowTag, cardTitle, cardDesc, "click");
+	ctx.listContainer.addView(card);
+    ctx.itemViews.put(rowTag, card);
 }
-void addSettingsLocationBlock(String categoryName) {
-    if (SettingsState.settingsIndexMode) {
-        registerSettingsIndexEntry("loc_lng", "经度", "模拟定位经度", "input");
-        registerSettingsIndexEntry("loc_lat", "纬度", "模拟定位纬度", "input");
-        return;
-    }
-    if (SettingsState.settingsCategoryContainers == null) return;
-    Activity activity = getSettingsCurrentActivity();
+void addSettingsLocationBlock(Object ctx, String categoryName) {
+    if (ctx.categoryContainers == null) return;
+    Activity activity = ctx.activity;
     if (activity == null) return;
-    LinearLayout container = (LinearLayout) SettingsState.settingsCategoryContainers.get(categoryName);
+    LinearLayout container = (LinearLayout) ctx.categoryContainers.get(categoryName);
     if (container == null) return;
 
     container.addView(buildSettingsLocationRow(activity, "经度", "如 116.397", "lng"));
@@ -1524,13 +1396,9 @@ View buildSettingsLocationRow(Activity activity, String labelText, String hintTe
     itemLayout.setClickable(true);
     return itemLayout;
 }
-void addSettingsInputHintBlock(final Activity activity) {
-    final String itemKey = settingsAutoItemKey("设置输入框提示词");
-    if (SettingsState.settingsIndexMode) {
-        registerSettingsIndexEntry(itemKey, "设置输入框提示词", "支持 #变量# 和 ##链接##", "input");
-        return;
-    }
-    LinearLayout container = settingsCurrentCategoryContainer();
+void addSettingsInputHintBlock(Object ctx, Activity activity) {
+    final String itemKey = settingsAutoItemKey(ctx, "设置输入框提示词");
+    LinearLayout container = settingsCurrentCategoryContainer(ctx);
     if (container == null) return;
     LinearLayout block = new LinearLayout(activity);
     block.setOrientation(LinearLayout.VERTICAL);
@@ -1564,7 +1432,7 @@ void addSettingsInputHintBlock(final Activity activity) {
             final String value = editable.toString();
             final long now = ++token[0];
             renderHintPreviewText(activity, preview, value);
-            uiHandler.postDelayed(new Runnable() { public void run() {
+            ctx.handler.postDelayed(new Runnable() { public void run() {
                 if (now != token[0]) return;
                 putString("输入框", "提示词", value);
                 applyHintPreview(activity, preview, value, scriptScope, token, now);
@@ -1586,8 +1454,7 @@ void addSettingsInputHintBlock(final Activity activity) {
     }});
     block.addView(variables);
     container.addView(block);
-    if (SettingsState.settingsItemViews != null) SettingsState.settingsItemViews.put(itemKey, block);
-    registerSettingsIndexEntry(itemKey, "设置输入框提示词", "支持 #变量# 和 ##链接##", "input");
+    if (ctx.itemViews != null) ctx.itemViews.put(itemKey, block);
 }
 void renderHintPreviewText(Activity activity, TextView preview, String result) {
     String text = "效果预览：" + (result == null ? "" : result);
@@ -1612,7 +1479,7 @@ void applyHintPreview(final Activity activity, final TextView preview, final Str
         }});
     }}).start();
 }
-void showChoiceDialogEx(Activity activity, String title, String[] names, String[] values, String configKey, String defaultVal, int checkedInit, int toastMode, String toastMsg, Runnable onDone) {
+void showChoiceDialogEx(final Activity activity, String title, String[] names, String[] values, String configKey, String defaultVal, int checkedInit, int toastMode, String toastMsg, Runnable onDone) {
 	if (activity == null || activity.isFinishing()) return;
 	String cur = getString("settings", configKey, defaultVal);
 	int checked = checkedInit;
@@ -1622,7 +1489,7 @@ void showChoiceDialogEx(Activity activity, String title, String[] names, String[
 	b.setSingleChoiceItems(names, checked, new DialogInterface.OnClickListener() {
 		public void onClick(DialogInterface dialog, int which) {
 			putString("settings", configKey, values[which]);
-			updateSettingsItemText(configKey, names[which]);
+			updateSettingsItemText(settingsContextForActivity(activity), configKey, names[which]);
 			dialog.dismiss();
 			if (toastMode == 1) Toast(toastMsg + names[which]);
 			else if (toastMode == 2) qqToast(2, toastMsg);
@@ -1705,7 +1572,7 @@ void showDpiModeChoiceDialog(final Activity activity) {
                 if (d == null || d.trim().isEmpty()) d = "320";
                 label = "自定义 " + d.trim() + " dpi";
             }
-            updateSettingsItemText("ui_dialog_dpi_mode", label);
+            updateSettingsItemText(settingsContextForActivity(activity), "ui_dialog_dpi_mode", label);
             dialog.dismiss();
             qqToast(2, "显示密度: " + label);
             refreshCurrentSettingsPage();
@@ -2209,8 +2076,6 @@ void buildSettingsBottomArea(Activity activity) {
     Activity cur = getSettingsCurrentActivity();
     if (cur instanceof SettingsActivity) {
         ((SettingsActivity) cur).settingsMountFooter(bottomArea);
-    } else if (SettingsState.settingsListContainer != null) {
-        SettingsState.settingsListContainer.addView(bottomArea);
     }
 }
 Bitmap getSettingsIconBitmap(String path, boolean isGithub) {
@@ -2228,30 +2093,9 @@ Bitmap getSettingsIconBitmap(String path, boolean isGithub) {
     return bm;
 }
 void cleanupSettingsResources() {
-    if (SettingsState.settingsItemTextViews != null) {
-        SettingsState.settingsItemTextViews.clear();
-        SettingsState.settingsItemTextViews = null;
-    }
-    if (SettingsState.settingsCategoryContainers != null) {
-        SettingsState.settingsCategoryContainers.clear();
-        SettingsState.settingsCategoryContainers = null;
-    }
-    if (SettingsState.settingsItemViews != null) {
-        SettingsState.settingsItemViews.clear();
-        SettingsState.settingsItemViews = null;
-    }
-    if (SettingsState.settingsItemMeta != null) {
-        SettingsState.settingsItemMeta.clear();
-        SettingsState.settingsItemMeta = null;
-    }
-    SettingsState.settingsListContainer = null;
-    SettingsState.settingsScrollView = null;
     SettingsState.settingsHighlightView = null;
     SettingsState.settingsPendingHighlightKey = null;
     SettingsState.settingsPendingHighlightDepth = -1;
-    SettingsState.settingsCurrentLevel1 = null;
-    SettingsState.settingsCurrentLevel2 = null;
-    SettingsState.settingsCurrentLevel3 = null;
 }
 void cleanupAllDialogs() {
     Activity ref = SettingsState.settingsCurrentActivityRef;
@@ -2410,94 +2254,71 @@ class SettingsActivity extends BaseComposeActivity {
 
     void settingsShowHome() {
         if (settingsPageContainer == null) return;
-        View home = settingsBuildHomePage();
-        SettingsPage page = new SettingsPage();
-        page.level1 = null;
-        page.level2 = null;
-        page.level3 = null;
-        page.pageView = home;
-        page.listContainer = settingsCategoryList;
-        page.scrollView = settingsCategoryScroll;
-        page.categoryContainers = SettingsState.settingsCategoryContainers;
-        page.itemViews = SettingsState.settingsItemViews;
-        page.itemTextViews = SettingsState.settingsItemTextViews;
-        settingsPageStack.clear();
-        settingsPageStack.add(page);
-        settingsPageContainer.removeAllViews();
-        settingsPageContainer.addView(home);
+        SettingsPage home = settingsPageStack == null || settingsPageStack.isEmpty() ? null : (SettingsPage) settingsPageStack.get(0);
+        if (home != null) {
+            while (settingsPageStack.size() > 1) {
+                SettingsPage old = (SettingsPage) settingsPageStack.remove(settingsPageStack.size() - 1);
+                settingsPageContainer.removeView(old.pageView);
+                settingsDisposePage(old);
+            }
+            home.pageView.setTranslationX(0f);
+            home.pageView.setVisibility(View.VISIBLE);
+            settingsActivatePage(home);
+            settingsRefreshWelcomeText(home);
+            return;
+        }
+        SettingsPage page = settingsBuildPage(null, null, null);
+        if (page == null) return;
+        settingsCommitPage(page, false);
     }
 
     void settingsPushPage(String level1, String level2, String level3) {
-        if (settingsPageContainer == null) return;
-        if (level1 == null) {
-            settingsShowHome();
-            return;
-        }
-        SettingsPage page = settingsBuildMenuPage(level1, level2, level3);
-        View oldTop = settingsTopPageView();
-        settingsPageStack.add(page);
-        settingsPageContainer.addView(page.pageView);
-        settingsAnimateIn(page.pageView, oldTop);
+        if (level1 == null && level2 == null) { settingsShowHome(); return; }
+        settingsCommitPage(settingsBuildPage(level1, level2, level3), true);
     }
 
     void settingsPushPageNoAnim(String level1, String level2, String level3) {
-        if (settingsPageContainer == null) return;
-        if (level1 == null) {
-            settingsShowHome();
-            return;
-        }
-        SettingsPage page = settingsBuildMenuPage(level1, level2, level3);
-        settingsPageStack.add(page);
-        settingsPageContainer.addView(page.pageView);
-    }
+        if (level1 == null && level2 == null) { settingsShowHome(); return; }
+        settingsCommitPage(settingsBuildPage(level1, level2, level3), false);
+}
 
     void settingsRebuildTopPage() {
-        if (settingsPageStack == null || settingsPageStack.isEmpty() || settingsPageContainer == null) return;
-        int topIndex = settingsPageStack.size() - 1;
-        SettingsPage top = (SettingsPage) settingsPageStack.get(topIndex);
-        if (top == null) return;
-        if (top.level1 == null) {
-            try { settingsShowHome(); } catch (Throwable e) { traceLog("setwindow_log", "[settingsRebuildTopPage] 重建首页失败: " + e); }
-            return;
+        SettingsPage top = settingsTopPage();
+        if (top == null || settingsPageContainer == null) return;
+        if (top.level1 == null && top.level2 == null) { settingsRefreshWelcomeText(top); return; }
+        SettingsPage fresh = settingsBuildPage(top.level1, top.level2, top.level3);
+        if (fresh == null) return;
+        int index = settingsPageContainer.indexOfChild(top.pageView);
+        settingsPageContainer.addView(fresh.pageView, Math.max(0, index));
+        settingsPageStack.set(settingsPageStack.size() - 1, fresh);
+        final int scrollY = top.scrollView == null ? 0 : top.scrollView.getScrollY();
+        settingsPageContainer.removeView(top.pageView);
+        settingsDisposePage(top);
+        settingsActivatePage(fresh);
+        if (fresh.scrollView != null) {
+            fresh.scrollView.post(new Runnable() { public void run() {
+                if (!fresh.disposed && fresh.scrollView != null) fresh.scrollView.scrollTo(0, scrollY);
+            }});
         }
-        SettingsPage fresh = null;
-        try {
-            fresh = settingsBuildMenuPage(top.level1, top.level2, top.level3);
-        } catch (Throwable e) {
-            traceLog("setwindow_log", "[settingsRebuildTopPage] 重建失败: " + e);
-            return;
-        }
-        View oldView = top.pageView;
-        int index = settingsPageContainer.getChildCount();
-        if (oldView != null) {
-            int found = settingsPageContainer.indexOfChild(oldView);
-            if (found >= 0) index = found;
-        }
-        settingsPageStack.set(topIndex, fresh);
-        settingsPageContainer.addView(fresh.pageView, index);
-        if (oldView != null) settingsPageContainer.removeView(oldView);
-    }
+}
 
 	boolean settingsPopPage() {
-	    if (settingsPageStack == null || settingsPageStack.size() <= 1) return false;
-	    SettingsPage top = (SettingsPage) settingsPageStack.remove(settingsPageStack.size() - 1);
-	    SettingsPage below = (SettingsPage) settingsPageStack.get(settingsPageStack.size() - 1);
-	    settingsActivatePage(below);
-	    settingsAnimateOut(top.pageView, below.pageView);
-	    settingsRefreshWelcomeText(below);
-	    try { refreshStatsBoardOnReturn(); } catch (Throwable ignore) {}
-	    return true;
-	}
+        if (settingsPageStack == null || settingsPageStack.size() <= 1) return false;
+        SettingsPage top = (SettingsPage) settingsPageStack.remove(settingsPageStack.size() - 1);
+        SettingsPage below = settingsTopPage();
+        settingsActivatePage(below);
+        settingsAnimateOut(top.pageView, below.pageView);
+        settingsDisposePage(top);
+        settingsRefreshWelcomeText(below);
+        if (below.dirty || "消息统计".equals(below.level2)) settingsRebuildTopPage();
+        return true;
+}
 
     void settingsRefreshWelcomeText(SettingsPage page) {
-        if (page == null || page.level1 != null) return;
-        if (SettingsState.settingsWelcomeView == null) return;
-        try {
-            String wt = getString("settings", "welcome_text", "欢迎使用");
-            if (wt == null || wt.trim().isEmpty()) wt = "欢迎使用";
-            SettingsState.settingsWelcomeView.setText(wt);
-        } catch (Throwable ignore) {}
-    }
+        if (page == null || page.welcomeView == null) return;
+        String text = getString("settings", "welcome_text", "欢迎使用");
+        page.welcomeView.setText(text == null || text.trim().isEmpty() ? "欢迎使用" : text);
+}
 
     View settingsTopPageView() {
         if (settingsPageStack == null || settingsPageStack.isEmpty()) return null;
@@ -2505,16 +2326,30 @@ class SettingsActivity extends BaseComposeActivity {
     }
 
     void settingsActivatePage(SettingsPage page) {
-        if (page == null) return;
-        SettingsState.settingsListContainer = page.listContainer;
-        SettingsState.settingsScrollView = page.scrollView;
-        SettingsState.settingsCategoryContainers = page.categoryContainers;
-        SettingsState.settingsItemViews = page.itemViews;
-        SettingsState.settingsItemTextViews = page.itemTextViews;
-        SettingsState.settingsCurrentLevel1 = page.level1;
-        SettingsState.settingsCurrentLevel2 = page.level2;
-        SettingsState.settingsCurrentLevel3 = page.level3;
+        unbindStatsViewCache();
+        if (page != null && !page.disposed && "消息统计".equals(page.level2) && page.contentView != null) {
+            bindStatsViewCache(page.contentView);
+        }
     }
+    SettingsPage settingsTopPage() {
+        if (settingsPageStack == null || settingsPageStack.isEmpty()) return null;
+        return (SettingsPage) settingsPageStack.get(settingsPageStack.size() - 1);
+    }
+    void settingsDisposePage(SettingsPage page) {
+        if (page == null || page.disposed) return;
+        page.dispose();
+        page.pageView = null;
+        page.contentView = null;
+        page.feature = null;
+    }
+    void settingsCommitPage(SettingsPage page, boolean animate) {
+        if (page == null || settingsPageContainer == null) return;
+        View oldTop = settingsTopPageView();
+        settingsPageContainer.addView(page.pageView);
+        settingsPageStack.add(page);
+        settingsActivatePage(page);
+        if (animate) settingsAnimateIn(page.pageView, oldTop);
+}
 
     void settingsResetToPath(String level1, String level2, String level3) {
         settingsShowHome();
@@ -2617,21 +2452,21 @@ void settingsRunNav() {
 }
 
     void settingsOpenHomeFeaturePage(String pageName) {
-        Object b = (SettingsState.settingsFeatureBuilders == null) ? null : SettingsState.settingsFeatureBuilders.get("|" + pageName);
-        View content = null;
-        if (b != null) content = ((SettingsFeatureBuilder) b).build(this);
-        if (content == null) {
-            settingsShowHome();
-            return;
-        }
-        settingsPushContentViewRaw(pageName, content);
-    }
+        settingsPushPage(null, pageName, null);
+}
 
-    SettingsPage settingsBuildMenuPage(String level1, String level2, String level3) {
-        SettingsPage page = new SettingsPage();
-        page.level1 = level1;
-        page.level2 = level2;
-        page.level3 = level3;
+    SettingsPage settingsBuildPage(String level1, String level2, String level3) {
+        SettingsPage page = new SettingsPage(this, level1, level2, level3);
+        if (level1 == null && level2 == null) {
+            page.pageView = settingsBuildHomePage(page);
+            page.contentView = page.listContainer;
+            return page;
+        }
+        page.feature = findSettingsFeaturePage(level1, level2);
+        if (level2 != null && page.feature == null) throw new IllegalStateException("页面未注册: " + level1 + " / " + level2);
+        View content = page.feature == null ? buildLevel2MenuContent(page) : page.feature.builder.build(page);
+        if (content == null) throw new IllegalStateException("页面构建器没有返回内容: " + level1 + " / " + level2);
+        if (content.getParent() != null) throw new IllegalStateException("页面内容已有父容器: " + level1 + " / " + level2);
 
         LinearLayout pageLayout = new LinearLayout(this);
         pageLayout.setOrientation(LinearLayout.VERTICAL);
@@ -2658,9 +2493,8 @@ void settingsRunNav() {
         backWrap.addView(backBtn);
         header.addView(backWrap);
 
-        String titleText = level3 != null ? level3 : (level2 != null ? level2 : level1);
         TextView titleView = new TextView(this);
-        titleView.setText(titleText);
+        titleView.setText(level3 != null ? level3 : (level2 != null ? level2 : level1));
         titleView.setTextSize(20);
         titleView.setTypeface(null, Typeface.BOLD);
         titleView.setTextColor(pc(getSettingsThemeColor(this, "on_surface")));
@@ -2669,53 +2503,65 @@ void settingsRunNav() {
         header.addView(titleView);
         pageLayout.addView(header);
 
-        boolean rawFeature = level2 != null && SettingsState.settingsFeatureRaw != null
-                && "1".equals(SettingsState.settingsFeatureRaw.get(level1 + "|" + level2));
-
-        page.pageView = pageLayout;
-        page.categoryContainers = new HashMap();
-        page.itemViews = new HashMap();
-        page.itemTextViews = new HashMap();
-
-        LinearLayout listContainer = null;
-        if (rawFeature) {
-            listContainer = new LinearLayout(this);
-            listContainer.setOrientation(LinearLayout.VERTICAL);
-            listContainer.setLayoutParams(new LinearLayout.LayoutParams(-1, 0, 1.0f));
-            pageLayout.addView(listContainer);
-            page.scrollView = null;
+        int pageType = page.feature == null ? SettingsPageType.SETTINGS : page.feature.type;
+        if (pageType == SettingsPageType.FULL_CONTENT) {
+            pageLayout.addView(content, new LinearLayout.LayoutParams(-1, 0, 1.0f));
         } else {
             ScrollView scrollView = new ScrollView(this);
             scrollView.setVerticalScrollBarEnabled(false);
             scrollView.setLayoutParams(new LinearLayout.LayoutParams(-1, 0, 1.0f));
-            listContainer = new LinearLayout(this);
-            listContainer.setOrientation(LinearLayout.VERTICAL);
-            listContainer.setPadding(0, 0, 0, dp(this, 16));
-            scrollView.addView(listContainer);
+            if (content == page.listContainer) content.setPadding(0, 0, 0, dp(this, 16));
+            scrollView.addView(content, new FrameLayout.LayoutParams(-1, -2));
             pageLayout.addView(scrollView);
             page.scrollView = scrollView;
         }
-        page.listContainer = listContainer;
-
-        SettingsState.settingsListContainer = listContainer;
-        SettingsState.settingsScrollView = page.scrollView;
-        SettingsState.settingsCategoryContainers = page.categoryContainers;
-        SettingsState.settingsItemViews = page.itemViews;
-        SettingsState.settingsItemTextViews = page.itemTextViews;
-        SettingsState.settingsCurrentActivityRef = this;
-        SettingsState.settingsCurrentLevel1 = level1;
-        SettingsState.settingsCurrentLevel2 = level2;
-        SettingsState.settingsCurrentLevel3 = level3;
-        SettingsState.settingsCurrentCategory = null;
-
-        if (level1 == null) {
-            rebuildSettingsIndex(this);
-        }
-        buildSettingsMenuContent(this, level1, level2, level3);
+        page.contentView = content;
+        page.pageView = pageLayout;
         return page;
     }
 
-    View settingsBuildHomePage() {
+    void settingsPushFeaturePage(String title, SettingsFeatureBuilder builder) {
+        SettingsPage page = new SettingsPage(this, null, title, null);
+        page.feature = new SettingsFeaturePage(null, title, "", "", SettingsPageType.FULL_CONTENT, builder);
+        View content = builder.build(page);
+        if (content == null) throw new IllegalStateException("页面构建器没有返回内容: " + title);
+        page.contentView = content;
+        LinearLayout pageLayout = new LinearLayout(this);
+        pageLayout.setOrientation(LinearLayout.VERTICAL);
+        pageLayout.setLayoutParams(new FrameLayout.LayoutParams(-1, -1));
+        applySettingsRootBg(this, pageLayout);
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setPadding(dp(this, 8), dp(this, 10), dp(this, 16), dp(this, 10));
+        TextView backBtn = createButton(this, "‹", pc(getSettingsThemeColor(this, "on_surface")), Color.TRANSPARENT, 28f, 0, 0, 0, false, 0, 0, null);
+        FrameLayout.LayoutParams backBtnParams = new FrameLayout.LayoutParams(-2, -2);
+        backBtnParams.gravity = Gravity.CENTER;
+        backBtn.setLayoutParams(backBtnParams);
+        backBtn.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View view) {
+                vibrate(SettingsActivity.this, 32);
+                settingsPopPage();
+            }
+        });
+        FrameLayout backWrap = new FrameLayout(this);
+        backWrap.setLayoutParams(new LinearLayout.LayoutParams(dp(this, 43), dp(this, 43)));
+        backWrap.addView(backBtn);
+        header.addView(backWrap);
+        TextView titleView = new TextView(this);
+        titleView.setText(title);
+        titleView.setTextSize(20);
+        titleView.setTypeface(null, Typeface.BOLD);
+        titleView.setTextColor(pc(getSettingsThemeColor(this, "on_surface")));
+        titleView.setLayoutParams(new LinearLayout.LayoutParams(0, dp(this, 40), 1.0f));
+        header.addView(titleView);
+        pageLayout.addView(header);
+        pageLayout.addView(content, new LinearLayout.LayoutParams(-1, 0, 1.0f));
+        page.pageView = pageLayout;
+        settingsCommitPage(page, true);
+    }
+
+    View settingsBuildHomePage(final SettingsPage page) {
         FrameLayout pageLayout = new FrameLayout(this);
         pageLayout.setLayoutParams(new FrameLayout.LayoutParams(-1, -1));
         applySettingsRootBg(this, pageLayout);
@@ -2818,19 +2664,10 @@ void settingsRunNav() {
         settingsHomeFooter.setVisibility(View.GONE);
         settingsHomeFooter.setBackgroundColor(getSettingsFooterBg(this));
 
-        SettingsState.settingsListContainer = settingsCategoryList;
-        SettingsState.settingsScrollView = settingsCategoryScroll;
-        SettingsState.settingsCategoryContainers = new HashMap();
-        SettingsState.settingsItemViews = new HashMap();
-        SettingsState.settingsItemTextViews = new HashMap();
-        SettingsState.settingsCurrentActivityRef = this;
-        SettingsState.settingsCurrentLevel1 = null;
-        SettingsState.settingsCurrentLevel2 = null;
-        SettingsState.settingsCurrentLevel3 = null;
-        SettingsState.settingsCurrentCategory = null;
-
+        page.listContainer = settingsCategoryList;
+        page.scrollView = settingsCategoryScroll;
         rebuildSettingsIndex(this);
-        buildSettingsHomeContent(this);
+        buildSettingsHomeContent(page);
         buildSettingsBottomArea(this);
 
         settingsBindSearchInput();
@@ -2840,10 +2677,7 @@ void settingsRunNav() {
 
     void settingsMountFooter(final View bottomArea) {
         if (bottomArea == null) return;
-        if (settingsHomeFooter == null) {
-            if (SettingsState.settingsListContainer != null) SettingsState.settingsListContainer.addView(bottomArea);
-            return;
-        }
+        if (settingsHomeFooter == null) return;
         settingsHomeFooter.removeAllViews();
         settingsHomeFooter.setVisibility(settingsSearchMode ? View.GONE : View.VISIBLE);
         settingsHomeFooter.addView(bottomArea);
@@ -3465,63 +3299,7 @@ void settingsRunNav() {
         }
     }
 
-    void settingsPushContentViewRaw(String title, View content) {
-        if (content == null || settingsPageContainer == null) return;
 
-        LinearLayout pageLayout = new LinearLayout(this);
-        pageLayout.setOrientation(LinearLayout.VERTICAL);
-        pageLayout.setLayoutParams(new FrameLayout.LayoutParams(-1, -1));
-        applySettingsRootBg(this, pageLayout);
-
-        LinearLayout header = new LinearLayout(this);
-        header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(dp(this, 8), dp(this, 10), dp(this, 16), dp(this, 10));
-
-        FrameLayout backWrap = new FrameLayout(this);
-        backWrap.setLayoutParams(new LinearLayout.LayoutParams(dp(this, 43), dp(this, 43)));
-        TextView backBtn = createButton(this, "‹", pc(getSettingsThemeColor(this, "on_surface")), Color.TRANSPARENT, 28f, 0, 0, 0, false, 0, 0, null);
-        FrameLayout.LayoutParams backBtnParams = new FrameLayout.LayoutParams(-2, -2);
-        backBtnParams.gravity = Gravity.CENTER;
-        backBtn.setLayoutParams(backBtnParams);
-        backBtn.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View view) {
-                vibrate(SettingsActivity.this, 32);
-                settingsPopPage();
-            }
-        });
-        backWrap.addView(backBtn);
-        header.addView(backWrap);
-
-        TextView titleView = new TextView(this);
-        titleView.setText(title);
-        titleView.setTextSize(20);
-        titleView.setTypeface(null, Typeface.BOLD);
-        titleView.setTextColor(pc(getSettingsThemeColor(this, "on_surface")));
-        titleView.setGravity(Gravity.CENTER_VERTICAL);
-        titleView.setLayoutParams(new LinearLayout.LayoutParams(0, dp(this, 40), 1.0f));
-        header.addView(titleView);
-        pageLayout.addView(header);
-
-        content.setLayoutParams(new LinearLayout.LayoutParams(-1, 0, 1.0f));
-        pageLayout.addView(content);
-
-        SettingsPage page = new SettingsPage();
-        page.level1 = title;
-        page.level2 = null;
-        page.level3 = null;
-        page.pageView = pageLayout;
-        page.listContainer = null;
-        page.scrollView = null;
-        page.categoryContainers = SettingsState.settingsCategoryContainers;
-        page.itemViews = SettingsState.settingsItemViews;
-        page.itemTextViews = SettingsState.settingsItemTextViews;
-
-        View oldTop = settingsTopPageView();
-        settingsPageStack.add(page);
-        settingsPageContainer.addView(pageLayout);
-        settingsAnimateIn(pageLayout, oldTop);
-    }
 
     int settingsContainerWidth() {
         int width = settingsPageContainer != null ? settingsPageContainer.getWidth() : 0;
@@ -3591,7 +3369,10 @@ void settingsRunNav() {
         } catch (Throwable ignore) {}
 
         try {
-            if (settingsPageStack != null) settingsPageStack.clear();
+            if (settingsPageStack != null) {
+                for (int i = 0; i < settingsPageStack.size(); i++) settingsDisposePage((SettingsPage) settingsPageStack.get(i));
+                settingsPageStack.clear();
+            }
         } catch (Throwable ignore) {}
 
         try {
