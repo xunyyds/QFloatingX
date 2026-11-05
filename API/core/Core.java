@@ -2089,7 +2089,6 @@ boolean isPowerSaveMode() {
     } catch (Throwable e) { traceLog("api_log", "[isPowerSaveMode] 异常: " + e); }
     return false;
 }
-volatile boolean isUnloading = false;
 volatile Thread 卸载线程引用 = null;
 volatile CountDownLatch 卸载完成信号 = null;
 void 清理Handler(Handler handler) {
@@ -2124,6 +2123,7 @@ void onUnMsgload() {
 
 	try {
 		stopWriteThread();
+		synchronized(SC.writeLock) { writeStats(); }
 		performDataCleanup();
 
 		Activity activity = safeActivity();
@@ -2181,7 +2181,9 @@ void 卸载脚本() {
 void 执行卸载核心逻辑() {
 
 	try {
+		try { 关模拟定位(); } catch (Throwable e) { traceLog("api_log", "[执行卸载核心逻辑] 关模拟定位失败: " + e); }
 		unhookAll();
+		try { removeRevokeMarkListener(); } catch (Throwable e) { traceLog("api_log", "[执行卸载核心逻辑] 移除撤回监听失败: " + e); }
 		flushAllDedupCounters();
 		onUnMsgload();
 		a卸载悬浮窗();
@@ -2190,9 +2192,11 @@ void 执行卸载核心逻辑() {
 			
 				unloadBackgroundCache();
 				清理Handler(uiHandler);
+				清理Handler(backgroundHandler);
 				uiHandler = null;
 				延迟启动完成 = false;
 				应用前台状态 = false;
+				try { toggleKeepNotify(false); } catch (Throwable e) { traceLog("api_log", "[执行卸载核心逻辑] 取消常驻通知失败: " + e); }
 				Toast("脚本卸载完成，欢迎下次使用");
 			
 		
