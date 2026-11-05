@@ -3,7 +3,7 @@
   "versionType": "测试版",
   "updateType": "全量",
   "updateTime": "2026-11-05 01:20:00",
-  "changelog": "- 设置功能页架构重构：首页与功能页统一构建入口，页面事务式构建与挂载，进退页面更稳\n- 搜索索引与界面构建分离，索引失败自动重建，搜索定位不再受页面重建影响\n- 消息统计、空间操作、功能热插拔、HTML 浏览器、运行状态页全部迁移到统一页面体系\n- 构建器返回空内容时直接抛出明确错误，替代诊断占位文本\n- 修复功能页就地渲染被误判为空内容的问题\n- 功能与上一版本保持一致，无需重新配置",
+  "changelog": "- 设置功能页架构重构：首页与功能页统一构建入口，页面事务式构建与挂载，进退页面更稳\n- 搜索索引与界面构建分离，索引失败自动重建，搜索定位不再受页面重建影响\n- 消息统计、空间操作、功能热插拔、HTML 浏览器、运行状态页全部迁移到统一页面体系\n- 构建器返回空内容时直接抛出明确错误，替代诊断占位文本\n- 修复功能页就地渲染被误判为空内容的问题\n- 修复功能页内容使用错误的布局参数导致显示异常的问题\n- 表情回应改用结构化构造请求体，群号非法时直接提示，不再吞异常\n- AI 声聊音色列表改用预设数组构建，弹窗显示异常不再吞掉\n- 功能与上一版本保持一致，无需重新配置",
   "files": [
     "main.java",
     "API/import.java",
@@ -44,13 +44,13 @@
     "API/core/Updater.java": "a6a090d7b01477120a9117f00fcae5e237b782b795c79b98d6686663ecb747a1",
     "API/feature/DoubleMsg.java": "6d7a0f4fab82c5491cd0826148189a99c162767319f3dd276c32dee917bab069",
     "API/feature/MockLocation.java": "f8cbf1621a9a1833b5b25c58a7a689184efeaf8c7aee63a7ab2857c2895c89db",
-    "API/feature/Proto.java": "bc9db3c90d808f70c03f3e49a22e1c8efa78a2c08f62a2080c35c5e5e6d1aa1e",
+    "API/feature/Proto.java": "3ee34bcfd8670f506e234f5df4196ee1f5ecda744d8834647e753ae554713342",
     "API/feature/Stats.java": "754d761aa3085a3132cad5cd3fd915b2ab500ef25305a11a96c438508773e0c1",
     "API/plugin/HotPlug.java": "3f819f0f41fa124550a6a2232e95165ced946182c76d7bb353fb0e56e2a16ae1",
     "API/plugin/KeepAlive.java": "2c800ce6fadc90816982cd616e8ee4bca8a186249a56146c4af092d1f7854c12",
     "API/plugin/RuntimeStatus.java": "7f8f0c6198a825bf57168d2154ba5c55f68e1c90c9011e38c6deb366939a2c96",
     "API/settings/Backup.java": "6eaec1e436e9db22e15ccf83c1e2e38777a2e7836c63af6c44f976f721cf2f30",
-    "API/settings/Settings.java": "ee03184543efad6983e3e5e490412483b5f38f20f43fcf0c76d9529e2505161a",
+    "API/settings/Settings.java": "2f8e7e8b356c086a8dabbce29d4452fc4ecca11ea52a5430ae05b1b27fff5011",
     "API/settings/SettingsPages.java": "1d916d3bcf79c3a9d8699db0d036bfe4d01b6595b26c0e96bc1b5d41f9a2a791",
     "API/settings/SettingsSearch.java": "0336ab7dc91052e86f0b418e76e9d5db1d74bc6cb737463338f735779d360bd6",
     "API/widget/ColorPicker.java": "620c19be0b86945c0c35876b3e30c43303c2b4d7b18b2d9151a031842c2cf7c4",
@@ -60,6 +60,6 @@
     "API/window/Markdown.java": "05d40f9836eb32fe654b20ddb8280c301bcffbd67baec3e0dd316c1bb8e3bfac",
     "API/window/Menu.java": "661fe5bdba7a0ad14235b6988c7140ab9966eef584790075f453d19a9d4e2cab",
     "info.prop": "e45d5965a7125ddb8bbbff0d822e7b3d4d9ce69673e1e2704130e09aca9d101a",
-    "更新日志.txt": "9fedbb0a3feec318cecf8762bdda9fb0cb67182128b1f0615c046a99c2529791"
+    "更新日志.txt": "b3bed394fbeffed6a851f1617952bb0da58f63ab13bacbd2a7811cacb909a6fe"
   }
 }
