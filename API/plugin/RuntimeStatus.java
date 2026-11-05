@@ -301,7 +301,7 @@ void add开关状态卡片(Activity context, LinearLayout parent, boolean isDark
         boolean 输入框t开关 = getBoolean("输入框", "输入框开关", false);
         boolean msgStatsOn = getBoolean("settings", "消息统计开关", false);
         boolean dblClickOn = getBoolean("settings", "双击消息开关", false);
-        boolean keepAliveOn = getBoolean("settings", "后台保活", false);
+        boolean keepAliveOn = getBoolean("settings", "常驻通知", false);
 
         StringBuilder sb = new StringBuilder();
         sb.append("悬浮窗: #").append(floatWindowState ? "开启" : "关闭").append("#\n");
@@ -430,7 +430,7 @@ void addJVM内存信息卡片(Activity context, LinearLayout parent, boolean isD
     try {
         Runtime runtime = Runtime.getRuntime();
         StringBuilder sb = new StringBuilder();
-        sb.append("剩余内存: #").append(formatSize(runtime.totalMemory())).append("#\n");
+        sb.append("已分配内存: #").append(formatSize(runtime.totalMemory())).append("#\n");
         sb.append("已用内存: #").append(formatSize(runtime.totalMemory() - runtime.freeMemory())).append("#\n");
         sb.append("空闲内存: #").append(formatSize(runtime.freeMemory())).append("#\n");
         sb.append("最大内存: #").append(formatSize(runtime.maxMemory())).append("#\n");

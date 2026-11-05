@@ -1,16 +1,16 @@
-HashMap runningThreads = new HashMap();
+ConcurrentHashMap runningThreads = new ConcurrentHashMap();
 
 ConcurrentHashMap stopFlags = new ConcurrentHashMap();
 
-HashMap loopFlags = new HashMap();
-HashMap loadFlags = new HashMap();
-HashMap runFlags = new HashMap();
+ConcurrentHashMap loopFlags = new ConcurrentHashMap();
+ConcurrentHashMap loadFlags = new ConcurrentHashMap();
+ConcurrentHashMap runFlags = new ConcurrentHashMap();
 
-HashMap eventRegistry = new HashMap();
+ConcurrentHashMap eventRegistry = new ConcurrentHashMap();
 
-HashMap lastExecTime = new HashMap();
+ConcurrentHashMap lastExecTime = new ConcurrentHashMap();
 
-HashMap preProcConfig = new HashMap();
+ConcurrentHashMap preProcConfig = new ConcurrentHashMap();
 boolean inPreproc = false;
 
 Queue sendMsgQueue = new ConcurrentLinkedQueue();
@@ -309,6 +309,8 @@ void saveFunc(String n, String content, boolean isFile, boolean[] cb, boolean ha
         if (getLoad(n)) {
             startIndepThread(n, interval, loopCount);
         }
+    } else {
+        stopThread(n);
     }
 }
 
@@ -374,8 +376,8 @@ HashMap getPreProcConfig(String n) {
 }
 
 void rebuildRegistry() {
-    HashMap newRegistry = new HashMap();
-    HashMap newPreProc = new HashMap();
+    ConcurrentHashMap newRegistry = new ConcurrentHashMap();
+    ConcurrentHashMap newPreProc = new ConcurrentHashMap();
     String[] fs = getAll();
     for (int i = 0; i < fs.length; i++) {
         String f = fs[i];
@@ -717,10 +719,9 @@ long getPrevScheduleTime(String cfg, long notAfter, long lastRecorded) {
 }
 
 void startIndepThread(final String func, final long interval, final int maxCount) {
-    Thread existing = (Thread)runningThreads.get(func);
-    if (existing != null && existing.isAlive()) {
-        existing.interrupt();
-        try { existing.join(1000); } catch (Throwable e) { traceLog("function_log", "[startIndepThread] 异常: " + e); }
+    Object existing = runningThreads.get(func);
+    if (existing instanceof java.util.concurrent.Future) {
+        try { ((java.util.concurrent.Future) existing).cancel(true); } catch (Throwable e) { traceLog("function_log", "[startIndepThread] 异常: " + e); }
     }
     
     loopFlags.put(func, new Boolean(getLoop(func)));
@@ -803,9 +804,11 @@ void startIndepThread(final String func, final long interval, final int maxCount
                         if (!getLoad(func) || !getRun(func) || !getLoop(func)) continue;
                     }
                     
+                    if (stopFlags.get(func) != stopToken) continue;
                     String code = readCodeFile(func);
                     if (!code.equals("")) {
                         synchronized (this.interpreter) {
+                        if (stopFlags.get(func) != stopToken) break;
                         this.interpreter.set("qq", myUin);
                         this.interpreter.set("pluginPath", pluginPath);
                         this.interpreter.set("this", this);
@@ -841,19 +844,14 @@ void startIndepThread(final String func, final long interval, final int maxCount
         }
     };
     
-    ThreadPool.execute(task);
-    Thread wrapper = new Thread(task);
-    wrapper.setName("HotPlug_" + func);
-    runningThreads.put(func, wrapper);
+    runningThreads.put(func, ThreadPool.submit(task));
 }
 
 void stopThread(String func) {
     stopFlags.remove(func);
-    Thread t = (Thread)runningThreads.get(func);
-    if (t != null) { 
-        t.interrupt(); 
-        try { t.join(1000); } catch (Throwable e) { traceLog("function_log", "[stopThread] 异常: " + e); }
-        runningThreads.remove(func); 
+    Object w = runningThreads.remove(func);
+    if (w instanceof java.util.concurrent.Future) {
+        try { ((java.util.concurrent.Future) w).cancel(true); } catch (Throwable e) { traceLog("function_log", "[stopThread] 异常: " + e); }
     }
 }
 
@@ -862,10 +860,9 @@ void stopAllThreads() {
     for (int i = 0; i < stopFuncs.size(); i++) {
         String f = (String)stopFuncs.get(i);
         stopFlags.remove(f);
-        Thread t = (Thread)runningThreads.get(f);
-        if (t != null) {
-            t.interrupt();
-            try { t.join(1000); } catch (Throwable e) { traceLog("function_log", "[stopAllThreads] 异常: " + e); }
+        Object w = runningThreads.get(f);
+        if (w instanceof java.util.concurrent.Future) {
+            try { ((java.util.concurrent.Future) w).cancel(true); } catch (Throwable e) { traceLog("function_log", "[stopAllThreads] 异常: " + e); }
         }
     }
     runningThreads.clear();
@@ -885,7 +882,7 @@ void execFunc(String func, Object data, int type) {
             String gid = "";
             if (type == 1 && data != null) {
                 try { gid = data.peerUin; } catch (Throwable e) { traceLog("function_log", "[execFunc] 异常: " + e); }
-            } else if (type >= 2 && type <= 6) {
+            } else if (type >= 2 && type <= 7) {
                 try {
                     if (data instanceof String) gid = (String)data;
                     else if (data instanceof Object[]) gid = (String)((Object[])data)[0];
@@ -943,6 +940,14 @@ void execFunc(String func, Object data, int type) {
             this.interpreter.set("uin", "");
             this.interpreter.set("paiType", arr[1]);
             this.interpreter.set("operator", arr[2]);
+            this.interpreter.set("data", data);
+            this.interpreter.set("qq", myUin);
+        } else if (type == 7) {
+            Object[] arr = (Object[])data;
+            this.interpreter.set("qun", arr[0]);
+            this.interpreter.set("uin", myUin);
+            this.interpreter.set("type", arr[1]);
+            this.interpreter.set("msg", arr[2]);
             this.interpreter.set("data", data);
             this.interpreter.set("qq", myUin);
         }
@@ -3065,6 +3070,9 @@ void processSendQueue() {
                         try {
                             sendMsg(unit.uin, unit.msg, unit.type);
                             Thread.sleep(200);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            break;
                         } catch (Throwable e) {
                             traceLog("function_log", "[processSendQueue] 发送失败: " + e);
                         }
@@ -3072,6 +3080,7 @@ void processSendQueue() {
                 }
             } finally {
                 isProcessingQueue.set(false);
+                if (!sendMsgQueue.isEmpty() && !Thread.currentThread().isInterrupted()) processSendQueue();
             }
         }
     });

@@ -200,11 +200,13 @@ public void showMuteAllDialog(Activity activity, String qun) {
                                 if (totalSec > 0) {
                                     try {
                                         shutUpAll(qun, true);
-                                        saveMuteAllRecord(qun, System.currentTimeMillis() + totalSec * 1000L);
+                                        final long expireAt = System.currentTimeMillis() + totalSec * 1000L;
+                                        saveMuteAllRecord(qun, expireAt);
                                         Toast("已开启全体禁言: " + formatRemainingTime(totalSec));
                                         final Handler handler = new Handler(Looper.getMainLooper());
                                         handler.postDelayed(new Runnable() {
                                             public void run() {
+                                                if (getMuteAllRecords().optLong(qun, 0L) != expireAt) return;
                                                 ThreadPool.execute(new Runnable() {
                                                     public void run() {
                                                         try {
@@ -2505,12 +2507,8 @@ public void showExtractAudioDialog(Activity activity, Object data) {
                             closeBtn.setOnClickListener(new View.OnClickListener() {
                                 public void onClick(View v) {
                                     if (player[0] != null) {
-                                        try {
-                                            player[0].stop();
-                                            player[0].release();
-                                        } catch (Throwable t) {
-                                            traceLog("dialog_log", "[downloadFile] 异常: " + t);
-                                        }
+                                        try { player[0].stop(); } catch (Throwable t) { traceLog("dialog_log", "[downloadFile] 异常: " + t); }
+                                        try { player[0].release(); } catch (Throwable t) { traceLog("dialog_log", "[downloadFile] 异常: " + t); }
                                         player[0] = null;
                                     }
                                     if (updateProgressTask[0] != null) {
@@ -2529,12 +2527,8 @@ public void showExtractAudioDialog(Activity activity, Object data) {
                             ref[0].setOnDismissListener(new DialogInterface.OnDismissListener() {
                                 public void onDismiss(DialogInterface d) {
                                     if (player[0] != null) {
-                                        try {
-                                            player[0].stop();
-                                            player[0].release();
-                                        } catch (Throwable t) {
-                                            traceLog("dialog_log", "[onClick] 异常: " + t);
-                                        }
+                                        try { player[0].stop(); } catch (Throwable t) { traceLog("dialog_log", "[onClick] 异常: " + t); }
+                                        try { player[0].release(); } catch (Throwable t) { traceLog("dialog_log", "[onClick] 异常: " + t); }
                                         player[0] = null;
                                     }
                                     if (updateProgressTask[0] != null) {

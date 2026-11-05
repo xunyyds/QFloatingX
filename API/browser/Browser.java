@@ -542,6 +542,7 @@ public class HtmlPreviewActivity extends BaseComposeActivity implements View.OnC
                         final File entry = findEntryFile(outputDir);
                         runOnUiThread(new Runnable() {
                             public void run() {
+                                if (webView == null) return;
                                 centerSpinner.setVisibility(View.GONE);
                                 if (entry != null) {
                                     setCleanTitle(entry.getName());

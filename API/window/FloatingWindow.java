@@ -39,6 +39,7 @@ boolean 悬浮窗可见() {
 private WindowManager wm = null; 
 private WindowManager.LayoutParams params = null; 
 private FrameLayout floatingView = null; 
+private Activity floatingActivity = null;  
 private ImageView iconImageView = null; 
 private Bitmap cachedIconBitmap = null; 
 private String cachedGifPath = ""; 
@@ -760,8 +761,10 @@ void 创建悬浮窗视图(final Activity activity) {
         }
         if (floatingView != null) {
             悬浮窗状态 = STATE_CREATED;
+            floatingActivity = activity;
             return;
         }
+        floatingActivity = activity;
         touchOffsetX = 0;
         touchOffsetY = 0;
         currentAlpha = 255;
@@ -1108,6 +1111,10 @@ public void 启动悬浮窗(final Activity activity) {
             return;
         }
 
+        if (floatingView != null && floatingActivity != null && floatingActivity != activity) {
+            销毁悬浮窗资源();
+        }
+
         switch (悬浮窗状态) {
             case STATE_DESTROYED:
             default:
@@ -1195,6 +1202,7 @@ public void 卸载悬浮窗() {
     isGifMode = false;
     floatingView = null;
     iconImageView = null;
+    floatingActivity = null;
     closeRangeView = null;
     closeRangeIcon = null;
     wm = null;

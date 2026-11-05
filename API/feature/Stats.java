@@ -639,12 +639,13 @@ private void writeStats() {
     Vector keysToWrite = null;
     synchronized(SC.writeLock) { keysToWrite = new Vector(SC.CHANGED_KEYS); }
     if (keysToWrite != null && !keysToWrite.isEmpty()) {
-        writeFullStatsInternal();
-        synchronized(SC.writeLock) { SC.CHANGED_KEYS.removeAll(keysToWrite); }
+        if (writeFullStatsInternal()) {
+            synchronized(SC.writeLock) { SC.CHANGED_KEYS.removeAll(keysToWrite); }
+        }
     }
 }
 
-private void writeFullStatsInternal() {
+private boolean writeFullStatsInternal() {
     JSONObject statsJson = new JSONObject();
     Iterator iterator = SC.OP_STATS.entrySet().iterator();
     while (iterator.hasNext()) {
@@ -657,7 +658,7 @@ private void writeFullStatsInternal() {
     File mainFile = new File(statsConfigPath());
     File tempFile = new File(statsConfigPath() + ".tmp");
     File parentDir = mainFile.getParentFile();
-    if (!parentDir.exists() && !parentDir.mkdirs()) return;
+    if (!parentDir.exists() && !parentDir.mkdirs()) return false;
 
     FileOutputStream fos = null;
     OutputStreamWriter osw = null;
@@ -670,16 +671,18 @@ private void writeFullStatsInternal() {
         osw.close();
         if (mainFile.exists() && !mainFile.delete()) {
             tempFile.delete();
-            return;
+            return false;
         }
         if (!tempFile.renameTo(mainFile)) {
             tempFile.delete();
-            return;
+            return false;
         }
         createSingleBackup();
+        return true;
     } catch (Exception e) {
         traceLog("api3_log", "[writeFullStatsInternal] 写入失败: " + e.getMessage());
         if (tempFile != null) tempFile.delete();
+        return false;
     } finally {
         if (osw != null) try { osw.close(); } catch (Throwable e) {}
         if (fos != null) try { fos.close(); } catch (Throwable e) {}

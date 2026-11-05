@@ -61,6 +61,7 @@ void openFilePicker(Activity activity, int requestCode, String mimeType, String[
         activity.startActivityForResult(intent, requestCode);
     } catch (Throwable e) {
         traceLog("api_log", "[openFilePicker] 失败: " + e);
+        filePickerTasks.remove(Integer.valueOf(requestCode));
         Toast("文件选择启动失败: " + e.getMessage());
     }
 }
@@ -81,11 +82,11 @@ void ensureFilePickerHook() {
                                 int rc = ((Integer) param.args[1]).intValue();
                                 int resultCode = ((Integer) param.args[2]).intValue();
                                 Intent data = (Intent) param.args[3];
+                                FilePickerTask task = (FilePickerTask) filePickerTasks.remove(Integer.valueOf(rc));
+                                if (task == null) return;
                                 if (resultCode != Activity.RESULT_OK || data == null) return;
                                 Uri uri = data.getData();
                                 if (uri == null) return;
-                                FilePickerTask task = (FilePickerTask) filePickerTasks.remove(Integer.valueOf(rc));
-                                if (task == null) return;
                                 String fileName = null;
                                 try {
                                     if ("content".equals(uri.getScheme())) {

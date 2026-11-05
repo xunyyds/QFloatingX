@@ -114,6 +114,7 @@ final String[] deferredFiles = {
 
 
 volatile long apiLoadCostTime = -1;
+volatile boolean isUnloading = false;
 static ThreadLocal dateFormatHolder = new ThreadLocal();
 
 public static String getTime() {
@@ -245,6 +246,7 @@ void initThreadPool() {
             return;
         } catch (Exception e) {
             traceLog("main_log", "[initThreadPool] 线程池重建: " + e.getMessage());
+            try { ThreadPool.shutdownNow(); } catch (Throwable ignore) {}
             ThreadPool = null;
         }
     }
@@ -323,6 +325,7 @@ void apiAfterLoad(final String path) {
     ThreadPool.execute(new Runnable() {
         public void run() {
             try {
+                if (isUnloading) return;
                 if (path.endsWith("feature/MockLocation.java")) {
                     开模拟定位();
                 } else if (path.endsWith("window/Dialogs.java")) {
@@ -345,13 +348,13 @@ void loadApiGroup(String[] paths) {
 }
 
 void ensureAllApi() {
-    if (apiPrefetchDone) return;
-    try {
-        apiReadyLatch.await(20000, TimeUnit.MILLISECONDS);
-    } catch (Throwable e) {
-        traceLog("main_log", "[ensureAllApi] 等待加载失败: " + e);
+    if (!apiPrefetchDone) {
+        try {
+            apiReadyLatch.await(20000, TimeUnit.MILLISECONDS);
+        } catch (Throwable e) {
+            traceLog("main_log", "[ensureAllApi] 等待加载失败: " + e);
+        }
     }
-    if (apiPrefetchDone) return;
     for (int i = 0; i < deferredFiles.length; i++) {
         if (loadApiFile(deferredFiles[i])) apiAfterLoad(deferredFiles[i]);
     }
@@ -388,6 +391,7 @@ ThreadPool.execute(new Runnable() {
                 e.printStackTrace(new java.io.PrintWriter(sw));
                 traceLog("main_log", "[apiLoad] 堆栈: " + sw.toString());
             } catch (Throwable ignore) {}
+            if (uiHandler != null) uiHandler.post(new Runnable() { public void run() { toast("QFloatingX 加载异常: " + e); } });
         } finally {
             apiPrefetchDone = true;
             apiReadyLatch.countDown();
@@ -889,6 +893,7 @@ void 原神启动() {
     ThreadPool.execute(new Runnable() {
         public void run() {
             try {
+                if (isUnloading) return;
                 后台初始化();
 
                 Activity currentAct = getNowActivity();
