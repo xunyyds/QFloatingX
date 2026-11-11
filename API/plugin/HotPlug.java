@@ -156,7 +156,8 @@ class HotPlugClassLoader {
                 
             } catch (Throwable e) {
                 remove(funcName); 
-                traceLog("function_log", "[编译失败] 功能 [" + funcName + "] 语法错误:\n" + e.toString());
+                traceLog("function_log", "[编译失败] 功能 [" + funcName + "] 语法错误: " + e
+                    + "\n" + android.util.Log.getStackTraceString(e));
                 return;
             }
         }
@@ -183,9 +184,10 @@ class HotPlugClassLoader {
             }
             
         } catch (Throwable e) {
-            traceLog("function_log", "[运行异常] 功能 [" + funcName + "] 执行出错: " + e.getMessage());
-            remove(funcName);
+            traceLog("function_log", "[运行异常] 功能 [" + funcName + "] 执行出错: " + e
+                + "\n" + android.util.Log.getStackTraceString(e));
             if (e.toString().contains("Command not found")) remove(funcName);
+            qqToast(1, "功能 [" + funcName + "] 执行出错: " + e);
         }
     }
     
@@ -216,12 +218,25 @@ String readCodeFile(String name) {
     try {
         File f = new File(getDir() + "/" + name + ".java");
         if (!f.exists()) return "";
-        FileReader r = new FileReader(f);
-        char[] b = new char[(int)f.length()];
-        r.read(b);
-        r.close();
-        return new String(b);
-    } catch (Throwable e) { return ""; }
+        int len = (int) f.length();
+        byte[] bytes = new byte[len];
+        java.io.FileInputStream in = new java.io.FileInputStream(f);
+        int read = 0;
+        try {
+            while (read < len) {
+                int n = in.read(bytes, read, len - read);
+                if (n < 0) break;
+                read += n;
+            }
+        } finally {
+            in.close();
+        }
+        if (read != len) throw new java.io.IOException("读取不完整: " + read + "/" + len);
+        return new String(bytes, 0, read, "UTF-8");
+    } catch (Throwable e) {
+        traceLog("function_log", "[readCodeFile] 读取失败: " + name + "\n" + android.util.Log.getStackTraceString(e));
+        throw new IllegalStateException("读取脚本文件失败: " + name, e);
+    }
 }
 
 String readExtFile(String p) {
@@ -281,8 +296,7 @@ void saveFunc(String n, String content, boolean isFile, boolean[] cb, boolean ha
         traceLog("function_log", "[saveFunc] " + e);
     }
     
-    String list = getString("HotPlug", "list", "");
-    if (!list.contains(n + ",")) putString("HotPlug", "list", list + n + ",");
+    putString("HotPlug", "list", hotplugListAdd(getString("HotPlug", "list", ""), n));
     
     rebuildRegistry();
     
@@ -414,15 +428,39 @@ String[] getAll() {
     return l.split(",");
 }
 
+boolean hotplugListHas(String list, String name) {
+    if (list == null || list.isEmpty()) return false;
+    String[] parts = list.split(",");
+    for (int i = 0; i < parts.length; i++) {
+        if (parts[i].equals(name)) return true;
+    }
+    return false;
+}
+
+String hotplugListAdd(String list, String name) {
+    if (list == null) list = "";
+    if (hotplugListHas(list, name)) return list;
+    return list + name + ",";
+}
+
+String hotplugListRemove(String list, String name) {
+    if (list == null || list.isEmpty()) return "";
+    StringBuffer sb = new StringBuffer();
+    String[] parts = list.split(",");
+    for (int i = 0; i < parts.length; i++) {
+        if (parts[i].isEmpty() || parts[i].equals(name)) continue;
+        sb.append(parts[i]).append(",");
+    }
+    return sb.toString();
+}
+
 void delFunc(String n) {
     stopThread(n); 
     try {
         new java.io.File(getDir() + "/" + n + ".java").delete();
     } catch (Throwable e) { traceLog("function_log", "[delFunc] 异常: " + e); }
     putString("HotPlug", "meta_" + n, ""); 
-    String list = getString("HotPlug", "list", "");
-    list = list.replace(n + ",", ""); 
-    putString("HotPlug", "list", list);
+    putString("HotPlug", "list", hotplugListRemove(getString("HotPlug", "list", ""), n));
     loopFlags.remove(n);
     scriptLoader.remove(n);
     preProcConfig.remove(n);
@@ -899,6 +937,14 @@ void execFunc(String func, Object data, int type) {
             this.interpreter.unset("msg");
             this.interpreter.unset("time");
             this.interpreter.unset("operator");
+            this.interpreter.unset("msgId");
+            this.interpreter.unset("msgType");
+            this.interpreter.unset("paiType");
+            this.interpreter.unset("qun");
+            this.interpreter.unset("uin");
+            this.interpreter.unset("type");
+            this.interpreter.unset("data");
+            this.interpreter.unset("qq");
 
         if (type == 1) { 
             this.interpreter.set("data", data);
