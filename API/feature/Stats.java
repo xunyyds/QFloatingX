@@ -1070,11 +1070,20 @@ private LinearLayout createStatsCardBase(Activity activity, String title, String
     final String fCardType = cardType;
     View.OnClickListener expandToggle = new View.OnClickListener() {
         public void onClick(View v) {
-            Boolean current = (Boolean) SC.cardExpandStatus.get(fCardType);
-            boolean isExpanded = current != null && current;
-            traceLog("api3_log", "[统计卡片] 点击 " + fCardType + " 当前=" + isExpanded);
-            SC.cardExpandStatus.put(fCardType, !isExpanded);
-            updateCardExpandStatus(fCard, !isExpanded);
+            try {
+                log("/Log/stats_debug.txt", getTime() + " 点击进入 cardType=" + fCardType
+                    + " 状态=" + SC.cardExpandStatus.get(fCardType) + " 卡片tag=" + fCard.getTag()
+                    + " 卡片子项=" + fCard.getChildCount());
+                Boolean current = (Boolean) SC.cardExpandStatus.get(fCardType);
+                boolean isExpanded = current != null && current;
+                SC.cardExpandStatus.put(fCardType, !isExpanded);
+                updateCardExpandStatus(fCard, !isExpanded);
+                log("/Log/stats_debug.txt", getTime() + " 点击完成 cardType=" + fCardType + " -> " + (!isExpanded));
+            } catch (Throwable t) {
+                log("/Log/stats_debug.txt", getTime() + " 点击异常 cardType=" + fCardType + " : " + t
+                    + "\n" + android.util.Log.getStackTraceString(t));
+                qqToast(1, "统计卡片展开失败: " + t);
+            }
         }
     };
     titleBar.setOnClickListener(expandToggle);
@@ -1108,24 +1117,31 @@ private LinearLayout createStatsCardBase(Activity activity, String title, String
 }
 
 private void updateCardExpandStatus(final LinearLayout card, final boolean isExpanded) {
+    log("/Log/stats_debug.txt", getTime() + " 进入 updateCardExpandStatus tag=" + card.getTag()
+        + " expanded=" + isExpanded + " 子项=" + card.getChildCount());
     String cardType = (String) card.getTag();
     final TextView arrowTv = (TextView) card.findViewWithTag(cardType + "_arrow");
     final LinearLayout container = (LinearLayout) card.findViewWithTag(cardType + "_container");
+    log("/Log/stats_debug.txt", getTime() + " 查找元素 cardType=" + cardType
+        + " 箭头=" + arrowTv + " 容器=" + container);
     if (arrowTv == null || container == null) {
         throw new IllegalStateException("统计卡片缺少折叠元素: " + cardType);
     }
+    int childCount = container.getChildCount();
+    String tagOfContainer = String.valueOf(container.getTag());
     arrowTv.animate().rotation(isExpanded ? 90 : 0).setDuration(200).start();
     container.getLayoutParams().height = isExpanded ? ViewGroup.LayoutParams.WRAP_CONTENT : 0;
     container.setVisibility(isExpanded ? View.VISIBLE : View.GONE);
     container.requestLayout();
     card.requestLayout();
     SC.cardExpandStatus.put(cardType, isExpanded);
-    traceLog("api3_log", "[统计卡片] 展开状态 " + cardType + "=" + isExpanded
-        + " 容器可见性=" + container.getVisibility() + " 子项=" + container.getChildCount()
-        + " 卡片高=" + card.getHeight() + " 容器高=" + container.getHeight());
+    log("/Log/stats_debug.txt", getTime() + " 已切换 cardType=" + cardType + " expanded=" + isExpanded
+        + " 子项=" + childCount + " 容器tag=" + tagOfContainer
+        + " 容器可见性=" + container.getVisibility() + " 容器高=" + container.getHeight()
+        + " 卡片高=" + card.getHeight());
     container.post(new Runnable() {
         public void run() {
-            traceLog("api3_log", "[统计卡片] 布局后 " + card.getTag() + "=" + isExpanded
+            log("/Log/stats_debug.txt", getTime() + " 布局后 " + card.getTag() + "=" + isExpanded
                 + " 卡片高=" + card.getHeight() + " 容器高=" + container.getHeight()
                 + " 容器可见性=" + container.getVisibility());
         }
