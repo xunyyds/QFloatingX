@@ -1107,36 +1107,29 @@ private LinearLayout createStatsCardBase(Activity activity, String title, String
     return card;
 }
 
-private void updateCardExpandStatus(LinearLayout card, boolean isExpanded) {
+private void updateCardExpandStatus(final LinearLayout card, final boolean isExpanded) {
     String cardType = (String) card.getTag();
-    TextView arrowTv = (TextView) card.findViewWithTag(cardType + "_arrow");
+    final TextView arrowTv = (TextView) card.findViewWithTag(cardType + "_arrow");
     final LinearLayout container = (LinearLayout) card.findViewWithTag(cardType + "_container");
     if (arrowTv == null || container == null) {
-        throw new IllegalStateException("统计卡片缺少折叠元素: " + cardType + " arrow=" + arrowTv + " container=" + container);
+        throw new IllegalStateException("统计卡片缺少折叠元素: " + cardType);
     }
-    arrowTv.animate().rotation(isExpanded ? 90 : 0).setDuration(300).start();
-    if (isExpanded) {
-        container.setVisibility(View.VISIBLE);
-        Animation expandAnim = new ExpandAnimation(container, 300);
-        expandAnim.setAnimationListener(new Animation.AnimationListener() {
-            public void onAnimationStart(Animation animation) {}
-            public void onAnimationEnd(Animation animation) {
-                container.getLayoutParams().height = ViewGroup.LayoutParams.WRAP_CONTENT;
-                container.requestLayout();
-            }
-            public void onAnimationRepeat(Animation animation) {}
-        });
-        container.startAnimation(expandAnim);
-    } else {
-        Animation collapseAnim = new CollapseAnimation(container, 300);
-        collapseAnim.setAnimationListener(new Animation.AnimationListener() {
-            public void onAnimationStart(Animation animation) {}
-            public void onAnimationEnd(Animation animation) { container.setVisibility(View.GONE); }
-            public void onAnimationRepeat(Animation animation) {}
-        });
-        container.startAnimation(collapseAnim);
-    }
+    arrowTv.animate().rotation(isExpanded ? 90 : 0).setDuration(200).start();
+    container.getLayoutParams().height = isExpanded ? ViewGroup.LayoutParams.WRAP_CONTENT : 0;
+    container.setVisibility(isExpanded ? View.VISIBLE : View.GONE);
+    container.requestLayout();
+    card.requestLayout();
     SC.cardExpandStatus.put(cardType, isExpanded);
+    traceLog("api3_log", "[统计卡片] 展开状态 " + cardType + "=" + isExpanded
+        + " 容器可见性=" + container.getVisibility() + " 子项=" + container.getChildCount()
+        + " 卡片高=" + card.getHeight() + " 容器高=" + container.getHeight());
+    container.post(new Runnable() {
+        public void run() {
+            traceLog("api3_log", "[统计卡片] 布局后 " + card.getTag() + "=" + isExpanded
+                + " 卡片高=" + card.getHeight() + " 容器高=" + container.getHeight()
+                + " 容器可见性=" + container.getVisibility());
+        }
+    });
 }
 
 class ExpandAnimation extends Animation {
