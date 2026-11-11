@@ -12,7 +12,11 @@ public void openSetting(final int functionType, final String groupId, final Stri
             final String fPeerUin = (groupId != null) ? groupId : "";
             final String fPeerName = (userName != null) ? userName : "";
             fa.runOnUiThread(new Runnable() {
-                public void run() { launchSettingsActivity(fa, fChatType, fPeerUin, fPeerName); }
+                public void run() {
+                    runLogged("api_log", "openSetting->launchSettingsActivity 群=" + fPeerUin, new Runnable() {
+                        public void run() { launchSettingsActivity(fa, fChatType, fPeerUin, fPeerName); }
+                    });
+                }
             });
         }
     });
@@ -27,7 +31,8 @@ void 跳转到页面(String className) {
     try {
         activity.startActivity(intent);
     } catch (Exception e) {
-        traceLog("api_log","[跳转到页面] 跳转页面失败: " + e);
+        logStack("api_log", "[跳转到页面] " + className, e);
+        qqToast(1, "页面跳转失败: " + className);
     }
 }
 boolean isFilePickerHooked = false;

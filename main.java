@@ -161,6 +161,24 @@ void traceLog(String txt) {
     }
 }
 
+void logStack(String tag, String where, Throwable t) {
+    String 文件名 = tag.endsWith(".txt") ? tag : tag + ".txt";
+    try {
+        log("/Log/" + 文件名, getTime() + "    " + where + "    " + t + "\n" + android.util.Log.getStackTraceString(t));
+    } catch (Throwable e) {
+        traceLog("main_log", "[logStack] 写日志失败 " + 文件名 + " where=" + where + " 原始异常=" + t + " 日志异常=" + e);
+    }
+}
+
+void runLogged(String tag, String where, Runnable r) {
+    try {
+        r.run();
+    } catch (Throwable t) {
+        logStack(tag, where, t);
+        qqToast(1, "出错: " + where + " (" + t + ")");
+    }
+}
+
 Map logDedupState = new ConcurrentHashMap();
 Object logDedupLock = new Object();
 long logDedupWindowMs = 3000L;
@@ -342,7 +360,7 @@ void apiAfterLoad(final String path) {
                     checkQFXUpdate();
                 }
             } catch (Throwable e) {
-                traceLog("main_log", "[apiLoad] 加载后初始化失败：" + path + " " + e);
+                logStack("main_log", "[apiLoad] 加载后初始化失败 " + path, e);
             }
         }
     });
@@ -366,7 +384,7 @@ void runWhenApiReady(String why, final Runnable action) {
                 ensureAllApi();
                 uiHandler.post(action);
             } catch (Throwable e) {
-                traceLog("main_log", "[runWhenApiReady] 准备 API 失败: " + e + "\n" + android.util.Log.getStackTraceString(e));
+                logStack("main_log", "[runWhenApiReady] 准备 API 失败 why=" + why, e);
                 qqToast(1, "加载失败: " + e);
             }
         }
@@ -416,12 +434,7 @@ ThreadPool.execute(new Runnable() {
             traceLog("main_log", "[apiLoad] 全量完成 耗时：" + (System.currentTimeMillis() - startTime) + "ms");
 
         } catch (Throwable e) {
-            traceLog("main_log", "[apiLoad] API加载异常 stage=" + stage + " : " + e);
-            try {
-                java.io.StringWriter sw = new java.io.StringWriter();
-                e.printStackTrace(new java.io.PrintWriter(sw));
-                traceLog("main_log", "[apiLoad] 堆栈: " + sw.toString());
-            } catch (Throwable ignore) {}
+            logStack("main_log", "[apiLoad] API加载异常 stage=" + stage, e);
             if (uiHandler != null) uiHandler.post(new Runnable() { public void run() { toast("QFloatingX 加载异常: " + e); } });
         } finally {
             apiPrefetchDone = true;
@@ -461,7 +474,11 @@ void checkAndUpdateForegroundState(final Activity activity) {
     if (非UI初始化完成 && !UI初始化完成) {
         uiHandler.post(new Runnable() {
             public void run() {
-                前台初始化(activity);
+                runLogged("main_log", "前台初始化", new Runnable() {
+                    public void run() {
+                        前台初始化(activity);
+                    }
+                });
             }
         });
     }
@@ -791,22 +808,30 @@ void Hook生命周期() {
 
         hook(Activity.class, "onResume", new Class[0], new XC_MethodHook() {
             protected void afterHookedMethod(MethodHookParam param) {
-                Activity a = (Activity) param.thisObject;
-                if (hostPkg.equals(a.getPackageName())) {
-                    resumedActivityCount++;
-                    checkAndUpdateForegroundState(a);
-                }
+                runLogged("main_log", "Hook.onResume.afterHookedMethod", new Runnable() {
+                    public void run() {
+                        Activity a = (Activity) param.thisObject;
+                        if (hostPkg.equals(a.getPackageName())) {
+                            resumedActivityCount++;
+                            checkAndUpdateForegroundState(a);
+                        }
+                    }
+                });
             }
         });
 
         hook(Activity.class, "onPause", new Class[0], new XC_MethodHook() {
             protected void afterHookedMethod(MethodHookParam param) {
-                Activity a = (Activity) param.thisObject;
-                if (hostPkg.equals(a.getPackageName())) {
-                    resumedActivityCount--;
-                    if (resumedActivityCount < 0) resumedActivityCount = 0;
-                    checkAndUpdateBackgroundState();
-                }
+                runLogged("main_log", "Hook.onPause.afterHookedMethod", new Runnable() {
+                    public void run() {
+                        Activity a = (Activity) param.thisObject;
+                        if (hostPkg.equals(a.getPackageName())) {
+                            resumedActivityCount--;
+                            if (resumedActivityCount < 0) resumedActivityCount = 0;
+                            checkAndUpdateBackgroundState();
+                        }
+                    }
+                });
             }
         });
 
@@ -875,7 +900,7 @@ void 前台初始化(Activity currentActivity) {
 	                    totalCount = dataObj.optInt("up_count", 0);
 	                }
 	            } catch (Exception e) {
-	                traceLog("main_log", "[前台初始化] 计数解析异常：" + e.getMessage());
+	                logStack("main_log", "[前台初始化] 计数解析异常", e);
 	            }
 	        }
 	
@@ -889,7 +914,7 @@ void 前台初始化(Activity currentActivity) {
 	                        putBoolean("settings", qqKey, true);
 	                    }
 	                } catch (Exception e) {
-	                    traceLog("main_log", "[前台初始化] 新用户标记异常：" + e.getMessage());
+	                    logStack("main_log", "[前台初始化] 新用户标记异常", e);
 	                }
 	            }
 	        }
@@ -931,7 +956,11 @@ void 原神启动() {
                     最后Activity = currentAct;
                     uiHandler.post(new Runnable() {
                         public void run() {
-                            前台初始化(currentAct);
+                            runLogged("main_log", "原神启动->前台初始化", new Runnable() {
+                                public void run() {
+                                    前台初始化(currentAct);
+                                }
+                            });
                         }
                     });
                 } else {
@@ -946,7 +975,7 @@ void 原神启动() {
                 }
 
             } catch (Exception e) {
-                traceLog("main_log", "[原神启动] 初始化异常: " + e.getMessage());
+                logStack("main_log", "[原神启动] 初始化异常", e);
             }
         }
     });

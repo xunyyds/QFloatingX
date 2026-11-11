@@ -886,7 +886,7 @@ void 设置触摸事件(final Activity activity) {
                             xfcHandler.postDelayed(this, 30);
                         }
                     }
-                } catch (Throwable e) { traceLog("api4_log", "[设置触摸事件] 异常: " + e); }
+                } catch (Throwable e) { logStack("api4_log", "[设置触摸事件] fadeRunnable", e); }
             }
         };
     }
@@ -909,7 +909,7 @@ void 设置触摸事件(final Activity activity) {
                             });
                         }
                     }
-                } catch (Throwable e) { traceLog("api4_log", "[设置触摸事件] 异常: " + e); }
+                } catch (Throwable e) { logStack("api4_log", "[设置触摸事件] longClickRunnable 按时长=" + (System.currentTimeMillis() - touchStartTime), e); }
             }
         };
     }
@@ -1013,9 +1013,8 @@ void 设置触摸事件(final Activity activity) {
                         break;
                 }
             } catch (Exception e) {
-                traceLog("api4_log", "[触摸] 异常: isDragging=" + isDragging + " isInCloseRange=" + isInCloseRange
-                    + " action=" + event.getAction() + " pos=" + (params == null ? "null" : (params.x + "," + params.y))
-                    + "\n" + android.util.Log.getStackTraceString(e));
+                logStack("api4_log", "[触摸] isDragging=" + isDragging + " isInCloseRange=" + isInCloseRange
+                    + " action=" + event.getAction() + " pos=" + (params == null ? "null" : (params.x + "," + params.y)), e);
                 xfcHandler.removeCallbacks(longClickRunnable);
                 xfcHandler.removeCallbacks(fadeRunnable);
                 停止持续振动();
@@ -1044,7 +1043,11 @@ void 处理图标点击(final Activity activity) {
                     Toast("设置页面加载中，请稍候");
                     ThreadPool.execute(new Runnable() {
                         public void run() {
-                            ensureAllApi();
+                            runLogged("api4_log", "[处理图标点击] ensureAllApi", new Runnable() {
+                                public void run() {
+                                    ensureAllApi();
+                                }
+                            });
                             activity.runOnUiThread(new Runnable() {
                                 public void run() {
                                     if (activity.isFinishing() || activity.isDestroyed()) {
@@ -1064,7 +1067,7 @@ void 处理图标点击(final Activity activity) {
                 vibrate(activity, 48);
                 launchSettingsActivity(activity, 0, "", "");
             } catch (Exception e) {
-                traceLog("api4_log", "[处理图标点击] 菜单弹窗异常: " + e.getMessage());
+                logStack("api4_log", "[处理图标点击] 打开设置页", e);
             }
         }
     });
@@ -1092,7 +1095,7 @@ public void 悬浮窗开关(int chatType, String peerUin, String name) {
                 } else {
                     停止悬浮窗();
                 }
-            } catch (Throwable e) { traceLog("api4_log", "[悬浮窗开关] 异常: " + e); }
+            } catch (Throwable e) { logStack("api4_log", "[悬浮窗开关]", e); }
         }
     });
 }
