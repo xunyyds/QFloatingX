@@ -1078,7 +1078,9 @@ private LinearLayout createStatsCardBase(Activity activity, String title, String
                 boolean isExpanded = current != null && current;
                 SC.cardExpandStatus.put(fCardType, !isExpanded);
                 updateCardExpandStatus(fCard, !isExpanded);
-                log("/Log/stats_debug.txt", getTime() + " 点击完成 cardType=" + fCardType + " -> " + (!isExpanded));
+                log("/Log/stats_debug.txt", getTime() + " 点击完成 cardType=" + fCardType + " -> " + (!isExpanded)
+                    + " " + statsExpandDebug(fCard));
+                qqToast(0, fCardType + " " + statsExpandDebug(fCard));
             } catch (Throwable t) {
                 log("/Log/stats_debug.txt", getTime() + " 点击异常 cardType=" + fCardType + " : " + t
                     + "\n" + android.util.Log.getStackTraceString(t));
@@ -1116,6 +1118,14 @@ private LinearLayout createStatsCardBase(Activity activity, String title, String
     return card;
 }
 
+String statsExpandDebug(LinearLayout card) {
+    LinearLayout container = (LinearLayout) card.findViewWithTag(card.getTag() + "_container");
+    if (container == null) return "容器缺失";
+    return "子项=" + container.getChildCount() + " 卡片高=" + card.getHeight()
+        + " 容器高=" + container.getHeight() + " 可见性=" + container.getVisibility()
+        + " 卡片子View=" + card.getChildCount();
+}
+
 private void updateCardExpandStatus(final LinearLayout card, final boolean isExpanded) {
     log("/Log/stats_debug.txt", getTime() + " 进入 updateCardExpandStatus tag=" + card.getTag()
         + " expanded=" + isExpanded + " 子项=" + card.getChildCount());
@@ -1128,6 +1138,9 @@ private void updateCardExpandStatus(final LinearLayout card, final boolean isExp
         throw new IllegalStateException("统计卡片缺少折叠元素: " + cardType);
     }
     int childCount = container.getChildCount();
+    if (childCount == 0) {
+        throw new IllegalStateException("统计卡片容器为空: " + cardType);
+    }
     String tagOfContainer = String.valueOf(container.getTag());
     arrowTv.animate().rotation(isExpanded ? 90 : 0).setDuration(200).start();
     container.getLayoutParams().height = isExpanded ? ViewGroup.LayoutParams.WRAP_CONTENT : 0;
