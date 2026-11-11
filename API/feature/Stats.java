@@ -30,6 +30,7 @@ class StatsState {
     volatile boolean logCheckRunning = false;
     volatile long lastBackupTime = 0L;
     volatile boolean statsLoadRunning = false;
+    final java.util.Map cardParts = new java.util.HashMap();
     final Pattern LINK_PATTERN = Pattern.compile("##(.*?)##");
     final Pattern VAR_PATTERN = Pattern.compile("#(.*?)#");
 }
@@ -1080,7 +1081,6 @@ private LinearLayout createStatsCardBase(Activity activity, String title, String
                 updateCardExpandStatus(fCard, !isExpanded);
                 log("/Log/stats_debug.txt", getTime() + " 点击完成 cardType=" + fCardType + " -> " + (!isExpanded)
                     + " " + statsExpandDebug(fCard));
-                qqToast(0, fCardType + " " + statsExpandDebug(fCard));
             } catch (Throwable t) {
                 log("/Log/stats_debug.txt", getTime() + " 点击异常 cardType=" + fCardType + " : " + t
                     + "\n" + android.util.Log.getStackTraceString(t));
@@ -1114,49 +1114,46 @@ private LinearLayout createStatsCardBase(Activity activity, String title, String
     statsContainer.setVisibility(View.GONE);
     card.addView(statsContainer);
 
+    SC.cardParts.put(cardType, new Object[]{arrowTv, statsContainer});
     SC.cardExpandStatus.put(cardType, false);
     return card;
 }
 
 String statsExpandDebug(LinearLayout card) {
-    LinearLayout container = (LinearLayout) card.findViewWithTag(card.getTag() + "_container");
-    if (container == null) return "容器缺失";
+    Object[] parts = (Object[]) SC.cardParts.get((String) card.getTag());
+    if (parts == null) return "卡片部件未注册";
+    LinearLayout container = (LinearLayout) parts[1];
     return "子项=" + container.getChildCount() + " 卡片高=" + card.getHeight()
         + " 容器高=" + container.getHeight() + " 可见性=" + container.getVisibility()
         + " 卡片子View=" + card.getChildCount();
 }
 
 private void updateCardExpandStatus(final LinearLayout card, final boolean isExpanded) {
-    log("/Log/stats_debug.txt", getTime() + " 进入 updateCardExpandStatus tag=" + card.getTag()
-        + " expanded=" + isExpanded + " 子项=" + card.getChildCount());
     String cardType = (String) card.getTag();
-    final TextView arrowTv = (TextView) card.findViewWithTag(cardType + "_arrow");
-    final LinearLayout container = (LinearLayout) card.findViewWithTag(cardType + "_container");
-    log("/Log/stats_debug.txt", getTime() + " 查找元素 cardType=" + cardType
-        + " 箭头=" + arrowTv + " 容器=" + container);
-    if (arrowTv == null || container == null) {
-        throw new IllegalStateException("统计卡片缺少折叠元素: " + cardType);
+    Object[] parts = (Object[]) SC.cardParts.get(cardType);
+    if (parts == null) {
+        throw new IllegalStateException("统计卡片部件未注册: " + cardType);
     }
+    final TextView arrowTv = (TextView) parts[0];
+    final LinearLayout container = (LinearLayout) parts[1];
     int childCount = container.getChildCount();
     if (childCount == 0) {
         throw new IllegalStateException("统计卡片容器为空: " + cardType);
     }
-    String tagOfContainer = String.valueOf(container.getTag());
     arrowTv.animate().rotation(isExpanded ? 90 : 0).setDuration(200).start();
     container.getLayoutParams().height = isExpanded ? ViewGroup.LayoutParams.WRAP_CONTENT : 0;
     container.setVisibility(isExpanded ? View.VISIBLE : View.GONE);
     container.requestLayout();
     card.requestLayout();
     SC.cardExpandStatus.put(cardType, isExpanded);
-    log("/Log/stats_debug.txt", getTime() + " 已切换 cardType=" + cardType + " expanded=" + isExpanded
-        + " 子项=" + childCount + " 容器tag=" + tagOfContainer
-        + " 容器可见性=" + container.getVisibility() + " 容器高=" + container.getHeight()
-        + " 卡片高=" + card.getHeight());
+    log("/Log/stats_debug.txt", getTime() + " 已切换 " + cardType + "=" + isExpanded
+        + " 子项=" + childCount + " 可见性=" + container.getVisibility()
+        + " 卡片高=" + card.getHeight() + " 容器高=" + container.getHeight());
     container.post(new Runnable() {
         public void run() {
             log("/Log/stats_debug.txt", getTime() + " 布局后 " + card.getTag() + "=" + isExpanded
                 + " 卡片高=" + card.getHeight() + " 容器高=" + container.getHeight()
-                + " 容器可见性=" + container.getVisibility());
+                + " 可见性=" + container.getVisibility());
         }
     });
 }
