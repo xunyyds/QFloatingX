@@ -133,6 +133,13 @@ class SettingsBuildContext {
     final String level1;
     final String level2;
     final String level3;
+    final int cardBg;
+    final int rippleColor;
+    final int primaryColor;
+    final int onSurfaceColor;
+    final int onSurfaceVariantColor;
+    final int outlineColor;
+    final float density;
     String currentCategory;
     LinearLayout listContainer;
     ScrollView scrollView;
@@ -150,6 +157,19 @@ class SettingsBuildContext {
         this.level3 = level3;
         listContainer = new LinearLayout(activity);
         listContainer.setOrientation(LinearLayout.VERTICAL);
+        cardBg = getAdaptiveCardBg(activity);
+        rippleColor = pc(getSettingsThemeColor(activity, "ripple"));
+        primaryColor = pc(getSettingsThemeColor(activity, "primary"));
+        onSurfaceColor = pc(getSettingsThemeColor(activity, "on_surface"));
+        onSurfaceVariantColor = pc(getSettingsThemeColor(activity, "on_surface_variant"));
+        outlineColor = pc(getSettingsThemeColor(activity, "outline"));
+        density = getPluginUiDensity(activity);
+    }
+    public int px(int dpValue) {
+        return (int)(dpValue * density + 0.5f);
+    }
+    public int px(float dpValue) {
+        return (int)(dpValue * density + 0.5f);
     }
     void dispose() {
         disposed = true;
@@ -593,14 +613,12 @@ void addSettingsCategory(Object ctx, String titleText, String descriptionText) {
     if (ctx.listContainer == null) return;
     Activity activity = ctx.activity;
 
-    boolean isDark = isThemeDark(activity);
-
     TextView categoryTitle = new TextView(activity);
     categoryTitle.setText(titleText);
     categoryTitle.setTextSize(14);
     categoryTitle.setTypeface(null, Typeface.BOLD);
-    categoryTitle.setTextColor(pc(getSettingsThemeColor(activity, "primary")));
-    categoryTitle.setPadding(dp(activity, 28), dp(activity, 20), dp(activity, 16), dp(activity, 8));
+    categoryTitle.setTextColor(ctx.primaryColor);
+    categoryTitle.setPadding(ctx.px(28), ctx.px(20), ctx.px(16), ctx.px(8));
 
     LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, -2);
     ctx.listContainer.addView(categoryTitle, titleParams);
@@ -609,8 +627,8 @@ void addSettingsCategory(Object ctx, String titleText, String descriptionText) {
         TextView categoryDesc = new TextView(activity);
         categoryDesc.setText(descriptionText);
         categoryDesc.setTextSize(12);
-        categoryDesc.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
-        categoryDesc.setPadding(dp(activity, 28), 0, dp(activity, 16), dp(activity, 8));
+        categoryDesc.setTextColor(ctx.onSurfaceVariantColor);
+        categoryDesc.setPadding(ctx.px(28), 0, ctx.px(16), ctx.px(8));
 
         LinearLayout.LayoutParams descParams = new LinearLayout.LayoutParams(-1, -2);
         ctx.listContainer.addView(categoryDesc, descParams);
@@ -618,12 +636,12 @@ void addSettingsCategory(Object ctx, String titleText, String descriptionText) {
 
     LinearLayout categoryContainer = new LinearLayout(activity);
     categoryContainer.setOrientation(LinearLayout.VERTICAL);
-    int cardBgColor = getAdaptiveCardBg(activity);
-    categoryContainer.setBackground(roundRect(cardBgColor, dp(activity, 16)));
+    int cardBgColor = ctx.cardBg;
+    categoryContainer.setBackground(roundRect(cardBgColor, ctx.px(16)));
     categoryContainer.setClipToOutline(true);
 
     LinearLayout.LayoutParams containerParams = new LinearLayout.LayoutParams(-1, -2);
-    containerParams.setMargins(dp(activity, 12), 0, dp(activity, 12), dp(activity, 8));
+    containerParams.setMargins(ctx.px(12), 0, ctx.px(12), ctx.px(8));
     ctx.listContainer.addView(categoryContainer, containerParams);
 
     ctx.categoryContainers.put(titleText, categoryContainer);
@@ -638,14 +656,12 @@ void addSettingsItemClickWithKey(Object ctx, String itemName, String description
     LinearLayout container = settingsCurrentCategoryContainer(ctx);
     if (container == null) return;
 
-    boolean isDark = isThemeDark(activity);
-
     FrameLayout itemWrapper = new FrameLayout(activity);
 
     LinearLayout itemLayout = new LinearLayout(activity);
     itemLayout.setOrientation(LinearLayout.HORIZONTAL);
     itemLayout.setGravity(Gravity.CENTER_VERTICAL);
-    itemLayout.setPadding(dp(activity, 16), dp(activity, 14), dp(activity, 16), dp(activity, 14));
+    itemLayout.setPadding(ctx.px(16), ctx.px(14), ctx.px(16), ctx.px(14));
 
     LinearLayout textArea = new LinearLayout(activity);
     textArea.setOrientation(LinearLayout.VERTICAL);
@@ -654,15 +670,15 @@ void addSettingsItemClickWithKey(Object ctx, String itemName, String description
     TextView nameView = new TextView(activity);
     nameView.setText(itemName);
     nameView.setTextSize(16);
-    nameView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
+    nameView.setTextColor(ctx.onSurfaceColor);
     textArea.addView(nameView);
 
     if (descriptionText != null && !descriptionText.isEmpty()) {
         TextView descView = new TextView(activity);
         descView.setText(descriptionText);
         descView.setTextSize(12);
-        descView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
-        descView.setPadding(0, dp(activity, 2), 0, 0);
+        descView.setTextColor(ctx.onSurfaceVariantColor);
+        descView.setPadding(0, ctx.px(2), 0, 0);
         textArea.addView(descView);
     }
 
@@ -671,12 +687,12 @@ void addSettingsItemClickWithKey(Object ctx, String itemName, String description
     TextView arrowView = new TextView(activity);
     arrowView.setText("›");
     arrowView.setTextSize(20);
-    arrowView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
+    arrowView.setTextColor(ctx.onSurfaceVariantColor);
     itemLayout.addView(arrowView);
 
     itemWrapper.addView(itemLayout);
 
-    itemWrapper.setBackground(makeFeedbackBg(getAdaptiveCardBg(activity), pc(getSettingsThemeColor(activity, "ripple")), 0));
+    itemWrapper.setBackground(makeFeedbackBg(ctx.cardBg, ctx.rippleColor, 0));
 	itemWrapper.setClickable(true);
 	itemWrapper.setOnClickListener(new View.OnClickListener() {
 	    public void onClick(View view) {
@@ -783,7 +799,7 @@ void addSettingsItemSwitchWithKey(Object ctx, String itemName, String configName
 	LinearLayout itemLayout = new LinearLayout(activity);
 	itemLayout.setOrientation(LinearLayout.HORIZONTAL);
 	itemLayout.setGravity(Gravity.CENTER_VERTICAL);
-	itemLayout.setPadding(dp(activity, 16), dp(activity, 14), dp(activity, 16), dp(activity, 14));
+	itemLayout.setPadding(ctx.px(16), ctx.px(14), ctx.px(16), ctx.px(14));
 
 	if (descriptionText != null && !descriptionText.isEmpty()) {
 		LinearLayout textArea = new LinearLayout(activity);
@@ -793,14 +809,14 @@ void addSettingsItemSwitchWithKey(Object ctx, String itemName, String configName
 		TextView nameView = new TextView(activity);
 		nameView.setText(itemName);
 		nameView.setTextSize(16);
-		nameView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
+		nameView.setTextColor(ctx.onSurfaceColor);
 		textArea.addView(nameView);
 
 		TextView descView = new TextView(activity);
 		descView.setText(descriptionText);
 		descView.setTextSize(12);
-		descView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
-		descView.setPadding(0, dp(activity, 2), 0, 0);
+		descView.setTextColor(ctx.onSurfaceVariantColor);
+		descView.setPadding(0, ctx.px(2), 0, 0);
 		textArea.addView(descView);
 
 		itemLayout.addView(textArea);
@@ -808,7 +824,7 @@ void addSettingsItemSwitchWithKey(Object ctx, String itemName, String configName
 		TextView nameView = new TextView(activity);
 		nameView.setText(itemName);
 		nameView.setTextSize(16);
-		nameView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
+		nameView.setTextColor(ctx.onSurfaceColor);
 		nameView.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
 		itemLayout.addView(nameView);
 	}
@@ -820,7 +836,7 @@ void addSettingsItemSwitchWithKey(Object ctx, String itemName, String configName
 
 	itemWrapper.addView(itemLayout);
 
-	itemWrapper.setBackground(makeFeedbackBg(getAdaptiveCardBg(activity), pc(getSettingsThemeColor(activity, "ripple")), 0));
+	itemWrapper.setBackground(makeFeedbackBg(ctx.cardBg, ctx.rippleColor, 0));
 	if (descriptionText != null && !descriptionText.isEmpty()) {
 		itemWrapper.setClickable(true);
 		itemWrapper.setOnClickListener(new View.OnClickListener() {
@@ -852,20 +868,20 @@ void addSettingsInputItemWithConfig(Object ctx, String itemName, String descript
 
     LinearLayout itemLayout = new LinearLayout(activity);
     itemLayout.setOrientation(LinearLayout.VERTICAL);
-    itemLayout.setPadding(dp(activity, 16), dp(activity, 12), dp(activity, 16), dp(activity, 12));
+    itemLayout.setPadding(ctx.px(16), ctx.px(12), ctx.px(16), ctx.px(12));
 
     TextView nameView = new TextView(activity);
     nameView.setText(itemName);
     nameView.setTextSize(16);
-    nameView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
+    nameView.setTextColor(ctx.onSurfaceColor);
     itemLayout.addView(nameView);
 
     if (descriptionText != null && !descriptionText.isEmpty()) {
         TextView descView = new TextView(activity);
         descView.setText(descriptionText);
         descView.setTextSize(12);
-        descView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
-        descView.setPadding(0, dp(activity, 2), 0, dp(activity, 8));
+        descView.setTextColor(ctx.onSurfaceVariantColor);
+        descView.setPadding(0, ctx.px(2), 0, ctx.px(8));
         itemLayout.addView(descView);
     }
 
@@ -913,7 +929,7 @@ void addSettingsInputItemWithConfig(Object ctx, String itemName, String descript
         }
     });
 
-    itemLayout.setBackground(makeFeedbackBg(getAdaptiveCardBg(activity), pc(getSettingsThemeColor(activity, "ripple")), 0));
+    itemLayout.setBackground(makeFeedbackBg(ctx.cardBg, ctx.rippleColor, 0));
     itemLayout.setClickable(true);
 
     if (itemKey != null && !itemKey.isEmpty() && ctx.itemViews != null) {
