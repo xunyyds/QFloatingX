@@ -209,6 +209,12 @@ class ArrowDrawable extends Drawable {
         paint.setColor(color);
         invalidateSelf();
     }
+    void setDirection(boolean up) {
+        if (isUp == up) return;
+        isUp = up;
+        rebuildPath();
+        invalidateSelf();
+    }
     private void rebuildPath() {
         Rect b = getBounds();
         float w = b.width(), h = b.height();
@@ -572,7 +578,7 @@ public void 长按消息菜单(Activity activity, Object data) {
                 qqToast(ok ? 2 : 1, ok ? "打卡成功" : "打卡失败");
             }
         });
-        addMenuItem(menuItems, "其他", "群字符", new Runnable() { public void run() { drawLuckyChar(finalPeerUin); } });
+        addMenuItem(menuItems, "其他", "群字符", new Runnable() { public void run() { qqToast(1, "群字符功能未实现"); } });
     }
     addMenuItem(menuItems, "其他", "设置", new Runnable() {
         public void run() {

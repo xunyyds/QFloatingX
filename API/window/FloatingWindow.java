@@ -849,10 +849,18 @@ void 销毁悬浮窗资源() {
         isGifMode = false;
     } catch (Throwable e) { traceLog("api4_log", "[销毁悬浮窗资源] 异常: " + e); }
     try {
+        if (closeRangeView != null && closeRangeView.isAttachedToWindow() && wm != null) {
+            wm.removeView(closeRangeView);
+        }
+    } catch (Throwable e) { traceLog("api4_log", "[销毁悬浮窗资源] 关闭区域摘除异常: " + e); }
+    try {
+        closeRangeView = null;
+        closeRangeIcon = null;
+        isCloseRangeAttached = false;
         floatingView = null;
         iconImageView = null;
         悬浮窗状态 = STATE_DESTROYED;
-            isLongClickScheduled = false;
+        isLongClickScheduled = false;
         isDragging = false;
         isInCloseRange = false;
     } catch (Throwable e) { traceLog("api4_log", "[销毁悬浮窗资源] 异常: " + e); }
@@ -895,7 +903,7 @@ void 设置触摸事件(final Activity activity) {
                                 public void run() {
                                     if (悬浮窗可见()) {
                                         Toast("长按关闭悬浮窗");
-                                        停止悬浮窗();
+                                        关闭悬浮窗();
                                     }
                                 }
                             });
@@ -987,7 +995,7 @@ void 设置触摸事件(final Activity activity) {
                             保存悬浮窗位置(activity);
                             if (isInCloseRange) {
                                 Toast("已关闭悬浮窗");
-                                停止悬浮窗();
+                                关闭悬浮窗();
                             }
                             隐藏关闭区域(activity);
                         } else if (event.getAction() == MotionEvent.ACTION_UP) {
@@ -1005,6 +1013,9 @@ void 设置触摸事件(final Activity activity) {
                         break;
                 }
             } catch (Exception e) {
+                traceLog("api4_log", "[触摸] 异常: isDragging=" + isDragging + " isInCloseRange=" + isInCloseRange
+                    + " action=" + event.getAction() + " pos=" + (params == null ? "null" : (params.x + "," + params.y))
+                    + "\n" + android.util.Log.getStackTraceString(e));
                 xfcHandler.removeCallbacks(longClickRunnable);
                 xfcHandler.removeCallbacks(fadeRunnable);
                 停止持续振动();
@@ -1150,6 +1161,12 @@ public void 启动悬浮窗() {
     }
 }
 
+public void 关闭悬浮窗() {
+    putBoolean("settings", "开关", false);
+    applyFloatWindowMenuText();
+    停止悬浮窗();
+}
+
 public void 停止悬浮窗() {
     Activity activity = safeActivity();
     xfcHandler.removeCallbacksAndMessages(null);
@@ -1162,14 +1179,12 @@ public void 停止悬浮窗() {
         隐藏关闭区域(activity);
         保存悬浮窗位置(activity);
     }
-    if (悬浮窗状态 == STATE_VISIBLE || 悬浮窗状态 == STATE_CREATED) {
+    if (floatingView != null && wm != null && floatingView.isAttachedToWindow()) {
         try {
-            if (floatingView != null && wm != null && floatingView.isAttachedToWindow()) {
-                if (iconImageView instanceof GifImageView) {
-                    ((GifImageView) iconImageView).stopAnimation();
-                }
-                wm.removeView(floatingView);
+            if (iconImageView instanceof GifImageView) {
+                ((GifImageView) iconImageView).stopAnimation();
             }
+            wm.removeView(floatingView);
         } catch (Throwable e) { traceLog("api4_log", "[停止悬浮窗] 异常: " + e); }
         悬浮窗状态 = STATE_HIDDEN;
     }
