@@ -1876,12 +1876,9 @@ void showResetAllSettingsConfirmDialog(Activity activity) {
 
     builder.setPositiveButton("确认重置", new android.content.DialogInterface.OnClickListener() {
         public void onClick(android.content.DialogInterface dialog, int which) {
-            int count = resetAllSettingsToDefault();
-            qqToast(0, "已重置 " + count + " 项设置");
-            Activity resetAct = getSettingsCurrentActivity();
-            if (resetAct != null) {
-                showSettingsMenu(resetAct, null, null, null);
-            }
+            resetAllSettingsToDefault();
+            qqToast(0, "已删除设置配置，即将重载脚本");
+            重新加载脚本();
         }
     });
 
@@ -1889,29 +1886,15 @@ void showResetAllSettingsConfirmDialog(Activity activity) {
     applyUiTheme(activity, dialog, 0);
 }
 int resetAllSettingsToDefault() {
-    String[] settingKeys = {
-            "ui_theme_mode", "ui_dialog_dpi_mode", "ui_dialog_custom_dpi", "ui_dialog_width", "ui_dialog_height",
-            "振动反馈", "ui_bg_type", "ui_bg_color_dark", "ui_bg_color_light",
-            "ui_bg_gradient_dark", "ui_bg_gradient_light", "ui_img_blur", "ui_img_alpha",
-            "ui_bg_solid_list_dark", "ui_bg_solid_list_light",
-            "ui_font_type", "ui_font_size", "ui_text_color_dark", "ui_text_color_light",
-            "thread_pool_priority", "thread_pool_queue_capacity", "thread_pool_keep_alive",
-            "thread_pool_name_prefix", "thread_pool_reject_policy", "悬浮窗大小",
-            "关闭区域图标大小", "关闭区域大小", "拖拽灵敏度", "长按关闭阈值", "移动阈值",
-            "背景模糊", "iconAlpha", "ui_corner_dp", "log_delete_threshold", "gifDelay",
-            "加载提示", "加载通知", "常驻通知", "补一次执行", "toast_style", "toast_pos", "toast_box_gravity",
-            "toast_text_gravity", "toast_duration", "toast_adaptive", "toast_prefix",
-            "toast_suffix", "toast_color_list", "toast_bg_solid_list", "toast_bg_color_list",
-            "黑白"
-    };
-
-    int count = 0;
-    for (String key : settingKeys) {
-        putString("settings", key, "");
-        count++;
+    java.io.File cfgFile = new java.io.File(pluginPath + "/config/settings.json");
+    if (!cfgFile.exists()) {
+        throw new IllegalStateException("设置配置文件不存在: " + cfgFile.getAbsolutePath());
     }
-
-    return count;
+    if (!cfgFile.delete()) {
+        throw new IllegalStateException("删除设置配置文件失败: " + cfgFile.getAbsolutePath());
+    }
+    traceLog("api_log", "[resetAllSettings] 已删除设置配置: " + cfgFile.getAbsolutePath());
+    return 1;
 }
 void ensureSettingsActivityRegistered() {
     if (SettingsState.settingsActivityRegistered) return;
