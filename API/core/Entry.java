@@ -2,19 +2,20 @@ public void openPlugin(int functionType, String groupId, String userName) {
     跳转到页面("me.yxp.qfun.activity.PluginActivity");
 }
 
-public void openSetting(int functionType, String groupId, String userName) {
-    if (!apiPrefetchDone) Toast("设置页面加载中，请稍候");
-    ensureAllApi();
-    Activity act = safeActivity();
-    if (act != null) {
-        final Activity fa = act;
-        final int fChatType = functionType;
-        final String fPeerUin = (groupId != null) ? groupId : "";
-        final String fPeerName = (userName != null) ? userName : "";
-        fa.runOnUiThread(new Runnable() {
-            public void run() { launchSettingsActivity(fa, fChatType, fPeerUin, fPeerName); }
-        });
-    }
+public void openSetting(final int functionType, final String groupId, final String userName) {
+    runWhenApiReady("设置页面", new Runnable() {
+        public void run() {
+            Activity act = safeActivity();
+            if (act == null) return;
+            final Activity fa = act;
+            final int fChatType = functionType;
+            final String fPeerUin = (groupId != null) ? groupId : "";
+            final String fPeerName = (userName != null) ? userName : "";
+            fa.runOnUiThread(new Runnable() {
+                public void run() { launchSettingsActivity(fa, fChatType, fPeerUin, fPeerName); }
+            });
+        }
+    });
 }
 void 跳转到页面(String className) {
     Activity activity = safeActivity();

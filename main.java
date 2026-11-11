@@ -241,13 +241,12 @@ boolean rewriteLastLogLine(String logPath, String content, int count) {
 
 void initThreadPool() {
     if (ThreadPool != null) {
-        try {
-            ThreadPool.submit(new Runnable() { public void run() {} }).get(100, TimeUnit.MILLISECONDS);
-            return;
-        } catch (Exception e) {
-            traceLog("main_log", "[initThreadPool] 线程池重建: " + e.getMessage());
-            try { ThreadPool.shutdownNow(); } catch (Throwable ignore) {}
+        if (ThreadPool.isShutdown() || ThreadPool.isTerminated()) {
+            traceLog("main_log", "[initThreadPool] 线程池已终止，重建: active=" + ThreadPool.getActiveCount()
+                + " queue=" + ThreadPool.getQueue().size());
             ThreadPool = null;
+        } else {
+            return;
         }
     }
 
@@ -290,7 +289,13 @@ void initThreadPool() {
     ThreadPool = new ThreadPoolExecutor(
         corePoolSize, maxPoolSize, keepAliveTime, TimeUnit.SECONDS,
         new LinkedBlockingQueue(queueCapacity), threadFactory,
-        new ThreadPoolExecutor.DiscardOldestPolicy()
+        new RejectedExecutionHandler() {
+            public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
+                traceLog("main_log", "[线程池] 任务被拒绝 active=" + executor.getActiveCount()
+                    + " queue=" + executor.getQueue().size() + " task=" + r);
+                throw new RejectedExecutionException("线程池已满，任务被拒绝: " + r);
+            }
+        }
     );
 }
 
@@ -299,6 +304,7 @@ volatile boolean apiPrefetchDone = false;
 CountDownLatch apiReadyLatch = new CountDownLatch(1);
 CountDownLatch apiDeclareLatch = new CountDownLatch(1);
 Map apiLoadedAt = new ConcurrentHashMap();
+Map apiLoadError = new ConcurrentHashMap();
 final Object apiLoadLock = new Object();
 
 boolean apiLoaded(String path) {
@@ -313,7 +319,8 @@ boolean loadApiFile(String path) {
         try {
             loadJava(path);
         } catch (Throwable e) {
-            traceLog("main_log", "[apiLoad] 加载失败：" + path + " " + e);
+            apiLoadError.put(path, e);
+            traceLog("main_log", "[apiLoad] 加载失败：" + path + "\n" + android.util.Log.getStackTraceString(e));
             return false;
         }
         apiLoadedAt.put(path, Long.valueOf(System.currentTimeMillis() - loadStart));
@@ -347,6 +354,25 @@ void loadApiGroup(String[] paths) {
     }
 }
 
+void runWhenApiReady(String why, final Runnable action) {
+    if (apiPrefetchDone) {
+        action.run();
+        return;
+    }
+    qqToast(0, why + "加载中，请稍候");
+    ThreadPool.execute(new Runnable() {
+        public void run() {
+            try {
+                ensureAllApi();
+                uiHandler.post(action);
+            } catch (Throwable e) {
+                traceLog("main_log", "[runWhenApiReady] 准备 API 失败: " + e + "\n" + android.util.Log.getStackTraceString(e));
+                qqToast(1, "加载失败: " + e);
+            }
+        }
+    });
+}
+
 void ensureAllApi() {
     if (!apiPrefetchDone) {
         try {
@@ -357,6 +383,11 @@ void ensureAllApi() {
     }
     for (int i = 0; i < deferredFiles.length; i++) {
         if (loadApiFile(deferredFiles[i])) apiAfterLoad(deferredFiles[i]);
+    }
+    if (!apiLoadError.isEmpty()) {
+        traceLog("main_log", "[ensureAllApi] 以下 API 加载失败: " + apiLoadError.keySet());
+        qqToast(1, "API 加载失败: " + apiLoadError.keySet());
+        throw new IllegalStateException("API 加载失败: " + apiLoadError.keySet());
     }
 }
 
@@ -875,7 +906,6 @@ void 前台初始化(Activity currentActivity) {
 	});
 
     if (getBoolean("settings", "开关", false)) {
-        悬浮窗状态 = STATE_DESTROYED;
         启动悬浮窗(currentActivity);
     }
 
@@ -927,13 +957,16 @@ void 原神启动() {
 
 }
 
-void 打开消息菜单(Object data) {
-    ensureAllApi();
-    if (!apiLoaded(rootPath + "window/Menu.java")) {
-        traceLog("main_log", "[打开消息菜单] 菜单API未就绪");
-        return;
-    }
-    菜单(data);
+void 打开消息菜单(final Object data) {
+    runWhenApiReady("菜单", new Runnable() {
+        public void run() {
+            if (!apiLoaded(rootPath + "window/Menu.java")) {
+                qqToast(1, "菜单加载失败: window/Menu.java");
+                throw new IllegalStateException("菜单 API 未加载: " + rootPath + "window/Menu.java");
+            }
+            菜单(data);
+        }
+    });
 }
 
 addMenuItem("菜单", "打开消息菜单");
