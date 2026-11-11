@@ -30,6 +30,8 @@ class StatsState {
     volatile boolean logCheckRunning = false;
     volatile long lastBackupTime = 0L;
     volatile boolean statsLoadRunning = false;
+    final Hashtable LOADED_DAYS = new Hashtable();
+    volatile boolean totalStatsLoaded = false;
     final java.util.Map cardParts = new java.util.HashMap();
     final Pattern LINK_PATTERN = Pattern.compile("##(.*?)##");
     final Pattern VAR_PATTERN = Pattern.compile("#(.*?)#");
@@ -193,6 +195,20 @@ private String statsConfigPath() {
     return pluginPath + "/config/msg_stats.json";
 }
 
+private String statsDirPath() {
+    File dir = new File(pluginPath + "/config/stats");
+    if (!dir.exists() && !dir.mkdirs()) throw new IllegalStateException("统计目录创建失败: " + dir.getAbsolutePath());
+    return dir.getAbsolutePath();
+}
+
+private String dayStatsPath(String dateStr) {
+    return statsDirPath() + "/d_" + dateStr + ".json";
+}
+
+private String totalStatsPath() {
+    return statsDirPath() + "/total.json";
+}
+
 private String timeRangeName(int range) {
     if (range == 1) return "昨日";
     if (range == 2) return "本周";
@@ -244,7 +260,7 @@ private String formatStatValue(long value) {
 
 private void startWriteThread() {
     if (SC.writeThreadRunning) return;
-    if (SC.OP_STATS.isEmpty()) readFullStats();
+    if (SC.OP_STATS.isEmpty() || !SC.totalStatsLoaded) readFullStats();
     SC.writeThreadRunning = true;
     ThreadPool.execute(new Runnable() {
         public void run() {
@@ -420,21 +436,55 @@ private void initTimeRange(Activity activity) {
 
 private synchronized void readFullStats() {
     checkTodayReset();
-    String configName = statsConfigPath();
-    if (configName == null || configName.isEmpty()) return;
-    File mainFile = new File(statsConfigPath());
-    if (mainFile.exists() && parseStatsFile(mainFile)) return;
-    File backupFile = new File(statsConfigPath() + ".bak");
-    if (backupFile.exists() && parseStatsFile(backupFile)) {
-        Toast("已从备份文件恢复数据");
-        return;
-    }
-    SC.msgHandle.post(new Runnable() {
-        public void run() {
+    boolean migrated = migrateLegacyStatsIfNeeded();
+    if (!migrated && !new File(totalStatsPath()).exists()) {
+        if (SC.OP_STATS.isEmpty()) {
             initEmptyStats();
             Toast("无历史数据，初始化新统计");
         }
-    });
+        SC.totalStatsLoaded = true;
+    } else {
+        loadTotalStats();
+    }
+    loadDayStats(SC.todayDateStr);
+}
+
+private boolean migrateLegacyStatsIfNeeded() {
+    File legacyFile = new File(statsConfigPath());
+    File legacyBackup = new File(statsConfigPath() + ".bak");
+    if (!legacyFile.exists() && !legacyBackup.exists()) return false;
+    if (new File(totalStatsPath()).exists()) return false;
+    boolean loaded = false;
+    if (legacyFile.exists() && parseStatsFile(legacyFile)) loaded = true;
+    if (!loaded && legacyBackup.exists() && parseStatsFile(legacyBackup)) {
+        loaded = true;
+        Toast("已从备份文件恢复数据");
+    }
+    if (!loaded) throw new IllegalStateException("[migrateLegacyStats] 旧统计文件无法解析: " + statsConfigPath());
+    SC.totalStatsLoaded = true;
+    HashSet days = new HashSet();
+    synchronized(SC.writeLock) {
+        List keys = new ArrayList(SC.OP_STATS.keySet());
+        for (int i = 0; i < keys.size(); i++) {
+            String key = (String) keys.get(i);
+            if (key.startsWith("date_") && key.length() > 13) days.add(key.substring(5, 13));
+        }
+    }
+    Iterator dayIterator = days.iterator();
+    while (dayIterator.hasNext()) {
+        String day = (String) dayIterator.next();
+        SC.LOADED_DAYS.put(day, day);
+        writeDayStats(day);
+    }
+    writeTotalStats();
+    if (legacyFile.exists() && !legacyFile.renameTo(new File(statsConfigPath() + ".migrated"))) {
+        throw new IllegalStateException("[migrateLegacyStats] 旧文件改名失败: " + legacyFile.getAbsolutePath());
+    }
+    if (legacyBackup.exists() && !legacyBackup.renameTo(new File(statsConfigPath() + ".bak.migrated"))) {
+        throw new IllegalStateException("[migrateLegacyStats] 旧备份改名失败: " + legacyBackup.getAbsolutePath());
+    }
+    traceLog("api3_log", "[migrateLegacyStats] 迁移完成 天数=" + days.size() + " 键数=" + SC.OP_STATS.size());
+    return true;
 }
 
 void loadFullStatsAsync(final Activity activity) {
@@ -478,10 +528,42 @@ private boolean parseStatsFile(File file) {
     }
 }
 
+private void loadTotalStats() {
+    if (SC.totalStatsLoaded) return;
+    File file = new File(totalStatsPath());
+    if (file.exists() && !parseStatsFile(file)) {
+        String detail = "[loadTotalStats] 累计统计文件损坏: " + file.getAbsolutePath();
+        traceLog("api3_log", detail);
+        throw new IllegalStateException(detail);
+    }
+    SC.totalStatsLoaded = true;
+}
+
+private void loadDayStats(String dateStr) {
+    if (SC.LOADED_DAYS.containsKey(dateStr)) return;
+    File file = new File(dayStatsPath(dateStr));
+    if (file.exists() && !parseStatsFile(file)) {
+        String detail = "[loadDayStats] 分日统计文件损坏: " + file.getAbsolutePath();
+        traceLog("api3_log", detail);
+        throw new IllegalStateException(detail);
+    }
+    SC.LOADED_DAYS.put(dateStr, dateStr);
+}
+
+private void loadAllDayStats() {
+    File[] files = new File(statsDirPath()).listFiles();
+    if (files == null) throw new IllegalStateException("[loadAllDayStats] 统计目录无法列出: " + statsDirPath());
+    for (int i = 0; i < files.length; i++) {
+        String name = files[i].getName();
+        if (name.startsWith("d_") && name.endsWith(".json")) loadDayStats(name.substring(2, name.length() - 5));
+    }
+}
+
 private void initEmptyStats() {
     synchronized(SC.writeLock) {
         SC.OP_STATS.clear();
         SC.CHANGED_KEYS.clear();
+        SC.LOADED_DAYS.clear();
         String[] statTypes = api3StatTypes();
         for (int i = 0; i < statTypes.length; i++) {
             SC.OP_STATS.put("total" + statTypes[i], new Long(0L));
@@ -542,6 +624,7 @@ private void processBatch() {
         if ("WordCount".equals(STAT_CATEGORIES[k][0])) { wcIdx = k; break; }
     }
     boolean wcOn = wcIdx >= 0 && catOn[wcIdx];
+    loadTotalStats();
 
     SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd", Locale.CHINA);
 
@@ -561,6 +644,7 @@ private void processBatch() {
         boolean isSend = myUin.equals(senderUin);
         if (isSend && !sendOn) continue;
         if (!isSend && !recvOn) continue;
+        loadDayStats(msgDateStr);
 
         String cat = catKeyOf(msgTypeStr);
         int catIdx = -1;
@@ -655,63 +739,110 @@ public void onMsg(Object data) {
 }
 
 private void writeStats() {
-    String configName = statsConfigPath();
-    if (SC.CHANGED_KEYS.isEmpty() || configName == null || configName.isEmpty()) return;
     Vector keysToWrite = null;
-    synchronized(SC.writeLock) { keysToWrite = new Vector(SC.CHANGED_KEYS); }
-    if (keysToWrite != null && !keysToWrite.isEmpty()) {
-        if (writeFullStatsInternal()) {
-            synchronized(SC.writeLock) { SC.CHANGED_KEYS.removeAll(keysToWrite); }
+    HashSet dirtyDays = new HashSet();
+    boolean totalDirty = false;
+    synchronized(SC.writeLock) {
+        if (SC.CHANGED_KEYS.isEmpty()) return;
+        keysToWrite = new Vector(SC.CHANGED_KEYS);
+        SC.CHANGED_KEYS.clear();
+        for (int i = 0; i < keysToWrite.size(); i++) {
+            String key = (String) keysToWrite.get(i);
+            if (key.startsWith("date_")) dirtyDays.add(key.substring(5, 13));
+            else totalDirty = true;
         }
+    }
+    try {
+        Iterator dayIterator = dirtyDays.iterator();
+        while (dayIterator.hasNext()) writeDayStats((String) dayIterator.next());
+        if (totalDirty) writeTotalStats();
+    } catch (Exception e) {
+        synchronized(SC.writeLock) {
+            for (int i = 0; i < keysToWrite.size(); i++) addChangedKey((String) keysToWrite.get(i));
+            SC.writeLock.notifyAll();
+        }
+        String detail = "[writeStats] 统计落盘失败 keys=" + keysToWrite.size() + " 天=" + dirtyDays.size()
+            + "\n" + android.util.Log.getStackTraceString(e);
+        traceLog("api3_log", detail);
+        throw new IllegalStateException(detail, e);
     }
 }
 
-private boolean writeFullStatsInternal() {
-    JSONObject statsJson = new JSONObject();
-    List snapshot = new ArrayList(SC.OP_STATS.entrySet());
-    Iterator iterator = snapshot.iterator();
-    while (iterator.hasNext()) {
-        Map.Entry entry = (Map.Entry) iterator.next();
-        Long value = (Long) entry.getValue();
-        statsJson.put((String) entry.getKey(), value.longValue());
+private void writeDayStats(String dateStr) {
+    loadDayStats(dateStr);
+    writeJsonFile(new File(dayStatsPath(dateStr)), collectDayJson(dateStr));
+}
+
+private void writeTotalStats() {
+    loadTotalStats();
+    writeJsonFile(new File(totalStatsPath()), collectTotalJson());
+}
+
+private JSONObject collectDayJson(String dateStr) {
+    String prefix = "date_" + dateStr + "_";
+    JSONObject json = new JSONObject();
+    synchronized(SC.writeLock) {
+        List snapshot = new ArrayList(SC.OP_STATS.entrySet());
+        for (int i = 0; i < snapshot.size(); i++) {
+            Map.Entry entry = (Map.Entry) snapshot.get(i);
+            String key = (String) entry.getKey();
+            if (key.startsWith(prefix)) json.put(key, ((Long) entry.getValue()).longValue());
+        }
     }
-    String jsonStr = statsJson.toString(2);
+    return json;
+}
 
-    File mainFile = new File(statsConfigPath());
-    File tempFile = new File(statsConfigPath() + ".tmp");
-    File parentDir = mainFile.getParentFile();
-    if (!parentDir.exists() && !parentDir.mkdirs()) return false;
+private JSONObject collectTotalJson() {
+    JSONObject json = new JSONObject();
+    synchronized(SC.writeLock) {
+        List snapshot = new ArrayList(SC.OP_STATS.entrySet());
+        for (int i = 0; i < snapshot.size(); i++) {
+            Map.Entry entry = (Map.Entry) snapshot.get(i);
+            String key = (String) entry.getKey();
+            if (!key.startsWith("date_")) json.put(key, ((Long) entry.getValue()).longValue());
+        }
+    }
+    return json;
+}
 
+private void writeJsonFile(File target, JSONObject json) {
+    File tempFile = new File(target.getAbsolutePath() + ".tmp");
     FileOutputStream fos = null;
     OutputStreamWriter osw = null;
     try {
         fos = new FileOutputStream(tempFile);
         osw = new OutputStreamWriter(fos, StandardCharsets.UTF_8);
-        osw.write(jsonStr);
+        osw.write(json.toString(2));
         osw.flush();
         fos.getFD().sync();
         osw.close();
-        if (mainFile.exists() && !mainFile.delete()) {
-            tempFile.delete();
-            return false;
-        }
-        if (!tempFile.renameTo(mainFile)) {
-            tempFile.delete();
-            return false;
-        }
-        createSingleBackup();
-        return true;
+        osw = null;
+        fos.close();
+        fos = null;
+        if (!tempFile.renameTo(target)) throw new IllegalStateException("统计文件改名失败: " + tempFile.getAbsolutePath());
     } catch (Exception e) {
-        traceLog("api3_log", "[writeFullStatsInternal] 写入失败: " + e.getMessage());
-        if (tempFile != null) tempFile.delete();
-        return false;
+        String detail = "[writeJsonFile] 写入失败 " + target.getAbsolutePath() + " keys=" + json.length()
+            + "\n" + android.util.Log.getStackTraceString(e);
+        traceLog("api3_log", detail);
+        throw new IllegalStateException(detail, e);
     } finally {
-        if (osw != null) try { osw.close(); } catch (Throwable e) {}
-        if (fos != null) try { fos.close(); } catch (Throwable e) {}
+        if (osw != null) try { osw.close(); } catch (Exception e) { traceLog("api3_log", "[writeJsonFile] 关闭写流失败: " + android.util.Log.getStackTraceString(e)); }
+        if (fos != null) try { fos.close(); } catch (Exception e) { traceLog("api3_log", "[writeJsonFile] 关闭文件流失败: " + android.util.Log.getStackTraceString(e)); }
+    }
+}
+
+private void deleteAllDayStats() {
+    File[] files = new File(statsDirPath()).listFiles();
+    if (files == null) throw new IllegalStateException("[deleteAllDayStats] 统计目录无法列出: " + statsDirPath());
+    for (int i = 0; i < files.length; i++) {
+        String name = files[i].getName();
+        if (!name.startsWith("d_") || !name.endsWith(".json")) continue;
+        if (!files[i].delete()) throw new IllegalStateException("[deleteAllDayStats] 删除失败: " + files[i].getAbsolutePath());
     }
 }
 
 private void recalculateTotalStats() {
+    loadAllDayStats();
     String[] statTypes = api3StatTypes();
     for (int i = 0; i < statTypes.length; i++) {
         String type = statTypes[i];
@@ -729,18 +860,6 @@ private void recalculateTotalStats() {
         SC.OP_STATS.put("total" + type, new Long(total));
         addChangedKey("total" + type);
     }
-}
-
-private void createSingleBackup() {
-    if (System.currentTimeMillis() - SC.lastBackupTime < 600000L) return;
-    File mainFile = new File(statsConfigPath());
-    if (!mainFile.exists() || mainFile.length() == 0) return;
-    File backupFile = new File(statsConfigPath() + ".bak");
-    if (backupFile.exists()) backupFile.delete();
-    try {
-        java.nio.file.Files.copy(mainFile.toPath(), backupFile.toPath());
-        SC.lastBackupTime = System.currentTimeMillis();
-    } catch (Exception e) {}
 }
 
 private void triggerUIUpdate() {
@@ -879,18 +998,19 @@ private void updateTodayProgress(long todaySend, int dailyTarget) {
 
 private long getStatsByTimeRange(String typeKey) {
     long total = 0L;
-    String datePrefix = "date_";
-    String keySuffix = "_" + typeKey;
-    SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd", Locale.CHINA);
+    List dates = getRangeDates();
+    for (int i = 0; i < dates.size(); i++) {
+        String dateStr = (String) dates.get(i);
+        loadDayStats(dateStr);
+        total += atomicGet("date_" + dateStr + "_" + typeKey);
+    }
+    return total;
+}
 
-    if (SC.currentTimeRange == 0) {
-        return atomicGet(datePrefix + SC.todayDateStr + keySuffix);
-    } else if (SC.currentTimeRange == 1) {
-        Calendar cal = Calendar.getInstance();
-        cal.add(Calendar.DATE, -1);
-        String yesterday = dateFormat.format(cal.getTime());
-        return atomicGet(datePrefix + yesterday + keySuffix);
-    } else if (SC.currentTimeRange == 2) {
+private List getRangeDates() {
+    List dates = new ArrayList();
+    SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd", Locale.CHINA);
+    if (SC.currentTimeRange == 2) {
         String cacheKey = SC.todayDateStr + "_week";
         if (!cacheKey.equals(SC.weekCacheKey) || SC.weekDatesCache.isEmpty()) {
             SC.weekDatesCache.clear();
@@ -906,9 +1026,7 @@ private long getStatsByTimeRange(String typeKey) {
             }
             SC.weekCacheKey = cacheKey;
         }
-        for (int i = 0; i < SC.weekDatesCache.size(); i++) {
-            total += atomicGet(datePrefix + (String) SC.weekDatesCache.get(i) + keySuffix);
-        }
+        return SC.weekDatesCache;
     } else if (SC.currentTimeRange == 3) {
         String cacheKey = SC.todayDateStr.substring(0, 6) + "_month";
         if (!cacheKey.equals(SC.monthCacheKey) || SC.monthDatesCache.isEmpty()) {
@@ -925,14 +1043,18 @@ private long getStatsByTimeRange(String typeKey) {
             }
             SC.monthCacheKey = cacheKey;
         }
-        for (int i = 0; i < SC.monthDatesCache.size(); i++) {
-            total += atomicGet(datePrefix + (String) SC.monthDatesCache.get(i) + keySuffix);
-        }
+        return SC.monthDatesCache;
+    } else if (SC.currentTimeRange == 1) {
+        Calendar cal = Calendar.getInstance();
+        cal.add(Calendar.DATE, -1);
+        dates.add(dateFormat.format(cal.getTime()));
     } else if (SC.currentTimeRange == 4) {
         if (SC.customDateStr == null) SC.customDateStr = getTodayDateStr();
-        return atomicGet(datePrefix + SC.customDateStr + keySuffix);
+        dates.add(SC.customDateStr);
+    } else {
+        dates.add(SC.todayDateStr);
     }
-    return total;
+    return dates;
 }
 
 private View createRangeSpinner(Activity activity) {
@@ -1082,8 +1204,7 @@ private LinearLayout createStatsCardBase(Activity activity, String title, String
                 log("/Log/stats_debug.txt", getTime() + " 点击完成 cardType=" + fCardType + " -> " + (!isExpanded)
                     + " " + statsExpandDebug(fCard));
             } catch (Throwable t) {
-                log("/Log/stats_debug.txt", getTime() + " 点击异常 cardType=" + fCardType + " : " + t
-                    + "\n" + android.util.Log.getStackTraceString(t));
+                logStack("stats_debug", "统计卡片点击 cardType=" + fCardType, t);
                 qqToast(1, "统计卡片展开失败: " + t);
             }
         }
@@ -1473,6 +1594,7 @@ void performDataCleanup() {
     synchronized(SC.writeLock) {
         try {
             if (SC.OP_STATS != null) SC.OP_STATS.clear();
+            if (SC.LOADED_DAYS != null) SC.LOADED_DAYS.clear();
             if (SC.messageBatchQueue != null) SC.messageBatchQueue.clear();
             if (SC.CHANGED_KEYS != null) SC.CHANGED_KEYS.clear();
             if (SC.cardExpandStatus != null) SC.cardExpandStatus.clear();
@@ -1481,6 +1603,7 @@ void performDataCleanup() {
             if (SC.monthDatesCache != null) SC.monthDatesCache.clear();
         } catch (Throwable e) { traceLog("api3_log", "[performDataCleanup] 异常: " + e); }
     }
+    SC.totalStatsLoaded = false;
     SC.todayDateStr = null;
 }
 
@@ -1504,6 +1627,7 @@ private void resetTodayStats(final Activity activity) {
                     }
                     for (int i = 0; i < toRemove.size(); i++) SC.OP_STATS.remove(toRemove.get(i));
                     recalculateTotalStats();
+                    writeDayStats(SC.todayDateStr);
                     writeStats();
                 }
                 SC.weekDatesCache.clear();
@@ -1529,6 +1653,10 @@ private void resetTotalStats(final Activity activity) {
                 vibrate(activity, 48);
                 synchronized(SC.writeLock) {
                     SC.OP_STATS.clear();
+                    SC.CHANGED_KEYS.clear();
+                    SC.LOADED_DAYS.clear();
+                    deleteAllDayStats();
+                    SC.totalStatsLoaded = true;
                     String[] statTypes = api3StatTypes();
                     for (int i = 0; i < statTypes.length; i++) {
                         SC.OP_STATS.put("total" + statTypes[i], new Long(0L));
