@@ -895,6 +895,7 @@ String generateBaseCacheKey(String imgPath, int blurRadius, int overlayAlpha, bo
 }
 
 Drawable findSimilarCache(String baseKey, int targetW, int targetH) {
+    synchronized (cacheOrder) {
     Iterator iterator = cacheOrder.keySet().iterator();
     while (iterator.hasNext()) {
         String key = (String) iterator.next();
@@ -915,6 +916,7 @@ Drawable findSimilarCache(String baseKey, int targetW, int targetH) {
                 }
             } catch (Throwable e) { traceLog("uitools_log", "[findSimilarCache] 异常: " + e); }
         }
+    }
     }
     return null;
 }
@@ -945,7 +947,7 @@ static class CacheEntry {
 }
 
 static ConcurrentHashMap imageCache = new ConcurrentHashMap();
-static LinkedHashMap cacheOrder = new LinkedHashMap(10, 0.75f, true);
+static Map cacheOrder = java.util.Collections.synchronizedMap(new LinkedHashMap(10, 0.75f, true));
 static Drawable globalCachedDrawable = null;
 static String globalCachedParams = "";
 
@@ -995,7 +997,9 @@ void putToCache(Drawable drawable, String cacheKey, int width, int height) {
     }
     
     while (imageCache.size() >= MAX_CACHE_SIZE && !cacheOrder.isEmpty()) {
-        String oldestKey = (String) cacheOrder.keySet().iterator().next();
+        String oldestKey;
+        synchronized (cacheOrder) { oldestKey = cacheOrder.isEmpty() ? null : (String) cacheOrder.keySet().iterator().next(); }
+        if (oldestKey == null) break;
         removeFromCache(oldestKey);
     }
     
@@ -1009,18 +1013,7 @@ void removeFromCache(String cacheKey) {
     
     cacheOrder.remove(cacheKey);
     
-    CacheEntry entry = (CacheEntry) imageCache.remove(cacheKey);
-    if (entry != null && entry.drawable != null) {
-        try {
-            if (entry.drawable instanceof BitmapDrawable) {
-                BitmapDrawable bd = (BitmapDrawable) entry.drawable;
-                Bitmap bitmap = bd.getBitmap();
-                if (bitmap != null && !bitmap.isRecycled()) {
-                    bitmap.recycle();
-                }
-            }
-        } catch (Throwable e) { traceLog("uitools_log", "[removeFromCache] 异常: " + e); }
-    }
+    imageCache.remove(cacheKey);
 }
 
 void unloadBackgroundCache() {
