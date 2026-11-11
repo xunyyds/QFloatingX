@@ -191,9 +191,14 @@ boolean executeQfxUpdate(List updateFiles, JSONObject checksums, UpdateProgressL
         return false;
     }
     int total = updateFiles.size();
-    int replaced = 0;
     long grandTotalBytes = 0;
     long startMs = System.currentTimeMillis();
+    String tmpDirPath = pluginPath + "/.update_tmp";
+    String bakDirPath = pluginPath + "/.update_bak";
+    deleteDirectoryRecursively(tmpDirPath);
+    java.util.List pendingSave = new java.util.ArrayList();
+    java.util.List pendingTmp = new java.util.ArrayList();
+    java.util.List pendingRel = new java.util.ArrayList();
     if (listener != null) listener.onPhase("download");
     for (int i = 0; i < total; i++) {
         String fileName = (String) updateFiles.get(i);
@@ -201,7 +206,7 @@ boolean executeQfxUpdate(List updateFiles, JSONObject checksums, UpdateProgressL
         if (relativePath.startsWith("QFloatingX/")) relativePath = relativePath.substring("QFloatingX/".length());
         String[] urlArr = buildMirrorUrls(fileName);
         String savePath = pluginPath + "/" + relativePath;
-        String tmpPath = savePath + ".new";
+        String tmpPath = tmpDirPath + "/" + relativePath;
         String expectedSha = null;
         if (checksums != null) expectedSha = checksums.optString(relativePath, null);
         if (listener != null) listener.onFileStart(relativePath, i + 1, total);
@@ -212,8 +217,9 @@ boolean executeQfxUpdate(List updateFiles, JSONObject checksums, UpdateProgressL
         long[] bytesInfo = new long[]{0, 0};
         boolean dlOk = downloadToTmpDetailed(urlArr, tmpPath, listener, grandTotalBytes, startMs, i + 1, total, relativePath, bytesInfo);
         if (!dlOk) {
-            cleanupTempFile(tmpPath);
-            if (listener != null) listener.onAllDone(false, "下载失败: " + relativePath + "，已替换 " + replaced + "/" + total);
+            deleteDirectoryRecursively(tmpDirPath);
+            traceLog("api_log", "[executeQfxUpdate] 下载失败，未替换任何文件: " + relativePath);
+            if (listener != null) listener.onAllDone(false, "下载失败: " + relativePath + "，未替换任何文件");
             return false;
         }
         grandTotalBytes += bytesInfo[0];
@@ -221,21 +227,107 @@ boolean executeQfxUpdate(List updateFiles, JSONObject checksums, UpdateProgressL
         boolean verifyOk = verifyDownloadedFile(tmpPath, bytesInfo[0], expectedSha);
         if (listener != null) listener.onFileVerify(relativePath, verifyOk);
         if (!verifyOk) {
-            cleanupTempFile(tmpPath);
-            if (listener != null) listener.onAllDone(false, "完整性校验失败，已中止: " + relativePath + "，已替换 " + replaced + "/" + total);
+            deleteDirectoryRecursively(tmpDirPath);
+            traceLog("api_log", "[executeQfxUpdate] 完整性校验失败，未替换任何文件: " + relativePath);
+            if (listener != null) listener.onAllDone(false, "完整性校验失败: " + relativePath + "，未替换任何文件");
             return false;
         }
-        if (!replaceWithTmp(savePath, tmpPath)) {
-            cleanupTempFile(tmpPath);
-            if (listener != null) listener.onAllDone(false, "文件替换失败: " + relativePath + "，已替换 " + replaced + "/" + total);
+        pendingSave.add(savePath);
+        pendingTmp.add(tmpPath);
+        pendingRel.add(relativePath);
+        if (listener != null) listener.onPhase("download");
+    }
+    if (pendingSave.isEmpty()) {
+        deleteDirectoryRecursively(tmpDirPath);
+        if (listener != null) listener.onAllDone(true, null);
+        return true;
+    }
+    for (int b = 0; b < pendingSave.size(); b++) {
+        String bSavePath = (String) pendingSave.get(b);
+        if (!new java.io.File(bSavePath).exists()) continue;
+        String bRel = (String) pendingRel.get(b);
+        if (!copyFileForUpdate(bSavePath, bakDirPath + "/" + bRel)) {
+            deleteDirectoryRecursively(tmpDirPath);
+            deleteDirectoryRecursively(bakDirPath);
+            traceLog("api_log", "[executeQfxUpdate] 备份失败，未替换任何文件: " + bRel);
+            if (listener != null) listener.onAllDone(false, "备份失败: " + bRel + "，未替换任何文件");
+            return false;
+        }
+    }
+    int replaced = 0;
+    for (int p = 0; p < pendingSave.size(); p++) {
+        String pSavePath = (String) pendingSave.get(p);
+        String pTmpPath = (String) pendingTmp.get(p);
+        String pRel = (String) pendingRel.get(p);
+        if (!replaceWithTmp(pSavePath, pTmpPath)) {
+            int restored = 0;
+            boolean rollbackOk = true;
+            for (int r = p; r >= 0; r--) {
+                String rSavePath = (String) pendingSave.get(r);
+                String rRel = (String) pendingRel.get(r);
+                String rBakPath = bakDirPath + "/" + rRel;
+                if (new java.io.File(rBakPath).exists()) {
+                    if (copyFileForUpdate(rBakPath, rSavePath)) restored++;
+                    else rollbackOk = false;
+                } else {
+                    java.io.File rTarget = new java.io.File(rSavePath);
+                    if (rTarget.exists() && !rTarget.delete()) rollbackOk = false;
+                    else restored++;
+                }
+            }
+            deleteDirectoryRecursively(tmpDirPath);
+            String failReason = rollbackOk
+                ? "第 " + (p + 1) + " 个文件替换失败，已回滚 " + restored + " 个文件: " + pRel
+                : "第 " + (p + 1) + " 个文件替换失败，回滚不完整，备份保留在 " + bakDirPath + ": " + pRel;
+            traceLog("api_log", "[executeQfxUpdate] " + failReason);
+            if (listener != null) listener.onAllDone(false, failReason);
             return false;
         }
         replaced++;
-        if (listener != null) listener.onPhase("download");
     }
+    deleteDirectoryRecursively(tmpDirPath);
+    deleteDirectoryRecursively(bakDirPath);
+    traceLog("api_log", "[executeQfxUpdate] 两阶段更新完成，替换 " + replaced + "/" + total + " 个文件");
     if (listener != null) listener.onAllDone(true, null);
     return true;
 }
+
+boolean copyFileForUpdate(String srcPath, String dstPath) {
+    java.io.FileInputStream in = null;
+    java.io.FileOutputStream out = null;
+    try {
+        java.io.File dstFile = new java.io.File(dstPath);
+        java.io.File parent = dstFile.getParentFile();
+        if (parent != null && !parent.exists()) parent.mkdirs();
+        in = new java.io.FileInputStream(srcPath);
+        out = new java.io.FileOutputStream(dstFile);
+        byte[] buf = new byte[8192];
+        int read;
+        while ((read = in.read(buf)) != -1) out.write(buf, 0, read);
+        out.flush();
+        return true;
+    } catch (Throwable t) {
+        traceLog("api_log", "[copyFileForUpdate] 复制失败: " + srcPath + " -> " + dstPath + "\n" + android.util.Log.getStackTraceString(t));
+        return false;
+    } finally {
+        try { if (out != null) out.close(); } catch (Throwable t) { traceLog("api_log", "[copyFileForUpdate] 关闭输出流失败: " + dstPath + "\n" + android.util.Log.getStackTraceString(t)); }
+        try { if (in != null) in.close(); } catch (Throwable t) { traceLog("api_log", "[copyFileForUpdate] 关闭输入流失败: " + srcPath + "\n" + android.util.Log.getStackTraceString(t)); }
+    }
+}
+
+void deleteDirectoryRecursively(String dirPath) {
+    java.io.File dir = new java.io.File(dirPath);
+    if (!dir.exists()) return;
+    java.io.File[] children = dir.listFiles();
+    if (children != null) {
+        for (int c = 0; c < children.length; c++) {
+            if (children[c].isDirectory()) deleteDirectoryRecursively(children[c].getAbsolutePath());
+            else if (!children[c].delete()) traceLog("api_log", "[deleteDirectoryRecursively] 删除文件失败: " + children[c].getAbsolutePath());
+        }
+    }
+    if (!dir.delete()) traceLog("api_log", "[deleteDirectoryRecursively] 删除目录失败: " + dirPath);
+}
+
 boolean downloadFile(String url, String savePath, ProgressCallback callback) {
     boolean success = false;
     java.io.FileOutputStream out = null;
