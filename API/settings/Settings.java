@@ -194,6 +194,7 @@ class SoftSliderView extends View {
     private int minValue;
     private int maxValue;
     private int value;
+    private long lastNotifyTime = 0L;
     private int accentColor;
     private int trackColor;
     private float density;
@@ -289,6 +290,8 @@ class SoftSliderView extends View {
         if (action == MotionEvent.ACTION_UP) {
             if (dragging) updateFromX(x);
             dragging = false;
+            lastNotifyTime = 0L;
+            if (listener != null) listener.onSoftSliderChanged(value, true);
             if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(false);
             return true;
         }
@@ -313,8 +316,12 @@ class SoftSliderView extends View {
         if (newValue != value) {
             value = newValue;
             invalidate();
+            long nowNotify = System.currentTimeMillis();
+            if (nowNotify - lastNotifyTime >= 60L) {
+                lastNotifyTime = nowNotify;
+                if (listener != null) listener.onSoftSliderChanged(newValue, true);
+            }
         }
-        if (listener != null) listener.onSoftSliderChanged(newValue, true);
     }
 }
 private volatile long themeColorCacheTime = 0L;
