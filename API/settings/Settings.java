@@ -2656,7 +2656,10 @@ void settingsRunNav() {
 
         page.listContainer = settingsCategoryList;
         page.scrollView = settingsCategoryScroll;
-        rebuildSettingsIndex(this);
+        final Activity indexActivity = this;
+        settingsPageHandler.post(new Runnable() {
+            public void run() { rebuildSettingsIndex(indexActivity); }
+        });
         buildSettingsHomeContent(page);
         buildSettingsBottomArea(this);
 

@@ -205,14 +205,45 @@ void rebuildSettingsIndex(Activity activity) {
         }
     }
 }
-int calcSearchScore(SettingsItemMeta meta, String query) {
-    if (meta == null || meta.name == null || query == null || query.length() == 0) return 0;
-    if (meta.name.toLowerCase().equals(query.toLowerCase())) return 100;
-    if (meta.name.toLowerCase().startsWith(query.toLowerCase())) return 80;
-    if (meta.name.toLowerCase().contains(query.toLowerCase())) return 60;
-    if (meta.pinyinLetters != null && meta.pinyinLetters.contains(query.toLowerCase())) return 40;
-    if (meta.description != null && meta.description.toLowerCase().contains(query.toLowerCase())) return 20;
-    if (meta.searchText != null && meta.searchText.contains(query.toLowerCase())) return 10;
+class SettingsSearchPalette {
+    final int cardBg;
+    final int ripple;
+    final int primary;
+    final int onSurface;
+    final int onSurfaceVariant;
+    SettingsSearchPalette(Activity activity) {
+        cardBg = getAdaptiveCardBg(activity);
+        ripple = pc(getSettingsThemeColor(activity, "ripple"));
+        primary = pc(getSettingsThemeColor(activity, "primary"));
+        onSurface = pc(getSettingsThemeColor(activity, "on_surface"));
+        onSurfaceVariant = pc(getSettingsThemeColor(activity, "on_surface_variant"));
+    }
+}
+private Object[] settingsSearchSnapshotCache = null;
+List settingsSearchSnapshot() {
+    Map source = SettingsState.settingsItemMeta;
+    Object[] cache = settingsSearchSnapshotCache;
+    if (cache != null && cache[0] == source) return (List) cache[1];
+    List rows = new ArrayList(source.size());
+    java.util.Iterator iterator = source.entrySet().iterator();
+    while (iterator.hasNext()) {
+        java.util.Map.Entry entry = (java.util.Map.Entry) iterator.next();
+        SettingsItemMeta meta = (SettingsItemMeta) entry.getValue();
+        rows.add(new Object[] {entry.getKey(), meta,
+            meta.name != null ? meta.name.toLowerCase() : "",
+            meta.description != null ? meta.description.toLowerCase() : null});
+    }
+    settingsSearchSnapshotCache = new Object[] {source, rows};
+    return rows;
+}
+int calcSearchScore(SettingsItemMeta meta, String nameLower, String descriptionLower, String queryLower) {
+    if (meta == null || meta.name == null || queryLower == null || queryLower.length() == 0) return 0;
+    if (nameLower.equals(queryLower)) return 100;
+    if (nameLower.startsWith(queryLower)) return 80;
+    if (nameLower.contains(queryLower)) return 60;
+    if (meta.pinyinLetters != null && meta.pinyinLetters.contains(queryLower)) return 40;
+    if (descriptionLower != null && descriptionLower.contains(queryLower)) return 20;
+    if (meta.searchText != null && meta.searchText.contains(queryLower)) return 10;
     return 0;
 }
 void hideSearchInputKeyboard(Activity ctx, View inputView) {
@@ -231,52 +262,55 @@ void doSearch(String queryValue, LinearLayout historyContainer, LinearLayout res
     }
     if (queryValue.equals(lastSearchQuery)) return;
     lastSearchQuery = queryValue;
+    rebuildSettingsIndex(ctx);
     historyContainer.setVisibility(View.GONE);
     resultsContainer.setVisibility(View.VISIBLE);
     resultsContainer.removeAllViews();
     if (SettingsState.settingsItemMeta != null && !SettingsState.settingsItemMeta.isEmpty()) {
-        List scoreList = new ArrayList();
-        List keyList = new ArrayList();
-        List metaList = new ArrayList();
-        java.util.List entries = new java.util.ArrayList(SettingsState.settingsItemMeta.entrySet());
+        String queryLower = queryValue.toLowerCase();
+        List rows = settingsSearchSnapshot();
+        int total = rows.size();
+        String[] keyList = new String[total];
+        Object[] metaList = new Object[total];
+        String[] pathList = new String[total];
+        int[] scoreList = new int[total];
         java.util.Set addedPaths = new java.util.HashSet();
-        for (int i = 0; i < entries.size(); i++) {
-            java.util.Map.Entry entry = (java.util.Map.Entry) entries.get(i);
-            String itemKey = (String) entry.getKey();
-            SettingsItemMeta meta = (SettingsItemMeta) entry.getValue();
-            int score = calcSearchScore(meta, queryValue);
-            if (score > 0) {
-                String displayPath = meta.getDisplayPath();
-                if (addedPaths.contains(displayPath)) continue;
-                addedPaths.add(displayPath);
-                scoreList.add(new Integer(score));
-                keyList.add(itemKey);
-                metaList.add(meta);
-            }
-        }
-        for (int i = 0; i < scoreList.size(); i++) {
-            int maxIdx = i;
-            for (int j = i + 1; j < scoreList.size(); j++) {
-                if (((Integer)scoreList.get(j)) > ((Integer)scoreList.get(maxIdx))) {
-                    maxIdx = j;
-                }
-            }
-            if (maxIdx != i) {
-                Object tmpScore = scoreList.get(i);
-                scoreList.set(i, scoreList.get(maxIdx));
-                scoreList.set(maxIdx, tmpScore);
-                Object tmpKey = keyList.get(i);
-                keyList.set(i, keyList.get(maxIdx));
-                keyList.set(maxIdx, tmpKey);
-                Object tmpMeta = metaList.get(i);
-                metaList.set(i, metaList.get(maxIdx));
-                metaList.set(maxIdx, tmpMeta);
-            }
-        }
-        for (int i = 0; i < metaList.size(); i++) {
-            String itemKey = (String) keyList.get(i);
-            SettingsItemMeta meta = (SettingsItemMeta) metaList.get(i);
+        int matched = 0;
+        for (int i = 0; i < total; i++) {
+            Object[] row = (Object[]) rows.get(i);
+            SettingsItemMeta meta = (SettingsItemMeta) row[1];
+            int score = calcSearchScore(meta, (String) row[2], (String) row[3], queryLower);
+            if (score <= 0) continue;
             String displayPath = meta.getDisplayPath();
+            if (!addedPaths.add(displayPath)) continue;
+            keyList[matched] = (String) row[0];
+            metaList[matched] = meta;
+            pathList[matched] = displayPath;
+            scoreList[matched] = score;
+            matched++;
+        }
+        for (int i = 1; i < matched; i++) {
+            String pendingKey = keyList[i];
+            Object pendingMeta = metaList[i];
+            String pendingPath = pathList[i];
+            int pendingScore = scoreList[i];
+            int j = i - 1;
+            while (j >= 0 && scoreList[j] < pendingScore) {
+                keyList[j + 1] = keyList[j];
+                metaList[j + 1] = metaList[j];
+                pathList[j + 1] = pathList[j];
+                scoreList[j + 1] = scoreList[j];
+                j--;
+            }
+            keyList[j + 1] = pendingKey;
+            metaList[j + 1] = pendingMeta;
+            pathList[j + 1] = pendingPath;
+            scoreList[j + 1] = pendingScore;
+        }
+        SettingsSearchPalette palette = new SettingsSearchPalette(ctx);
+        for (int i = 0; i < matched; i++) {
+            SettingsItemMeta meta = (SettingsItemMeta) metaList[i];
+            String displayPath = pathList[i];
             String pathOnly = displayPath;
             if (meta.name != null && pathOnly.endsWith(meta.name)) {
                 pathOnly = pathOnly.substring(0, pathOnly.length() - meta.name.length());
@@ -284,7 +318,7 @@ void doSearch(String queryValue, LinearLayout historyContainer, LinearLayout res
             if (pathOnly.endsWith(" > ")) {
                 pathOnly = pathOnly.substring(0, pathOnly.length() - 3);
             }
-            addSearchResultItem(ctx, resultsContainer, meta.name != null ? meta.name : displayPath, pathOnly, queryValue, itemKey, meta.level1, meta.level2, meta.level3, isDark);
+            addSearchResultItem(ctx, resultsContainer, meta.name != null ? meta.name : displayPath, pathOnly, queryValue, queryLower, keyList[i], meta.level1, meta.level2, meta.level3, isDark, palette);
         }
     }
     if (resultsContainer.getChildCount() == 0) {
@@ -442,14 +476,16 @@ void handleSearchResultClick(final Activity activity, final String itemKey, fina
 
     launchSettingsActivity(activity, 0, "", "");
 }
-void addSearchResultItem(final Activity activity, LinearLayout container, String itemTitle, String itemPath, String queryValue, final String itemKey, final String level1, final String level2, final String level3, boolean isDark) {
+void addSearchResultItem(final Activity activity, LinearLayout container, String itemTitle, String itemPath, String queryValue, String queryLower, final String itemKey, final String level1, final String level2, final String level3, boolean isDark, SettingsSearchPalette palette) {
     if (activity == null || container == null || itemTitle == null || queryValue == null) return;
 
+    int padH = dp(activity, 16);
+    int padV = dp(activity, 14);
     LinearLayout card = new LinearLayout(activity);
     card.setOrientation(LinearLayout.HORIZONTAL);
     card.setGravity(Gravity.CENTER_VERTICAL);
-    card.setPadding(dp(activity, 16), dp(activity, 14), dp(activity, 16), dp(activity, 14));
-    card.setBackground(makeFeedbackBg(getAdaptiveCardBg(activity), pc(getSettingsThemeColor(activity, "ripple")), dp(activity, 14)));
+    card.setPadding(padH, padV, padH, padV);
+    card.setBackground(makeFeedbackBg(palette.cardBg, palette.ripple, dp(activity, 14)));
     card.setClipToOutline(true);
     LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(-1, -2);
     cardParams.setMargins(0, 0, 0, dp(activity, 8));
@@ -460,21 +496,21 @@ void addSearchResultItem(final Activity activity, LinearLayout container, String
     textArea.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
 
     SpannableString spannable = new SpannableString(itemTitle);
-    int start = itemTitle.toLowerCase().indexOf(queryValue.toLowerCase());
+    int start = itemTitle.toLowerCase().indexOf(queryLower);
     if (start >= 0) {
-        spannable.setSpan(new ForegroundColorSpan(pc(getSettingsThemeColor(activity, "primary"))), start, start + queryValue.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        spannable.setSpan(new ForegroundColorSpan(palette.primary), start, start + queryValue.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
     }
     TextView titleView = new TextView(activity);
     titleView.setText(spannable);
     titleView.setTextSize(15);
-    titleView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface")));
+    titleView.setTextColor(palette.onSurface);
     textArea.addView(titleView);
 
     if (itemPath != null && itemPath.length() > 0) {
         TextView pathView = new TextView(activity);
         pathView.setText(itemPath);
         pathView.setTextSize(12);
-        pathView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
+        pathView.setTextColor(palette.onSurfaceVariant);
         pathView.setPadding(0, dp(activity, 3), 0, 0);
         textArea.addView(pathView);
     }
@@ -483,7 +519,7 @@ void addSearchResultItem(final Activity activity, LinearLayout container, String
     TextView arrowView = new TextView(activity);
     arrowView.setText("›");
     arrowView.setTextSize(18);
-    arrowView.setTextColor(pc(getSettingsThemeColor(activity, "on_surface_variant")));
+    arrowView.setTextColor(palette.onSurfaceVariant);
     card.addView(arrowView);
 
     card.setClickable(true);
