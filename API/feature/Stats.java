@@ -242,6 +242,7 @@ private String formatStatValue(long value) {
 
 private void startWriteThread() {
     if (SC.writeThreadRunning) return;
+    if (SC.OP_STATS.isEmpty()) readFullStats();
     SC.writeThreadRunning = true;
     ThreadPool.execute(new Runnable() {
         public void run() {
@@ -416,6 +417,7 @@ private void initTimeRange(Activity activity) {
 }
 
 private synchronized void readFullStats() {
+    checkTodayReset();
     String configName = statsConfigPath();
     if (configName == null || configName.isEmpty()) return;
     File mainFile = new File(statsConfigPath());
@@ -647,7 +649,8 @@ private void writeStats() {
 
 private boolean writeFullStatsInternal() {
     JSONObject statsJson = new JSONObject();
-    Iterator iterator = SC.OP_STATS.entrySet().iterator();
+    List snapshot = new ArrayList(SC.OP_STATS.entrySet());
+    Iterator iterator = snapshot.iterator();
     while (iterator.hasNext()) {
         Map.Entry entry = (Map.Entry) iterator.next();
         Long value = (Long) entry.getValue();
@@ -1438,6 +1441,7 @@ private void resetTodayStats(final Activity activity) {
         .setPositiveButton("确定", new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int which) {
                 vibrate(activity, 48);
+                checkTodayReset();
                 String todayPrefix = "date_" + SC.todayDateStr + "_";
                 synchronized(SC.writeLock) {
                     List toRemove = new ArrayList();
