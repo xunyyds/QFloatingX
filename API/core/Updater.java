@@ -50,11 +50,13 @@ boolean verifyDownloadedFile(String tmpPath, long actualSize, String expectedSha
         if (!f.exists()) return false;
         if (f.length() <= 0) return false;
         if (actualSize > 0 && f.length() != actualSize) return false;
-        if (expectedSha256 != null && expectedSha256.trim().length() > 0) {
-            String actualSha = sha256HexOfFile(tmpPath);
-            if (actualSha == null) return false;
-            if (!actualSha.equalsIgnoreCase(expectedSha256.trim())) return false;
+        if (expectedSha256 == null || expectedSha256.trim().length() == 0) {
+            traceLog("api_log", "[verifyDownloadedFile] 缺少 sha256，拒绝写入: " + tmpPath);
+            return false;
         }
+        String actualSha = sha256HexOfFile(tmpPath);
+        if (actualSha == null) return false;
+        if (!actualSha.equalsIgnoreCase(expectedSha256.trim())) return false;
         return true;
     } catch (Throwable e) {
         traceLog("api_log", "[verifyDownloadedFile] 异常: " + e);
@@ -189,6 +191,7 @@ boolean executeQfxUpdate(List updateFiles, JSONObject checksums, UpdateProgressL
         return false;
     }
     int total = updateFiles.size();
+    int replaced = 0;
     long grandTotalBytes = 0;
     long startMs = System.currentTimeMillis();
     if (listener != null) listener.onPhase("download");
@@ -210,7 +213,7 @@ boolean executeQfxUpdate(List updateFiles, JSONObject checksums, UpdateProgressL
         boolean dlOk = downloadToTmpDetailed(urlArr, tmpPath, listener, grandTotalBytes, startMs, i + 1, total, relativePath, bytesInfo);
         if (!dlOk) {
             cleanupTempFile(tmpPath);
-            if (listener != null) listener.onAllDone(false, "下载失败: " + relativePath);
+            if (listener != null) listener.onAllDone(false, "下载失败: " + relativePath + "，已替换 " + replaced + "/" + total);
             return false;
         }
         grandTotalBytes += bytesInfo[0];
@@ -219,14 +222,15 @@ boolean executeQfxUpdate(List updateFiles, JSONObject checksums, UpdateProgressL
         if (listener != null) listener.onFileVerify(relativePath, verifyOk);
         if (!verifyOk) {
             cleanupTempFile(tmpPath);
-            if (listener != null) listener.onAllDone(false, "完整性校验失败，已中止: " + relativePath);
+            if (listener != null) listener.onAllDone(false, "完整性校验失败，已中止: " + relativePath + "，已替换 " + replaced + "/" + total);
             return false;
         }
         if (!replaceWithTmp(savePath, tmpPath)) {
             cleanupTempFile(tmpPath);
-            if (listener != null) listener.onAllDone(false, "文件替换失败: " + relativePath);
+            if (listener != null) listener.onAllDone(false, "文件替换失败: " + relativePath + "，已替换 " + replaced + "/" + total);
             return false;
         }
+        replaced++;
         if (listener != null) listener.onPhase("download");
     }
     if (listener != null) listener.onAllDone(true, null);
@@ -1110,7 +1114,7 @@ void showStyledUpdateProgress(final Activity activity, final List updateFiles, f
                                     animHandler.removeCallbacksAndMessages(null);
                                     try { progDialog.dismiss(); } catch (Throwable ignore) {}
                                     if (success) afterUpdateOk.run();
-                                    else Toast("更新失败，未替换任何文件: " + failReason);
+                                    else Toast("更新失败: " + failReason);
                                 }
                             });
                         }
@@ -1276,15 +1280,25 @@ String fetchFirstValidUpdateJson(final String[] urls) {
 }
 void checkQFXUpdate() {
     final long now = System.currentTimeMillis();
-    if (now - qfxUpdateLastCheckTime < QFX_UPDATE_CHECK_INTERVAL) {
+    long lastCheck = qfxUpdateLastCheckTime;
+    try {
+        String saved = getString("更新检测", "last_check_ms", "");
+        if (!saved.isEmpty()) lastCheck = Long.parseLong(saved);
+    } catch (Throwable e) {
+        traceLog("api_log", "[checkQFXUpdate] 读取上次检查时间失败: " + e);
+    }
+    if (now - lastCheck < QFX_UPDATE_CHECK_INTERVAL) {
+        qfxUpdateLastCheckTime = lastCheck;
         return;
     }
     qfxUpdateLastCheckTime = now;
+    putString("更新检测", "last_check_ms", String.valueOf(now));
     runQFXUpdateCheck(false);
 }
 
 void manualCheckQFXUpdate() {
     qfxUpdateLastCheckTime = System.currentTimeMillis();
+    putString("更新检测", "last_check_ms", String.valueOf(qfxUpdateLastCheckTime));
     runQFXUpdateCheck(true);
 }
 
