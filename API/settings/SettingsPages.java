@@ -627,7 +627,7 @@ View buildDebugPage(Object ctx) {
     return ctx.listContainer;}
 public LinearLayout buildStatsContentView(Activity activity) {
     if (activity == null) return null;
-    readFullStats();
+    loadFullStatsAsync(activity);
 
     LinearLayout contentLayout = new LinearLayout(activity);
     contentLayout.setOrientation(LinearLayout.VERTICAL);

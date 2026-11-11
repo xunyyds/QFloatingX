@@ -29,6 +29,7 @@ class StatsState {
     volatile int logMsgCounter = 0;
     volatile boolean logCheckRunning = false;
     volatile long lastBackupTime = 0L;
+    volatile boolean statsLoadRunning = false;
     final Pattern LINK_PATTERN = Pattern.compile("##(.*?)##");
     final Pattern VAR_PATTERN = Pattern.compile("#(.*?)#");
 }
@@ -431,6 +432,23 @@ private synchronized void readFullStats() {
         public void run() {
             initEmptyStats();
             Toast("无历史数据，初始化新统计");
+        }
+    });
+}
+
+void loadFullStatsAsync(final Activity activity) {
+    if (SC.statsLoadRunning) return;
+    SC.statsLoadRunning = true;
+    ThreadPool.execute(new Runnable() {
+        public void run() {
+            try {
+                readFullStats();
+            } finally {
+                SC.statsLoadRunning = false;
+            }
+            uiHandler.post(new Runnable() {
+                public void run() { triggerUIUpdate(); }
+            });
         }
     });
 }
