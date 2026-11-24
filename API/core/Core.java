@@ -1,6 +1,38 @@
 interface SettingsFeatureBuilder {
     View build(Object ctx);
 }
+
+interface CommonCallback {
+    void onResult(int code, String message, Object data, Object extra, boolean flag);
+}
+
+String qqAvatarUrl(String uin, int size) {
+    char last = (uin == null || uin.isEmpty()) ? '0' : uin.charAt(uin.length() - 1);
+    int k = (int) (last - '0') / 2;
+    if (k < 0) k = 0;
+    String domain = k == 0 ? "q" : ("q" + k);
+    return "https://" + domain + ".qlogo.cn/g?b=qq&s=" + size + "&nk=" + uin;
+}
+
+String imageSizeFromFlag(int flag, int wantPx) {
+    if ((flag & 0x10) != 0 && wantPx >= 640) return "640";
+    if ((flag & 0x08) != 0 && wantPx >= 140) return "140";
+    if ((flag & 0x04) != 0 && wantPx >= 100) return "100";
+    if ((flag & 0x02) != 0 && wantPx <= 40) return "40";
+    if ((flag & 0x20) != 0) return "0";
+    if ((flag & 0x10) != 0) return "640";
+    if ((flag & 0x08) != 0) return "140";
+    if ((flag & 0x04) != 0) return "100";
+    return "40";
+}
+
+String appendImageSize(String baseUrl, String size) {
+    if (baseUrl == null || baseUrl.isEmpty()) return "";
+    String url = baseUrl.replace("http://", "https://");
+    if (url.endsWith("=") || url.endsWith("/")) return url + size;
+    if (url.indexOf("?") >= 0 && url.indexOf("spec=") < 0) return url + "&spec=" + size;
+    return url + size;
+}
 Object app = BaseApplicationImpl.getApplication().getRuntime();
 public String get(String url) {
 	StringBuffer buffer = new StringBuffer();

@@ -63,10 +63,10 @@ public class FunProtoData {
 
             switch (wireType) {
                 case 0:
-                    putValue(fieldNumber, in.readInt64());
+                    putValue(fieldNumber, Long.valueOf(in.readInt64()));
                     break;
                 case 1:
-                    putValue(fieldNumber, in.readRawVarint64());
+                    putValue(fieldNumber, Long.valueOf(in.readRawVarint64()));
                     break;
                 case 2:
                     byte[] subBytes = in.readByteArray();
@@ -92,7 +92,7 @@ public class FunProtoData {
                     }
                     break;
                 case 5:
-                    putValue(fieldNumber, in.readFixed32());
+                    putValue(fieldNumber, Integer.valueOf(in.readFixed32()));
                     break;
             }
         }
@@ -244,16 +244,18 @@ public class PacketHelper {
         sendRequest(null, rawData, receiver);
     }
 
-    public static void sendRequest(String serviceCmd, byte[] rawData, IReceiver receiver) {
+    public static void sendRequest(String serviceCmd, byte[] rawData, final IReceiver receiver) {
         if (receiver == null) return;
         if (rawData == null || rawData.length == 0) {
             receiver.onReceive(null);
             return;
         }
 
-        String finalServiceCmd = serviceCmd;
-        if (finalServiceCmd == null || finalServiceCmd.trim().isEmpty()) {
+        final String finalServiceCmd;
+        if (serviceCmd == null || serviceCmd.trim().isEmpty()) {
             finalServiceCmd = "MessageSvc.PbSendMsg";
+        } else {
+            finalServiceCmd = serviceCmd;
         }
 
         try {
@@ -264,17 +266,27 @@ public class PacketHelper {
             ToServiceMsg toServiceMsg = new ToServiceMsg("mobileqq.service", myUin, finalServiceCmd);
             toServiceMsg.wupBuffer = reqBytes;
 
-            intent.setObserver((type, isSuccess, bundle) -> {
-                if (isSuccess && bundle != null) {
-                    FromServiceMsg fromMsg = bundle.getParcelable("FromServiceMsg");
-                    if (fromMsg != null && fromMsg.wupBuffer != null) {
-                        logReceivedPB(finalServiceCmd, fromMsg.wupBuffer);
-                        receiver.onReceive(fromMsg.wupBuffer);
-                    } else {
+            intent.setObserver(new BusinessObserver() {
+                public void onReceive(int type, boolean isSuccess, Bundle bundle) {
+                    try {
+                        if (isSuccess && bundle != null) {
+                            FromServiceMsg fromMsg = (FromServiceMsg) bundle.getParcelable("FromServiceMsg");
+                            if (fromMsg != null && fromMsg.wupBuffer != null) {
+                                logReceivedPB(finalServiceCmd, fromMsg.wupBuffer);
+                                receiver.onReceive(fromMsg.wupBuffer);
+                            } else {
+                                receiver.onReceive(null);
+                            }
+                        } else {
+                            traceLog("api9_log", "[sendRequest] 回调失败 cmd=" + finalServiceCmd
+                                    + " type=" + type + " isSuccess=" + isSuccess
+                                    + " bundle=" + (bundle == null ? "null" : "ok"));
+                            receiver.onReceive(null);
+                        }
+                    } catch (Throwable callbackError) {
+                        traceLog("api9_log", "[sendRequest] 回调异常: " + callbackError);
                         receiver.onReceive(null);
                     }
-                } else {
-                    receiver.onReceive(null);
                 }
             });
 
@@ -1808,4 +1820,129 @@ void showSuperFaceSendDialog(Object data) {
             }
         }
     });
+}
+
+// ===== 通用 OIDB 发包/解包（供各 feature 复用）=====
+class OidbResult {
+    int resultCode = -1;
+    FunProtoData body = null;
+    byte[] raw = null;
+    String errorMsg = "";
+
+    boolean ok() { return resultCode == 0 && raw != null; }
+
+    String summary() {
+        return "result=" + resultCode + " bytes=" + (raw == null ? 0 : raw.length) + (errorMsg == null || errorMsg.isEmpty() ? "" : " err=" + errorMsg);
+    }
+}
+
+JSONObject oidbEnvelope(int command, int serviceType, JSONObject body) throws Exception {
+    JSONObject root = new JSONObject();
+    root.put("1", command);
+    root.put("2", serviceType);
+    root.put("3", 0);
+    if (body != null) root.put("4", body);
+    return root;
+}
+
+byte[] oidbEncode(int command, int serviceType, JSONObject body) throws Exception {
+    FunProtoData proto = new FunProtoData();
+    proto.fromJSON(oidbEnvelope(command, serviceType, body));
+    return proto.toBytes();
+}
+
+void oidbSend(String logTag, String serviceCmd, int command, int serviceType, JSONObject body, final IReceiver receiver) {
+    if (receiver == null) return;
+    final String tag = (logTag == null || logTag.isEmpty()) ? "api9_log" : logTag;
+    byte[] pb = null;
+    try {
+        pb = oidbEncode(command, serviceType, body);
+    } catch (Throwable e) {
+        traceLog(tag, "[oidb] 构造失败 " + serviceCmd + " " + e);
+        receiver.onReceive(null);
+        return;
+    }
+    if (pb == null || pb.length == 0) {
+        traceLog(tag, "[oidb] 构造为空 " + serviceCmd);
+        receiver.onReceive(null);
+        return;
+    }
+    try {
+        byte[] req = PacketHelper.packet(pb);
+        NewIntent intent = new NewIntent((android.content.Context) context, SSOEasyServlet.class);
+        ToServiceMsg msg = new ToServiceMsg("mobileqq.service", myUin, serviceCmd);
+        msg.wupBuffer = req;
+        intent.setObserver(new BusinessObserver() {
+            public void onReceive(int type, boolean isSuccess, Bundle bundle) {
+                try {
+                    if (isSuccess && bundle != null) {
+                        FromServiceMsg fromMsg = (FromServiceMsg) bundle.getParcelable("FromServiceMsg");
+                        if (fromMsg != null && fromMsg.wupBuffer != null && fromMsg.wupBuffer.length > 0) {
+                            receiver.onReceive(fromMsg.wupBuffer);
+                        } else {
+                            receiver.onReceive(null);
+                        }
+                    } else {
+                        receiver.onReceive(null);
+                    }
+                } catch (Throwable callbackError) {
+                    traceLog(tag, "[oidb] 回调异常 " + serviceCmd + " " + callbackError + "\n" + android.util.Log.getStackTraceString(callbackError));
+                    receiver.onReceive(null);
+                }
+            }
+        });
+        intent.putExtra("ToServiceMsg", msg);
+        QQCurrentEnv.INSTANCE.getQQAppInterface().startServlet(intent);
+    } catch (Throwable e) {
+        traceLog(tag, "[oidb] 发送异常 " + serviceCmd + " " + e);
+        try { logStack(tag, "[oidb] 发送异常 " + serviceCmd, e); } catch (Throwable ignore) {}
+        receiver.onReceive(null);
+    }
+}
+
+int oidbNumToInt(Object value, int defValue) {
+    if (!(value instanceof Number)) return defValue;
+    JSONArray wrapper = new JSONArray();
+    wrapper.put(value);
+    return wrapper.optInt(0, defValue);
+}
+
+long oidbNumToLong(Object value, long defValue) {
+    if (!(value instanceof Number)) return defValue;
+    JSONArray wrapper = new JSONArray();
+    wrapper.put(value);
+    return wrapper.optLong(0, defValue);
+}
+
+OidbResult oidbParse(byte[] resp) {
+    OidbResult result = new OidbResult();
+    result.raw = resp;
+    if (resp == null || resp.length == 0) return result;
+    try {
+        FunProtoData outer = new FunProtoData();
+        outer.fromBytes(resp);
+        List codes = outer.getValues(3);
+        if (codes != null && !codes.isEmpty()) {
+            result.resultCode = oidbNumToInt(codes.get(0), -1);
+        }
+        List bodies = outer.getValues(4);
+        if (bodies != null && !bodies.isEmpty()) {
+            Object b = bodies.get(0);
+            if (b instanceof FunProtoData) {
+                result.body = (FunProtoData) b;
+            } else if (b instanceof String && ((String) b).startsWith("hex->")) {
+                FunProtoData fb = new FunProtoData();
+                fb.fromBytes(PacketHelper.hexToBytes(((String) b).substring(5)));
+                result.body = fb;
+            }
+        }
+        List errs = outer.getValues(5);
+        if (errs != null && !errs.isEmpty() && errs.get(0) instanceof String) {
+            String errText = (String) errs.get(0);
+            if (errText.length() > 0 && !errText.startsWith("hex->")) result.errorMsg = errText;
+        }
+    } catch (Throwable e) {
+        traceLog("api9_log", "[oidbParse] 解析失败: " + e + "\n" + android.util.Log.getStackTraceString(e));
+    }
+    return result;
 }

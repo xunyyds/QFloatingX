@@ -1718,3 +1718,272 @@ TextView createButton(Context ctx, String text, int textColor, int bgColor, floa
     return btn;
 }
 
+
+
+// ===== 网络图片加载与相册保存（通用，供各功能复用）=====
+Map remoteImageMemory = java.util.Collections.synchronizedMap(new HashMap());
+int remoteImageMemoryLimit = 40;
+
+String pluginCacheDir(String sub) {
+    String base = pluginPath + "/cache/" + (sub == null ? "" : sub);
+    File dir = new File(base);
+    if (!dir.exists()) dir.mkdirs();
+    return base;
+}
+
+byte[] httpBytes(String url, int timeoutMs) {
+    if (url == null || url.trim().isEmpty()) return null;
+    java.net.HttpURLConnection uc = null;
+    java.io.InputStream in = null;
+    try {
+        uc = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+        uc.setConnectTimeout(timeoutMs > 0 ? timeoutMs : 15000);
+        uc.setReadTimeout(timeoutMs > 0 ? timeoutMs : 20000);
+        uc.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36");
+        uc.setInstanceFollowRedirects(true);
+        int code = uc.getResponseCode();
+        if (code < 200 || code >= 400) {
+            traceLog("uitools_log", "[httpBytes] HTTP " + code + " " + url);
+            return null;
+        }
+        in = uc.getInputStream();
+        java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+        byte[] buf = new byte[8192];
+        int len;
+        while ((len = in.read(buf)) != -1) bos.write(buf, 0, len);
+        return bos.toByteArray();
+    } catch (Throwable e) {
+        traceLog("uitools_log", "[httpBytes] 失败 " + url + " " + e);
+        return null;
+    } finally {
+        try { if (in != null) in.close(); } catch (Throwable ignore) {}
+        try { if (uc != null) uc.disconnect(); } catch (Throwable ignore) {}
+    }
+}
+
+Bitmap decodeSampledBytes(byte[] data, int targetPx) {
+    if (data == null || data.length == 0) return null;
+    try {
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        BitmapFactory.decodeByteArray(data, 0, data.length, bounds);
+        int sample = 1;
+        int target = targetPx > 0 ? targetPx : 4096;
+        while (bounds.outWidth > 0 && bounds.outWidth / sample > target * 2 && sample < 16) {
+            sample *= 2;
+        }
+        BitmapFactory.Options opts = new BitmapFactory.Options();
+        opts.inSampleSize = sample;
+        return BitmapFactory.decodeByteArray(data, 0, data.length, opts);
+    } catch (Throwable e) {
+        traceLog("uitools_log", "[decodeSampledBytes] 异常: " + e);
+        return null;
+    }
+}
+
+String remoteImageDiskPath(String cacheKey) {
+    String key = md5(cacheKey == null ? "" : cacheKey);
+    if (key == null || key.isEmpty()) key = "empty";
+    return pluginCacheDir("img") + "/" + key + ".img";
+}
+
+Bitmap remoteImageBitmap(String url, int targetPx) {
+    if (url == null || url.trim().isEmpty()) return null;
+    String memKey = url + "#" + targetPx;
+    Object hit = remoteImageMemory.get(memKey);
+    if (hit instanceof Bitmap) return (Bitmap) hit;
+    String diskPath = remoteImageDiskPath(memKey);
+    File cacheFile = new File(diskPath);
+    Bitmap bmp = null;
+    if (cacheFile.exists() && cacheFile.length() > 0) {
+        try {
+            byte[] cached = new byte[(int) cacheFile.length()];
+            java.io.FileInputStream fis = new java.io.FileInputStream(cacheFile);
+            int read = 0;
+            while (read < cached.length) {
+                int n = fis.read(cached, read, cached.length - read);
+                if (n < 0) break;
+                read += n;
+            }
+            fis.close();
+            bmp = decodeSampledBytes(cached, targetPx);
+        } catch (Throwable e) {
+            bmp = null;
+        }
+    }
+    if (bmp == null) {
+        byte[] data = httpBytes(url, 20000);
+        bmp = decodeSampledBytes(data, targetPx);
+        if (bmp != null && data != null) {
+            try {
+                java.io.FileOutputStream fos = new java.io.FileOutputStream(diskPath);
+                fos.write(data);
+                fos.flush();
+                fos.close();
+            } catch (Throwable ignore) {}
+        }
+    }
+    if (bmp != null) {
+        if (remoteImageMemory.size() > remoteImageMemoryLimit) remoteImageMemory.clear();
+        remoteImageMemory.put(memKey, bmp);
+    }
+    return bmp;
+}
+
+void remoteImageLoad(final String url, final ImageView view, final int targetPx, final String cacheKey) {
+    if (view == null || url == null || url.trim().isEmpty()) return;
+    final String tag = cacheKey == null || cacheKey.isEmpty() ? url : cacheKey;
+    view.setTag(tag);
+    try {
+        ThreadPool.execute(new Runnable() {
+            public void run() {
+                final Bitmap bmp = remoteImageBitmap(url, targetPx);
+                if (bmp == null) return;
+                view.post(new Runnable() {
+                    public void run() {
+                        Object current = view.getTag();
+                        if (current == null || !tag.equals(current)) return;
+                        view.setImageBitmap(bmp);
+                    }
+                });
+            }
+        });
+    } catch (Throwable e) {
+        traceLog("uitools_log", "[remoteImageLoad] 异常: " + e);
+    }
+}
+
+void clearRemoteImageCache() {
+    try { remoteImageMemory.clear(); } catch (Throwable ignore) {}
+    try {
+        File dir = new File(pluginCacheDir("img"));
+        deleteCacheDir(dir);
+    } catch (Throwable e) {
+        traceLog("uitools_log", "[clearRemoteImageCache] 异常: " + e);
+    }
+}
+
+void deleteCacheDir(File dir) {
+    if (dir == null || !dir.exists()) return;
+    File[] children = dir.listFiles();
+    if (children != null) {
+        for (int i = 0; i < children.length; i++) {
+            if (children[i].isDirectory()) deleteCacheDir(children[i]);
+            else children[i].delete();
+        }
+    }
+    dir.delete();
+}
+
+boolean saveBitmapToAlbum(Activity activity, Bitmap bitmap, String displayName) {
+    if (activity == null || bitmap == null) return false;
+    String name = displayName == null || displayName.trim().isEmpty()
+            ? ("qfx_" + System.currentTimeMillis()) : displayName.trim();
+    if (!name.toLowerCase().endsWith(".png") && !name.toLowerCase().endsWith(".jpg")) name = name + ".png";
+    try {
+        if (Build.VERSION.SDK_INT >= 29) {
+            android.content.ContentValues values = new android.content.ContentValues();
+            values.put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name);
+            values.put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "image/png");
+            values.put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, "DCIM/QFloatingX");
+            values.put(android.provider.MediaStore.Images.Media.IS_PENDING, Integer.valueOf(1));
+            android.net.Uri uri = activity.getContentResolver().insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+            if (uri == null) return false;
+            java.io.OutputStream out = activity.getContentResolver().openOutputStream(uri);
+            if (out == null) return false;
+            bitmap.compress(CompressFormat.PNG, 100, out);
+            out.flush();
+            out.close();
+            android.content.ContentValues done = new android.content.ContentValues();
+            done.put(android.provider.MediaStore.Images.Media.IS_PENDING, Integer.valueOf(0));
+            activity.getContentResolver().update(uri, done, null, null);
+            return true;
+        }
+        File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM), "QFloatingX");
+        if (!dir.exists()) dir.mkdirs();
+        File target = new File(dir, name);
+        java.io.FileOutputStream fos = new java.io.FileOutputStream(target);
+        bitmap.compress(CompressFormat.PNG, 100, fos);
+        fos.flush();
+        fos.close();
+        try {
+            android.media.MediaScannerConnection.scanFile(activity, new String[]{target.getAbsolutePath()}, null, null);
+        } catch (Throwable ignore) {}
+        return true;
+    } catch (Throwable e) {
+        traceLog("uitools_log", "[saveBitmapToAlbum] 保存失败: " + e);
+        return false;
+    }
+}
+
+boolean saveImageBytesToAlbum(Activity activity, byte[] data, String displayName) {
+    Bitmap bmp = decodeSampledBytes(data, 0);
+    if (bmp == null) return false;
+    return saveBitmapToAlbum(activity, bmp, displayName);
+}
+Object shimmerAnim = null;
+
+void startShimmer(final List shimmerViews, final List accentViews) {
+    stopShimmer();
+    try {
+        android.animation.ValueAnimator anim = android.animation.ValueAnimator.ofFloat(new float[]{0f, 1f});
+        anim.setDuration(1400);
+        anim.setRepeatCount(-1);
+        anim.setRepeatMode(android.animation.ValueAnimator.REVERSE);
+        anim.addUpdateListener(new android.animation.ValueAnimator.AnimatorUpdateListener() {
+            public void onAnimationUpdate(android.animation.ValueAnimator animation) {
+                try {
+                    float phase = Float.parseFloat(String.valueOf(animation.getAnimatedValue()));
+                    if (shimmerViews != null) {
+                        for (int i = 0; i < shimmerViews.size(); i++) {
+                            View cell = (View) shimmerViews.get(i);
+                            float offset = phase + i * 0.12f;
+                            if (offset > 1f) offset = offset - 1f;
+                            float wave = (float) Math.sin(6.2831853 * offset);
+                            cell.setAlpha(0.45f + 0.25f * wave);
+                        }
+                    }
+                    if (accentViews != null) {
+                        for (int i = 0; i < accentViews.size(); i++) {
+                            View accent = (View) accentViews.get(i);
+                            accent.setAlpha(0.35f + 0.4f * (0.5f + 0.5f * (float) Math.sin(6.2831853 * phase)));
+                        }
+                    }
+                } catch (Throwable ignore) {}
+            }
+        });
+        anim.start();
+        shimmerAnim = anim;
+    } catch (Throwable e) {
+        traceLog("uitools_log", "[startShimmer] 异常: " + e);
+    }
+}
+
+void stopShimmer() {
+    try {
+        if (shimmerAnim != null) ((android.animation.ValueAnimator) shimmerAnim).cancel();
+    } catch (Throwable ignore) {}
+    shimmerAnim = null;
+}
+
+void watchScrollEnd(final View anchor, final Runnable onEnd, final int thresholdPx) {
+    if (anchor == null || onEnd == null) return;
+    try {
+        android.view.ViewParent p = anchor.getParent();
+        while (p != null && !(p instanceof ScrollView)) p = p.getParent();
+        if (!(p instanceof ScrollView)) return;
+        final ScrollView scroller = (ScrollView) p;
+        anchor.getViewTreeObserver().addOnScrollChangedListener(new android.view.ViewTreeObserver.OnScrollChangedListener() {
+            public void onScrollChanged() {
+                try {
+                    View content = scroller.getChildAt(0);
+                    if (content == null) return;
+                    int remaining = content.getBottom() - (scroller.getScrollY() + scroller.getHeight());
+                    if (remaining < thresholdPx) onEnd.run();
+                } catch (Throwable ignore) {}
+            }
+        });
+    } catch (Throwable e) {
+        traceLog("uitools_log", "[watchScrollEnd] 异常: " + e);
+    }
+}

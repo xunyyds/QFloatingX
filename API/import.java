@@ -2,7 +2,7 @@
 import com.tencent.common.app.BaseApplicationImpl;
 import com.tencent.mobileqq.activity.shortvideo.d;
 import com.tencent.mobileqq.app.BaseActivity;
-import com.tencent.mobileqq.app.BusinessObserver;
+import mqq.observer.BusinessObserver;
 import com.tencent.mobileqq.jump.api.IJumpApi;
 import com.tencent.mobileqq.onlinestatus.api.IOnlineStatusService;
 import com.tencent.mobileqq.qroute.QRoute;

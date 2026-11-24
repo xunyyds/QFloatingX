@@ -100,6 +100,7 @@ final String[] deferredFiles = {
     rootPath + "settings/SettingsPages.java",
     rootPath + "settings/SettingsSearch.java",
     rootPath + "settings/Backup.java",
+    rootPath + "widget/MultiSelectGrid.java",
     rootPath + "widget/ColorPicker.java",
     rootPath + "window/Menu.java",
     rootPath + "plugin/HotPlug.java",
@@ -107,6 +108,7 @@ final String[] deferredFiles = {
     rootPath + "core/Updater.java",
     rootPath + "feature/DoubleMsg.java",
     rootPath + "feature/Proto.java",
+    rootPath + "feature/FaceHistory.java",
     rootPath + "plugin/RuntimeStatus.java",
     rootPath + "browser/Browser.java",
     rootPath + "browser/QZone.java"

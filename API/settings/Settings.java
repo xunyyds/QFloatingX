@@ -1105,6 +1105,10 @@ View buildLevel2MenuContent(Object ctx) {
         addSettingsFeatureEntry(ctx, level1Title, "撤回标记");
     }
 
+    if ("资料与头像".equals(level1Title)) {
+        addSettingsFeatureEntry(ctx, "资料与头像", "历史头像");
+    }
+
     if ("定位与网络".equals(level1Title)) {
         addSettingsCategory(ctx, "开关", "");
         boolean mockLocationState = getBoolean("模拟定位开关", "模拟定位开关", false);
@@ -1243,6 +1247,9 @@ void ensureSettingsFeatureRegistry() {
     registerSettingsFeaturePage(registry, "性能与调试", "运行状态", "脚本与宿主信息", "item_runtime_status", SettingsPageType.CUSTOM, new SettingsFeatureBuilder() {
         public View build(Object ctx) { return build运行状态ContentView(ctx.activity); }
     });
+    registerSettingsFeaturePage(registry, "资料与头像", "历史头像", "查看 · 保存 · 设回 · 批量删除", "item_face_history", SettingsPageType.CUSTOM, new SettingsFeatureBuilder() {
+        public View build(Object ctx) { return build历史头像Page(ctx); }
+    });
     registerSettingsFeaturePage(registry, null, "HTML 浏览器", "本地网页 · 文件管理", "item_html", SettingsPageType.FULL_CONTENT, new SettingsFeatureBuilder() {
         public View build(Object ctx) { return buildHtmlPageView(ctx.activity); }
     });
@@ -1300,6 +1307,7 @@ View buildSettingsHomeContent(Object ctx) {
 
     addSettingsCategoryEntry(ctx, "", "悬浮窗与快捷", "悬浮窗开关 · 图标与大小", "悬浮窗与快捷");
     addSettingsCategoryEntry(ctx, "", "消息与互动", "消息统计 · 双击消息", "消息与互动");
+    addSettingsCategoryEntry(ctx, "", "资料与头像", "历史头像 · 头像档案", "资料与头像");
     addSettingsCategoryEntry(ctx, "", "定位与网络", "模拟定位 · 经纬度 · 空间操作", "定位与网络");
     addSettingsCategoryEntry(ctx, "", "功能扩展", "功能热插拔 · 脚本 · 模块", "功能扩展");
 
