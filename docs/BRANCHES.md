@@ -38,28 +38,28 @@
 - **文件字节不能动**：校验按 SHA-256，任何行尾改写都会导致「完整性校验失败，已中止」
 - **`up.json` 的 `files`/`checksums` 不能手工编辑**：应通过「qfx更新推送」生成
 
-## 提交信息规范（约定式提交）
+## 提交信息规范
 
 `main` 与 `QF` 均采用 [Conventional Commits](https://www.conventionalcommits.org/zh-hans/) 格式：
 
 ```
-<type>(<scope>): <subject>
+<type>: <subject>
 ```
 
 - `type`（必须）：`feat` 新功能 / `fix` 修复 / `docs` 文档 / `style` 格式 /
   `refactor` 重构 / `chore` 杂项
-- `scope`（可选）：影响范围，如 `api5`、`setwindow`、`revoke_mark`
 - `subject`（必须）：简短描述，中文建议 20 字以内，动词开头，**结尾不加句号**
+- **不使用括号 scope**，影响范围写进 subject 本身
 
 示例：
 
 ```
-feat(revoke_mark): 新增消息视图监听开关
-fix(api5): 修复宿主缺失监听接口导致的加载失败
-docs(branches): 补充 QF 分支退出条件
+feat: 新增消息视图监听开关
+fix: 修复宿主缺失监听接口导致的加载失败
+docs: 补充 QF 分支退出条件
 ```
 
-`QF` 分支由「qfx更新推送」自动提交，标题固定为 `chore(release): 发布 vX.Y.Z`，
+`QF` 分支由「qfx更新推送」自动提交，标题固定为 `chore: 发布 vX.Y.Z`，
 **正文留空**。发布说明只写入 `up.json` 的 `changelog` 与 `更新日志.txt`，
 不重复写进 commit body——客户端展示更新内容时读的是 `up.json`，与 commit 无关。
 
@@ -79,7 +79,7 @@ docs(branches): 补充 QF 分支退出条件
 ```bash
 git checkout main
 git add -A
-git commit -m "fix(api5): 修复宿主缺失监听接口导致的加载失败"
+git commit -m "fix: 修复宿主缺失监听接口导致的加载失败"
 git push origin main
 ```
 
