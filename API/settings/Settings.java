@@ -1098,6 +1098,7 @@ View buildLevel2MenuContent(Object ctx) {
         boolean doubleClickMsgState = getBoolean("settings", "双击消息开关", false);
         addSettingsItemSwitchWithKey(ctx,  "双击消息", "settings", "双击消息开关", "预览页拦截增强", doubleClickMsgState, null);
         addSettingsFeatureEntry(ctx, "消息与互动", "消息统计");
+        addSettingsFeatureEntry(ctx, "消息与互动", "特别关心");
 
         addSettingsFeatureEntry(ctx, level1Title, "撤回标记");
     }
@@ -1246,6 +1247,9 @@ void ensureSettingsFeatureRegistry() {
     });
     registerSettingsFeaturePage(registry, "资料与头像", "历史头像", "查看 · 保存 · 设回 · 批量删除", "item_face_history", SettingsPageType.CUSTOM, new SettingsFeatureBuilder() {
         public View build(Object ctx) { return build历史头像Page(ctx); }
+    });
+    registerSettingsFeaturePage(registry, "消息与互动", "特别关心", "名单 · 增删管理", "item_special_care", SettingsPageType.CUSTOM, new SettingsFeatureBuilder() {
+        public View build(Object ctx) { return build特别关心Page(ctx); }
     });
     registerSettingsFeaturePage(registry, null, "HTML 浏览器", "本地网页 · 文件管理", "item_html", SettingsPageType.FULL_CONTENT, new SettingsFeatureBuilder() {
         public View build(Object ctx) { return buildHtmlPageView(ctx.activity); }

@@ -535,11 +535,39 @@ void showGroupListDialog(Activity activity, boolean isDark) {
 void showFriendListDialog(Activity activity, boolean isDark) {
     showSimpleListDialog(activity, "我的好友列表", 3, null, isDark);
 }
+String friendNameOf(Object friend, String uin) {
+    String[] candidates = {"name", "uinName", "nick", "nickName"};
+    for (int i = 0; i < candidates.length; i++) {
+        try {
+            java.lang.reflect.Field f = friend.getClass().getField(candidates[i]);
+            Object v = f.get(friend);
+            String s = v == null ? "" : String.valueOf(v);
+            if (s != null && !s.isEmpty() && !"null".equals(s) && !s.equals(uin)) return s;
+        } catch (Throwable ignore) {}
+    }
+    String n = getUserName(uin);
+    return (n == null || n.isEmpty() || "null".equals(n)) ? uin : n;
+}
+
+String friendRemarkOf(Object friend, String uin) {
+    try {
+        java.lang.reflect.Field f = friend.getClass().getField("remark");
+        Object v = f.get(friend);
+        String s = v == null ? "" : String.valueOf(v);
+        if (s != null && !s.isEmpty() && !"null".equals(s) && !s.equals(uin)) return s;
+    } catch (Throwable ignore) {}
+    return getUserRemark(uin);
+}
+
 interface GroupSelectCallback {
     void onSelected(List selected);
 }
 
 void showGroupSelector(final Activity act, final int mode, final List initSelected, final GroupSelectCallback callback) {
+    showGroupSelector(act, mode, initSelected, callback, false);
+}
+
+void showGroupSelector(final Activity act, final int mode, final List initSelected, final GroupSelectCallback callback, final boolean singleSelect) {
     if (act == null || act.isFinishing()) return;
     try {
         final boolean isDark = isThemeDark(act);
@@ -550,7 +578,7 @@ void showGroupSelector(final Activity act, final int mode, final List initSelect
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(act, 24), dp(act, 24), dp(act, 24), dp(act, 24));
         TextView title = new TextView(act);
-        title.setText(mode == 1 ? "选择好友" : mode == 2 ? "选择群聊" : "选择群聊与好友");
+        title.setText(singleSelect ? "选择一位好友" : (mode == 1 ? "选择好友" : mode == 2 ? "选择群聊" : "选择群聊与好友"));
         title.setTextSize(20);
         title.setTypeface(null, Typeface.BOLD);
         title.setTextColor(colorOnSurface);
@@ -594,6 +622,7 @@ void showGroupSelector(final Activity act, final int mode, final List initSelect
         LinearLayout.LayoutParams lpAll = new LinearLayout.LayoutParams( - 2, - 2);
         lpAll.leftMargin = dp(act, 8);
         row1.addView(bSelectAll, lpAll);
+        if (singleSelect) row1.setVisibility(View.GONE);
         root.addView(row1);
         LinearLayout row2 = new LinearLayout(act);
         row2.setOrientation(LinearLayout.HORIZONTAL);
@@ -712,20 +741,42 @@ void showGroupSelector(final Activity act, final int mode, final List initSelect
                     tv.setText(String.valueOf(m.get("show")));
                     sub.setText(uin);
                     cb.setOnCheckedChangeListener(null);
-                    cb.setChecked(selected.contains(uin));
+                    boolean isChecked = selected.contains(uin);
+                    cb.setChecked(isChecked);
+                    cb.setEnabled(!singleSelect || selected.isEmpty() || isChecked);
+                    cb.setAlpha(!singleSelect || selected.isEmpty() || isChecked ? 1f : 0.35f);
+                    item.setAlpha(cb.isEnabled() ? 1f : 0.6f);
                     cb.setTag(uin);
                     cb.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
                         public void onCheckedChanged(CompoundButton b, boolean checked) {
-                            String u = String.valueOf(b.getTag());
-                            if (checked) selected.add(u);
-                            else selected.remove(u);
-                            summary.setText("已选 " + selected.size() + " / 总 " + display.size());
+                            String u = uin;
+                            if (singleSelect) {
+                                if (checked) {
+                                    selected.clear();
+                                    selected.add(u);
+                                } else {
+                                    selected.remove(u);
+                                }
+                                android.widget.BaseAdapter ad = (android.widget.BaseAdapter) lv.getAdapter();
+                                if (ad != null) ad.notifyDataSetChanged();
+                            } else {
+                                if (checked) selected.add(u);
+                                else selected.remove(u);
+                            }
+                            if (singleSelect) {
+                                String first = "";
+                                for (Object o : selected) { first = String.valueOf(o); break; }
+                                summary.setText(first.isEmpty() ? "未选择" : "已选 " + first);
+                            } else {
+                                summary.setText("已选 " + selected.size() + " / 总 " + display.size());
+                            }
                         }
                     });
                     item.setOnClickListener(new View.OnClickListener() {
                         public void onClick(View v) {
                             Object[]h = (Object[]) v.getTag();
                             CheckBox c = (CheckBox) h[0];
+                            if (!c.isEnabled()) return;
                             c.setChecked(!c.isChecked());
                         }
                     });
@@ -872,8 +923,8 @@ void showGroupSelector(final Activity act, final int mode, final List initSelect
                         if (obj == null) continue;
                         Map m = new HashMap();
                         String fUin = String.valueOf(obj.uin);
-                        String fName = getUserName(fUin);
-                        String fRemark = getUserRemark(fUin);
+                        String fName = friendNameOf(obj, fUin);
+                        String fRemark = friendRemarkOf(obj, fUin);
                         m.put("uin", fUin);
                         m.put("name", fName);
                         m.put("remark", fRemark);
@@ -1020,7 +1071,12 @@ void showGroupSelector(final Activity act, final int mode, final List initSelect
         btnCancel.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { dialog.dismiss(); } });
         btnConfirm.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                if (callback != null) callback.onSelected(new ArrayList(selected));
+                try {
+                    traceLog("dialog_log", "[showGroupSelector.confirm] 选中数=" + selected.size() + " single=" + singleSelect);
+                    if (callback != null) callback.onSelected(new ArrayList(selected));
+                } catch (Throwable e) {
+                    traceLog("dialog_log", "[showGroupSelector.confirm] 回调异常 " + e);
+                }
                 dialog.dismiss();
             }
         });

@@ -83,6 +83,7 @@ final String[] deferredFiles = {
     rootPath + "feature/DoubleMsg.java",
     rootPath + "feature/Proto.java",
     rootPath + "feature/FaceHistory.java",
+    rootPath + "feature/SpecialCare.java",
     rootPath + "plugin/RuntimeStatus.java",
     rootPath + "browser/Browser.java",
     rootPath + "browser/QZone.java"
