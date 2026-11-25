@@ -1,11 +1,4 @@
-/*
- * 历史头像（QQ 服务器侧「历史头像」管理）
- *
- * 能力：列表分页、缩略图网格、批量保存、批量删除、设为当前头像、缓存。
- * 协议：OidbSvc.0x5f1_6 列表 / OidbSvc.0x8de_4 设回 / OidbSvc.0x5f2_3 删除。
- * 复用：oidbSend/oidbParse、qqAvatarUrl/imageSizeFromFlag（Core）、startShimmer/watchScrollEnd（UiTools）、
- *       MultiSelectGrid（widget/MultiSelectGrid.java）。
- */
+
 
 Object faceHistoryActivePage = null;
 

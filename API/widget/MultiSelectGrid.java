@@ -1,12 +1,4 @@
-/*
- * 通用多选网格控件（可复用）
- *
- * 相册级交互：
- * - 勾选框常显：未选中=描边圆环，选中=实心 ✓
- * - 仅当按下点落在勾选框上才进入拖动连选（按起始框状态连选/连取消）
- * - 点格子主体：浏览态打开预览，多选态切换勾选
- * - 长按格子：进入多选并选中该格（Touch 自实现，不用 OnLongClickListener）
- */
+
 
 interface MultiGridBinder {
     void bindImage(int index, ImageView image);

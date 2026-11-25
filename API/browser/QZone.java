@@ -1,4 +1,4 @@
-//此空间api由冷雨开发  点赞/评论由ᗜ×ᗜ改进并适配新版 使用请留名
+
 private final java.util.concurrent.CopyOnWriteArraySet doneTasks = new java.util.concurrent.CopyOnWriteArraySet();
 private volatile boolean isServiceRunning = false;
 private final java.util.concurrent.CopyOnWriteArraySet blackList = new java.util.concurrent.CopyOnWriteArraySet();
@@ -247,7 +247,6 @@ private void sendQzoneComment(String orglikekey, String curlikekey, String userU
             + "\",\"content\":\"" + content.replace("\"", "\\\"")
             + "\",\"isPrivateComment\":0,\"busi_param\":{},\"bypass_param\":{}}";
 
-
     try {
         String resp = httppost1(url, cookie, body);
         int ret = jsonGetInt(resp, "ret");
@@ -259,7 +258,6 @@ private void sendQzoneComment(String orglikekey, String curlikekey, String userU
     }
 }
 checkAndStartOrStopThread();
-
 
 View buildQzoneSettingsView(Object ctx) {
     final Activity act = ctx.activity;

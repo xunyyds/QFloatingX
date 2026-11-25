@@ -1,28 +1,3 @@
-/*
- * Copyright (C) 2025 ᗜ×ᗜ
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- * [原作者信息]
- * Author: ᗜ×ᗜ
- * Source: https://github.com/xunyyds/QFloatingX
- * 以上内容必须完整注明在你的项目中
- * 在任何基于本项目或其修改版的公开版本中，请保留原项目的版权声明和开源许可证，并在显著位置注明：
- * 原项目：QFloatingX
- * 作者：ᗜ×ᗜ
- * 项目地址：https://github.com/xunyyds/QFloatingX
- * 开源许可证：Apache-2.0
-*/
 
 
 String iconBase        = pluginPath + "/API/icon";
@@ -80,7 +55,6 @@ final String logPath   = pluginPath + "/Log/";
 long startTime         = System.currentTimeMillis();
 ExecutorService ThreadPool = null;
 
-
 final String[] coreFiles = {
     rootPath + "import.java",
     rootPath + "core/Core.java",
@@ -113,7 +87,6 @@ final String[] deferredFiles = {
     rootPath + "browser/Browser.java",
     rootPath + "browser/QZone.java"
 };
-
 
 volatile long apiLoadCostTime = -1;
 volatile boolean isUnloading = false;
@@ -294,7 +267,6 @@ void initThreadPool() {
     int corePoolSize = Math.max(2, Math.min(cpuCores, 8));
     int maxPoolSize = Math.min(corePoolSize * 2, 16);
 
-
     ThreadFactory threadFactory = new ThreadFactory() {
         int threadCount = 1;
         public Thread newThread(Runnable r) {
@@ -447,11 +419,9 @@ ThreadPool.execute(new Runnable() {
 
 String currentPackageName = context.getPackageName();
 
-
 volatile boolean 应用前台状态 = false;
 volatile boolean 非UI初始化完成 = false;
 volatile boolean UI初始化完成 = false;
-
 
 static volatile int resumedActivityCount = 0;
 
@@ -468,7 +438,6 @@ Activity safeActivity() {
     if (a == null) a = 最后Activity;
     return a;
 }
-
 
 void checkAndUpdateForegroundState(final Activity activity) {
     if (resumedActivityCount <= 0) return;
@@ -498,7 +467,6 @@ void checkAndUpdateForegroundState(final Activity activity) {
         }
     }
 }
-
 
 void checkAndUpdateBackgroundState() {
     if (resumedActivityCount > 0) return;
@@ -945,7 +913,6 @@ void 原神启动() {
         traceLog("main_log", "[原神启动] 错误：apiLoadCostTime未初始化");
         return;
     }
-
 
     ThreadPool.execute(new Runnable() {
         public void run() {

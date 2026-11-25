@@ -1607,7 +1607,6 @@ void cleanupTempFile(String tempPath) {
     }
 }
 
-
 void ensureResourceAvailable() {
 
     boolean allExist = checkAllIconsExist();

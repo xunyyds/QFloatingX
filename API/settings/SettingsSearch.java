@@ -13,7 +13,7 @@ void settingsCatalogEntry(Map entries, String l1, String l2, String category,
 void settingsCatalogItems(Map entries, String l1, String l2, String category, String[][] items) {
     for (int i = 0; i < items.length; i++) {
         String[] item = items[i];
-        // Keep the UI's path-based keys without consulting mutable page state.
+        
         String key = (l1 == null ? "" : l1 + "_") + (l2 == null ? "" : l2 + "_")
             + (category == null ? "" : category + "_") + item[0];
         settingsCatalogEntry(entries, l1, l2, category, key, item[0], item[1], item[2], null);
@@ -25,7 +25,7 @@ void rebuildSettingsIndex(Activity activity) {
         if (SettingsState.settingsIndexReady && SettingsState.settingsItemMeta != null
                 && !SettingsState.settingsItemMeta.isEmpty()) return;
         try {
-            // Build the full catalog locally: no views, callbacks, factories or page registry.
+            
             Map entries = new HashMap();
             String[][] categories = {
                 {"悬浮窗与快捷", "悬浮窗开关 · 图标与大小"},
@@ -43,7 +43,7 @@ void rebuildSettingsIndex(Activity activity) {
                 settingsCatalogEntry(entries, null, null, "首页", "cat_" + categories[i][0],
                     categories[i][0], categories[i][1], "category", null);
             }
-            // Each row explicitly records the containing category and destination page.
+            
             String[][] pages = {
                 {null, "首页", "item_html", "HTML 浏览器", "本地网页 · 文件管理", "HTML 浏览器"},
                 {"悬浮窗与快捷", "开关", "item_float_window", "悬浮窗设置", "图标 · 大小 · 灵敏度 · 透明度", "悬浮窗设置"},
@@ -112,7 +112,7 @@ void rebuildSettingsIndex(Activity activity) {
                 {"背景类型", null, "choice"}, {"选择背景图片", "点击选择本地图片", "click"},
                 {"图片模糊 (0-25)", "0为不模糊", "input"}, {"遮罩浓度 (0-255)", "越大越暗", "input"}
             });
-            // Index both theme variants and all conditional controls, not just the current UI.
+            
             String[] suffixes = {" (浅色模式)", " (深色模式)"};
             String[] fontKeys = {"ui_text_color_light", "ui_text_color_dark"};
             for (int i = 0; i < suffixes.length; i++) {
@@ -198,7 +198,7 @@ void rebuildSettingsIndex(Activity activity) {
             settingsCatalogItems(entries, "定位与网络", "空间操作", "黑名单", new String[][] {
                 {"设置黑名单", null, "choice"}
             });
-            // Publish only a complete snapshot; a failed rebuild retains the previous map.
+            
             SettingsState.settingsItemMeta = entries;
             SettingsState.settingsIndexReady = true;
         } catch (Throwable e) {

@@ -1,8 +1,6 @@
-int qfxSettingsBackupExportRequestCode = 10581;
-int qfxSettingsBackupImportRequestCode = 10582;
-boolean qfxSettingsBackupExportHooked = false;
-byte[] qfxSettingsBackupPendingArchive = null;
-Object qfxSettingsBackupLock = new Object();
+boolean bkExportHooked = false;
+byte[] bkPendingArchive = null;
+Object bkLock = new Object();
 
 void showSettingsBackupDialog(final Activity activity) {
     if (activity == null) return;
@@ -34,7 +32,7 @@ void startSettingsBackupExport(final Activity activity) {
                     public void run() {
                         try {
                             ensureSettingsBackupExportHook();
-                            if (!qfxSettingsBackupExportHooked) {
+                            if (!bkExportHooked) {
                                 Toast("无法初始化备份文件选择器");
                                 return;
                             }
@@ -43,12 +41,12 @@ void startSettingsBackupExport(final Activity activity) {
                             intent.setType("application/zip");
                             String stamp = new java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.getDefault()).format(new java.util.Date());
                             intent.putExtra(Intent.EXTRA_TITLE, "QFloatingX-配置备份-" + stamp + ".zip");
-                            synchronized (qfxSettingsBackupLock) {
-                                qfxSettingsBackupPendingArchive = archive;
+                            synchronized (bkLock) {
+                                bkPendingArchive = archive;
                             }
-                            activity.startActivityForResult(intent, qfxSettingsBackupExportRequestCode);
+                            activity.startActivityForResult(intent, 10581);
                         } catch (Throwable e) {
-                            synchronized (qfxSettingsBackupLock) { qfxSettingsBackupPendingArchive = null; }
+                            synchronized (bkLock) { bkPendingArchive = null; }
                             traceLog("setwindow_log", "[配置备份] 打开保存窗口失败: " + e);
                             Toast("打开保存窗口失败: " + e.getMessage());
                         }
@@ -64,20 +62,20 @@ void startSettingsBackupExport(final Activity activity) {
     });
 }
 void ensureSettingsBackupExportHook() {
-    if (qfxSettingsBackupExportHooked) return;
+    if (bkExportHooked) return;
     try {
         int hooked = hookAll("settings_backup", Activity.class, "dispatchActivityResult", new XC_MethodHook() {
                     protected void afterHookedMethod(final XC_MethodHook.MethodHookParam param) throws Throwable {
                         try {
                             if (param.args == null || param.args.length < 4 || !(param.args[1] instanceof Integer) || !(param.args[2] instanceof Integer)) return;
-                            if (((Integer) param.args[1]).intValue() != qfxSettingsBackupExportRequestCode) return;
+                            if (((Integer) param.args[1]).intValue() != 10581) return;
                             final Activity resultActivity = (Activity) param.thisObject;
                             int resultCode = ((Integer) param.args[2]).intValue();
                             final Intent resultIntent = (Intent) param.args[3];
                             final byte[] archive;
-                            synchronized (qfxSettingsBackupLock) {
-                                archive = qfxSettingsBackupPendingArchive;
-                                qfxSettingsBackupPendingArchive = null;
+                            synchronized (bkLock) {
+                                archive = bkPendingArchive;
+                                bkPendingArchive = null;
                             }
                             if (resultCode != Activity.RESULT_OK || resultIntent == null || resultIntent.getData() == null || archive == null) return;
                             final Uri uri = resultIntent.getData();
@@ -108,10 +106,10 @@ void ensureSettingsBackupExportHook() {
                         }
                     }
                 });
-        qfxSettingsBackupExportHooked = hooked > 0;
+        bkExportHooked = hooked > 0;
     } catch (Throwable e) {
         traceLog("setwindow_log", "[配置备份] 初始化结果回调失败: " + e);
-        qfxSettingsBackupExportHooked = false;
+        bkExportHooked = false;
     }
 }
 byte[] buildSettingsBackupArchive() throws Exception {
@@ -119,10 +117,10 @@ byte[] buildSettingsBackupArchive() throws Exception {
     java.util.zip.ZipOutputStream zip = new java.util.zip.ZipOutputStream(bytes);
     int[] counts = new int[]{0, 0, 0, 0};
     try {
-        qfxAddSettingsBackupDirectory(zip, new File(pluginPath + "/config"), "config", 0, counts);
-        qfxAddSettingsBackupDirectory(zip, new File(pluginPath + "/HotPlug/Funcs"), "HotPlug/Funcs", 1, counts);
-        qfxAddSettingsBackupDirectory(zip, new File(pluginPath + "/API"), "API", 2, counts);
-        qfxAddSettingsBackupDirectory(zip, new File(pluginPath + "/HTML"), "HTML", 3, counts);
+        addBackupDirectory(zip, new File(pluginPath + "/config"), "config", 0, counts);
+        addBackupDirectory(zip, new File(pluginPath + "/HotPlug/Funcs"), "HotPlug/Funcs", 1, counts);
+        addBackupDirectory(zip, new File(pluginPath + "/API"), "API", 2, counts);
+        addBackupDirectory(zip, new File(pluginPath + "/HTML"), "HTML", 3, counts);
         JSONObject manifest = new JSONObject();
         manifest.put("format", "QFloatingXBackup");
         manifest.put("version", 1);
@@ -141,7 +139,7 @@ byte[] buildSettingsBackupArchive() throws Exception {
     return bytes.toByteArray();
 }
 
-void qfxAddSettingsBackupDirectory(java.util.zip.ZipOutputStream zip, File root, String prefix, int kind, int[] counts) throws Exception {
+void addBackupDirectory(java.util.zip.ZipOutputStream zip, File root, String prefix, int kind, int[] counts) throws Exception {
     if (root == null || !root.exists() || !root.isDirectory()) return;
     File[] children = root.listFiles();
     if (children == null) return;
@@ -150,11 +148,11 @@ void qfxAddSettingsBackupDirectory(java.util.zip.ZipOutputStream zip, File root,
         if (child == null) continue;
         String entryName = prefix + "/" + child.getName();
         if (child.isDirectory()) {
-            qfxAddSettingsBackupDirectory(zip, child, entryName, kind, counts);
+            addBackupDirectory(zip, child, entryName, kind, counts);
             continue;
         }
         if (!child.isFile()) continue;
-        if (kind == 2 && !qfxIsSettingsBackupImage(child.getName())) continue;
+        if (kind == 2 && !isBackupImage(child.getName())) continue;
         java.io.ByteArrayOutputStream fileBytes = new java.io.ByteArrayOutputStream();
         FileInputStream fileInput = null;
         try {
@@ -173,7 +171,7 @@ void qfxAddSettingsBackupDirectory(java.util.zip.ZipOutputStream zip, File root,
     }
 }
 
-boolean qfxIsSettingsBackupImage(String name) {
+boolean isBackupImage(String name) {
     if (name == null) return false;
     String lower = name.toLowerCase(java.util.Locale.ROOT);
     return lower.endsWith(".png") || lower.endsWith(".gif") || lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".webp") || lower.endsWith(".bmp");
@@ -181,11 +179,11 @@ boolean qfxIsSettingsBackupImage(String name) {
 
 void startSettingsBackupImport(final Activity activity) {
     if (activity == null) return;
-    openFilePicker(activity, qfxSettingsBackupImportRequestCode, "*/*", null, null, new FilePickerCallback() {
+    openFilePicker(activity, 10582, "*/*", null, null, new FilePickerCallback() {
         public void onFilePicked(final Activity pickedActivity, Uri uri, String fileName, String filePath) {
             try {
-                byte[] raw = qfxReadSettingsBackupUri(pickedActivity, uri);
-                final HashMap backupFiles = qfxParseSettingsBackupArchive(raw);
+                byte[] raw = readBackupUri(pickedActivity, uri);
+                final HashMap backupFiles = parseBackupArchive(raw);
                 final String displayName = fileName == null ? "所选文件" : fileName;
                 pickedActivity.runOnUiThread(new Runnable() {
                     public void run() { showSettingsBackupPreview(pickedActivity, displayName, backupFiles); }
@@ -200,7 +198,7 @@ void startSettingsBackupImport(final Activity activity) {
     });
 }
 
-byte[] qfxReadSettingsBackupUri(Activity activity, Uri uri) throws Exception {
+byte[] readBackupUri(Activity activity, Uri uri) throws Exception {
     InputStream input = null;
     java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
     try {
@@ -220,7 +218,7 @@ byte[] qfxReadSettingsBackupUri(Activity activity, Uri uri) throws Exception {
     return bytes.toByteArray();
 }
 
-HashMap qfxParseSettingsBackupArchive(byte[] raw) throws Exception {
+HashMap parseBackupArchive(byte[] raw) throws Exception {
     if (raw == null || raw.length == 0) throw new IOException("文件为空");
     HashMap files = new HashMap();
     java.util.zip.ZipInputStream zip = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(raw));
@@ -241,7 +239,7 @@ HashMap qfxParseSettingsBackupArchive(byte[] raw) throws Exception {
                 zip.closeEntry();
                 continue;
             }
-            if (!qfxIsSettingsBackupPathAllowed(name)) throw new IOException("备份包含不支持的文件: " + name);
+            if (!isBackupPathAllowed(name)) throw new IOException("备份包含不支持的文件: " + name);
             java.io.ByteArrayOutputStream item = new java.io.ByteArrayOutputStream();
             byte[] buffer = new byte[8192];
             int length;
@@ -268,11 +266,11 @@ HashMap qfxParseSettingsBackupArchive(byte[] raw) throws Exception {
     if (files.size() <= 1) throw new IOException("备份中没有可导入的内容");
     return files;
 }
-boolean qfxIsSettingsBackupPathAllowed(String path) {
+boolean isBackupPathAllowed(String path) {
     if (path == null || path.length() == 0) return false;
     if (path.equals("manifest.json")) return true;
     if (path.startsWith("config/") || path.startsWith("HotPlug/Funcs/") || path.startsWith("HTML/")) return true;
-    if (path.startsWith("API/")) return qfxIsSettingsBackupImage(path.substring(path.lastIndexOf('/') + 1));
+    if (path.startsWith("API/")) return isBackupImage(path.substring(path.lastIndexOf('/') + 1));
     return false;
 }
 void showSettingsBackupPreview(final Activity activity, String fileName, final HashMap backupFiles) {
@@ -310,9 +308,9 @@ void showSettingsBackupPreview(final Activity activity, String fileName, final H
         }
     }
     HashSet stale = new HashSet();
-    qfxCollectSettingsBackupStaleFiles(new File(pluginPath + "/config"), "config", incoming, stale);
-    qfxCollectSettingsBackupStaleFiles(new File(pluginPath + "/HotPlug/Funcs"), "HotPlug/Funcs", incoming, stale);
-    qfxCollectSettingsBackupStaleFiles(new File(pluginPath + "/HTML"), "HTML", incoming, stale);
+    collectBackupStaleFiles(new File(pluginPath + "/config"), "config", incoming, stale);
+    collectBackupStaleFiles(new File(pluginPath + "/HotPlug/Funcs"), "HotPlug/Funcs", incoming, stale);
+    collectBackupStaleFiles(new File(pluginPath + "/HTML"), "HTML", incoming, stale);
     int staleConfig = 0;
     int staleScripts = 0;
     int staleHtml = 0;
@@ -355,7 +353,7 @@ void showSettingsBackupPreview(final Activity activity, String fileName, final H
     applyUiTheme(activity, dialog, 0);
 }
 
-void qfxCollectSettingsBackupStaleFiles(File root, String prefix, HashSet incoming, HashSet stale) {
+void collectBackupStaleFiles(File root, String prefix, HashSet incoming, HashSet stale) {
     if (root == null || !root.exists() || !root.isDirectory()) return;
     File[] children = root.listFiles();
     if (children == null) return;
@@ -363,7 +361,7 @@ void qfxCollectSettingsBackupStaleFiles(File root, String prefix, HashSet incomi
         File child = children[i];
         if (child == null) continue;
         if (child.isDirectory()) {
-            qfxCollectSettingsBackupStaleFiles(child, prefix + "/" + child.getName(), incoming, stale);
+            collectBackupStaleFiles(child, prefix + "/" + child.getName(), incoming, stale);
         } else if (child.isFile()) {
             String path = prefix + "/" + child.getName();
             if (!incoming.contains(path)) stale.add(path);
@@ -379,9 +377,9 @@ void applySettingsBackup(final Activity activity, final HashMap backupFiles) {
             HashSet incoming = new HashSet(backupFiles.keySet());
             incoming.remove("manifest.json");
             HashSet stale = new HashSet();
-            qfxCollectSettingsBackupStaleFiles(new File(pluginPath + "/config"), "config", incoming, stale);
-            qfxCollectSettingsBackupStaleFiles(new File(pluginPath + "/HotPlug/Funcs"), "HotPlug/Funcs", incoming, stale);
-            qfxCollectSettingsBackupStaleFiles(new File(pluginPath + "/HTML"), "HTML", incoming, stale);
+            collectBackupStaleFiles(new File(pluginPath + "/config"), "config", incoming, stale);
+            collectBackupStaleFiles(new File(pluginPath + "/HotPlug/Funcs"), "HotPlug/Funcs", incoming, stale);
+            collectBackupStaleFiles(new File(pluginPath + "/HTML"), "HTML", incoming, stale);
             String error = null;
             try {
                 String[] oldFuncs = getAll();
@@ -476,7 +474,7 @@ void applySettingsBackup(final Activity activity, final HashMap backupFiles) {
                     }
                 }
             }
-            try { qfxReloadSettingsBackupHotplug(); } catch (Throwable e) { traceLog("setwindow_log", "[配置导入] 刷新脚本状态失败: " + e); }
+            try { reloadBackupHotplug(); } catch (Throwable e) { traceLog("setwindow_log", "[配置导入] 刷新脚本状态失败: " + e); }
             final String resultError = error;
             activity.runOnUiThread(new Runnable() {
                 public void run() {
@@ -492,7 +490,7 @@ void applySettingsBackup(final Activity activity, final HashMap backupFiles) {
     });
 }
 
-void qfxReloadSettingsBackupHotplug() {
+void reloadBackupHotplug() {
     try { if (loadFlags != null) loadFlags.clear(); } catch (Throwable ignore) {}
     try { if (runFlags != null) runFlags.clear(); } catch (Throwable ignore) {}
     try { if (loopFlags != null) loopFlags.clear(); } catch (Throwable ignore) {}

@@ -1180,16 +1180,13 @@ void showModeContent(Activity activity, FrameLayout container, int mode, int ini
     }
 }
 
-
 interface ColorListCallback {
     void onColorListSaved(String csv);
 }
 
-
 String getDefaultRotColorList() {
     return "#FF5252,#4DB6AC,#448AFF,#66BB6A,#AB47BC,#FF9800,#FFEE58";
 }
-
 
 String loadRotColorList(String key) {
     String s = getString("settings", key, "");
@@ -1200,7 +1197,6 @@ String loadRotColorList(String key) {
     }
     return s;
 }
-
 
 void showColorListEditor(final Activity activity, String title, final int maxColors, String currentCsv, final ColorListCallback callback) {
     if (activity == null || activity.isFinishing()) return;

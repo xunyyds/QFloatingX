@@ -1974,7 +1974,6 @@ String 替换变量占位符(String template, Object scriptScope) {
     return result;
 }
 
-
 void chatInterface(int chatType, String peerUin, String peerName) {
     Activity activity = safeActivity();
     final Activity finalActivity = activity;

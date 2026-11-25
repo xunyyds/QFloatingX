@@ -596,7 +596,6 @@ int getSettingsFooterBg(Activity activity) {
     return pc(getSettingsThemeColor(activity, "background"));
 }
 
-
 String settingsAutoItemKey(Object ctx, String itemName) {
     String l1 = ctx.level1;
     String l2 = ctx.level2;
@@ -773,7 +772,6 @@ void addSettingsItemChoiceWithKey(Object ctx, String itemName, String configKey,
     if (itemKey != null && !itemKey.isEmpty() && ctx.itemViews != null) {
         ctx.itemViews.put(itemKey, itemWrapper);
     }
-
 
     container.addView(itemWrapper);
 }
@@ -1070,7 +1068,6 @@ View buildLevel2MenuContent(Object ctx) {
     String level1Title = ctx.level1;
     Activity activity = ctx.activity;
 
-
     if ("悬浮窗与快捷".equals(level1Title)) {
         addSettingsCategory(ctx, "开关", "");
         boolean floatState = getBoolean("settings", "开关", false);
@@ -1286,7 +1283,6 @@ void addSettingsSubPageEntry(Object ctx, final String categoryName, String iconA
         showSettingsMenu(ctx.activity, categoryName, subLevel2, null);
     }});
 }
-
 
 View buildSettingsHomeContent(Object ctx) {
     Activity activity = ctx.activity;
@@ -3315,8 +3311,6 @@ void settingsRunNav() {
             settingsApplyHomeHeaderProgress(settingsHomeCollapseProgress());
         }
     }
-
-
 
     int settingsContainerWidth() {
         int width = settingsPageContainer != null ? settingsPageContainer.getWidth() : 0;

@@ -540,7 +540,6 @@ void add运行状态卡片组(Activity context, LinearLayout parent, boolean isD
     try { add设备信息卡片(context, parent, isDark); } catch (Throwable e) { parent.addView(状态卡片错误View(context, "设备信息", e)); }
 }
 
-
 public LinearLayout build运行状态ContentView(Activity activity) {
     if (activity == null) return null;
     boolean isDark = isThemeDark(activity);

@@ -1,7 +1,3 @@
-private static final int STATE_DESTROYED = 0; 
-private static final int STATE_CREATED = 1; 
-private static final int STATE_VISIBLE = 2; 
-private static final int STATE_HIDDEN = 3; 
 
 
 private static final int DEFAULT_CLOSE_RANGE_SIZE_DP = 80; 
@@ -12,7 +8,6 @@ private static final int VIBRATION_INTERVAL_MS = 100;
 
 private boolean isDragging = false; 
 private boolean isInCloseRange = false; 
-private boolean isCloseRangeAttached = false; 
 private FrameLayout closeRangeView = null; 
 private ImageView closeRangeIcon = null; 
 private Bitmap cachedCloseIconBitmap = null; 
@@ -25,15 +20,13 @@ private int touchOffsetX = 0;
 private int touchOffsetY = 0; 
 private long touchStartTime = 0; 
 private boolean isLongClickScheduled = false; 
-private int currentAlpha = 255; 
 private Runnable longClickRunnable = null; 
 private Runnable fadeRunnable = null; 
 
 
-private int 悬浮窗状态 = STATE_DESTROYED; 
 
 boolean 悬浮窗可见() {
-    return 悬浮窗状态 == STATE_VISIBLE;
+    return floatingView != null && floatingView.isAttachedToWindow();
 }
 
 private WindowManager wm = null; 
@@ -43,7 +36,6 @@ private Activity floatingActivity = null;
 private ImageView iconImageView = null; 
 private Bitmap cachedIconBitmap = null; 
 private String cachedGifPath = ""; 
-private boolean isGifMode = false; 
 private Movie cachedGifMovie = null; 
 
 private static class GifImageView extends ImageView {
@@ -382,15 +374,11 @@ Bitmap 加载图片文件(Activity activity, String path, boolean isCloseIcon) {
             cachedGifMovie = Movie.decodeStream(fis);
             fis.close();
             if (cachedGifMovie != null) {
-                isGifMode = true;
                 cachedGifPath = path;
                 return null;
-            } else {
-                isGifMode = false;
-                cachedGifPath = path;
             }
+            cachedGifPath = path;
         } else {
-            isGifMode = false;
             cachedGifPath = path;
             cachedGifMovie = null;
             Bitmap originalBitmap = BitmapFactory.decodeFile(path);
@@ -463,7 +451,7 @@ Bitmap 加载图标Bitmap(Activity activity) {
             bitmap = 加载图片文件(activity, iconPath, false);
         }
     }
-    if (bitmap == null && !isGifMode) {
+    if (bitmap == null && !(cachedGifMovie != null)) {
         bitmap = 创建默认图标(activity);
     }
     return bitmap;
@@ -474,19 +462,18 @@ void 设置图标图片(Activity activity, ImageView imageView) {
         return;
     }
     int targetAlpha;
-    if (isGifMode) {
+    if ((cachedGifMovie != null)) {
         targetAlpha = 获取动态图标透明度();
     } else {
         targetAlpha = 获取图标透明度();
     }
-    currentAlpha = targetAlpha;
-    if (isGifMode) {
+    if ((cachedGifMovie != null)) {
         if (!(imageView instanceof GifImageView)) {
             return;
         }
         if (cachedGifMovie != null) {
             ((GifImageView) imageView).setMovie(cachedGifMovie);
-            imageView.setImageAlpha(currentAlpha);
+            imageView.setImageAlpha(targetAlpha);
         }
     } else {
         if (imageView instanceof GifImageView) {
@@ -497,7 +484,7 @@ void 设置图标图片(Activity activity, ImageView imageView) {
         }
         if (cachedIconBitmap != null) {
             imageView.setImageBitmap(cachedIconBitmap);
-            imageView.setImageAlpha(currentAlpha);
+            imageView.setImageAlpha(targetAlpha);
         }
     }
 }
@@ -611,7 +598,7 @@ void 显示关闭区域(final Activity activity) {
     activity.runOnUiThread(new Runnable() {
         public void run() {
             try {
-                if (isCloseRangeAttached && closeRangeView != null) {
+                if (closeRangeView != null && closeRangeView.isAttachedToWindow()) {
                     try {
                         if (closeRangeView.isAttachedToWindow()) {
                             wm.removeView(closeRangeView);
@@ -633,7 +620,6 @@ void 显示关闭区域(final Activity activity) {
                 closeParams.y = (int)(screenHeight * 0.45f);
                 wm.addView(closeRangeView, closeParams);
                 closeRangeView.setVisibility(View.VISIBLE);
-                isCloseRangeAttached = true;
             } catch (Throwable e) { traceLog("api4_log", "[显示关闭区域] 异常: " + e); }
         }
     });
@@ -654,7 +640,6 @@ void 隐藏关闭区域(final Activity activity) {
                 }
                 xfcHandler.removeCallbacks(continuousVibrationRunnable);
                 isInCloseRange = false;
-                isCloseRangeAttached = false;
             } catch (Throwable e) { traceLog("api4_log", "[隐藏关闭区域] 异常: " + e); }
         }
     });
@@ -760,14 +745,12 @@ void 创建悬浮窗视图(final Activity activity) {
             return;
         }
         if (floatingView != null) {
-            悬浮窗状态 = STATE_CREATED;
             floatingActivity = activity;
             return;
         }
         floatingActivity = activity;
         touchOffsetX = 0;
         touchOffsetY = 0;
-        currentAlpha = 255;
 
         加载图标Bitmap(activity);
 
@@ -780,7 +763,7 @@ void 创建悬浮窗视图(final Activity activity) {
         FrameLayout.LayoutParams viewParams = new FrameLayout.LayoutParams(size, size);
         floatingView.setLayoutParams(viewParams);
 
-        if (isGifMode && cachedGifMovie != null) {
+        if ((cachedGifMovie != null) && cachedGifMovie != null) {
             iconImageView = new GifImageView(activity);
         } else {
             iconImageView = new ImageView(activity);
@@ -797,7 +780,6 @@ void 创建悬浮窗视图(final Activity activity) {
 
         设置触摸事件(activity);
 
-        悬浮窗状态 = STATE_CREATED;
     } catch (Exception e) {
         traceLog("api4_log", "[创建悬浮窗视图] 异常: " + e);
         销毁悬浮窗资源();
@@ -818,13 +800,10 @@ void 添加到窗口管理器(Activity activity) {
         }
         wm.addView(floatingView, params);
         if (iconImageView != null) {
-            currentAlpha = 255;
-            iconImageView.setImageAlpha(currentAlpha);
+            iconImageView.setImageAlpha(255);
         }
-        悬浮窗状态 = STATE_VISIBLE;
     } catch (Exception e) {
         traceLog("api4_log", "[添加到窗口管理器] 异常: " + e);
-        悬浮窗状态 = STATE_CREATED;
     }
 }
 
@@ -846,8 +825,7 @@ void 销毁悬浮窗资源() {
     try {
         cachedGifMovie = null;
         cachedGifPath = "";
-        isGifMode = false;
-    } catch (Throwable e) { traceLog("api4_log", "[销毁悬浮窗资源] 异常: " + e); }
+        } catch (Throwable e) { traceLog("api4_log", "[销毁悬浮窗资源] 异常: " + e); }
     try {
         if (closeRangeView != null && closeRangeView.isAttachedToWindow() && wm != null) {
             wm.removeView(closeRangeView);
@@ -856,10 +834,8 @@ void 销毁悬浮窗资源() {
     try {
         closeRangeView = null;
         closeRangeIcon = null;
-        isCloseRangeAttached = false;
         floatingView = null;
         iconImageView = null;
-        悬浮窗状态 = STATE_DESTROYED;
         isLongClickScheduled = false;
         isDragging = false;
         isInCloseRange = false;
@@ -879,9 +855,8 @@ void 设置触摸事件(final Activity activity) {
         fadeRunnable = new Runnable() {
             public void run() {
                 try {
-                    if (isLongClickScheduled && currentAlpha > 100 && 悬浮窗可见() && iconImageView != null) {
-                        currentAlpha -= 10;
-                        iconImageView.setImageAlpha(currentAlpha);
+                    if (isLongClickScheduled && iconImageView != null && iconImageView.getImageAlpha() > 100 && 悬浮窗可见()) {
+                        iconImageView.setImageAlpha(iconImageView.getImageAlpha() - 10);
                         if (isLongClickScheduled) {
                             xfcHandler.postDelayed(this, 30);
                         }
@@ -927,8 +902,7 @@ void 设置触摸事件(final Activity activity) {
                         touchStartTime = System.currentTimeMillis();
                         touchOffsetX = (int) (event.getRawX() - params.x);
                         touchOffsetY = (int) (event.getRawY() - params.y);
-                        currentAlpha = 255;
-                        xfcHandler.removeCallbacks(fadeRunnable);
+                                    xfcHandler.removeCallbacks(fadeRunnable);
                         xfcHandler.postDelayed(fadeRunnable, 30);
                         if (!isLongClickScheduled) {
                             isLongClickScheduled = true;
@@ -944,8 +918,15 @@ void 设置触摸事件(final Activity activity) {
                         }
                         xfcHandler.removeCallbacks(fadeRunnable);
 
-                        int deltaX = Math.abs((int)(event.getRawX() - (params.x + touchOffsetX)));
-                        int deltaY = Math.abs((int)(event.getRawY() - (params.y + touchOffsetY)));
+                        WindowManager.LayoutParams p = params;
+                        int px = p.x;
+                        int py = p.y;
+                        int ox = touchOffsetX;
+                        int oy = touchOffsetY;
+                        float rawX = event.getRawX();
+                        float rawY = event.getRawY();
+                        int deltaX = Math.abs((int)(rawX - (px + ox)));
+                        int deltaY = Math.abs((int)(rawY - (py + oy)));
 
                         if (!isDragging && (deltaX > moveThreshold || deltaY > moveThreshold)) {
                             isDragging = true;
@@ -953,25 +934,21 @@ void 设置触摸事件(final Activity activity) {
                         }
 
                         if (isDragging) {
-                            int sensitivity = dragSensitivity;
-                            int baseMoveX = (int) (event.getRawX() - touchOffsetX - params.x);
-                            int baseMoveY = (int) (event.getRawY() - touchOffsetY - params.y);
+                            int baseMoveX = (int) (rawX - ox - px);
+                            int baseMoveY = (int) (rawY - oy - py);
+                            int newX = px + (int)(baseMoveX * dragSensitivity / 12.0f);
+                            int newY = py + (int)(baseMoveY * dragSensitivity / 12.0f);
 
-                            int newX = params.x + (int)(baseMoveX * sensitivity / 12.0f);
-                            int newY = params.y + (int)(baseMoveY * sensitivity / 12.0f);
-
-                            int screenWidth = wm.getDefaultDisplay().getWidth();
-                            int screenHeight = wm.getDefaultDisplay().getHeight();
+                            android.view.Display display = wm.getDefaultDisplay();
                             int size = floatWindowSize;
+                            newX = Math.max(0, Math.min(newX, display.getWidth() - size));
+                            newY = Math.max(0, Math.min(newY, display.getHeight() - size));
 
-                            newX = Math.max(0, Math.min(newX, screenWidth - size));
-                            newY = Math.max(0, Math.min(newY, screenHeight - size));
+                            p.x = newX;
+                            p.y = newY;
+                            wm.updateViewLayout(floatingView, p);
 
-                            params.x = newX;
-                            params.y = newY;
-                            wm.updateViewLayout(floatingView, params);
-
-                            更新关闭区域状态(activity, newX, newY, floatWindowSize);
+                            更新关闭区域状态(activity, newX, newY, size);
                         }
 
                         if (iconImageView != null) {
@@ -1129,27 +1106,20 @@ public void 启动悬浮窗(final Activity activity) {
             销毁悬浮窗资源();
         }
 
-        switch (悬浮窗状态) {
-            case STATE_DESTROYED:
-            default:
-                创建悬浮窗视图(activity);
-                if (悬浮窗状态 == STATE_CREATED) {
-                    添加到窗口管理器(activity);
-                }
-                break;
-            case STATE_HIDDEN:
-            case STATE_CREATED:
-                currentAlpha = 255;
-                if (iconImageView != null) {
-                    iconImageView.setImageAlpha(currentAlpha);
-                }
+        if (floatingView == null) {
+            创建悬浮窗视图(activity);
+            if (floatingView != null) {
                 添加到窗口管理器(activity);
-                break;
-            case STATE_VISIBLE:
-                if (iconImageView != null) {
-                    iconImageView.setImageAlpha(255);
-                }
-                break;
+            }
+        } else if (悬浮窗可见()) {
+            if (iconImageView != null) {
+                iconImageView.setImageAlpha(255);
+            }
+        } else {
+            if (iconImageView != null) {
+                iconImageView.setImageAlpha(255);
+            }
+            添加到窗口管理器(activity);
         }
     } catch (Throwable e) { traceLog("api4_log", "[启动悬浮窗] 异常: " + e); }
 }
@@ -1189,7 +1159,6 @@ public void 停止悬浮窗() {
             }
             wm.removeView(floatingView);
         } catch (Throwable e) { traceLog("api4_log", "[停止悬浮窗] 异常: " + e); }
-        悬浮窗状态 = STATE_HIDDEN;
     }
 }
 
@@ -1217,7 +1186,6 @@ public void 卸载悬浮窗() {
     } catch (Throwable e) { traceLog("api4_log", "[卸载悬浮窗] 异常: " + e); }
     cachedGifMovie = null;
     cachedGifPath = "";
-    isGifMode = false;
     floatingView = null;
     iconImageView = null;
     floatingActivity = null;
@@ -1225,12 +1193,9 @@ public void 卸载悬浮窗() {
     closeRangeIcon = null;
     wm = null;
     params = null;
-    悬浮窗状态 = STATE_DESTROYED;
     isLongClickScheduled = false;
     isDragging = false;
     isInCloseRange = false;
-    isCloseRangeAttached = false;
-    currentAlpha = 255;
     touchOffsetX = 0;
     touchOffsetY = 0;
     touchStartTime = 0;
@@ -1256,7 +1221,7 @@ public void 刷新悬浮窗() {
             try {
                 if (wm == null) wm = (WindowManager) activity.getSystemService(Context.WINDOW_SERVICE);
                 if (wm == null) return;
-                if (floatingView == null || params == null || 悬浮窗状态 != STATE_VISIBLE) {
+                if (floatingView == null || params == null || !悬浮窗可见()) {
                     销毁悬浮窗资源();
                     启动悬浮窗(activity);
                     return;
@@ -1269,20 +1234,18 @@ public void 刷新悬浮窗() {
                 } catch (Throwable ignore) { traceLog("api4_log", "[刷新悬浮窗] 异常: " + ignore); }
                 cachedGifMovie = null;
                 cachedGifPath = "";
-                isGifMode = false;
-                加载图标Bitmap(activity);
+                            加载图标Bitmap(activity);
 
                 boolean needRebuild =
-                        (isGifMode && !(iconImageView instanceof GifImageView)) ||
-                        (!isGifMode && (iconImageView instanceof GifImageView));
+                        ((cachedGifMovie != null) && !(iconImageView instanceof GifImageView)) ||
+                        (!(cachedGifMovie != null) && (iconImageView instanceof GifImageView));
 
                 if (needRebuild) {
                     重建悬浮窗图标视图(activity);
                     return;
                 }
                 设置图标图片(activity, iconImageView);
-                currentAlpha = 255;
-                iconImageView.setImageAlpha(currentAlpha);
+                    iconImageView.setImageAlpha(255);
             } catch (Throwable e) { traceLog("api4_log", "[刷新悬浮窗] 异常: " + e); }
         }
     });
@@ -1304,7 +1267,7 @@ private void 重建悬浮窗图标视图(Activity activity) {
             }
         } catch (Throwable ignore) { traceLog("api4_log", "[重建悬浮窗图标视图] 异常: " + ignore); }
 
-        if (isGifMode && cachedGifMovie != null) {
+        if ((cachedGifMovie != null) && cachedGifMovie != null) {
             iconImageView = new GifImageView(activity);
         } else {
             iconImageView = new ImageView(activity);

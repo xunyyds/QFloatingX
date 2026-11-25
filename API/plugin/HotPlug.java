@@ -3294,7 +3294,6 @@ String extractSegmentAt(String text, int pos){
 
 rebuildRegistry();
 
-
 public View buildHotPlugContentView(final Activity a, String gid, String uname, boolean fillParent) {
     return buildHotPlugContentView(a, gid, uname, fillParent, null);
 }

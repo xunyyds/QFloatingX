@@ -421,7 +421,6 @@ void sendNotification(String title, String content, String clickCode) {
     sendHighPriorityNotification(title, content, "qfun_default_channel", clickCode);
 }
 
-//无心 由ᗜ×ᗜ适配本脚本，你直接搬可能会遇到bug哦～
 boolean 上传头像(String path) {
 	
 	try {
@@ -473,7 +472,6 @@ public Object GetCard(String qun,String uin)
     else return card;
 }
 
-
 public TroopInfo findTroopInfo(String qun) {
 	
 	ITroopInfoService Info = app.getRuntimeService(ITroopInfoService.class);
@@ -485,7 +483,6 @@ boolean validDisplayName(String value) {
     return true;
 }
 
-
 Object getProfileCard(String uin) {
     if (uin == null || uin.isEmpty()) return null;
     try {
@@ -495,7 +492,6 @@ Object getProfileCard(String uin) {
         return null;
     }
 }
-
 
 String getUserRemark(String uin) {
     Object card = getProfileCard(uin);
@@ -508,7 +504,6 @@ String getUserRemark(String uin) {
     }
 }
 
-
 String getUserName(String uin) {
     if (uin == null || uin.isEmpty()) return "";
     Object card = getProfileCard(uin);
@@ -520,7 +515,6 @@ String getUserName(String uin) {
     }
     return uin;
 }
-
 
 String getGroupName(String qun) {
     if (qun == null || qun.isEmpty()) return "";
@@ -537,7 +531,6 @@ String getGroupName(String qun) {
     } catch (Throwable ignored) {}
     return qun;
 }
-
 
 String getGroupRemark(String qun) {
     if (qun == null || qun.isEmpty()) return "";
@@ -900,7 +893,6 @@ private void 写(String Path, String WriteData) {
 		fos.flush();
 		fos.getFD().sync(); 
 
-
 	} catch (IOException e) {
 		traceLog("api_log", "[写]  【写入异常】 " + Path + " - " + e.getMessage());
 	} catch (Exception e) {
@@ -973,7 +965,6 @@ String decryptBase64(String text) {
 	}
 }
 
-
 String encryptUnicode(String text) {
 	try {
 		StringBuilder result = new StringBuilder();
@@ -1013,8 +1004,6 @@ String decryptUnicode(String text) {
 	}
 }
 
-
-
 String stringToHex(String str) {
 	try {
 		StringBuilder sb = new StringBuilder();
@@ -1040,7 +1029,6 @@ String hexToString(String hex) {
 	}
 }
 
-
 String stringToBinary(String text) {
 	try {
 		StringBuilder binary = new StringBuilder();
@@ -1054,7 +1042,6 @@ String stringToBinary(String text) {
 		return null;
 	}
 }
-
 
 String urlEncode(String text) {
 	try {
@@ -1071,7 +1058,6 @@ String urlDecode(String text) {
 	}
 }
 
-
 String getHash(String text, String algorithm) {
 	try {
 		MessageDigest digest = MessageDigest.getInstance(algorithm);
@@ -1087,7 +1073,6 @@ String getHash(String text, String algorithm) {
 		return "哈希计算失败: " + e.getMessage();
 	}
 }
-
 
 String caesarCipher(String text, int shift) {
 	StringBuilder result = new StringBuilder();
@@ -1109,7 +1094,6 @@ String caesarCipher(String text, int shift) {
 	return result.toString();
 }
 
-
 String xorCipher(String text) {
 	char[] key = {
 		'Q',
@@ -1125,7 +1109,6 @@ String xorCipher(String text) {
 	}
 	return output.toString();
 }
-
 
 void saveLocalData(String name, String content) {
 	if (name == null || name.length() == 0) return;
@@ -1153,12 +1136,9 @@ String loadLocalData(String name) {
 	}
 }
 
-
 String reverseString(String text) {
 	return new StringBuilder(text).reverse().toString();
 }
-
-
 
 private byte[] getRawKey(String seed, int length) {
 	try {
@@ -1173,7 +1153,6 @@ private byte[] getRawKey(String seed, int length) {
 		return new byte[length];
 	}
 }
-
 
 String aesEncrypt(String text) {
 	try {
@@ -1198,7 +1177,6 @@ String aesDecrypt(String base64Text) {
 		return "AES解密失败(请确认输入为Base64): " + e.getMessage();
 	}
 }
-
 
 String desEncrypt(String text) {
 	try {
@@ -1377,7 +1355,6 @@ private void showReOrUnDialog(final Activity activity) {
                         }
                     }
                 });
-
 
             } catch (Throwable e) {
                 traceLog("api_log", "[showReOrUnDialog] 对话框创建失败: " + e.getMessage());

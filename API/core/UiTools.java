@@ -1269,7 +1269,6 @@ void applyDrawableWithTransition(final Activity activity, final Window window, f
     });
 }
 
-
 float getPluginUiDensity(Object ctxObj) {
     Context ctx = (ctxObj instanceof Context) ? (Context) ctxObj : null;
     float hostDensity = 2f;
@@ -1347,8 +1346,6 @@ void applyDialogSize(final Activity activity, final Window window) {
         traceLog("uitools_log", "[applyDialogSize] 异常: " + e);
     }
 }
-
-
 
 void applyUiSeekBar(android.widget.SeekBar sb, Context ctx, int primary) {
     try {
@@ -1535,9 +1532,6 @@ boolean isDefaultTextColor(int color) {
     return false;
 }
 
-
-
-
 void updateViewStylesRecursively(View view, int textColor, Typeface tf, float fontSizeScale) {
     if (view == null) return;
     
@@ -1626,7 +1620,6 @@ Drawable getSelectableBg(Activity activity) {
     return makeAdaptiveRippleBg(activity, Color.TRANSPARENT, 10);
 }
 
-
 int pc(String hex) {
     try {
         Object r = Color.parseColor(hex);
@@ -1642,7 +1635,6 @@ int tca(Activity a, String key, int alpha) {
     return Color.argb(alpha, Color.red(c), Color.green(c), Color.blue(c));
 }
 
-
 int hsvColor(float h, float s, float v) {
     try {
         Object r = Color.HSVToColor(new float[]{h, s, v});
@@ -1650,9 +1642,6 @@ int hsvColor(float h, float s, float v) {
         return (int)r;
     } catch (Exception e) { return pc("#FF000000"); }
 }
-
-
-
 
 TextView createButton(Context ctx, String text, int textColor, int bgColor) {
     return createButton(ctx, text, textColor, bgColor, 14f, 20, 16, 10, false, 0, 0, null);
@@ -1718,9 +1707,6 @@ TextView createButton(Context ctx, String text, int textColor, int bgColor, floa
     return btn;
 }
 
-
-
-// ===== 网络图片加载与相册保存（通用，供各功能复用）=====
 Map remoteImageMemory = java.util.Collections.synchronizedMap(new HashMap());
 int remoteImageMemoryLimit = 40;
 
